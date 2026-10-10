@@ -2,7 +2,7 @@
 
 Write a Tilefold tile as many files (JavaScript, TypeScript or npm packages) and bundle them into the single `main.js` Tilefold loads.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-30%20passing-6e9f18) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-46%20passing-6e9f18) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -11,6 +11,7 @@ Write a Tilefold tile as many files (JavaScript, TypeScript or npm packages) and
 - Why one file
 - Commands
 - Tile layout
+- Examples
 - What can be bundled
 - Using it from a script
 - Developing it
@@ -87,6 +88,34 @@ my-tile/
 
 The entry exports only its default function; exporting other names is an error, because Tilefold would refuse them.
 
+## Examples
+
+Three small tiles in `examples/` show the common cases. Each has its sources in `src/`, English strings in `locales/en/tile.ftl`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
+
+| Example | What it shows | Try |
+|---|---|---|
+| `examples/hello` | The basics in plain JavaScript: an entry that imports a helper module, a setting, a command with an id, translated messages with a variable | Set your name in its settings, then run **Hello: Say hello** from the palette |
+| `examples/break-timer` | TypeScript across three files (entry, a timer module, the types of the `tf` calls it uses), timers, `tf.store` so a reminder survives a restart, an `app.ready` listener | Set the minutes, run **Break Timer: Start** |
+| `examples/with-npm-package` | An npm package (`nanoid`) installed with npm and bundled into `main.js`; the example's own `package.json` with `build`, `watch` and `check` scripts | Run **ID Maker: New ID** |
+
+To build one yourself:
+
+```sh
+cd examples/hello
+npx @tilefold/tile-tools build          # or: node ../../bin/tilefold-tile.mjs build
+```
+
+For `with-npm-package`, run `npm install` in its folder first, then `npm run build`.
+
+Things the examples do on purpose, worth copying:
+
+- **Register first.** Settings, commands and listeners are registered at the top of the tile's function, before any `await`. Tilefold checks what a tile adds once, before it runs, and ignores later registrations.
+- **Give commands an id.** The title is translated; the id keeps the command and its shortcut stable across languages.
+- **Keep event handlers quick.** A handler has half a second, a command ten seconds.
+- **Keep Tilefold out of your logic.** `greeting.js` and `timer.ts` know nothing about `tf`, so they are easy to read and test.
+
+To translate an example, add `locales/<lang>/tile.ftl` with the same keys; Tilefold picks the user's language and falls back to English.
+
 ## What can be bundled
 
 Anything that runs in a Web Worker: plain JavaScript, TypeScript, JSON, and npm packages written for the browser. Packages that need Node.js built-ins, the DOM or the network either fail to build or fail when the tile runs, because the sandbox removes `fetch`, `XMLHttpRequest`, `WebSocket`, `importScripts` and similar globals.
@@ -119,7 +148,7 @@ MIT. Tile Tools is open source so tile authors can use it in their own projects 
 
 ## Test cases (TCs)
 
-Run with `npm test` (30 tests, all passing on 2026-10-10).
+Run with `npm test` (46 tests, all passing on 2026-10-10).
 
 | Area | Covers |
 |---|---|
@@ -129,6 +158,7 @@ Run with `npm test` (30 tests, all passing on 2026-10-10).
 | Bundling | Local imports, npm packages, TypeScript, tree-shaking, syntax and resolve errors with location, minify |
 | Commands | build writes and logs, `--check` fresh/stale/missing, folder without `tile.json`, validate, watch rebuilds and keeps the last good build |
 | CLI | help, version, unknown command and option, extra argument, `--watch` with `--check`, named entry, stop function for a watch |
+| Examples | Each ships a fresh build, has a valid tile.json, uses exactly the messages it defines, registers up front with command ids; hello greets by name, break-timer rings, stops and resumes after a restart, with-npm-package makes IDs with the bundled nanoid |
 | Package | Public and MIT-licensed, LICENSE shipped, bin/exports/types exist, only built files packed, MIT line in every shipped file |
 
 ## Known blockers

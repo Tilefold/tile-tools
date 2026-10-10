@@ -1,0 +1,19 @@
+{
+  "name": "example-id-maker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Example Tilefold tile that bundles an npm package (nanoid) with Tile Tools",
+  "type": "module",
+  "scripts": {
+    "build": "tilefold-tile build",
+    "watch": "tilefold-tile build --watch",
+    "check": "tilefold-tile build --check"
+  },
+  "dependencies": {
+    "nanoid": "^6.0.2"
+  },
+  "devDependencies": {
+    "@tilefold/tile-tools": "^0.1.0"
+  },
+  "license": "MIT"
+}
