@@ -1,0 +1,9 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Line endings: LF everywhere, on every platform. The tilefold-tile command
+# starts with a "#!/usr/bin/env node" line that breaks with Windows (CRLF)
+# endings, and the tests compare files byte for byte.
+
+* text=auto eol=lf
+*.png binary

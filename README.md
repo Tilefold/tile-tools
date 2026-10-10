@@ -47,7 +47,7 @@ npm 11 may warn that esbuild's install script was not run. Tile Tools works with
 
 ## Why one file
 
-Tilefold runs a tile in a sandboxed Web Worker that can't load files. Whatever you approve in Settings → Tiles is exactly what runs. Like VS Code extensions for the browser, a tile ships as one bundled file and the author keeps the sources split up.
+Tilefold runs a tile in a sandboxed Web Worker that can't load files. Whatever you approve in Settings → Tiles is exactly what runs. So a tile ships as one bundled file, while you keep its sources split up however you like.
 
 ## Commands
 
