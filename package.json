@@ -1,0 +1,55 @@
+{
+  "name": "@tilefold/tile-tools",
+  "version": "0.1.0",
+  "description": "Build a Tilefold tile from several source files into the single main.js Tilefold loads",
+  "homepage": "https://github.com/Tilefold/tile-tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tilefold/tile-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tilefold/tile-tools/issues"
+  },
+  "type": "module",
+  "bin": {
+    "tilefold-tile": "bin/tilefold-tile.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.mjs"
+    }
+  },
+  "files": [
+    "bin",
+    "lib/*.mjs",
+    "lib/*.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "tilefold",
+    "tile",
+    "bundler",
+    "esbuild"
+  ],
+  "author": "Tilefold <npm@tilefold.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "types": "./lib/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "pack:check": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  }
+}

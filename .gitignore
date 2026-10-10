@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Dependencies, packed tarballs, test output and editor files.
+
+node_modules/
+*.tgz
+coverage/
+.DS_Store
+.vscode/
+.idea/
