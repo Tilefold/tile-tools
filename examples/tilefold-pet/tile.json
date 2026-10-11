@@ -1,0 +1,14 @@
+{
+  "id": "example.tilefold-pet",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "window.overlay": "to show your pet walking and napping on top of your panes"
+    },
+    {
+      "sound.play": "so a dog can bark when you pat it, play with it or come back"
+    }
+  ]
+}
