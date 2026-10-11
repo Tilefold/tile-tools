@@ -9,9 +9,9 @@
  * Every tile in examples/ ships a main.js that is exactly a fresh build of
  * its sources and has the shape Tilefold expects; its tile.json is valid; it
  * uses only messages its English strings define (and defines none it
- * doesn't use). Each one is also run against a small fake `tf`: its
- * settings and commands register up front with ids, and its commands do
- * what the example promises.
+ * doesn't use); any permission it asks for carries a reason. Each one is
+ * also run against a small fake `tf`: its settings and commands register up
+ * front with ids, and its commands do what the example promises.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -74,7 +74,7 @@ afterEach(() => vi.useRealTimers());
 
 describe("examples", () => {
   it("are there", () => {
-    expect(folders).toEqual(["break-timer", "hello", "with-npm-package"]);
+    expect(folders).toEqual(["break-timer", "hello", "tilefold-pet", "with-npm-package"]);
   });
 
   describe.each(folders)("%s", (folder) => {
@@ -91,7 +91,14 @@ describe("examples", () => {
       const manifest = JSON.parse(readFileSync(join(dir, "tile.json"), "utf8"));
       expect(manifest.id).toMatch(/^example\.[a-z][a-z0-9-]*$/);
       expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
-      expect(Object.keys(manifest).sort()).toEqual(["description", "id", "name", "version"]);
+      const keys = Object.keys(manifest).filter((k) => k !== "permissions");
+      expect(keys.sort()).toEqual(["description", "id", "name", "version"]);
+      // Permissions, when asked for, each come with the reason shown to the user.
+      for (const p of manifest.permissions ?? []) {
+        const [[name, reason]] = Object.entries(p);
+        expect(name).toMatch(/^[a-z]+\.[a-z]+$/);
+        expect(reason.length).toBeGreaterThan(10);
+      }
       expect(messages(folder).has("tile-name")).toBe(true);
       expect(messages(folder).has("tile-description")).toBe(true);
     });
