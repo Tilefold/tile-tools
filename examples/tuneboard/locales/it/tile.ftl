@@ -1,0 +1,48 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Tuneboard — translated strings.
+
+tile-name = Tuneboard
+tile-description = Mostra cosa riproduce Spotify nell'angolo del riquadro, con pulsanti per riprodurre, saltare e regolare il volume e scorciatoie Ctrl+Alt.
+cmd-toggle = Tuneboard: Mostra o nascondi
+cmd-play-pause = Tuneboard: Riproduci o metti in pausa
+cmd-previous = Tuneboard: Brano precedente
+cmd-next = Tuneboard: Brano successivo
+cmd-volume-up = Tuneboard: Alza il volume
+cmd-volume-down = Tuneboard: Abbassa il volume
+cmd-refresh = Tuneboard: Aggiorna ora
+setting-client-id = ID client Spotify (dalla tua app nella dashboard per sviluppatori Spotify)
+setting-refresh-token = Token di aggiornamento Spotify (mostrato dall'assistente di accesso)
+setting-size = Dimensione scheda
+setting-size-medium = Media
+setting-size-small = Piccola
+setting-corner = Angolo del riquadro
+setting-corner-bottom-right = In basso a destra
+setting-corner-bottom-left = In basso a sinistra
+setting-corner-top-right = In alto a destra
+setting-corner-top-left = In alto a sinistra
+setting-poll = Controlla la riproduzione ogni pochi secondi
+state-no-network = Spotify non è ancora raggiungibile
+state-no-network-hint = Questa versione di Tilefold non consente ai tile di usare la rete.
+state-signed-out = Accesso a Spotify non effettuato
+state-signed-out-hint = Aggiungi ID client e token di aggiornamento nelle Impostazioni.
+state-connecting = Connessione a Spotify…
+state-connecting-hint = Un momento.
+state-no-device = Nessuna riproduzione in corso
+state-no-device-hint = Avvia Spotify su un dispositivo, poi aggiorna.
+state-premium = Serve Spotify Premium
+state-premium-hint = Solo gli account Premium possono controllare la riproduzione.
+state-error = Spotify non risponde
+state-error-hint = Nuovo tentativo tra poco.
+card-paused = In pausa
+card-unknown-title = Brano sconosciuto
+card-device = Su { $device } · volume { $volume } %
+card-label-playing = In riproduzione { $title } di { $artists }
+card-label-paused = In pausa: { $title } di { $artists }
+button-previous = Brano precedente
+button-play = Riproduci
+button-pause = Pausa
+button-next = Brano successivo
+button-volume-down = Abbassa il volume
+button-volume-up = Alza il volume

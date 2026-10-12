@@ -1,0 +1,48 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Tuneboard — Korean strings.
+
+tile-name = Tuneboard
+tile-description = 창 모서리에 Spotify에서 재생 중인 음악을 표시하고 재생, 건너뛰기, 음량 버튼과 Ctrl+Alt 단축키로 조작합니다.
+cmd-toggle = Tuneboard: 표시 또는 숨기기
+cmd-play-pause = Tuneboard: 재생 또는 일시 정지
+cmd-previous = Tuneboard: 이전 곡
+cmd-next = Tuneboard: 다음 곡
+cmd-volume-up = Tuneboard: 음량 높이기
+cmd-volume-down = Tuneboard: 음량 낮추기
+cmd-refresh = Tuneboard: 지금 새로고침
+setting-client-id = Spotify 클라이언트 ID (Spotify 개발자 대시보드의 앱에서 확인)
+setting-refresh-token = Spotify 새로고침 토큰 (로그인 도우미가 표시)
+setting-size = 카드 크기
+setting-size-medium = 보통
+setting-size-small = 작게
+setting-corner = 창 모서리
+setting-corner-bottom-right = 오른쪽 아래
+setting-corner-bottom-left = 왼쪽 아래
+setting-corner-top-right = 오른쪽 위
+setting-corner-top-left = 왼쪽 위
+setting-poll = 몇 초마다 재생 상태 확인
+state-no-network = 아직 Spotify에 연결할 수 없음
+state-no-network-hint = 이 Tilefold 버전은 타일의 네트워크 사용을 허용하지 않습니다.
+state-signed-out = Spotify에 로그인하지 않음
+state-signed-out-hint = 설정에 클라이언트 ID와 새로고침 토큰을 입력하세요.
+state-connecting = Spotify에 연결 중…
+state-connecting-hint = 잠시 기다려 주세요.
+state-no-device = 재생 중인 항목 없음
+state-no-device-hint = 기기에서 Spotify를 시작한 다음 새로고침하세요.
+state-premium = Spotify Premium 필요
+state-premium-hint = Premium 계정만 재생을 제어할 수 있습니다.
+state-error = Spotify가 응답하지 않음
+state-error-hint = 잠시 후 다시 시도합니다.
+card-paused = 일시 정지됨
+card-unknown-title = 알 수 없는 곡
+card-device = { $device }에서 · 음량 { $volume }%
+card-label-playing = { $artists }의 { $title } 재생 중
+card-label-paused = 일시 정지됨: { $artists }의 { $title }
+button-previous = 이전 곡
+button-play = 재생
+button-pause = 일시 정지
+button-next = 다음 곡
+button-volume-down = 음량 낮추기
+button-volume-up = 음량 높이기
