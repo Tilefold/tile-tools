@@ -74,7 +74,14 @@ afterEach(() => vi.useRealTimers());
 
 describe("examples", () => {
   it("are there", () => {
-    expect(folders).toEqual(["break-timer", "hello", "tilefold-pet", "with-npm-package"]);
+    expect(folders).toEqual([
+      "break-timer",
+      "hello",
+      "tilefall",
+      "tilefold-pet",
+      "tuneboard",
+      "with-npm-package",
+    ]);
   });
 
   describe.each(folders)("%s", (folder) => {

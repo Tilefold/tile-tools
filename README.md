@@ -2,7 +2,7 @@
 
 Write a Tilefold tile as many files (JavaScript, TypeScript or npm packages) and bundle them into the single `main.js` Tilefold loads.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-68%20passing-6e9f18) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-552%20passing-6e9f18) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -90,7 +90,7 @@ The entry exports only its default function; exporting other names is an error, 
 
 ## Examples
 
-Four tiles in `examples/` show the common cases, from a few lines to a full overlay tile. Each has its sources in `src/`, English strings in `locales/en/tile.ftl`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
+Six tiles in `examples/` show the common cases, from a few lines to full overlay tiles with their own test suites. Each has its sources in `src/`, English strings in `locales/en/tile.ftl`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
 
 | Example | What it shows | Try |
 |---|---|---|
@@ -98,6 +98,8 @@ Four tiles in `examples/` show the common cases, from a few lines to a full over
 | `examples/break-timer` | TypeScript across three files (entry, a timer module, the types of the `tf` calls it uses), timers, `tf.store` so a reminder survives a restart, an `app.ready` listener | Set the minutes, run **Break Timer: Start** |
 | `examples/with-npm-package` | An npm package (`nanoid`) installed with npm and bundled into `main.js`; the example's own `package.json` with `build`, `watch` and `check` scripts | Run **ID Maker: New ID** |
 | `examples/tilefold-pet` | A complete tile: a pet that roams over your panes, naps, loves a pat and (if it's a dog) barks. Overlays (`tf.overlay`) and sounds (`tf.sound.play`) with the permissions they need and why, drop-down settings, event handlers that return at once and work in the background, three characters drawn as SVG in code, and all twelve of Tilefold's languages. Needs Tilefold 0.1.4 or later | Allow it, pat it, double-click it, drag it; pick **Tessa**, **Coco** or **Biscuit** in its settings |
+| `examples/tilefall` | A game, split the way a larger tile should be: a pure engine (pieces, board, scoring, a seeded randomiser) that knows nothing about Tilefold, SVG rendering, and a thin tile layer. Every move is a palette command with a ⌃⌥ / Ctrl+Alt shortcut (tiles never see key presses), on-screen buttons via overlay hit areas, a paused game saved with `tf.store`, sounds, and a corner and size setting. Needs Tilefold 0.1.4 or later | Run **Tilefall: New game** (⌃⌥N), then move with ⌃⌥← / ⌃⌥→, rotate with ⌃⌥↑, drop with ⌃⌥Enter |
+| `examples/tuneboard` | A tile that talks to a web service: a Spotify now-playing card with previous, play/pause, next and volume buttons and shortcuts. The Spotify client takes its HTTP function from the host, so it is tested against a fake Spotify, signs in once outside Tilefold with PKCE (no client secret), and refreshes its token on its own. **It cannot reach Spotify yet:** Tilefold does not grant tiles network access today, so the card says so and nothing is sent | Run **Tuneboard: Show or hide**; the sign-in steps are below |
 
 To build one yourself:
 
@@ -116,6 +118,8 @@ Things the examples do on purpose, worth copying:
 - **Give commands an id.** The title is translated; the id keeps the command and its shortcut stable across languages.
 - **Keep event handlers quick.** A handler has half a second, a command ten seconds.
 - **Keep Tilefold out of your logic.** `greeting.js` and `timer.ts` know nothing about `tf`, so they are easy to read and test.
+
+**Signing Tuneboard in to Spotify.** At the Spotify developer dashboard, create an app with the redirect URI `http://127.0.0.1:8888/callback` and copy its Client ID. Then, in `examples/tuneboard`, run `node scripts/spotify-login.mjs --client-id YOUR_CLIENT_ID`, open the address it prints, agree, and paste the client id and the refresh token it prints into Settings → Tiles → Tuneboard. Controlling playback needs Spotify Premium and a Spotify app already running somewhere; the Web API is a remote control, not a player.
 
 To translate an example, add `locales/<lang>/tile.ftl` with the same keys; Tilefold picks the user's language and falls back to English.
 
@@ -151,7 +155,7 @@ MIT. Tile Tools is open source so tile authors can use it in their own projects 
 
 ## Test cases (TCs)
 
-Run with `npm test` (68 tests, all passing on 2026-10-10).
+Run with `npm test` (552 tests in 26 files, all passing on 2026-10-12).
 
 | Area | Covers |
 |---|---|
@@ -163,6 +167,8 @@ Run with `npm test` (68 tests, all passing on 2026-10-10).
 | CLI | help, version, unknown command and option, extra argument, `--watch` with `--check`, named entry, stop function for a watch |
 | Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons), uses exactly the messages it defines, registers up front with command ids; hello greets by name, break-timer rings, stops and resumes after a restart, with-npm-package makes IDs with the bundled nanoid |
 | Tilefold Pet | Run against a fake Tilefold (`test/fake-host.mjs`) with fake timers: appears on the focused pane's floor or stays hidden, roams the pane or the bottom, back and front views, wanders to another pane, pat / play / drag / drop, naps and greets, commands, comes back after a restart, Korean and Japanese messages; characters listed with translated labels, own names and art, switching recorded, unknown falls back to Tessa; WAV barks once and twice, Biscuit lower than Coco, quiet when Bark is off, Tessa never barks |
+| Tilefall | Engine: every piece and rotation with wall kicks, seeded randomiser, board, line clears and scoring, levels and speed. Rendering of board, panel and buttons. Tile: settings and commands, the game loop, pause on blur, hide and resume, save and restore, sounds on or off, buttons, every language's messages, a fresh build and source hygiene |
+| Tuneboard | PKCE sign-in URL and verifier, the login helper, token refresh and errors (a wrong client id asks to sign in again), the player client against a fake Spotify, every card state (no network, signed out, connecting, no device, Premium needed, error), commands and shortcuts, polling, every language's messages, a fresh build and source hygiene |
 | Package | Public and MIT-licensed, LICENSE shipped, bin/exports/types exist, only built files packed, MIT line in every shipped file |
 
 ## Known blockers
@@ -170,7 +176,8 @@ Run with `npm test` (68 tests, all passing on 2026-10-10).
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`); a CI workflow with trusted publishing and provenance is planned.
 - No `new` (scaffold a tile) command yet.
 - Messages are English only.
+- `examples/tuneboard` cannot reach Spotify until Tilefold grants tiles network access (`tf.net.fetch`); its card says so in the meantime.
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-10-10 by Tilefold
+Last updated: 2026-10-12 by Tilefold

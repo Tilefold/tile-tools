@@ -1,0 +1,78 @@
+/**
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Tilefall — activity trail
+ *
+ * Records what happened in Tilefold's activity log (`tf.audit`) and the
+ * tile's own log (`tf.log`). Only game figures are recorded — score, lines,
+ * level, duration, why a game paused — never anything about the user's
+ * panes or typing. Every record is fire-and-forget: a failing log can
+ * never slow down or break the game.
+ */
+
+/** The actions Tilefall records, so the trail stays a known, small set. */
+export const ACTIONS = Object.freeze([
+  "game.start",
+  "game.pause",
+  "game.resume",
+  "game.over",
+  "game.restore",
+  "view.show",
+  "view.hide",
+  "best.new",
+]);
+
+/** Reasons a game can pause. */
+export const PAUSE_REASONS = Object.freeze(["user", "blur", "hidden", "idle", "toggle", "restore"]);
+
+/**
+ * Keeps only plain numbers, booleans and short strings, so nothing large or
+ * unexpected ever reaches the activity log.
+ *
+ * @param {Record<string, unknown>} details
+ * @returns {Record<string, number|boolean|string>}
+ */
+export function cleanDetails(details) {
+  /** @type {Record<string, number|boolean|string>} */
+  const out = {};
+  for (const [k, v] of Object.entries(details || {})) {
+    if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+    else if (typeof v === "boolean") out[k] = v;
+    else if (typeof v === "string") out[k] = v.slice(0, 40);
+  }
+  return out;
+}
+
+/**
+ * Creates the trail.
+ *
+ * @param {any} tf The tile API.
+ * @returns {{ record: (action: string, details?: Record<string, unknown>) => void,
+ *             info: (text: string) => void, error: (err: unknown) => void }}
+ */
+export function createTrail(tf) {
+  /** Runs a call to the app and swallows any failure, sync or async. */
+  const quiet = (call) => {
+    try {
+      void Promise.resolve(call()).catch(() => {});
+    } catch {
+      // Nothing to do: the trail must never break the game.
+    }
+  };
+  return {
+    record(action, details = {}) {
+      if (!ACTIONS.includes(action)) return;
+      const clean = cleanDetails(details);
+      quiet(() => tf.audit(action, clean));
+      quiet(() => tf.log.info(`${action} ${JSON.stringify(clean)}`));
+    },
+    info(text) {
+      quiet(() => tf.log.info(String(text)));
+    },
+    error(err) {
+      quiet(() => tf.log.error(String((err && /** @type {any} */ (err).message) || err)));
+    },
+  };
+}
