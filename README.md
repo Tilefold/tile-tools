@@ -105,7 +105,7 @@ The rules that matter most: register commands, settings and listeners at the top
 | [tile.json reference](docs/tile-json.md) | Every field, every permission, `auth` for keys and sign-ins, and when users are asked again |
 | [The tf API](docs/tf-api.md) | How a tile runs, and every call: commands, settings, events, strings, notices, log, activity, storage, curtain, lock, screen-sharing protection |
 | [Overlays and sounds](docs/overlays-and-sounds.md) | Scenes, items, sprite sheets, animations, layout and pointer events; sound clips and their limits |
-| [Network, keys and sign-ins](docs/network.md) | `tf.net.fetch`, what Tilefold enforces, API keys, OAuth sign-ins (callback address, the user's own app, dynamic registration), errors |
+| [Network, keys and sign-ins](docs/network.md) | `tf.net.fetch`, what Tilefold enforces, API keys, signing in to a service (the callback address, the user's own app, services that set Tilefold up by themselves), errors |
 | [Asking Claude](docs/ai.md) | `tf.ai.ask`, the user's confirmation, models, masking, the daily allowance, errors |
 | [Limits and errors](docs/limits-and-errors.md) | Every limit and every error name in one place |
 
@@ -166,7 +166,7 @@ Nine tiles in `examples/` show the common cases, from a few lines to full tiles 
 | `examples/service-status` | **The internet, no key.** `net:www.githubstatus.com` and `tf.net.fetch` against a public API; a command that starts the request and returns; errors by name; an interval setting that checks quietly and speaks only on a change; `tf.audit` of each change; twelve languages | 0.1.6 | Run **Service Status: Check GitHub now**, or pick an interval in its settings |
 | `examples/github-inbox` | **An API key it never sees.** `auth` with `apiKey` (header, scheme, the one host it may go to); `tf.auth.has` before asking; `{ auth: "github" }` on the request; telling a missing token (`CredentialMissingError`) from a refused one (401/403); a count in the activity log, never titles; twelve languages | 0.1.6 | Add a GitHub token (classic, `notifications` scope) under **Keys** on its card, then run **GitHub Inbox: Check notifications** |
 | `examples/shell-tips` | **Asking Claude.** `ai.ask` and `tf.ai.ask` with a system prompt, a conversation that continues the last tip, `maxTokens` and `model: "fast"`; the user's language named in the tile's own strings; "Don't send" treated as a choice, not a failure; one question at a time; the last tip kept in `tf.store`; twelve languages | 0.1.6 | Save your Anthropic key in Settings → AI, pick a topic, run **Shell Tips: New tip** |
-| `examples/tuneboard` | **A sign-in.** A Spotify now-playing card with buttons and shortcuts: `auth` with `oauth2-pkce` and the user's own Spotify app (`clientId: "user"`); Tilefold signs in, keeps the token and adds it to requests; polling only while shown; twelve languages | 0.1.6 | Run **Tuneboard: Show or hide**; the sign-in steps are below |
+| `examples/tuneboard` | **Signing in to a service.** A Spotify now-playing card with previous, play/pause, next and volume buttons and shortcuts. Its `tile.json` declares a Spotify sign-in that uses the user's own Spotify app; Tilefold runs the sign-in in the browser, keeps it in the keychain and adds it to the tile's requests, so the tile never holds a token. It checks Spotify only while the card is shown; twelve languages | 0.1.6 | Run **Tuneboard: Show or hide**; the sign-in steps are below |
 
 To build one yourself:
 
