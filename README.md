@@ -237,11 +237,15 @@ CI runs the tests on Node.js 22, 24 and 26 on Linux, macOS and Windows. The rule
 
 ## License
 
-MIT. Tile Tools, its documentation and its examples are open source so tile authors can use them in their own projects and CI. Tilefold itself is licensed separately.
+MIT. Tile Tools, its documentation and its examples are open source so tile authors can use them in their own projects and CI. Copy an example and make it your own.
+
+**Your tiles are yours.** License a tile you write however you like, and put your copyright notice in the entry's opening comment: the build keeps it at the top of `main.js`. A `LICENSE` file in the tile's folder tells people what they may do with it.
+
+**Tilefold itself** is licensed separately, under its End User License Agreement. From Tilefold 0.1.6 the app asks every user to accept it on first launch, and anyone can read it again under **Tilefold → License Agreement**. The agreement covers the app only. It says that tiles, including tiles written by other people, are governed by their own licenses, and that Tile Tools stays under MIT, so nothing in it limits what you do with your tiles or with this package.
 
 ## Test cases (TCs)
 
-Run with `npm test` (654 tests in 29 files, all passing on 2026-10-12).
+Run with `npm test` (654 tests in 29 files, all passing on 2026-10-13).
 
 | Area | Covers |
 |---|---|
@@ -265,7 +269,7 @@ Run with `npm test` (654 tests in 29 files, all passing on 2026-10-12).
 
 ## Known blockers
 
-- Tilefold 0.1.6, which adds tile networking, keys, sign-ins and AI, is not released yet. Service Status, GitHub Inbox, Shell Tips and Tuneboard need it, and none of them has run in a real Tilefold yet: their tests use the fake host. Tuneboard's sign-in has not been tried against a real Spotify account, and Shell Tips has not asked the real Claude.
+- Tilefold 0.1.6, which adds tile networking, keys, sign-ins and AI, is being released but is not on the update server yet (it still offers 0.1.5 as of 2026-10-13). Service Status, GitHub Inbox, Shell Tips and Tuneboard need it, and none of them has run in a real Tilefold yet: their tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13. Tuneboard's sign-in has not been tried against a real Spotify account, and Shell Tips has not asked the real Claude.
 - Tile Tools 0.2.0 (the `tf` types, the docs and the new examples) is prepared in this repository but not published; npm still has 0.1.0.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`); a CI workflow with trusted publishing and provenance is planned.
@@ -274,4 +278,4 @@ Run with `npm test` (654 tests in 29 files, all passing on 2026-10-12).
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-10-12 by Tilefold
+Last updated: 2026-10-13 by Tilefold
