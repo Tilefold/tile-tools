@@ -9,35 +9,40 @@
  * way a user meets it: registration up front; the card with no network,
  * signed out and signed in; polling that follows visibility, focus and the
  * poll setting; controls by command (also while hidden) and by click;
- * the progress clock; sign-in failures, token rotation and pasting a new
- * token; restoring the card after a restart; hidden overlays; layout
- * changes; and an activity trail that never carries a token.
+ * the progress clock; signing in through Tilefold (noticed within
+ * seconds), a refused sign-in (retried slowly), clearing a token an older
+ * version kept; restoring the card after a restart; hidden overlays;
+ * layout changes; and an activity trail that never carries a track.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { svgOf } from "../../../examples/tuneboard/src/render/svg.js";
-import { CONFIRM_MS, runTuneboard } from "../../../examples/tuneboard/src/tile/run.js";
+import {
+  AUTH_RETRY_MS,
+  CONFIRM_MS,
+  SIGN_IN_CHECK_MS,
+  runTuneboard,
+} from "../../../examples/tuneboard/src/tile/run.js";
 import { POLL_MS } from "../../../examples/tuneboard/src/tile/session.js";
 import { COMMANDS } from "../../../examples/tuneboard/src/tile/commands.js";
 import { registerSettings } from "../../../examples/tuneboard/src/tile/settings.js";
-import { KEYS, fingerprint } from "../../../examples/tuneboard/src/tile/store.js";
+import { KEYS } from "../../../examples/tuneboard/src/tile/store.js";
 import { CARD_ID, buttonId } from "../../../examples/tuneboard/src/tile/view.js";
 import { createFactory } from "../support/fake-spotify.js";
 import { createHost, drain } from "../support/fake-tf.js";
-
-/** Signed-in settings. */
-const SIGNED_IN = { clientId: "cid-123", refreshToken: "pasted-token" };
 
 /**
  * Starts the tile the way main.js does, with network and a fake Spotify
  * unless told otherwise.
  *
- * @param {{ net?: boolean, factory?: boolean, settings?: object, store?: object,
- *           client?: object, overlaysOff?: boolean }} [opts]
+ * @param {{ net?: boolean, auth?: boolean, signedIn?: boolean, factory?: boolean,
+ *           settings?: object, store?: object, client?: object, overlaysOff?: boolean }} [opts]
  */
 async function start(opts = {}) {
   const { host, tf } = createHost({
     net: opts.net ?? true,
-    settings: opts.settings ?? SIGNED_IN,
+    auth: opts.auth,
+    signedIn: opts.signedIn,
+    settings: opts.settings ?? {},
     store: opts.store,
     overlaysOff: opts.overlaysOff,
   });
@@ -66,7 +71,7 @@ describe("registration", () => {
     registerSettings(tf);
     runTuneboard(tf, {});
     const kinds = host.regs.map((r) => r.kind);
-    expect(kinds.filter((k) => k === "setting")).toHaveLength(5);
+    expect(kinds.filter((k) => k === "setting")).toHaveLength(3);
     expect(kinds.filter((k) => k === "command")).toHaveLength(COMMANDS.length);
     expect(
       host.regs
@@ -104,11 +109,24 @@ describe("without network or sign-in", () => {
     expect(card(host)).toContain("Can&apos;t reach Spotify yet");
   });
 
-  it("asks for sign-in when the settings are empty", async () => {
-    const { host, factory } = await start({ settings: {} });
+  it("says Tilefold is too old when it has a network but runs no sign-ins", async () => {
+    const { host, factory } = await start({ auth: false });
+    await host.command("toggle");
+    expect(host.item(CARD_ID).label).toContain("This Tilefold is too old for Tuneboard");
+    expect(factory.builds).toHaveLength(0);
+  });
+
+  it("asks for sign-in, then connects within seconds of signing in", async () => {
+    const { host, factory } = await start({ signedIn: false });
     await host.command("toggle");
     expect(card(host)).toContain("Not signed in to Spotify");
+    // The card wraps the whole hint; its spoken label is capped, so check the start.
+    expect(host.item(CARD_ID).label).toContain("Sign in under Keys on Tuneboard's card");
     expect(factory.builds).toHaveLength(0);
+    host.signedIn = true;
+    await host.advance(SIGN_IN_CHECK_MS);
+    expect(factory.builds).toHaveLength(1);
+    expect(card(host)).toContain("Clair de Lune");
   });
 
   it("records a refused control when nothing can be controlled", async () => {
@@ -122,11 +140,11 @@ describe("without network or sign-in", () => {
 });
 
 describe("signed in", () => {
-  it("builds the client from the settings and the network", async () => {
+  it("builds the client on Tilefold's network once signed in", async () => {
     const { host, factory } = await start();
     await host.command("toggle");
     expect(factory.builds).toHaveLength(1);
-    expect(factory.builds[0]).toMatchObject({ clientId: "cid-123", refreshToken: "pasted-token" });
+    expect(Object.keys(factory.builds[0]).sort()).toEqual(["fetchFn", "now"]);
     expect(factory.builds[0].fetchFn).toBeTypeOf("function");
     expect(card(host)).toContain("Clair de Lune");
     expect(host.item(buttonId("play")).label).toBe("Pause");
@@ -164,7 +182,7 @@ describe("signed in", () => {
   });
 
   it("asks once and then waits when polling is turned off", async () => {
-    const { host, factory } = await start({ settings: { ...SIGNED_IN, poll: false } });
+    const { host, factory } = await start({ settings: { poll: false } });
     await host.command("toggle");
     expect(card(host)).toContain("Clair de Lune");
     const n = asks(factory);
@@ -173,7 +191,7 @@ describe("signed in", () => {
   });
 
   it("moves the progress bar every second while playing", async () => {
-    const { host } = await start({ settings: { ...SIGNED_IN, poll: false } });
+    const { host } = await start({ settings: { poll: false } });
     await host.command("toggle");
     const before = host.item(CARD_ID).image;
     const updates = host.updates.length;
@@ -186,7 +204,7 @@ describe("signed in", () => {
 
 describe("controls", () => {
   it("pauses and plays by command, confirming with Spotify shortly after", async () => {
-    const { host, factory } = await start({ settings: { ...SIGNED_IN, poll: false } });
+    const { host, factory } = await start({ settings: { poll: false } });
     await host.command("toggle");
     await host.command("play-pause");
     expect(factory.client.calls).toContain("pause");
@@ -227,7 +245,7 @@ describe("controls", () => {
   });
 
   it("runs the buttons and refreshes from the card when clicked", async () => {
-    const { host, factory } = await start({ settings: { ...SIGNED_IN, poll: false } });
+    const { host, factory } = await start({ settings: { poll: false } });
     await host.command("toggle");
     await host.click(buttonId("next"));
     expect(factory.client.calls).toContain("next");
@@ -262,60 +280,61 @@ describe("controls", () => {
 });
 
 describe("signing in", () => {
-  it("shows signed out, records it and forgets a saved token when Spotify refuses it", async () => {
-    const store = { auth: { v: 1, seed: fingerprint("pasted-token"), token: "rotated" } };
-    const { host, factory } = await start({ store });
+  it("shows signed out when the sign-in is refused, and retries only slowly", async () => {
+    const { host, factory } = await start();
     await host.command("toggle");
-    expect(factory.builds[0].refreshToken).toBe("rotated");
     factory.client.failNext("auth");
     await host.advance(POLL_MS);
     expect(card(host)).toContain("Not signed in to Spotify");
     expect(host.actions()).toContain("auth.failed");
-    expect(host.store.get(KEYS.auth)).toBeNull();
-    // Polling stops until the user acts.
-    const n = asks(factory);
-    await host.advance(POLL_MS * 3);
-    expect(asks(factory)).toBe(n);
-  });
-
-  it("saves a rotated token and signs in with it after a restart", async () => {
-    const first = await start();
-    await first.host.command("toggle");
-    first.factory.builds[0].onRefreshToken("rotated-1");
-    await drain();
-    expect(first.host.actions()).toContain("auth.rotated");
-
-    const again = await start({ store: Object.fromEntries(first.host.store) });
-    await again.host.command("toggle");
-    expect(again.factory.builds[0].refreshToken).toBe("rotated-1");
-  });
-
-  it("signs in again with a newly pasted token", async () => {
-    const { host, factory } = await start({
-      store: { auth: { v: 1, seed: fingerprint("pasted-token"), token: "rotated" } },
-    });
-    await host.command("toggle");
-    await host.setSetting("refreshToken", "  fresh-token \n");
+    // Tilefold still holds a sign-in, but the same one isn't tried every few seconds.
+    await host.advance(SIGN_IN_CHECK_MS * 3);
+    expect(factory.builds).toHaveLength(1);
+    await host.advance(AUTH_RETRY_MS);
     expect(factory.builds).toHaveLength(2);
-    expect(factory.builds[1].refreshToken).toBe("fresh-token");
+    expect(card(host)).toContain("Clair de Lune");
   });
 
-  it("signs out when the client id is cleared", async () => {
-    const { host } = await start();
-    await host.command("toggle");
-    await host.setSetting("clientId", "");
-    expect(card(host)).toContain("Not signed in to Spotify");
-  });
-
-  it("never puts a token or a track title in the activity trail", async () => {
+  it("tries again at once on Refresh", async () => {
     const { host, factory } = await start();
     await host.command("toggle");
-    factory.builds[0].onRefreshToken("rotated-secret");
+    factory.client.failNext("auth");
+    await host.advance(POLL_MS);
+    await host.command("refresh");
+    expect(factory.builds).toHaveLength(2);
+    expect(card(host)).toContain("Clair de Lune");
+  });
+
+  it("stops checking for a sign-in while the card is hidden", async () => {
+    const { host, factory } = await start({ signedIn: false });
+    await host.command("toggle");
+    await host.command("toggle");
+    host.signedIn = true;
+    await host.advance(SIGN_IN_CHECK_MS * 2);
+    expect(factory.builds).toHaveLength(0);
+    await host.command("toggle");
+    await host.advance(SIGN_IN_CHECK_MS);
+    expect(factory.builds).toHaveLength(1);
+  });
+
+  it("clears a refresh token an earlier version kept", async () => {
+    const { host } = await start({ store: { auth: { v: 1, seed: "abcd", token: "old-secret" } } });
+    await host.command("toggle");
+    expect(host.store.get(KEYS.auth)).toBeNull();
+    expect(host.actions()).toContain("auth.legacy-cleared");
+    const again = await start();
+    await again.host.command("toggle");
+    expect(again.host.actions()).not.toContain("auth.legacy-cleared");
+  });
+
+  it("never puts a track title or a secret in the activity trail", async () => {
+    const { host, factory } = await start({ store: { auth: { token: "old-secret" } } });
+    await host.command("toggle");
     await host.command("next");
     factory.client.failNext("auth");
     await host.advance(POLL_MS);
     const trail = JSON.stringify(host.audits) + host.logs.join("\n") + host.errors.join("\n");
-    for (const secret of ["pasted-token", "rotated-secret", "cid-123", "Clair de Lune"])
+    for (const secret of ["old-secret", "Clair de Lune", "Claude Debussy"])
       expect(trail).not.toContain(secret);
   });
 });

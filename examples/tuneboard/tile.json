@@ -1,11 +1,26 @@
 {
   "id": "example.tuneboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
     {
       "window.overlay": "to draw the now-playing card and its play, skip and volume buttons above your panes"
+    },
+    {
+      "net:api.spotify.com": "to ask Spotify what is playing and to play, pause, skip and change the volume"
     }
-  ]
+  ],
+  "auth": {
+    "spotify": {
+      "type": "oauth2-pkce",
+      "authorizeUrl": "https://accounts.spotify.com/authorize",
+      "tokenUrl": "https://accounts.spotify.com/api/token",
+      "clientId": "user",
+      "setupUrl": "https://developer.spotify.com/dashboard",
+      "scopes": ["user-read-playback-state", "user-modify-playback-state"],
+      "hosts": ["api.spotify.com"],
+      "label": "Spotify"
+    }
+  }
 }

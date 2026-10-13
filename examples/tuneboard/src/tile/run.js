@@ -6,8 +6,11 @@
  * Tuneboard — the tile
  *
  * Connects the session to Tilefold: registers the commands and listeners
- * (at once, before any await, as Tilefold requires), signs in to Spotify
- * with the settings and the network Tilefold offers, polls what is playing
+ * (at once, before any await, as Tilefold requires), connects to Spotify
+ * through Tilefold's network once the user has signed in (Tilefold runs
+ * the sign-in and keeps the token; the tile only asks `tf.auth.has`, and
+ * while signed out checks again every few seconds, since signing in
+ * happens in Settings), polls what is playing
  * while the card is on screen, turns clicks and commands into controls,
  * shows and hides the overlay, and records an activity trail.
  *
@@ -25,7 +28,7 @@
 import { createTrail } from "./audit.js";
 import { registerCommands } from "./commands.js";
 import { createPoller } from "./poller.js";
-import { ACCOUNT_KEYS, LAYOUT_KEYS, readSettings } from "./settings.js";
+import { LAYOUT_KEYS, readSettings } from "./settings.js";
 import { createSession } from "./session.js";
 import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
@@ -36,6 +39,19 @@ export const CLOCK_MS = 1000;
 
 /** How long after a control to ask Spotify for the result, in ms. */
 export const CONFIRM_MS = 800;
+
+/** How often to check for a sign-in while signed out and on screen, in ms. */
+export const SIGN_IN_CHECK_MS = 5000;
+
+/**
+ * How long to wait before trying again after Spotify refused the sign-in
+ * Tilefold holds, in ms (the user may sign in again meanwhile; Refresh
+ * tries at once).
+ */
+export const AUTH_RETRY_MS = 60000;
+
+/** The sign-in Tuneboard declares in tile.json. */
+const SIGN_IN = "spotify";
 
 /** The audit action for each control result. */
 const CONTROL_ACTION = {
@@ -60,8 +76,7 @@ const FAILED_ACTION = {
  * settings are registered and before any `await`.
  *
  * @param {any} tf The tile API.
- * @param {{ createSpotify?: (opts: { fetchFn: Function, clientId: string, refreshToken: string,
- *           now: () => number, onRefreshToken: (token: string) => void }) => any,
+ * @param {{ createSpotify?: (opts: { fetchFn: Function, now: () => number }) => any,
  *           now?: () => number }} [deps]
  *   `createSpotify` builds the Spotify client; without it the tile behaves
  *   as if there were no network.
@@ -141,10 +156,11 @@ export function runTuneboard(tf, deps = {}) {
     onState: (from, to) => {
       trail.record("state.change", { from, to });
       if (to === "signed-out" && session.lastCode === "auth") {
+        // Spotify or Tilefold refused the sign-in: the user signs in again in Settings.
+        authFailedAt = now();
         trail.record("auth.failed", { code: "auth" });
-        // The saved newer token was refused: next time, start again from Settings.
-        void store.forgetRefreshToken();
       }
+      updateSignInCheck();
     },
   });
 
@@ -174,32 +190,30 @@ export function runTuneboard(tf, deps = {}) {
   // ------------------------------------------------------------ signing in
   let connecting = null;
 
-  /** Builds the Spotify client from the settings (or explains why there is none). */
+  /** Whether the user has signed in to Spotify in Settings (false when unknown). */
+  const signedIn = async () => {
+    try {
+      return Boolean(tf.auth && typeof tf.auth.has === "function" && (await tf.auth.has(SIGN_IN)));
+    } catch {
+      return false;
+    }
+  };
+
+  /** Builds the Spotify client (or explains why there is none). */
   const connect = () => {
     connecting = (async () => {
       poller.stop();
-      const s = settings();
       const fetchFn = findTransport(tf);
-      if (!fetchFn || typeof deps.createSpotify !== "function") {
+      if (!fetchFn || typeof deps.createSpotify !== "function" || !tf.auth) {
         session.setClient(null, "no-network");
         return;
       }
-      if (!s.clientId || !s.refreshToken) {
+      if (!(await signedIn())) {
         session.setClient(null, "signed-out");
         return;
       }
-      const refreshToken = await store.refreshToken(s.refreshToken);
-      const client = deps.createSpotify({
-        fetchFn,
-        clientId: s.clientId,
-        refreshToken,
-        now,
-        onRefreshToken: (token) => {
-          void store.saveRefreshToken(s.refreshToken, token);
-          trail.record("auth.rotated", {});
-        },
-      });
-      session.setClient(client);
+      session.setClient(deps.createSpotify({ fetchFn, now }));
+      trail.record("auth.connected", {});
       // Polling (when on) asks at once; otherwise ask once so the card is not left empty.
       if (!poller.running) await session.refresh();
     })().catch((err) => {
@@ -209,8 +223,35 @@ export function runTuneboard(tf, deps = {}) {
     return connecting;
   };
 
-  /** Connects once per worker, on first use. */
-  const ensureConnected = () => connecting ?? connect();
+  /** Connects once per worker, on first use, after clearing a token older versions kept. */
+  const ensureConnected = () =>
+    connecting ??
+    (connecting = (async () => {
+      if (await store.clearLegacyAuth()) trail.record("auth.legacy-cleared", {});
+      await connect();
+    })());
+
+  /** When Spotify last refused the sign-in (0: never). */
+  let authFailedAt = 0;
+
+  /** Checks for a sign-in every few seconds while signed out and on screen. */
+  let signInCheck = null;
+  function updateSignInCheck() {
+    const wanted = visible && session.status === "signed-out";
+    if (wanted && signInCheck === null) {
+      signInCheck = setInterval(() => {
+        void (async () => {
+          if (session.status !== "signed-out") return;
+          // After a refusal, wait longer: the same sign-in would likely be refused again.
+          if (authFailedAt && now() - authFailedAt < AUTH_RETRY_MS) return;
+          if (await signedIn()) await connect();
+        })().catch((err) => trail.error(err));
+      }, SIGN_IN_CHECK_MS);
+    } else if (!wanted && signInCheck !== null) {
+      clearInterval(signInCheck);
+      signInCheck = null;
+    }
+  }
 
   // ------------------------------------------------------------ showing
   /** Puts the card on screen. */
@@ -224,6 +265,7 @@ export function runTuneboard(tf, deps = {}) {
     }
     await store.setVisible(true);
     trail.record("view.show", {});
+    updateSignInCheck();
     updateTimers();
     await draw();
     updateTimers();
@@ -233,6 +275,7 @@ export function runTuneboard(tf, deps = {}) {
   const hide = async () => {
     visible = false;
     shown = null;
+    updateSignInCheck();
     updateTimers();
     await tf.overlay.hide();
     await store.setVisible(false);
@@ -256,7 +299,7 @@ export function runTuneboard(tf, deps = {}) {
     if (action === "toggle") return visible ? hide() : show();
     if (action === "refresh") {
       trail.record("control.refresh", {});
-      // Settings may have changed since; a refresh also retries signing in.
+      // The user may have signed in or out since; a refresh also checks again.
       if (!session.connected || session.status === "signed-out" || session.status === "premium") {
         await connect();
       } else {
@@ -342,7 +385,6 @@ export function runTuneboard(tf, deps = {}) {
     "setting.changed",
     background(async (e) => {
       const key = e && e.key;
-      if (ACCOUNT_KEYS.includes(key)) await connect();
       if (LAYOUT_KEYS.includes(key) && visible) {
         try {
           layout = await tf.overlay.layout();

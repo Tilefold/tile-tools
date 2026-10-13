@@ -5,8 +5,10 @@
  *
  * Package tests
  *
- * The tile as Tilefold will load it: tile.json follows Tilefold's rules
- * and asks only for what this Tilefold can grant, main.js is a fresh build
+ * The tile as Tilefold will load it: tile.json follows Tilefold's rules,
+ * asks for the overlay and Spotify's API host, and declares the Spotify
+ * sign-in (the user's own app, no client secret, hosts within its
+ * permissions), main.js is a fresh build
  * of the sources with the shape Tilefold accepts and no way to the network
  * except through the host, every message the code asks for exists in
  * English (and every English message is used), and every source file
@@ -37,7 +39,7 @@ const sourceText = sources.map((f) => readFileSync(f, "utf8")).join("\n");
 
 describe("tile.json", () => {
   it("has only the fields Tilefold allows", () => {
-    const allowed = ["id", "version", "name", "description", "permissions"];
+    const allowed = ["id", "version", "name", "description", "permissions", "auth"];
     expect(Object.keys(tile).every((k) => allowed.includes(k))).toBe(true);
   });
 
@@ -55,11 +57,28 @@ describe("tile.json", () => {
     expect(en.get("tile-description")).toContain("Spotify");
   });
 
-  it("asks only for the overlay, which this Tilefold can grant, with a reason", () => {
+  it("asks for the overlay and Spotify's API host, each with a reason", () => {
     const perms = tile.permissions.map((p) => Object.entries(p)[0]);
-    expect(perms.map(([name]) => name)).toEqual(["window.overlay"]);
+    expect(perms.map(([name]) => name)).toEqual(["window.overlay", "net:api.spotify.com"]);
     for (const [, reason] of perms) expect(reason.length).toBeGreaterThan(10);
     expect(sourceText).toContain("tf.overlay.show");
+  });
+
+  it("declares the Spotify sign-in with the user's own app and no secret", () => {
+    expect(Object.keys(tile.auth)).toEqual(["spotify"]);
+    const s = tile.auth.spotify;
+    expect(s).toMatchObject({
+      type: "oauth2-pkce",
+      authorizeUrl: "https://accounts.spotify.com/authorize",
+      tokenUrl: "https://accounts.spotify.com/api/token",
+      clientId: "user",
+      hosts: ["api.spotify.com"],
+      label: "Spotify",
+    });
+    expect(s.setupUrl).toMatch(/^https:\/\/developer\.spotify\.com\//);
+    expect(s.scopes).toEqual(["user-read-playback-state", "user-modify-playback-state"]);
+    expect(s).not.toHaveProperty("clientSecret");
+    for (const host of s.hosts) expect(tile.permissions.some((p) => `net:${host}` in p)).toBe(true);
   });
 });
 
@@ -79,9 +98,11 @@ describe("main.js", () => {
     expect(main.startsWith("/**\n * Copyright (c) 2026 Tilefold")).toBe(true);
   });
 
-  it("bundles the Spotify client", () => {
+  it("bundles the Spotify client and leaves signing in to Tilefold", () => {
     expect(main).toContain("https://api.spotify.com/v1/me/player");
-    expect(main).toContain("https://accounts.spotify.com/api/token");
+    expect(main).toContain("auth.has(");
+    // No sign-in, token or secret handling of its own.
+    expect(main).not.toMatch(/accounts\.spotify\.com|refresh_token|code_verifier|client_secret/);
   });
 
   it("never reaches the network except through the host", () => {

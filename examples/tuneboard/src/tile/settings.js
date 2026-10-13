@@ -6,8 +6,9 @@
  * Tuneboard — settings
  *
  * The tile's settings, in one table: key, default, the message key of its
- * description and, for drop-downs, its choices. A text default gives a
- * text box (the Spotify client id and refresh token), a boolean a switch.
+ * description and, for drop-downs, its choices; a boolean gives a switch.
+ * Nothing about the Spotify account is a setting: signing in happens under
+ * Keys on the tile's card in Settings → Tiles, run by Tilefold.
  * `registerSettings` hands them to Tilefold (it must run at the top of the
  * tile, before any await); `readSettings` reads them back as clean values,
  * so the rest of the tile never has to guard against a hand-edited setting.
@@ -29,8 +30,6 @@ const CORNER_LABELS = {
  *          choices?: { value: string, label: string }[] }[]}
  */
 export const SETTINGS = [
-  { key: "clientId", default: "", label: "setting-client-id" },
-  { key: "refreshToken", default: "", label: "setting-refresh-token" },
   {
     key: "size",
     default: "medium",
@@ -52,9 +51,6 @@ export const SETTINGS = [
 /** The keys whose change means the scene must be laid out again. */
 export const LAYOUT_KEYS = ["size", "corner"];
 
-/** The keys whose change means signing in to Spotify again. */
-export const ACCOUNT_KEYS = ["clientId", "refreshToken"];
-
 /**
  * Registers every setting with Tilefold, with translated descriptions.
  *
@@ -71,21 +67,10 @@ export function registerSettings(tf) {
 }
 
 /**
- * A setting text, trimmed, with anything that is not a string read as "".
- * Pasted tokens often carry a stray space or newline.
- *
- * @param {unknown} value
- * @returns {string}
- */
-export function cleanText(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-/**
  * The current settings, cleaned up.
  *
  * @param {{ get: (key: string) => unknown }} settings `tf.settings`.
- * @returns {{ clientId: string, refreshToken: string, size: string, corner: string, poll: boolean }}
+ * @returns {{ size: string, corner: string, poll: boolean }}
  */
 export function readSettings(settings) {
   const get = (key) => {
@@ -97,8 +82,6 @@ export function readSettings(settings) {
   };
   const corner = get("corner");
   return {
-    clientId: cleanText(get("clientId")),
-    refreshToken: cleanText(get("refreshToken")),
     size: get("size") === "small" ? "small" : "medium",
     corner: CORNERS.includes(/** @type {string} */ (corner))
       ? /** @type {string} */ (corner)

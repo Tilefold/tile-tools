@@ -98,13 +98,25 @@ describe("examples", () => {
       const manifest = JSON.parse(readFileSync(join(dir, "tile.json"), "utf8"));
       expect(manifest.id).toMatch(/^example\.[a-z][a-z0-9-]*$/);
       expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
-      const keys = Object.keys(manifest).filter((k) => k !== "permissions");
+      const keys = Object.keys(manifest).filter((k) => k !== "permissions" && k !== "auth");
       expect(keys.sort()).toEqual(["description", "id", "name", "version"]);
-      // Permissions, when asked for, each come with the reason shown to the user.
+      // Permissions, when asked for, each come with the reason shown to the user:
+      // window/sound/ai ones, or `net:` with a public host.
       for (const p of manifest.permissions ?? []) {
         const [[name, reason]] = Object.entries(p);
-        expect(name).toMatch(/^[a-z]+\.[a-z]+$/);
+        expect(name).toMatch(/^(?:[a-z]+\.[a-z]+|net:(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)$/);
         expect(reason.length).toBeGreaterThan(10);
+      }
+      // Credentials, when declared, go only to hosts the tile asks for, and never carry a secret.
+      for (const [name, entry] of Object.entries(manifest.auth ?? {})) {
+        expect(name).toMatch(/^[a-z][a-z0-9-]{0,31}$/);
+        expect(entry).not.toHaveProperty("clientSecret");
+        for (const host of entry.hosts) {
+          expect(
+            (manifest.permissions ?? []).some((p) => `net:${host}` in p),
+            host,
+          ).toBe(true);
+        }
       }
       expect(messages(folder).has("tile-name")).toBe(true);
       expect(messages(folder).has("tile-description")).toBe(true);

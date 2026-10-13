@@ -5,13 +5,16 @@
  *
  * Fake Spotify Web API (tests only)
  *
- * A function shaped like `tf.net.fetch` that answers the way Spotify's
- * accounts and player endpoints do, so the built tile can be tested end to
- * end with the real client inside it: the refresh-token grant (optionally
- * rotating the token), GET /me/player (204 when nothing plays), play,
- * pause, next, previous and volume, Premium refusals and rate limits.
- * Answers are plain objects without `ok`, as a host's might be, so the
- * tile's own clean-up of responses is exercised too.
+ * A function shaped like `tf.net.fetch` that behaves like Tilefold in
+ * front of Spotify's player endpoints, so the built tile can be tested end
+ * to end with the real client inside it. Like Tilefold, it adds the user's
+ * token only to requests that name the `spotify` sign-in, and throws
+ * `CredentialMissingError` while the user has not signed in; like Spotify,
+ * it answers GET /me/player (204 when nothing plays), play, pause, next,
+ * previous and volume, Premium refusals, rate limits and, when the token is
+ * no longer accepted, 401. Answers are plain objects without `ok`, as a
+ * host's might be, so the tile's own clean-up of responses is exercised
+ * too.
  */
 
 /** The player's starting track, in Spotify's own JSON shape. */
@@ -32,7 +35,8 @@ export const ITEM = Object.freeze({
 function reply(status, body, headers = {}) {
   return {
     status,
-    headers: { get: (name) => headers[name] ?? headers[String(name).toLowerCase()] ?? null },
+    // Plain lowercase names, as Tilefold returns them.
+    headers: Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])),
     json: async () => {
       if (body === undefined) throw new SyntaxError("no body");
       return body;
@@ -44,19 +48,20 @@ function reply(status, body, headers = {}) {
 /**
  * Creates the fake API.
  *
- * @param {{ refreshTokens?: string[], rotate?: boolean, premium?: boolean,
+ * @param {{ signedIn?: boolean, tokenValid?: boolean, premium?: boolean,
  *           playing?: boolean, item?: object|null, volume?: number }} [opts]
- *   `refreshTokens` are accepted by the token endpoint (default
- *   ["pasted-token"]); `rotate` hands out a new refresh token each time;
- *   `premium: false` refuses every player command.
+ *   `signedIn: false` means the user has not signed in in Tilefold;
+ *   `tokenValid: false` means Spotify no longer accepts the token Tilefold
+ *   holds; `premium: false` refuses every player command.
  */
 export function createFakeApi(opts = {}) {
   const api = {
     /** @type {{ method: string, url: string, body?: string }[]} */
     log: [],
-    valid: new Set(opts.refreshTokens ?? ["pasted-token"]),
-    issued: 0,
-    rotations: 0,
+    /** Whether the user has signed in to Spotify in Tilefold. */
+    signedIn: opts.signedIn !== false,
+    /** Whether Spotify accepts the token Tilefold adds. */
+    tokenValid: opts.tokenValid !== false,
     premium: opts.premium !== false,
     /** Set to answer the next player request with 429 and this Retry-After. */
     rateLimitOnce: /** @type {string|null} */ (null),
@@ -66,47 +71,27 @@ export function createFakeApi(opts = {}) {
       progress: 60000,
       volume: opts.volume ?? 50,
     },
-    /** The current access token (anything else gets a 401). */
-    access: "",
-
     /** The `tf.net.fetch` stand-in. */
     fetch: async (url, init = {}) => {
       const method = init.method ?? "GET";
-      api.log.push({ method, url, body: init.body });
+      api.log.push({ method, url, body: init.body, auth: init.auth, headers: init.headers });
       const u = new URL(url);
-      if (u.host === "accounts.spotify.com") return api.token(init);
       if (u.host !== "api.spotify.com")
         return reply(404, { error: { status: 404, message: "Not found" } });
-      const auth = init.headers && init.headers.Authorization;
-      if (auth !== `Bearer ${api.access}`)
-        return reply(401, { error: { status: 401, message: "Expired token" } });
+      // Tilefold: a request naming the sign-in gets the token, or fails before it is sent.
+      if (init.auth === "spotify" && !api.signedIn) {
+        throw Object.assign(new Error("the credential is not set up"), {
+          name: "CredentialMissingError",
+        });
+      }
+      if (init.auth !== "spotify" || !api.tokenValid)
+        return reply(401, { error: { status: 401, message: "No token provided" } });
       if (api.rateLimitOnce !== null) {
         const after = api.rateLimitOnce;
         api.rateLimitOnce = null;
         return reply(429, undefined, { "Retry-After": after });
       }
       return api.player_(method, u);
-    },
-
-    /** The refresh-token grant. */
-    token(init) {
-      const form = new URLSearchParams(String(init.body ?? ""));
-      if (form.get("grant_type") !== "refresh_token" || !form.get("client_id")) {
-        return reply(400, { error: "invalid_request" });
-      }
-      if (!api.valid.has(form.get("refresh_token") ?? "")) {
-        return reply(400, { error: "invalid_grant", error_description: "Invalid refresh token" });
-      }
-      api.issued += 1;
-      api.access = `access-${api.issued}`;
-      const body = { access_token: api.access, token_type: "Bearer", expires_in: 3600 };
-      if (opts.rotate) {
-        api.rotations += 1;
-        const next = `rotated-${api.rotations}`;
-        api.valid = new Set([next]);
-        Object.assign(body, { refresh_token: next });
-      }
-      return reply(200, body);
     },
 
     /** The player endpoints. */

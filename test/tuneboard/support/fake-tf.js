@@ -11,9 +11,11 @@
  * locales/<lang>/tile.ftl with `{ $var }` placeholders filled in (a
  * missing message throws, so a typo fails the test), overlay updates merge
  * into the scene item by item, and audits, store writes, log lines and
- * registrations are all recorded for assertions. `net: true` adds the
- * future `tf.net.fetch` (a recording stub), as a Tilefold that grants
- * network access would.
+ * registrations are all recorded for assertions. `net: true` adds
+ * `tf.net.fetch` (a recording stub) and `tf.auth.has`, as a Tilefold that
+ * grants network access and runs sign-ins does; `host.signedIn` says
+ * whether the user has signed in to Spotify there (`auth: false` leaves
+ * `tf.auth` out, as an older Tilefold would).
  *
  * Use with Vitest fake timers: `advance(ms)` moves time on and lets the
  * tile's background work finish.
@@ -70,6 +72,7 @@ export async function drain(rounds = 50) {
  *
  * @param {{ locale?: string, settings?: Record<string, unknown>, store?: Record<string, unknown>,
  *           layout?: object, overlaysOff?: boolean, failStore?: boolean, net?: boolean,
+ *           auth?: boolean, signedIn?: boolean,
  *           fetch?: (url: string, init?: any) => Promise<any> }} [opts]
  */
 export function createHost(opts = {}) {
@@ -84,6 +87,8 @@ export function createHost(opts = {}) {
     audits: [],
     /** Requests made through tf.net.fetch. */
     requests: [],
+    /** Whether the user has signed in to Spotify in Tilefold's Settings. */
+    signedIn: opts.signedIn ?? true,
     logs: [],
     errors: [],
     store: new Map(Object.entries(opts.store ?? {})),
@@ -193,8 +198,9 @@ export function createHost(opts = {}) {
     const answer =
       opts.fetch ??
       (async () => ({
+        ok: true,
         status: 204,
-        headers: { get: () => null },
+        headers: {},
         json: async () => null,
         text: async () => "",
       }));
@@ -204,6 +210,9 @@ export function createHost(opts = {}) {
         return answer(url, init);
       },
     };
+    if (opts.auth !== false) {
+      tf.auth = { has: async (name) => host.signedIn && name === "spotify" };
+    }
   }
 
   return { host, tf };

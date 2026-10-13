@@ -14,6 +14,13 @@
  * logged errors are all recorded for assertions. Commands and events are
  * run by id and name, the way Tilefold invokes them.
  *
+ * For tiles that use the network, credentials or AI: `net` answers
+ * `tf.net.fetch` (every request is recorded with the credential it names;
+ * a request naming a credential that is not in `credentials` fails with
+ * `CredentialMissingError`, as in Tilefold); `credentials` lists the ones
+ * the user has set up, for `tf.auth.has`; `ai` answers `tf.ai.ask` (every
+ * question is recorded; without it, asking fails with `AiNotSetUpError`).
+ *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
  */
@@ -57,7 +64,9 @@ export async function drain(rounds = 50) {
  *
  * @param {string} dir  the example's folder
  * @param {{ locale?: string, settings?: Record<string, unknown>,
- *           store?: Record<string, unknown>, layout?: object }} [opts]
+ *           store?: Record<string, unknown>, layout?: object,
+ *           net?: (url: string, init: object) => any, credentials?: string[],
+ *           ai?: (input: unknown) => string }} [opts]
  */
 export async function startTile(dir, opts = {}) {
   const messages = messagesOf(dir, opts.locale ?? "en");
@@ -70,6 +79,12 @@ export async function startTile(dir, opts = {}) {
     regs: [],
     audits: [],
     sounds: [],
+    /** Requests made through tf.net.fetch: { url, init }. */
+    requests: [],
+    /** Questions asked through tf.ai.ask. */
+    questions: [],
+    /** Credentials the user has set up (names), for tf.auth.has. */
+    credentials: new Set(opts.credentials ?? []),
     errors: [],
     store: new Map(Object.entries(opts.store ?? {})),
     /** The scene as Tilefold would draw it, or null when hidden. */
@@ -162,6 +177,47 @@ export async function startTile(dir, opts = {}) {
         host.overlay = null;
         return null;
       },
+    },
+  };
+
+  /** An error the tile sees with this `name`, as Tilefold's errors are. */
+  const named = (name, message) => Object.assign(new Error(message), { name });
+
+  if (opts.net) {
+    tf.net = {
+      async fetch(url, init = {}) {
+        host.requests.push({ url, init: structuredClone(init) });
+        if (init.auth !== undefined && !host.credentials.has(init.auth)) {
+          throw named("CredentialMissingError", "the credential is not set up");
+        }
+        const r = await opts.net(url, init);
+        const status = r?.status ?? 200;
+        const body = r?.body ?? "";
+        return {
+          status,
+          statusText: "",
+          ok: status >= 200 && status < 300,
+          url,
+          headers: r?.headers ?? {},
+          text: async () => body,
+          json: async () => JSON.parse(body),
+          bytes: async () => new TextEncoder().encode(body),
+        };
+      },
+    };
+  }
+  tf.auth = { has: async (name) => host.credentials.has(name) };
+  tf.ai = {
+    async ask(input) {
+      host.questions.push(structuredClone(input));
+      if (!opts.ai) throw named("AiNotSetUpError", "AI is not set up");
+      const text = String(opts.ai(input));
+      return {
+        text,
+        model: "claude-opus-5-5",
+        stopReason: "end_turn",
+        usage: { inputTokens: 1, outputTokens: 1 },
+      };
     },
   };
 
