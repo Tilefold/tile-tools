@@ -1,0 +1,20 @@
+{
+  "id": "example.github-inbox",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "net:api.github.com": "to count your unread GitHub notifications, using the token you enter"
+    }
+  ],
+  "auth": {
+    "github": {
+      "type": "apiKey",
+      "header": "Authorization",
+      "scheme": "Bearer",
+      "hosts": ["api.github.com"],
+      "label": "GitHub token (classic, notifications scope)"
+    }
+  }
+}

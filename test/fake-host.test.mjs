@@ -8,8 +8,9 @@
  * The fake Tilefold host's network, credential and AI stand-ins behave like
  * the app: requests are recorded with the credential they name, a missing
  * credential fails before anything is answered, `tf.auth.has` reports what
- * the user set up, and `tf.ai.ask` records questions and fails when AI is
- * not set up.
+ * the user set up, `tf.ai.ask` records questions, fails when AI is not set
+ * up and can wait for an answer given later, and notices and warnings are
+ * recorded.
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -35,6 +36,10 @@ beforeAll(() => {
         try { tf.audit("answer", { text: (await tf.ai.ask("hi")).text }); }
         catch (e) { tf.audit("failed", { name: e.name }); }
       }, { id: "ask" });
+      tf.command("Say", async () => {
+        await tf.toast("hello");
+        await tf.log.warn("careful");
+      }, { id: "say" });
     };\n`,
   );
 });
@@ -73,5 +78,24 @@ describe("fake host", () => {
     await on.command("ask");
     expect(on.questions).toEqual(["hi"]);
     expect(on.audits).toContainEqual({ action: "answer", details: { text: "echo hi" } });
+  });
+
+  it("can hold an answer back until the test gives it", async () => {
+    let give;
+    const later = new Promise((resolve) => (give = resolve));
+    const host = await startTile(dir, { ai: () => later });
+    const asked = host.command("ask");
+    expect(host.questions).toEqual(["hi"]);
+    expect(host.audits).toEqual([]);
+    give("later");
+    await asked;
+    expect(host.audits).toContainEqual({ action: "answer", details: { text: "later" } });
+  });
+
+  it("records notices and warnings", async () => {
+    const host = await startTile(dir);
+    await host.command("say");
+    expect(host.toasts).toEqual(["hello"]);
+    expect(host.warnings).toEqual(["careful"]);
   });
 });

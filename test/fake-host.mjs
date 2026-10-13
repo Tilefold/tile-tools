@@ -10,8 +10,8 @@
  * fall back to their registered defaults and can be changed (firing
  * `setting.changed`), messages come from the tile's own locales/<lang>/
  * tile.ftl with `{ $var }` placeholders filled in, overlay updates merge
- * into the scene item by item, and sounds, audit records, store writes and
- * logged errors are all recorded for assertions. Commands and events are
+ * into the scene item by item, and notices, sounds, audit records, store
+ * writes and logged errors are all recorded for assertions. Commands and events are
  * run by id and name, the way Tilefold invokes them.
  *
  * For tiles that use the network, credentials or AI: `net` answers
@@ -66,7 +66,7 @@ export async function drain(rounds = 50) {
  * @param {{ locale?: string, settings?: Record<string, unknown>,
  *           store?: Record<string, unknown>, layout?: object,
  *           net?: (url: string, init: object) => any, credentials?: string[],
- *           ai?: (input: unknown) => string }} [opts]
+ *           ai?: (input: unknown) => string | Promise<string> }} [opts]
  */
 export async function startTile(dir, opts = {}) {
   const messages = messagesOf(dir, opts.locale ?? "en");
@@ -78,6 +78,8 @@ export async function startTile(dir, opts = {}) {
   const host = {
     regs: [],
     audits: [],
+    /** Notices shown with tf.toast, as text. */
+    toasts: [],
     sounds: [],
     /** Requests made through tf.net.fetch: { url, init }. */
     requests: [],
@@ -85,6 +87,8 @@ export async function startTile(dir, opts = {}) {
     questions: [],
     /** Credentials the user has set up (names), for tf.auth.has. */
     credentials: new Set(opts.credentials ?? []),
+    /** Warnings logged with tf.log.warn. */
+    warnings: [],
     errors: [],
     store: new Map(Object.entries(opts.store ?? {})),
     /** The scene as Tilefold would draw it, or null when hidden. */
@@ -142,10 +146,10 @@ export async function startTile(dir, opts = {}) {
     audit: async (action, details) => void host.audits.push({ action, details }),
     log: {
       info: async () => {},
-      warn: async () => {},
+      warn: async (text) => void host.warnings.push(String(text)),
       error: async (text) => void host.errors.push(String(text)),
     },
-    toast: async () => {},
+    toast: async (text) => void host.toasts.push(String(text)),
     sound: {
       async play(clip) {
         if (!/^data:audio\/(wav|x-wav|mpeg|ogg|webm);base64,/.test(clip.src)) {
@@ -211,7 +215,8 @@ export async function startTile(dir, opts = {}) {
     async ask(input) {
       host.questions.push(structuredClone(input));
       if (!opts.ai) throw named("AiNotSetUpError", "AI is not set up");
-      const text = String(opts.ai(input));
+      // An answer may be a promise, to stand for the user still looking at the dialog.
+      const text = String(await opts.ai(input));
       return {
         text,
         model: "claude-opus-5-5",
