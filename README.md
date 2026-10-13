@@ -1,8 +1,8 @@
 # @tilefold/tile-tools
 
-Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and nine example tiles from a few lines to a game, a Spotify card and a tile that asks Claude.
+Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and eleven example tiles from a few lines to a game, a Spotify card, a GitLab pipeline board and a weather card that asks Claude.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-659%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-9-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-804%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-11-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -154,7 +154,7 @@ The entry exports only its default function; exporting other names is an error, 
 
 ## Examples
 
-Nine tiles in `examples/` show the common cases, from a few lines to full tiles with their own test suites. Each has its sources in `src/`, its strings in `locales/`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
+Eleven tiles in `examples/` show the common cases, from a few lines to full tiles with their own test suites. Each has its sources in `src/`, its strings in `locales/`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
 
 | Example | What it shows | Needs | Try |
 |---|---|---|---|
@@ -167,6 +167,8 @@ Nine tiles in `examples/` show the common cases, from a few lines to full tiles 
 | `examples/github-inbox` | **An API key it never sees.** `auth` with `apiKey` (header, scheme, the one host it may go to); `tf.auth.has` before asking; `{ auth: "github" }` on the request; telling a missing token (`CredentialMissingError`) from a refused one (401/403); a count in the activity log, never titles; twelve languages | 0.1.6 | Add a GitHub token (classic, `notifications` scope) under **Keys** on its card, then run **GitHub Inbox: Check notifications** |
 | `examples/shell-tips` | **Asking Claude.** `ai.ask` and `tf.ai.ask` with a system prompt, a conversation that continues the last tip, `maxTokens` and `model: "fast"`; the user's language named in the tile's own strings; "Don't send" treated as a choice, not a failure; one question at a time; the last tip kept in `tf.store`; twelve languages | 0.1.6 | Save your Anthropic key in Settings → AI, pick a topic, run **Shell Tips: New tip** |
 | `examples/tuneboard` | **Signing in to a service.** A Spotify now-playing card with previous, play/pause, next and volume buttons and shortcuts. Its `tile.json` declares a Spotify sign-in that uses the user's own Spotify app; Tilefold runs the sign-in in the browser, keeps it in the keychain and adds it to the tile's requests, so the tile never holds a token. It checks Spotify only while the card is shown; twelve languages | 0.1.6 | Run **Tuneboard: Show or hide**; the sign-in steps are below |
+| `examples/weather-card` | **The internet and Claude together, on a card.** Today's weather in a corner of the pane from Open-Meteo, a free service with no key: two `net:` hosts (place lookup, then forecast) and no credential. With its summary turned on, each new forecast is followed by one `tf.ai.ask` with the fast model, a small `maxTokens` and the user's language; "Don't send" holds until the user refreshes by hand. It checks only while the card is shown, remembers the place and the last forecast across restarts, and tells Tilefold's refusals from the service failing; twelve languages | 0.1.6 | Set a city under **Place** in its settings, then run **Weather Card: Show or hide** (⌃⌥W) |
+| `examples/pipeline-board` | **A second sign-in, with notices.** The latest CI pipelines of a GitLab project on a card: status, branch, number and age, a ring while running. Its `tile.json` declares a GitLab sign-in with the user's own GitLab application (`read_api` only); requests name the sign-in and never carry a token. It checks every 30 seconds while a pipeline runs and every 2 minutes otherwise, notices a new sign-in within seconds, says when a pipeline it saw running finishes (recording the result, never the project), and backs off on GitLab's rate limit; twelve languages | 0.1.6 | Sign in (steps below), set **GitLab project**, run **Pipeline Board: Show or hide** (⌃⌥G) |
 
 To build one yourself:
 
@@ -183,11 +185,16 @@ For `with-npm-package`, run `npm install` in its folder first, then `npm run bui
 
 **Signing Tuneboard in to Spotify.** In Tilefold, open Settings → Tiles and find **Set up your own app** under **Keys** on Tuneboard's card. Click **Open setup page**, create an app at the Spotify developer dashboard, and paste the callback address Tilefold shows (use its **Copy** button) as the app's redirect URI. Paste the app's Client ID back into Tilefold and click **Sign in…**. Your browser opens Spotify's own sign-in page, and the card starts showing what is playing a few seconds after you agree. Controlling playback needs Spotify Premium and a Spotify app already running somewhere; the Web API is a remote control, not a player.
 
+**Weather Card's place and summary.** Type a city under **Place** in Weather Card's settings (Settings → Tiles); the card looks it up once and remembers it. The one-line summary is off until you turn it on, needs your Anthropic key in Settings → AI, and Tilefold shows you the question and asks before anything is sent.
+
+**Signing Pipeline Board in to GitLab.** In Tilefold, open Settings → Tiles and find **Set up your own app** under **Keys** on Pipeline Board's card. Click **Open setup page** to reach your GitLab applications, add a new application, paste the callback address Tilefold shows (use its **Copy** button) as the redirect URI, untick **Confidential**, tick only the `read_api` scope and save. Paste the **Application ID** back into Tilefold and click **Sign in…**; GitLab's own page asks you to authorize it in your browser. The board works with projects on gitlab.com that your account can see.
+
 Things the examples do on purpose, worth copying:
 
 - **Register first.** Settings, commands and listeners are registered at the top of the tile's function, before any `await`. Tilefold checks what a tile adds once, before it runs, and ignores later registrations.
 - **Give commands an id.** The title is translated; the id keeps the command and its shortcut stable across languages.
 - **Return from handlers at once.** A handler has half a second, a command ten seconds, and a request or a question to Claude can take longer: start it with `void work()` and return.
+- **Quiet while hidden.** Weather Card, Pipeline Board and Tuneboard ask their service only while their card is shown, and Pipeline Board checks more often only while a pipeline is running.
 - **One at a time.** A `busy` flag stops a second request or question from starting while one is under way.
 - **Errors by name.** `err.name` (`CredentialMissingError`, `AiDeclinedError`…) decides what to tell the user; messages are never parsed.
 - **Check for the feature.** `tf.net`, `tf.auth` and `tf.ai` are missing on older Tilefolds; the examples say "update Tilefold" instead of failing.
@@ -245,7 +252,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (659 tests in 30 files, all passing on 2026-10-13).
+Run with `npm test` (804 tests in 34 files, all passing on 2026-10-13).
 
 | Area | Covers |
 |---|---|
@@ -256,20 +263,23 @@ Run with `npm test` (659 tests in 30 files, all passing on 2026-10-13).
 | Commands | build writes and logs, `--check` fresh/stale/missing, folder without `tile.json`, validate, watch rebuilds and keeps the last good build |
 | CLI | help, version, unknown command and option, extra argument, `--watch` with `--check`, named entry, stop function for a watch |
 | Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, credentials only for hosts it asks for and never with a secret), uses exactly the messages it defines, registers up front with command ids; hello greets by name, break-timer rings, stops and resumes after a restart, with-npm-package makes IDs with the bundled nanoid |
-| Example translations | Service Status, GitHub Inbox and Shell Tips in all twelve languages: the English keys exactly, the same variables, simple lines, and GitHub, Claude, Tilefold, host names and `tf.` calls kept as they are |
+| Example translations | Service Status, GitHub Inbox, Shell Tips, Weather Card and Pipeline Board in all twelve languages: the English keys exactly, the same variables, simple lines, and GitHub, GitLab, Open-Meteo, Claude, Tilefold, host names and `tf.` calls kept as they are |
 | Service Status | The status page read and checked, indicators and errors mapped by name; the tile asks through `tf.net.fetch` without a credential, reports each status and each failure, says so without tile networking, returns from the command at once and never overlaps checks, checks on an interval quietly and speaks on a change, stops when the interval is turned off, logs timed failures, speaks Japanese |
 | GitHub Inbox | The request address, no Authorization header of its own, the page summary and messages, errors by name; the credential declared for api.github.com only; nothing sent without a token; the credential named on the request; the participating setting; a full page; refused, missing and lost tokens and Tilefold's other errors; no tile networking; no overlapping checks; German |
 | Shell Tips | The question (system prompt, language, token limit, model), a conversation that continues the last tip, the topic fallback, tip clean-up, AI errors by name with "Don't send" kept quiet; the tile asks, shows, keeps and records a tip (count, not text), each AI error's notice, an empty answer, one question at a time while the user decides, the last tip shown again, no AI in this Tilefold, Japanese |
 | Tilefold Pet | Run against the fake Tilefold with fake timers: appears on the focused pane's floor or stays hidden, roams, wanders to another pane, pat / play / drag / drop, naps and greets, commands, comes back after a restart, Korean and Japanese; characters, switching, barks by character and setting |
 | Tilefall | Engine: every piece and rotation with wall kicks, seeded randomiser, board, line clears and scoring, levels and speed. Rendering of board, panel and buttons. Tile: settings and commands, the game loop, pause on blur, hide and resume, save and restore, sounds, buttons, every language's messages, a fresh build and source hygiene |
 | Tuneboard | tile.json asks for Spotify's API host and declares the sign-in (the user's own app, no secret); every request goes through the `spotify` sign-in with no token of its own; Spotify's and Tilefold's errors mapped; sign-in noticed within seconds, a refused sign-in retried slowly, an old stored token cleared; requests Tilefold refuses (host not allowed) say where to allow it and are retried only now and then, through the real client; every card state, commands and shortcuts, polling, every language's messages, a fresh build and source hygiene |
+| Weather Card | Weather codes (a missing code is never "clear"), the place lookup and forecast requests and answers, Tilefold's refusals told from failures, the summary question and its clean-up, the card and message pictures (escaped text, width-based wrapping, sizes). The tile: registration, an older Tilefold, no place, an unknown place, a refusal, an error and recovery, lookup then forecast with no credential, refresh by command and click, the interval only while shown, new place and units, the last forecast after a restart without asking, German; the summary never asked while off, asked with the fast model in the user's language, "Don't send" held until a manual refresh, a missing key explained, turned on and off |
+| Pipeline Board | Project paths and pasted addresses (no ".."), branches, the encoded pipelines request, reading the answer, failures by name and status, status groups, finished-since and ages, the board and message pictures. The tile: registration, an older Tilefold, no project, signed out then signed in within seconds, every request naming the sign-in with no token of its own, the rows, 30 s / 2 min checks and none while hidden, refresh by command and click, a new project, a restart, finished-pipeline notices (result only in the activity log) and silence when off or for pipelines never seen running, a refused token, an unknown project, a refusal, GitLab's rate limit, an error and recovery |
 | Fake host | `tf.net.fetch` answers and records requests with their credential, refuses a credential that isn't set up, `tf.auth.has`, `tf.ai.ask` records questions, fails without AI and can hold an answer back, notices and warnings recorded |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every `tf` member, every event and every error name the documentation lists |
 | Package | Public and MIT-licensed, LICENSE shipped, bin/exports/types (including `./tf`) exist, only built files packed, MIT line in every shipped file |
 
 ## Known blockers
 
-- Tilefold 0.1.6, which adds tile networking, keys, sign-ins and AI, is being released but is not on the update server yet (it still offers 0.1.5 as of 2026-10-13). Service Status, GitHub Inbox, Shell Tips and Tuneboard need it, and none of them has run in a real Tilefold yet: their tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13. Tuneboard's sign-in has not been tried against a real Spotify account, and Shell Tips has not asked the real Claude.
+- Tilefold 0.1.6, which adds tile networking, keys, sign-ins and AI, is being released but is not on the update server yet (it still offers 0.1.5 as of 2026-10-13). Service Status, GitHub Inbox, Shell Tips, Tuneboard, Weather Card and Pipeline Board need it. All of them load and start in Tilefold 0.1.6's own tile loader, but none has yet talked to its real service from a running Tilefold: their behaviour tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13. Tuneboard's and Pipeline Board's sign-ins have not been tried against real Spotify and GitLab accounts, and Shell Tips and Weather Card have not asked the real Claude.
+- Pipeline Board reads gitlab.com only. For a self-managed GitLab, copy the tile and change the addresses in its `tile.json` (`auth.gitlab` and the `net:` permission).
 - Tile Tools 0.2.0 (the `tf` types, the docs and the new examples) is prepared in this repository but not published; npm still has 0.1.0.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`); a CI workflow with trusted publishing and provenance is planned.

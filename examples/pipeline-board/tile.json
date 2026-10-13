@@ -1,0 +1,25 @@
+{
+  "id": "example.pipeline-board",
+  "version": "0.1.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    { "window.overlay": "to draw the pipeline board in a corner of your pane" },
+    {
+      "net:gitlab.com": "to read the latest CI pipelines of the GitLab project you choose, with your sign-in"
+    }
+  ],
+  "auth": {
+    "gitlab": {
+      "type": "oauth2-pkce",
+      "authorizeUrl": "https://gitlab.com/oauth/authorize",
+      "tokenUrl": "https://gitlab.com/oauth/token",
+      "revokeUrl": "https://gitlab.com/oauth/revoke",
+      "clientId": "user",
+      "setupUrl": "https://gitlab.com/-/user_settings/applications",
+      "scopes": ["read_api"],
+      "hosts": ["gitlab.com"],
+      "label": "GitLab"
+    }
+  }
+}

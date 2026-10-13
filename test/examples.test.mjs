@@ -78,6 +78,7 @@ describe("examples", () => {
       "break-timer",
       "github-inbox",
       "hello",
+      "pipeline-board",
       "service-status",
       "shell-tips",
       "tilefall",
