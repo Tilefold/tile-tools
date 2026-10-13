@@ -6,7 +6,7 @@
  *
  * Example translations — tests
  *
- * The network, key and AI examples ship in all twelve of Tilefold's
+ * The network, key, AI and arcade examples ship in all twelve of Tilefold's
  * languages. Each translation has exactly the English message keys, keeps
  * every message's `{ $variables }`, uses only simple `key = text` lines,
  * and keeps the names that must not be translated (GitHub, Claude,
@@ -19,7 +19,14 @@ import { describe, expect, it } from "vitest";
 const LOCALES = ["ar", "de", "en", "es", "fr", "hi", "it", "ja", "ko", "pt-BR", "ru", "zh-CN"];
 
 /** The examples checked here. */
-const EXAMPLES = ["github-inbox", "service-status", "shell-tips"];
+const EXAMPLES = [
+  "brickfold",
+  "girder-jump",
+  "github-inbox",
+  "orbit-guard",
+  "service-status",
+  "shell-tips",
+];
 
 /** Words that stay as they are in every language, when the English message has them. */
 const KEPT = [
@@ -31,6 +38,9 @@ const KEPT = [
   "api.github.com",
   "tf.net.fetch",
   "tf.ai.ask",
+  "Orbit Guard",
+  "Brickfold",
+  "Girder Jump",
 ];
 
 /** The messages of one locale, checking every line on the way. */

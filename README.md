@@ -1,8 +1,8 @@
 # @tilefold/tile-tools
 
-Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and nine example tiles from a few lines to a game, a Spotify card and a tile that asks Claude.
+Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and twelve example tiles, from a few lines to four arcade games, a Spotify card and a tile that asks Claude.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-654%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-9-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-809%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-12-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -154,7 +154,7 @@ The entry exports only its default function; exporting other names is an error, 
 
 ## Examples
 
-Nine tiles in `examples/` show the common cases, from a few lines to full tiles with their own test suites. Each has its sources in `src/`, its strings in `locales/`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
+Twelve tiles in `examples/` show the common cases, from a few lines to full tiles with their own test suites. Each has its sources in `src/`, its strings in `locales/`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
 
 | Example | What it shows | Needs | Try |
 |---|---|---|---|
@@ -167,6 +167,9 @@ Nine tiles in `examples/` show the common cases, from a few lines to full tiles 
 | `examples/github-inbox` | **An API key it never sees.** `auth` with `apiKey` (header, scheme, the one host it may go to); `tf.auth.has` before asking; `{ auth: "github" }` on the request; telling a missing token (`CredentialMissingError`) from a refused one (401/403); a count in the activity log, never titles; twelve languages | 0.1.6 | Add a GitHub token (classic, `notifications` scope) under **Keys** on its card, then run **GitHub Inbox: Check notifications** |
 | `examples/shell-tips` | **Asking Claude.** `ai.ask` and `tf.ai.ask` with a system prompt, a conversation that continues the last tip, `maxTokens` and `model: "fast"`; the user's language named in the tile's own strings; "Don't send" treated as a choice, not a failure; one question at a time; the last tip kept in `tf.store`; twelve languages | 0.1.6 | Save your Anthropic key in Settings → AI, pick a topic, run **Shell Tips: New tip** |
 | `examples/tuneboard` | **Signing in to a service.** A Spotify now-playing card with previous, play/pause, next and volume buttons and shortcuts. Its `tile.json` declares a Spotify sign-in that uses the user's own Spotify app; Tilefold runs the sign-in in the browser, keeps it in the keychain and adds it to the tile's requests, so the tile never holds a token. It checks Spotify only while the card is shown; twelve languages | 0.1.6 | Run **Tuneboard: Show or hide**; the sign-in steps are below |
+| `examples/orbit-guard` | **An arcade shooter.** Rows of drones march and drop bombs while you fire from behind shields that wear away; a courier ship crosses for bonus points. Built on the shared arcade kit (below): a pure, seeded engine, the board drawn as one SVG with `<use>` symbols, a button row under it, sounds made in code, the best score in `tf.store`; twelve languages | 0.1.4 | **Orbit Guard: Show or hide** (⌃⌥I), click the board, then ⌃⌥, / ⌃⌥. to move and ⌃⌥/ to fire |
+| `examples/brickfold` | **A brick breaker.** Where the ball meets the paddle sets its angle; tough bricks take two hits; four wall patterns, then faster. Same arcade kit; ball movement in small sub-steps so it never passes through a brick; twelve languages | 0.1.4 | **Brickfold: Show or hide** (⌃⌥F), click the board, then ⌃⌥[ / ⌃⌥] to move and ⌃⌥\ to launch |
+| `examples/girder-jump` | **A climb-and-dodge platformer.** A robot rolls crates down six girders; climb the ladders, jump the crates for points and reach the beacon before the bonus runs out. Same arcade kit; a level layout kept apart from the rules, crates that sometimes take a ladder, a jump tested to be clearable from a range of distances at every level; twelve languages | 0.1.4 | **Girder Jump: Show or hide** (⌃⌥J), click the board, then ⌃⌥⇧ + arrows to walk and climb, ⌃⌥⇧Enter to jump |
 
 To build one yourself:
 
@@ -182,6 +185,10 @@ For `with-npm-package`, run `npm install` in its folder first, then `npm run bui
 **A GitHub token for GitHub Inbox.** Create a classic personal access token at github.com → Settings → Developer settings → Personal access tokens, with only the `notifications` scope. In Tilefold, paste it under **Keys** on GitHub Inbox's card in Settings → Tiles and click **Save**. Tilefold keeps it in your keychain; the tile only learns that a token is there.
 
 **Signing Tuneboard in to Spotify.** In Tilefold, open Settings → Tiles and find **Set up your own app** under **Keys** on Tuneboard's card. Click **Open setup page**, create an app at the Spotify developer dashboard, and paste the callback address Tilefold shows (use its **Copy** button) as the app's redirect URI. Paste the app's Client ID back into Tilefold and click **Sign in…**. Your browser opens Spotify's own sign-in page, and the card starts showing what is playing a few seconds after you agree. Controlling playback needs Spotify Premium and a Spotify app already running somewhere; the Web API is a remote control, not a player.
+
+**The arcade kit.** Orbit Guard, Brickfold and Girder Jump share six files: `tile/arcade.js` (commands, overlay, game clock, clicks, pausing, best score, activity records), `tile/layout.js`, `tile/settings.js`, `tile/sound.js`, `render/svg.js` and `engine/rng.js`. They are copied into each game rather than shared, so every folder still works on its own, and a test keeps the copies identical. A game brings only three things: a pure engine (`create(seed)` returning `{ state, act(action), step(ms) }`, where `state` holds `score`, `lives`, `level` and `over`), a renderer that draws `state` as one SVG picture, and its moves with their keys, buttons and sounds. To make your own, copy one of the three, replace `engine/` and `render/board.js`, list your moves, and give the tile its own `id`.
+
+**Shortcuts that don't collide.** When two commands claim the same keys, the one loaded first wins, so every example has its own: Tilefall uses ⌃⌥ with the arrows, Girder Jump ⌃⌥⇧ with the arrows, Orbit Guard ⌃⌥ with , . / and Brickfold ⌃⌥ with [ ] \. A test checks that no two examples share a default. Users can change any of them in Settings → Keyboard. New game and Pause need no keys: click the board.
 
 Things the examples do on purpose, worth copying:
 
@@ -245,7 +252,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (654 tests in 29 files, all passing on 2026-10-13).
+Run with `npm test` (809 tests in 36 files, all passing on 2026-10-13).
 
 | Area | Covers |
 |---|---|
@@ -256,7 +263,11 @@ Run with `npm test` (654 tests in 29 files, all passing on 2026-10-13).
 | Commands | build writes and logs, `--check` fresh/stale/missing, folder without `tile.json`, validate, watch rebuilds and keeps the last good build |
 | CLI | help, version, unknown command and option, extra argument, `--watch` with `--check`, named entry, stop function for a watch |
 | Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, credentials only for hosts it asks for and never with a secret), uses exactly the messages it defines, registers up front with command ids; hello greets by name, break-timer rings, stops and resumes after a restart, with-npm-package makes IDs with the bundled nanoid |
-| Example translations | Service Status, GitHub Inbox and Shell Tips in all twelve languages: the English keys exactly, the same variables, simple lines, and GitHub, Claude, Tilefold, host names and `tf.` calls kept as they are |
+| Example translations | Service Status, GitHub Inbox, Shell Tips, Orbit Guard, Brickfold and Girder Jump in all twelve languages: the English keys exactly, the same variables, simple lines, and GitHub, Claude, Tilefold, game names, host names and `tf.` calls kept as they are |
+| Arcade kit | The kit's six files identical in every arcade game; layout in each corner and size with a centred button row above the Composer, and without panes; settings fall back to defaults; WAV clips valid and short; sounds spaced out, capped per minute and silent when off; frames send only what changed; board clicks by status; no two examples share a default shortcut |
+| Orbit Guard | Engine: the cannon moves within the field and fires one shot at a time; shots score by row, chip shields and down the courier; bombs chip shields and cost a cannon that comes back; the grid marches, steps down and speeds up; a cleared wave comes back lower; the game ends at the ground or with the last cannon; seeds replay. Tile: commands and settings, the board and buttons in the corner (and small, top-left), hide and come back after a restart, click to start, pause and resume, moves only during a game, pausing on blur (unless turned off) and when overlays are hidden, game over with the best score, records and sounds, quiet with sounds off, Japanese |
+| Brickfold | Engine: the paddle stays in the field and carries the waiting ball; launch speed; walls, ceiling and paddle bounces (steeper from the edge); bricks break and score by row, tough ones take two hits; a missed ball waits again; the last miss ends the game; the next pattern and a faster ball; patterns repeat; seeds replay. Tile: commands and buttons, waiting for a launch, game over with records, German |
+| Girder Jump | The site: ladders join girders inside both, gaps drop onto the girder below, crates roll towards the gaps. Engine: walking, climbing up and down a step at a time, the jump arc; crates thrown, dropping through gaps, sometimes taking a ladder, leaving at the bottom, faster with levels; leaps score, a jump clears a crate from a range of distances at every level; hits cost a life and freeze the field; the last life ends the game; the beacon brings the bonus and the next level; seeds replay. Tile: commands and six buttons under the board, walking and jumping, game over with records, Korean |
 | Service Status | The status page read and checked, indicators and errors mapped by name; the tile asks through `tf.net.fetch` without a credential, reports each status and each failure, says so without tile networking, returns from the command at once and never overlaps checks, checks on an interval quietly and speaks on a change, stops when the interval is turned off, logs timed failures, speaks Japanese |
 | GitHub Inbox | The request address, no Authorization header of its own, the page summary and messages, errors by name; the credential declared for api.github.com only; nothing sent without a token; the credential named on the request; the participating setting; a full page; refused, missing and lost tokens and Tilefold's other errors; no tile networking; no overlapping checks; German |
 | Shell Tips | The question (system prompt, language, token limit, model), a conversation that continues the last tip, the topic fallback, tip clean-up, AI errors by name with "Don't send" kept quiet; the tile asks, shows, keeps and records a tip (count, not text), each AI error's notice, an empty answer, one question at a time while the user decides, the last tip shown again, no AI in this Tilefold, Japanese |
@@ -270,6 +281,7 @@ Run with `npm test` (654 tests in 29 files, all passing on 2026-10-13).
 ## Known blockers
 
 - Tilefold 0.1.6, which adds tile networking, keys, sign-ins and AI, is being released but is not on the update server yet (it still offers 0.1.5 as of 2026-10-13). Service Status, GitHub Inbox, Shell Tips and Tuneboard need it, and none of them has run in a real Tilefold yet: their tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13. Tuneboard's sign-in has not been tried against a real Spotify account, and Shell Tips has not asked the real Claude.
+- Orbit Guard, Brickfold and Girder Jump have been played only against the fake host and checked as rendered pictures; how they feel in a real Tilefold (speeds, jump timing, how shortcut auto-repeat moves the paddle and cannon) is still to be tried and tuned.
 - Tile Tools 0.2.0 (the `tf` types, the docs and the new examples) is prepared in this repository but not published; npm still has 0.1.0.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`); a CI workflow with trusted publishing and provenance is planned.

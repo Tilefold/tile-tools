@@ -1,0 +1,14 @@
+{
+  "id": "example.girder-jump",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "window.overlay": "to draw the game board and its buttons in the corner of your pane"
+    },
+    {
+      "sound.play": "for short retro sounds when you jump a crate or reach the beacon (turn Sounds off in its settings)"
+    }
+  ]
+}
