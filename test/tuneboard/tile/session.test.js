@@ -101,6 +101,7 @@ describe("session states", () => {
 
   for (const [code, state] of [
     ["auth", "signed-out"],
+    ["denied", "denied"],
     ["no-device", "no-device"],
     ["network", "error"],
     ["server", "error"],
@@ -141,7 +142,7 @@ describe("session states", () => {
   });
 
   it("covers every state in the list", () => {
-    expect(STATES).toHaveLength(8);
+    expect(STATES).toHaveLength(9);
     for (const s of STATES) expect(TONE[s]).toBeDefined();
   });
 });
@@ -394,6 +395,7 @@ describe("view", () => {
 
   for (const status of [
     "no-network",
+    "denied",
     "signed-out",
     "connecting",
     "no-device",

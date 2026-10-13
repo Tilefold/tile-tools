@@ -26,7 +26,8 @@ export const ACTIONS = Object.freeze([
   "control.refresh",
   "state.change",
   "auth.failed",
-  "auth.rotated",
+  "auth.connected",
+  "auth.legacy-cleared",
 ]);
 
 /**

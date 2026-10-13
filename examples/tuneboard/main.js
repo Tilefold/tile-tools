@@ -11,8 +11,12 @@
  * Tilefold draws the card as an overlay (permission window.overlay), so
  * the tile never sees your typing or your terminal.
  *
- * Talking to Spotify needs network access, which Tilefold does not grant
- * tiles yet; until it does, the card says so and nothing is sent anywhere.
+ * It talks to Spotify through Tilefold (`tf.net.fetch`, permission
+ * net:api.spotify.com). The user signs in to Spotify under Keys on the
+ * tile's card in Settings → Tiles, with their own Spotify app; Tilefold
+ * keeps the token in the system keychain and adds it to each request, so
+ * the tile never sees it. On a Tilefold without these, the card says so
+ * and nothing is sent anywhere.
  *
  * This entry registers the settings, then hands over to the tile code
  * with the Spotify client plugged in. Built into main.js with
@@ -32,6 +36,27 @@ var SpotifyError = class extends Error {
 function networkError(cause) {
   return new SpotifyError("network", "Could not reach Spotify", { cause });
 }
+var HOST_CODES = {
+  CredentialMissingError: "auth",
+  // The user hasn't allowed Spotify's host, or Tilefold refused the request:
+  // nothing reached Spotify, so this is not a Spotify failure.
+  PermissionDeniedError: "denied",
+  NetworkPolicyError: "denied",
+  RateLimitError: "rate-limit",
+  TimeoutError: "network",
+  NetworkError: "network",
+  TooLargeError: "server"
+};
+function hostError(err) {
+  const code = err && typeof err.name === "string" ? HOST_CODES[err.name] : void 0;
+  if (!code) return null;
+  return new SpotifyError(code, String(err.message || err.name), { cause: err });
+}
+function header(headers, name) {
+  if (!headers) return void 0;
+  if (typeof headers.get === "function") return headers.get(name) ?? void 0;
+  return headers[name.toLowerCase()];
+}
 function retryAfterMs(value, now) {
   if (!value) return void 0;
   const seconds = Number(value);
@@ -39,7 +64,7 @@ function retryAfterMs(value, now) {
   const date = Date.parse(value);
   return Number.isFinite(date) ? Math.max(0, date - now()) : void 0;
 }
-async function responseError(response, { tokenEndpoint = false, now = Date.now } = {}) {
+async function responseError(response, { now = Date.now } = {}) {
   let body;
   try {
     body = await response.json();
@@ -51,91 +76,20 @@ async function responseError(response, { tokenEndpoint = false, now = Date.now }
   const message = body?.error_description || detail?.message || "Spotify request failed";
   const status = response.status;
   let code = "unknown";
-  if (reason === "invalid_grant" || tokenEndpoint && status === 400 || status === 401)
-    code = "auth";
+  if (status === 401) code = "auth";
   else if (status === 403 && reason === "PREMIUM_REQUIRED") code = "premium";
   else if (status === 404 && reason === "NO_ACTIVE_DEVICE") code = "no-device";
   else if (status === 429) code = "rate-limit";
   else if (status >= 500) code = "server";
   return new SpotifyError(code, message, {
     status,
-    retryAfterMs: code === "rate-limit" ? retryAfterMs(response.headers?.get?.("Retry-After"), now) : void 0
+    retryAfterMs: code === "rate-limit" ? retryAfterMs(header(response.headers, "Retry-After"), now) : void 0
   });
-}
-
-// src/spotify/tokens.js
-var TOKEN_URL = "https://accounts.spotify.com/api/token";
-function createTokenManager({
-  fetchFn,
-  clientId,
-  refreshToken,
-  now = Date.now,
-  onRefreshToken
-} = {}) {
-  if (typeof fetchFn !== "function") throw new TypeError("fetchFn is required");
-  if (!clientId || !refreshToken) throw new TypeError("clientId and refreshToken are required");
-  let currentRefreshToken = refreshToken;
-  let accessToken;
-  let expiresAt = 0;
-  let inFlight;
-  async function refresh() {
-    if (inFlight) return inFlight;
-    inFlight = (async () => {
-      let response;
-      try {
-        response = await fetchFn(TOKEN_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            grant_type: "refresh_token",
-            refresh_token: currentRefreshToken,
-            client_id: clientId
-          }).toString()
-        });
-      } catch (cause) {
-        throw networkError(cause);
-      }
-      if (!response.ok) throw await responseError(response, { tokenEndpoint: true, now });
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
-      if (!data?.access_token || !Number.isFinite(Number(data.expires_in)) || Number(data.expires_in) <= 0) {
-        throw new SpotifyError("unknown", "Spotify returned an invalid token response");
-      }
-      if (data.refresh_token && data.refresh_token !== currentRefreshToken) {
-        currentRefreshToken = data.refresh_token;
-        onRefreshToken?.(currentRefreshToken);
-      }
-      accessToken = data.access_token;
-      expiresAt = now() + Number(data.expires_in) * 1e3;
-      return accessToken;
-    })();
-    try {
-      return await inFlight;
-    } finally {
-      inFlight = void 0;
-    }
-  }
-  function getAccessToken() {
-    if (accessToken && now() < expiresAt - 6e4) return Promise.resolve(accessToken);
-    return refresh();
-  }
-  function invalidateAccessToken(staleToken) {
-    if (accessToken === staleToken) expiresAt = 0;
-  }
-  return {
-    getAccessToken,
-    invalidateAccessToken,
-    refresh,
-    getRefreshToken: () => currentRefreshToken
-  };
 }
 
 // src/spotify/client.js
 var PLAYER_URL = "https://api.spotify.com/v1/me/player";
+var AUTH_NAME = "spotify";
 function playbackModel(data) {
   const item = data.item;
   return {
@@ -152,42 +106,27 @@ function playbackModel(data) {
     repeat: data.repeat_state ?? "off"
   };
 }
-function createSpotify({
-  fetchFn,
-  clientId,
-  refreshToken,
-  now = Date.now,
-  onRefreshToken
-} = {}) {
-  const tokens = createTokenManager({ fetchFn, clientId, refreshToken, now, onRefreshToken });
+function createSpotify({ fetchFn, now = Date.now } = {}) {
+  if (typeof fetchFn !== "function") throw new TypeError("fetchFn is required");
   async function request(path = "", { method = "GET", query, body } = {}) {
     const url = new URL(PLAYER_URL + path);
     if (query)
       for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
-    let token = await tokens.getAccessToken();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const headers = { Authorization: `Bearer ${token}` };
-      if (body !== void 0) headers["Content-Type"] = "application/json";
-      let response;
-      try {
-        response = await fetchFn(url.toString(), {
-          method,
-          headers,
-          ...body === void 0 ? {} : { body: JSON.stringify(body) }
-        });
-      } catch (cause) {
-        throw networkError(cause);
-      }
-      if (response.status === 401 && attempt === 0) {
-        tokens.invalidateAccessToken(token);
-        token = await tokens.getAccessToken();
-        continue;
-      }
-      if (!response.ok) throw await responseError(response, { now });
-      if (response.status === 204) return null;
-      if (method === "GET") return response.json();
-      return void 0;
+    const init = { method, auth: AUTH_NAME };
+    if (body !== void 0) {
+      init.headers = { "content-type": "application/json" };
+      init.body = JSON.stringify(body);
     }
+    let response;
+    try {
+      response = await fetchFn(url.toString(), init);
+    } catch (cause) {
+      throw hostError(cause) ?? networkError(cause);
+    }
+    if (!response.ok) throw await responseError(response, { now });
+    if (response.status === 204) return null;
+    if (method === "GET") return response.json();
+    return void 0;
   }
   const nonnegativeMs = (value) => {
     if (!Number.isSafeInteger(value) || value < 0)
@@ -454,8 +393,6 @@ var CORNER_LABELS = {
   "top-left": "setting-corner-top-left"
 };
 var SETTINGS = [
-  { key: "clientId", default: "", label: "setting-client-id" },
-  { key: "refreshToken", default: "", label: "setting-refresh-token" },
   {
     key: "size",
     default: "medium",
@@ -474,16 +411,12 @@ var SETTINGS = [
   { key: "poll", default: true, label: "setting-poll" }
 ];
 var LAYOUT_KEYS = ["size", "corner"];
-var ACCOUNT_KEYS = ["clientId", "refreshToken"];
 function registerSettings(tf) {
   for (const s of SETTINGS) {
     const options = s.choices ? { choices: s.choices.map((c) => ({ value: c.value, label: tf.t(c.label) })) } : void 0;
     if (options) tf.setting(s.key, s.default, tf.t(s.label), options);
     else tf.setting(s.key, s.default, tf.t(s.label));
   }
-}
-function cleanText(value) {
-  return typeof value === "string" ? value.trim() : "";
 }
 function readSettings(settings) {
   const get = (key) => {
@@ -495,8 +428,6 @@ function readSettings(settings) {
   };
   const corner = get("corner");
   return {
-    clientId: cleanText(get("clientId")),
-    refreshToken: cleanText(get("refreshToken")),
     size: get("size") === "small" ? "small" : "medium",
     corner: CORNERS.includes(
       /** @type {string} */
@@ -521,7 +452,8 @@ var ACTIONS = Object.freeze([
   "control.refresh",
   "state.change",
   "auth.failed",
-  "auth.rotated"
+  "auth.connected",
+  "auth.legacy-cleared"
 ]);
 var DETAIL_KEYS = Object.freeze(["from", "to", "volume", "ok", "code", "via"]);
 function cleanDetails(details) {
@@ -679,6 +611,7 @@ function createPoller(o) {
 // src/tile/session.js
 var STATES = Object.freeze([
   "no-network",
+  "denied",
   "signed-out",
   "connecting",
   "no-device",
@@ -751,6 +684,9 @@ function createSession(o = {}) {
     } else if (code === "no-device") {
       playback = null;
       go("no-device");
+    } else if (code === "denied") {
+      playback = null;
+      go("denied");
     } else if (code === "rate-limit") {
       const after = Number(err && err.retryAfterMs);
       retryAfter = Number.isFinite(after) && after > 0 ? after : POLL_MS * 2;
@@ -856,6 +792,7 @@ function createSession(o = {}) {
     nextDelay() {
       if (!client || status === "signed-out" || status === "premium") return null;
       if (retryAfter !== null) return Math.max(retryAfter, POLL_MS);
+      if (status === "denied") return MAX_BACKOFF_MS;
       if (status === "error")
         return Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** Math.max(0, failures - 1));
       return POLL_MS;
@@ -877,15 +814,6 @@ function createSession(o = {}) {
 
 // src/tile/store.js
 var KEYS = { visible: "visible", auth: "auth" };
-var AUTH_VERSION = 1;
-function fingerprint(text) {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h.toString(16).padStart(8, "0");
-}
 function createStore(tf) {
   const read = async (key) => {
     try {
@@ -920,32 +848,13 @@ function createStore(tf) {
       return write(KEYS.visible, Boolean(on));
     },
     /**
-     * The refresh token to sign in with: the saved newer one when it grew
-     * from the token now in Settings, else the one in Settings itself.
-     *
-     * @param {string} pasted The refresh token from Settings ("" for none).
-     * @returns {Promise<string>}
+     * Overwrites a refresh token an earlier version saved, if there is one.
+     * Returns true when there was one to clear.
      */
-    async refreshToken(pasted) {
-      if (!pasted) return "";
-      const saved = await read(KEYS.auth);
-      if (saved && typeof saved === "object" && saved.v === AUTH_VERSION && saved.seed === fingerprint(pasted) && typeof saved.token === "string" && saved.token) {
-        return saved.token;
-      }
-      return pasted;
-    },
-    /**
-     * Saves a newer refresh token that grew from the pasted one.
-     *
-     * @param {string} pasted The refresh token from Settings.
-     * @param {string} token The newer token Spotify returned.
-     */
-    async saveRefreshToken(pasted, token) {
-      return write(KEYS.auth, { v: AUTH_VERSION, seed: fingerprint(pasted), token: String(token) });
-    },
-    /** Forgets the saved token (overwritten with null; the key stays). */
-    async forgetRefreshToken() {
-      return write(KEYS.auth, null);
+    async clearLegacyAuth() {
+      if (await read(KEYS.auth) === null) return false;
+      await write(KEYS.auth, null);
+      return true;
     }
   };
 }
@@ -973,6 +882,7 @@ function findTransport(tf) {
 var CARD_ID = "card";
 var STATE_TEXT = {
   "no-network": ["state-no-network", "state-no-network-hint"],
+  denied: ["state-denied", "state-denied-hint"],
   "signed-out": ["state-signed-out", "state-signed-out-hint"],
   connecting: ["state-connecting", "state-connecting-hint"],
   "no-device": ["state-no-device", "state-no-device-hint"],
@@ -983,6 +893,7 @@ var buttonId = (id) => `btn-${id}`;
 var FIELDS = ["image", "x", "y", "w", "h", "label", "hit", "cursor", "opacity"];
 var TONE = Object.freeze({
   "no-network": "warn",
+  denied: "warn",
   "signed-out": "info",
   connecting: "info",
   "no-device": "info",
@@ -1083,6 +994,9 @@ function actionForClick(itemId) {
 // src/tile/run.js
 var CLOCK_MS = 1e3;
 var CONFIRM_MS = 800;
+var SIGN_IN_CHECK_MS = 5e3;
+var AUTH_RETRY_MS = 6e4;
+var SIGN_IN = "spotify";
 var CONTROL_ACTION = {
   play: "control.play",
   pause: "control.pause",
@@ -1155,9 +1069,10 @@ function runTuneboard(tf, deps = {}) {
     onState: (from, to) => {
       trail.record("state.change", { from, to });
       if (to === "signed-out" && session.lastCode === "auth") {
+        authFailedAt = now();
         trail.record("auth.failed", { code: "auth" });
-        void store.forgetRefreshToken();
       }
+      updateSignInCheck();
     }
   });
   const poller = createPoller({
@@ -1178,31 +1093,27 @@ function runTuneboard(tf, deps = {}) {
     }
   }
   let connecting = null;
+  const signedIn = async () => {
+    try {
+      return Boolean(tf.auth && typeof tf.auth.has === "function" && await tf.auth.has(SIGN_IN));
+    } catch {
+      return false;
+    }
+  };
   const connect = () => {
     connecting = (async () => {
       poller.stop();
-      const s = settings();
       const fetchFn = findTransport(tf);
-      if (!fetchFn || typeof deps.createSpotify !== "function") {
+      if (!fetchFn || typeof deps.createSpotify !== "function" || !tf.auth) {
         session.setClient(null, "no-network");
         return;
       }
-      if (!s.clientId || !s.refreshToken) {
+      if (!await signedIn()) {
         session.setClient(null, "signed-out");
         return;
       }
-      const refreshToken = await store.refreshToken(s.refreshToken);
-      const client = deps.createSpotify({
-        fetchFn,
-        clientId: s.clientId,
-        refreshToken,
-        now,
-        onRefreshToken: (token) => {
-          void store.saveRefreshToken(s.refreshToken, token);
-          trail.record("auth.rotated", {});
-        }
-      });
-      session.setClient(client);
+      session.setClient(deps.createSpotify({ fetchFn, now }));
+      trail.record("auth.connected", {});
       if (!poller.running) await session.refresh();
     })().catch((err) => {
       trail.error(err);
@@ -1210,7 +1121,27 @@ function runTuneboard(tf, deps = {}) {
     });
     return connecting;
   };
-  const ensureConnected = () => connecting ?? connect();
+  const ensureConnected = () => connecting ?? (connecting = (async () => {
+    if (await store.clearLegacyAuth()) trail.record("auth.legacy-cleared", {});
+    await connect();
+  })());
+  let authFailedAt = 0;
+  let signInCheck = null;
+  function updateSignInCheck() {
+    const wanted = visible && session.status === "signed-out";
+    if (wanted && signInCheck === null) {
+      signInCheck = setInterval(() => {
+        void (async () => {
+          if (session.status !== "signed-out") return;
+          if (authFailedAt && now() - authFailedAt < AUTH_RETRY_MS) return;
+          if (await signedIn()) await connect();
+        })().catch((err) => trail.error(err));
+      }, SIGN_IN_CHECK_MS);
+    } else if (!wanted && signInCheck !== null) {
+      clearInterval(signInCheck);
+      signInCheck = null;
+    }
+  }
   const show = async () => {
     visible = true;
     shown = null;
@@ -1221,6 +1152,7 @@ function runTuneboard(tf, deps = {}) {
     }
     await store.setVisible(true);
     trail.record("view.show", {});
+    updateSignInCheck();
     updateTimers();
     await draw();
     updateTimers();
@@ -1228,6 +1160,7 @@ function runTuneboard(tf, deps = {}) {
   const hide = async () => {
     visible = false;
     shown = null;
+    updateSignInCheck();
     updateTimers();
     await tf.overlay.hide();
     await store.setVisible(false);
@@ -1311,7 +1244,6 @@ function runTuneboard(tf, deps = {}) {
     "setting.changed",
     background(async (e) => {
       const key = e && e.key;
-      if (ACCOUNT_KEYS.includes(key)) await connect();
       if (LAYOUT_KEYS.includes(key) && visible) {
         try {
           layout = await tf.overlay.layout();

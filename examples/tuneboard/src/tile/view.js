@@ -24,6 +24,7 @@ export const CARD_ID = "card";
 /** Title and hint for each status card, spelled out so the keys can be found. */
 const STATE_TEXT = {
   "no-network": ["state-no-network", "state-no-network-hint"],
+  denied: ["state-denied", "state-denied-hint"],
   "signed-out": ["state-signed-out", "state-signed-out-hint"],
   connecting: ["state-connecting", "state-connecting-hint"],
   "no-device": ["state-no-device", "state-no-device-hint"],
@@ -39,6 +40,7 @@ const FIELDS = ["image", "x", "y", "w", "h", "label", "hit", "cursor", "opacity"
 /** The tone of each state's message card. */
 export const TONE = Object.freeze({
   "no-network": "warn",
+  denied: "warn",
   "signed-out": "info",
   connecting: "info",
   "no-device": "info",

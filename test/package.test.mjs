@@ -37,6 +37,7 @@ describe("package.json", () => {
       pkg.bin["tilefold-tile"],
       pkg.exports["."].default,
       pkg.exports["."].types,
+      pkg.exports["./tf"].types,
       pkg.types,
     ]) {
       expect(existsSync(join(ROOT, file)), file).toBe(true);
@@ -59,6 +60,7 @@ describe("package.json", () => {
       "lib/index.mjs",
       "lib/rules.mjs",
       "lib/index.d.ts",
+      "lib/tf.d.ts",
     ];
     for (const f of files) {
       const head = readFileSync(join(ROOT, f), "utf8").slice(0, 300);

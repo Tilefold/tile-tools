@@ -1,0 +1,11 @@
+{
+  "id": "example.shell-tips",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "ai.ask": "to ask Claude for one short tip on the topic you pick, with your own Anthropic key; you see each question first"
+    }
+  ]
+}

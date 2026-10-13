@@ -32,11 +32,10 @@ import {
 } from "../../../examples/tuneboard/src/tile/scene.js";
 import {
   SETTINGS,
-  cleanText,
   readSettings,
   registerSettings,
 } from "../../../examples/tuneboard/src/tile/settings.js";
-import { KEYS, createStore, fingerprint } from "../../../examples/tuneboard/src/tile/store.js";
+import { KEYS, createStore } from "../../../examples/tuneboard/src/tile/store.js";
 import { findTransport, withOk } from "../../../examples/tuneboard/src/tile/transport.js";
 import { ONE_PANE, createHost, drain } from "../support/fake-tf.js";
 
@@ -122,7 +121,7 @@ describe("settings", () => {
     const { host, tf } = createHost();
     registerSettings(tf);
     expect(host.regs.map((r) => r.key)).toEqual(SETTINGS.map((s) => s.key));
-    expect(host.regs.find((r) => r.key === "clientId")).toMatchObject({ default: "" });
+    expect(host.regs.map((r) => r.key)).toEqual(["size", "corner", "poll"]);
     expect(host.regs.find((r) => r.key === "corner").choices).toHaveLength(4);
     expect(host.regs.find((r) => r.key === "size").choices[1]).toEqual({
       value: "small",
@@ -130,23 +129,13 @@ describe("settings", () => {
     });
   });
 
-  it("trims pasted text and ignores anything that is not text", () => {
-    expect(cleanText("  abc \n")).toBe("abc");
-    expect(cleanText(42)).toBe("");
-    expect(cleanText(undefined)).toBe("");
-  });
-
   it("reads clean values, falling back for odd ones", () => {
     const values = {
-      clientId: " id ",
-      refreshToken: 7,
       size: "giant",
       corner: "nowhere",
       poll: "yes",
     };
     expect(readSettings({ get: (k) => values[k] })).toEqual({
-      clientId: "id",
-      refreshToken: "",
       size: "medium",
       corner: "bottom-right",
       poll: true,
@@ -167,7 +156,7 @@ describe("settings", () => {
           throw new Error("x");
         },
       }),
-    ).toMatchObject({ clientId: "", poll: true });
+    ).toEqual({ size: "medium", corner: "bottom-right", poll: true });
   });
 });
 
@@ -243,12 +232,6 @@ describe("transport", () => {
 });
 
 describe("store", () => {
-  it("fingerprints text stably and differently", () => {
-    expect(fingerprint("abc")).toBe(fingerprint("abc"));
-    expect(fingerprint("abc")).not.toBe(fingerprint("abd"));
-    expect(fingerprint("")).toMatch(/^[0-9a-f]{8}$/);
-  });
-
   it("remembers visibility, hidden by default", async () => {
     const { host, tf } = createHost();
     const store = createStore(tf);
@@ -258,44 +241,16 @@ describe("store", () => {
     expect(await store.visible()).toBe(true);
   });
 
-  it("uses the pasted token until a rotated one is saved for it", async () => {
-    const { host, tf } = createHost();
+  it("clears a token an earlier version saved, by overwriting it with null", async () => {
+    const { host, tf } = createHost({ store: { auth: { v: 1, seed: "abcd", token: "old" } } });
     const store = createStore(tf);
-    expect(await store.refreshToken("")).toBe("");
-    expect(await store.refreshToken("pasted")).toBe("pasted");
-    await store.saveRefreshToken("pasted", "rotated");
-    expect(await store.refreshToken("pasted")).toBe("rotated");
-    // The pasted token itself is never stored, only its fingerprint.
-    expect(JSON.stringify(host.store.get(KEYS.auth))).not.toContain("pasted");
-  });
-
-  it("lets a newly pasted token win over a token saved for an old one", async () => {
-    const { tf } = createHost();
-    const store = createStore(tf);
-    await store.saveRefreshToken("old", "rotated");
-    expect(await store.refreshToken("new")).toBe("new");
-  });
-
-  it("forgets by overwriting with null, never removing the key", async () => {
-    const { host, tf } = createHost();
-    const store = createStore(tf);
-    await store.saveRefreshToken("pasted", "rotated");
-    await store.forgetRefreshToken();
+    expect(await store.clearLegacyAuth()).toBe(true);
     expect(host.store.has(KEYS.auth)).toBe(true);
     expect(host.store.get(KEYS.auth)).toBeNull();
-    expect(await store.refreshToken("pasted")).toBe("pasted");
-  });
-
-  it("ignores damaged saved records", async () => {
-    for (const bad of [
-      42,
-      "x",
-      { v: 2, seed: fingerprint("p"), token: "t" },
-      { v: 1, seed: fingerprint("p"), token: "" },
-    ]) {
-      const { tf } = createHost({ store: { auth: bad } });
-      expect(await createStore(tf).refreshToken("p")).toBe("p");
-    }
+    expect(await store.clearLegacyAuth()).toBe(false);
+    const fresh = createHost();
+    expect(await createStore(fresh.tf).clearLegacyAuth()).toBe(false);
+    expect(fresh.host.store.has(KEYS.auth)).toBe(false);
   });
 
   it("keeps working, and logs, when the store fails", async () => {
@@ -303,7 +258,7 @@ describe("store", () => {
     const store = createStore(tf);
     expect(await store.visible()).toBe(false);
     expect(await store.setVisible(true)).toBe(false);
-    expect(await store.refreshToken("p")).toBe("p");
+    expect(await store.clearLegacyAuth()).toBe(false);
     expect(host.logs.some((l) => l.includes("store write visible failed"))).toBe(true);
   });
 });
@@ -332,7 +287,8 @@ describe("activity trail", () => {
     await drain();
     expect(host.audits).toEqual([{ action: "control.next", details: { ok: true } }]);
     expect(host.logs.join("\n")).not.toContain("secret");
-    expect(ACTIONS).toContain("auth.rotated");
+    expect(ACTIONS).toEqual(expect.arrayContaining(["auth.connected", "auth.legacy-cleared"]));
+    expect(ACTIONS).not.toContain("auth.rotated");
   });
 
   it("logs errors with their code", async () => {

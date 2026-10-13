@@ -8,9 +8,10 @@
  * Runs the built main.js — the exact file Tilefold loads, with the real
  * Spotify client bundled in — against the fake Tilefold host and a fake
  * Spotify Web API: it registers everything up front, sends nothing
- * without a network, signs in and shows the track, plays, pauses, skips
- * and changes the volume with the right requests, keeps a rotated token
- * across a restart, handles refused sign-ins, Premium, no device, server
+ * without a network, shows the track once the user has signed in through
+ * Tilefold (never sending a token of its own), plays, pauses, skips and
+ * changes the volume with the right requests, handles a missing or
+ * refused sign-in, Premium, no device, server
  * errors and rate limits, keeps the scene within Tilefold's limits, and
  * shows every state in every language it ships.
  */
@@ -25,9 +26,6 @@ import { SETTINGS } from "../../../examples/tuneboard/src/tile/settings.js";
 import { CARD_ID, buttonId } from "../../../examples/tuneboard/src/tile/view.js";
 import { createFakeApi } from "../support/fake-api.js";
 import { ROOT, createHost, drain, messagesOf } from "../support/fake-tf.js";
-
-/** Signed-in settings. */
-const SIGNED_IN = { clientId: "cid-123", refreshToken: "pasted-token" };
 
 /** Gives every start its own module instance, like a fresh worker. */
 let starts = 0;
@@ -44,7 +42,8 @@ async function startBuilt(opts = {}) {
   const { host, tf } = createHost({
     net: opts.net ?? true,
     fetch: opts.fetch ?? api.fetch,
-    settings: opts.settings ?? SIGNED_IN,
+    settings: opts.settings ?? {},
+    signedIn: api.signedIn,
     store: opts.store,
     locale: opts.locale,
   });
@@ -109,17 +108,17 @@ describe("built main.js", () => {
     expect(api.log).toHaveLength(0);
   });
 
-  it("signs in, shows the track and only talks to Spotify", async () => {
+  it("shows the track once signed in, and only talks to Spotify's API", async () => {
     const { host, api } = await startBuilt();
     await host.command("toggle");
     expect(card(host)).toContain("Clair de Lune");
     expect(card(host)).toContain("Claude Debussy");
     expectWithinLimits(host);
-    const token = api.log[0];
-    expect(token).toMatchObject({ method: "POST", url: "https://accounts.spotify.com/api/token" });
-    expect(new URLSearchParams(token.body).get("client_id")).toBe("cid-123");
-    for (const r of api.log) expect(new URL(r.url).host).toMatch(/^(accounts|api)\.spotify\.com$/);
-    expect(api.issued).toBe(1);
+    for (const r of api.log) {
+      expect(new URL(r.url).host).toBe("api.spotify.com");
+      expect(r.auth).toBe("spotify");
+      expect(JSON.stringify(r.headers ?? {})).not.toMatch(/authorization|bearer/i);
+    }
   });
 
   it("plays, pauses, skips and changes the volume", async () => {
@@ -140,27 +139,20 @@ describe("built main.js", () => {
     expectWithinLimits(host);
   });
 
-  it("keeps polling on one access token", async () => {
-    const { host, api } = await startBuilt();
+  it("asks to sign in, sending nothing, until the user signs in in Settings", async () => {
+    const api = createFakeApi({ signedIn: false });
+    const { host } = await startBuilt({ api });
     await host.command("toggle");
-    await host.advance(POLL_MS * 5);
-    expect(calls(api, "GET ")).toBeGreaterThanOrEqual(6);
-    expect(api.issued).toBe(1);
-  });
-
-  it("keeps a rotated refresh token and signs in with it after a restart", async () => {
-    const api = createFakeApi({ rotate: true });
-    const first = await startBuilt({ api });
-    await first.host.command("toggle");
-    expect(first.host.actions()).toContain("auth.rotated");
-    // The pasted token no longer works at Spotify; the saved rotated one does.
-    const again = await startBuilt({ api, store: Object.fromEntries(first.host.store) });
-    await again.host.command("toggle");
-    expect(card(again.host)).toContain("Clair de Lune");
+    expect(card(host)).toContain("Not signed in to Spotify");
+    expect(api.log).toHaveLength(0);
+    api.signedIn = true;
+    host.signedIn = true;
+    await host.advance(5000);
+    expect(card(host)).toContain("Clair de Lune");
   });
 
   it("asks to sign in again when Spotify refuses the token", async () => {
-    const api = createFakeApi({ refreshTokens: ["something-else"] });
+    const api = createFakeApi({ tokenValid: false });
     const { host } = await startBuilt({ api });
     await host.command("toggle");
     expect(card(host)).toContain("Not signed in to Spotify");
@@ -168,6 +160,15 @@ describe("built main.js", () => {
     const n = api.log.length;
     await host.advance(POLL_MS * 4);
     expect(api.log.length).toBe(n);
+  });
+
+  it("shows signed out when Tilefold has lost the sign-in", async () => {
+    const api = createFakeApi();
+    const { host } = await startBuilt({ api });
+    await host.command("toggle");
+    api.signedIn = false;
+    await host.advance(POLL_MS);
+    expect(card(host)).toContain("Not signed in to Spotify");
   });
 
   it("says Premium is needed when a control is refused", async () => {
@@ -191,7 +192,7 @@ describe("built main.js", () => {
     const fetch = async (url, init) => {
       if (failing && url.startsWith("https://api.spotify.com")) {
         api.log.push({ method: init.method ?? "GET", url });
-        return { status: 503, headers: { get: () => null }, json: async () => ({}) };
+        return { status: 503, headers: {}, json: async () => ({}) };
       }
       return api.fetch(url, init);
     };
@@ -226,10 +227,10 @@ describe("every state in every language", () => {
   /** Ways to reach each state with the fake API. */
   const SCENARIOS = {
     "no-network": { net: false },
-    "signed-out": { settings: {} },
+    "signed-out": { api: () => createFakeApi({ signedIn: false }) },
     "no-device": { api: () => createFakeApi({ item: null }) },
     error: {
-      fetch: async () => ({ status: 500, headers: { get: () => null }, json: async () => ({}) }),
+      fetch: async () => ({ status: 500, headers: {}, json: async () => ({}) }),
     },
     playing: {},
   };

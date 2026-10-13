@@ -3,14 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Public entry point for Spotify authorization and playback helpers.
+ * Public entry point for the Spotify playback client (sign-in is Tilefold's).
  */
-export {
-  createCodeVerifier,
-  createCodeChallenge,
-  buildAuthorizeUrl,
-  SPOTIFY_SCOPES,
-} from "./pkce.js";
-export { createTokenManager } from "./tokens.js";
-export { createSpotify } from "./client.js";
-export { SpotifyError } from "./errors.js";
+export { createSpotify, AUTH_NAME } from "./client.js";
+export { SpotifyError, hostError } from "./errors.js";

@@ -11,8 +11,12 @@
  * Tilefold draws the card as an overlay (permission window.overlay), so
  * the tile never sees your typing or your terminal.
  *
- * Talking to Spotify needs network access, which Tilefold does not grant
- * tiles yet; until it does, the card says so and nothing is sent anywhere.
+ * It talks to Spotify through Tilefold (`tf.net.fetch`, permission
+ * net:api.spotify.com). The user signs in to Spotify under Keys on the
+ * tile's card in Settings → Tiles, with their own Spotify app; Tilefold
+ * keeps the token in the system keychain and adds it to each request, so
+ * the tile never sees it. On a Tilefold without these, the card says so
+ * and nothing is sent anywhere.
  *
  * This entry registers the settings, then hands over to the tile code
  * with the Spotify client plugged in. Built into main.js with

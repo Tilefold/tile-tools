@@ -3,13 +3,18 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Thin Spotify player client. HTTP is injected so this module can run in a
- * tile worker without browser network globals and can be tested offline.
+ * Thin Spotify player client. Every request goes through the network
+ * function it is given (Tilefold's `tf.net.fetch` in the tile) and names
+ * the `spotify` sign-in, so Tilefold adds the user's token itself: the
+ * client never sees, stores or refreshes a token. A 401 means the user has
+ * to sign in again. HTTP is injected, so it is tested offline.
  */
-import { networkError, responseError } from "./errors.js";
-import { createTokenManager } from "./tokens.js";
+import { hostError, networkError, responseError } from "./errors.js";
 
 const PLAYER_URL = "https://api.spotify.com/v1/me/player";
+
+/** The sign-in the tile declares in tile.json (`auth.spotify`). */
+export const AUTH_NAME = "spotify";
 
 function playbackModel(data) {
   const item = data.item;
@@ -34,43 +39,35 @@ function playbackModel(data) {
   };
 }
 
-export function createSpotify({
-  fetchFn,
-  clientId,
-  refreshToken,
-  now = Date.now,
-  onRefreshToken,
-} = {}) {
-  const tokens = createTokenManager({ fetchFn, clientId, refreshToken, now, onRefreshToken });
+/**
+ * Creates the client.
+ *
+ * @param {{ fetchFn: (url: string, init?: object) => Promise<any>, now?: () => number }} o
+ *   `fetchFn` takes `{ method, headers, body, auth }` and resolves to a
+ *   response with `ok`, `status`, `headers` and `json()`.
+ */
+export function createSpotify({ fetchFn, now = Date.now } = {}) {
+  if (typeof fetchFn !== "function") throw new TypeError("fetchFn is required");
 
   async function request(path = "", { method = "GET", query, body } = {}) {
     const url = new URL(PLAYER_URL + path);
     if (query)
       for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
-    let token = await tokens.getAccessToken();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const headers = { Authorization: `Bearer ${token}` };
-      if (body !== undefined) headers["Content-Type"] = "application/json";
-      let response;
-      try {
-        response = await fetchFn(url.toString(), {
-          method,
-          headers,
-          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        });
-      } catch (cause) {
-        throw networkError(cause);
-      }
-      if (response.status === 401 && attempt === 0) {
-        tokens.invalidateAccessToken(token);
-        token = await tokens.getAccessToken();
-        continue;
-      }
-      if (!response.ok) throw await responseError(response, { now });
-      if (response.status === 204) return null;
-      if (method === "GET") return response.json();
-      return undefined;
+    const init = { method, auth: AUTH_NAME };
+    if (body !== undefined) {
+      init.headers = { "content-type": "application/json" };
+      init.body = JSON.stringify(body);
     }
+    let response;
+    try {
+      response = await fetchFn(url.toString(), init);
+    } catch (cause) {
+      throw hostError(cause) ?? networkError(cause);
+    }
+    if (!response.ok) throw await responseError(response, { now });
+    if (response.status === 204) return null;
+    if (method === "GET") return response.json();
+    return undefined;
   }
 
   const nonnegativeMs = (value) => {
