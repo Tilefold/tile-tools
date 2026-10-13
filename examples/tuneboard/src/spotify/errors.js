@@ -26,8 +26,10 @@ export function networkError(cause) {
 /** Tilefold's own errors, by name, and the code each means for the card. */
 const HOST_CODES = {
   CredentialMissingError: "auth",
-  PermissionDeniedError: "no-network",
-  NetworkPolicyError: "no-network",
+  // The user hasn't allowed Spotify's host, or Tilefold refused the request:
+  // nothing reached Spotify, so this is not a Spotify failure.
+  PermissionDeniedError: "denied",
+  NetworkPolicyError: "denied",
   RateLimitError: "rate-limit",
   TimeoutError: "network",
   NetworkError: "network",

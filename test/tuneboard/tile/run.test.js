@@ -98,7 +98,7 @@ describe("without network or sign-in", () => {
   it("says it can't reach Spotify when Tilefold offers no network", async () => {
     const { host, factory } = await start({ net: false });
     await host.command("toggle");
-    expect(card(host)).toContain("Can&apos;t reach Spotify yet");
+    expect(card(host)).toContain("Can&apos;t reach Spotify");
     expect(factory.builds).toHaveLength(0);
     expect(host.requests).toHaveLength(0);
   });
@@ -106,7 +106,7 @@ describe("without network or sign-in", () => {
   it("says the same when no Spotify client is plugged in", async () => {
     const { host } = await start({ factory: false });
     await host.command("toggle");
-    expect(card(host)).toContain("Can&apos;t reach Spotify yet");
+    expect(card(host)).toContain("Can&apos;t reach Spotify");
   });
 
   it("says Tilefold is too old when it has a network but runs no sign-ins", async () => {

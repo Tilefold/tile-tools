@@ -13,6 +13,8 @@
  * States:
  *
  *   no-network  Tilefold offers tiles no network (no client at all)
+ *   denied      Tilefold refused the request (the user hasn't allowed
+ *               Spotify's host); retried slowly, in case they allow it
  *   signed-out  no client id or refresh token, or Spotify refused them
  *   connecting  signed in, waiting for the first answer
  *   no-device   Spotify answered but nothing is playing anywhere
@@ -23,13 +25,14 @@
  *
  * `nextDelay()` tells the poller how long to wait: the normal interval
  * after an answer, Spotify's Retry-After when rate-limited, a doubling
- * back-off after errors, and null (stop) when only the user can fix it
- * (signed out, Premium needed).
+ * back-off after errors, a slow retry while refused, and null (stop) when
+ * only the user can fix it (signed out, Premium needed).
  */
 
 /** All states. */
 export const STATES = Object.freeze([
   "no-network",
+  "denied",
   "signed-out",
   "connecting",
   "no-device",
@@ -148,6 +151,9 @@ export function createSession(o = {}) {
     } else if (code === "no-device") {
       playback = null;
       go("no-device");
+    } else if (code === "denied") {
+      playback = null;
+      go("denied");
     } else if (code === "rate-limit") {
       const after = Number(err && err.retryAfterMs);
       retryAfter = Number.isFinite(after) && after > 0 ? after : POLL_MS * 2;
@@ -255,6 +261,8 @@ export function createSession(o = {}) {
     nextDelay() {
       if (!client || status === "signed-out" || status === "premium") return null;
       if (retryAfter !== null) return Math.max(retryAfter, POLL_MS);
+      // Allowing the host again needs the user; check now and then, not often.
+      if (status === "denied") return MAX_BACKOFF_MS;
       if (status === "error")
         return Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** Math.max(0, failures - 1));
       return POLL_MS;

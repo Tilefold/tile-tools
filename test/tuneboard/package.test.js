@@ -142,7 +142,15 @@ describe("messages", () => {
   });
 
   it("has a title and a hint for every state without a track", () => {
-    for (const s of ["no-network", "signed-out", "connecting", "no-device", "premium", "error"]) {
+    for (const s of [
+      "no-network",
+      "denied",
+      "signed-out",
+      "connecting",
+      "no-device",
+      "premium",
+      "error",
+    ]) {
       expect(en.has(`state-${s}`), s).toBe(true);
       expect(en.has(`state-${s}-hint`), s).toBe(true);
     }

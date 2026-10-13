@@ -38,8 +38,10 @@ function networkError(cause) {
 }
 var HOST_CODES = {
   CredentialMissingError: "auth",
-  PermissionDeniedError: "no-network",
-  NetworkPolicyError: "no-network",
+  // The user hasn't allowed Spotify's host, or Tilefold refused the request:
+  // nothing reached Spotify, so this is not a Spotify failure.
+  PermissionDeniedError: "denied",
+  NetworkPolicyError: "denied",
   RateLimitError: "rate-limit",
   TimeoutError: "network",
   NetworkError: "network",
@@ -609,6 +611,7 @@ function createPoller(o) {
 // src/tile/session.js
 var STATES = Object.freeze([
   "no-network",
+  "denied",
   "signed-out",
   "connecting",
   "no-device",
@@ -681,6 +684,9 @@ function createSession(o = {}) {
     } else if (code === "no-device") {
       playback = null;
       go("no-device");
+    } else if (code === "denied") {
+      playback = null;
+      go("denied");
     } else if (code === "rate-limit") {
       const after = Number(err && err.retryAfterMs);
       retryAfter = Number.isFinite(after) && after > 0 ? after : POLL_MS * 2;
@@ -786,6 +792,7 @@ function createSession(o = {}) {
     nextDelay() {
       if (!client || status === "signed-out" || status === "premium") return null;
       if (retryAfter !== null) return Math.max(retryAfter, POLL_MS);
+      if (status === "denied") return MAX_BACKOFF_MS;
       if (status === "error")
         return Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** Math.max(0, failures - 1));
       return POLL_MS;
@@ -875,6 +882,7 @@ function findTransport(tf) {
 var CARD_ID = "card";
 var STATE_TEXT = {
   "no-network": ["state-no-network", "state-no-network-hint"],
+  denied: ["state-denied", "state-denied-hint"],
   "signed-out": ["state-signed-out", "state-signed-out-hint"],
   connecting: ["state-connecting", "state-connecting-hint"],
   "no-device": ["state-no-device", "state-no-device-hint"],
@@ -885,6 +893,7 @@ var buttonId = (id) => `btn-${id}`;
 var FIELDS = ["image", "x", "y", "w", "h", "label", "hit", "cursor", "opacity"];
 var TONE = Object.freeze({
   "no-network": "warn",
+  denied: "warn",
   "signed-out": "info",
   connecting: "info",
   "no-device": "info",

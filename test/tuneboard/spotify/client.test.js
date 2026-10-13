@@ -141,8 +141,8 @@ describe("errors", () => {
     };
     const cases = [
       ["CredentialMissingError", "auth"],
-      ["PermissionDeniedError", "no-network"],
-      ["NetworkPolicyError", "no-network"],
+      ["PermissionDeniedError", "denied"],
+      ["NetworkPolicyError", "denied"],
       ["RateLimitError", "rate-limit"],
       ["TimeoutError", "network"],
       ["NetworkError", "network"],
