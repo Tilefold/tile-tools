@@ -83,6 +83,7 @@ describe("examples", () => {
       "tilefall",
       "tilefold-pet",
       "tuneboard",
+      "weather-card",
       "with-npm-package",
     ]);
   });
