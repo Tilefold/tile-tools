@@ -32,7 +32,7 @@ Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types 
 | Source | github.com/Tilefold/tile-tools |
 | Bundler | esbuild 0.28 |
 | Node.js | 22 or later |
-| Tile API described | Tilefold 0.1.6 (tile networking, keys, sign-ins and AI) |
+| Tile API described | Tilefold 0.1.7 (tile networking, keys, sign-ins, AI and tile pages) |
 
 ## Consuming it
 
@@ -77,7 +77,7 @@ export default (tf) => {
 };
 ```
 
-What a tile can do in Tilefold 0.1.6:
+What a tile can do in Tilefold 0.1.7:
 
 | To | Call | Permission |
 |---|---|---|
@@ -94,6 +94,7 @@ What a tile can do in Tilefold 0.1.6:
 | Call web APIs | `tf.net.fetch` | `net:<host>` |
 | Use an API key or a sign-in, without ever seeing it | `auth` in tile.json, `tf.net.fetch(url, { auth })`, `tf.auth.has` | `net:<host>` |
 | Ask Claude with the user's own key | `tf.ai.ask` | `ai.ask` |
+| Show a web page of its own, in a window or hidden, and talk to it | `tf.page`, `window.tilefold` in the page | `page`, `script:<host>` |
 
 The rules that matter most: register commands, settings and listeners at the top of the function, before any `await`; return from handlers quickly (half a second for events, ten seconds for commands); tell errors apart by `err.name`; translate everything the user reads; and never put a key or token in your code.
 
@@ -290,8 +291,8 @@ Run with `npm test` (1030 tests in 48 files, all passing on 2026-10-13).
 
 ## Known blockers
 
-- Tilefold 0.1.6 (tile networking, keys, sign-ins and AI) is on the update server. Service Status, GitHub Inbox, Shell Tips, Tuneboard, Weather Card and Pipeline Board need it. All of them load and start in Tilefold 0.1.6's own tile loader, but only Tuneboard has talked to its real service from a running Tilefold (its sign-in, playing in a tile page, the Library and the playlist panel, against a real Spotify account in a Tilefold development build on 2026-10-13): the others' behaviour tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13. Pipeline Board's sign-in has not been tried against a real GitLab account, and Shell Tips and Weather Card have not asked the real Claude.
-- Tuneboard 0.3.0 and later need Tilefold 0.1.7, which adds tile pages: Tilefold 0.1.6 refuses their `page` sign-in field. On 0.1.6, use Tuneboard 0.2.1 from this repository's history (commit `9ddcd9d`). Tile pages have run only in Tilefold development builds so far.
+- Tilefold 0.1.7 is on the update server (2026-10-14). Service Status, GitHub Inbox, Shell Tips, Weather Card and Pipeline Board need 0.1.6 or later (tile networking, keys, sign-ins and AI), and Tuneboard 0.3.0 and later need 0.1.7 (tile pages). All of them load and start in Tilefold's own tile loader, but only Tuneboard has talked to its real service from a running Tilefold (its sign-in, playing in a tile page, the Library and the playlist panel, against a real Spotify account in a Tilefold development build on 2026-10-13): the others' behaviour tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13, and tile pages against the 0.1.7 source on 2026-10-14. Pipeline Board's sign-in has not been tried against a real GitLab account, and Shell Tips and Weather Card have not asked the real Claude.
+- On Tilefold 0.1.6, Tuneboard 0.3.0 and later don't load: 0.1.6 refuses their `page` sign-in field. Update Tilefold, or use Tuneboard 0.2.1 from this repository's history (commit `9ddcd9d`).
 - Pipeline Board reads gitlab.com only. For a self-managed GitLab, copy the tile and change the addresses in its `tile.json` (`auth.gitlab` and the `net:` permission).
 - Orbit Guard, Brickfold and Girder Jump have been played only against the fake host and checked as rendered pictures; how they feel in a real Tilefold (speeds, jump timing, how shortcut auto-repeat moves the paddle and cannon) is still to be tried and tuned.
 - Tile Tools 0.2.0 (the `tf` types, the docs and the new examples) is prepared in this repository but not published; npm still has 0.1.0.
@@ -302,4 +303,4 @@ Run with `npm test` (1030 tests in 48 files, all passing on 2026-10-13).
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-10-13 by Tilefold
+Last updated: 2026-10-14 by Tilefold
