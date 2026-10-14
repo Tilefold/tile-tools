@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { bundleTile } from "../lib/bundle.mjs";
+import { bundlePage, PAGE_OUTPUT } from "../lib/page.mjs";
 import { checkMain } from "../lib/rules.mjs";
 
 const EXAMPLES = fileURLToPath(new URL("../examples/", import.meta.url));
@@ -101,6 +102,13 @@ describe("examples", () => {
       expect(warnings).toEqual([]);
       expect(readFileSync(join(dir, "main.js"), "utf8") === code).toBe(true);
       expect(checkMain(code)).toEqual([]);
+    });
+
+    it("ships page/main.js as a fresh build of page-src/, when it has one", async () => {
+      const page = await bundlePage(dir);
+      if (!page) return;
+      expect(page.warnings).toEqual([]);
+      expect(readFileSync(join(dir, PAGE_OUTPUT), "utf8") === page.code).toBe(true);
     });
 
     it("has a valid tile.json named from its strings", () => {

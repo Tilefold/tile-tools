@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and fifteen example tiles, from a few lines to four arcade games, a Spotify player, a YouTube player, a GitLab pipeline board and a weather card that asks Claude.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1128%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-15-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1149%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-15-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -121,7 +121,7 @@ Tilefold runs a tile in a sandboxed Web Worker that can't load files. Whatever y
 |---|---|
 | `tilefold-tile build [folder]` | Bundles the entry and everything it imports into `folder/main.js` (default: the current folder, which must contain `tile.json`) |
 | `build --watch` | Rebuilds on every save until Ctrl+C; a failed rebuild keeps the last good `main.js`. Then click **Reload tiles** in Tilefold |
-| `build --check` | Writes nothing; exits 1 if `main.js` is not a fresh build of its sources. Meant for CI |
+| `build --check` | Writes nothing; exits 1 if `main.js` (or `page/main.js`) is not a fresh build of its sources. Meant for CI |
 | `build --minify` | Smaller output. Readable output is the default, so people reviewing a tile can follow it |
 | `build --entry lib/start.ts` | A different entry file, relative to the tile folder |
 | `tilefold-tile validate [folder]` | Checks an existing `main.js` (hand-written or built) against Tilefold's rules |
@@ -139,6 +139,8 @@ The build:
 
 Errors name the file, line and column, for example `src/main.js:12:5: Could not resolve "./tmer.js"`.
 
+**A page script.** A tile with a `page-src/` folder also gets `page/main.js`: the build bundles `page-src/main.ts` or `page-src/main.js` and everything it imports into one plain script (no `import` left), with the entry's opening comment on top. `--check` and `--watch` cover it too. A tile page opened with a web address (`tf.page.open({ origin: "https" })`, Tilefold 0.1.9) can't load the other files of its folder, so its code has to be one script; see [Tile pages](docs/tile-pages.md).
+
 ## Tile layout
 
 ```text
@@ -150,6 +152,11 @@ my-tile/
     main.js        export default (tf) => { ... }
     timer.js
   main.js          written by the build; commit it, don't edit it
+  page-src/        optional: a tile page's code, as several files
+    main.js
+  page/            optional: the tile page Tilefold serves
+    index.html
+    main.js        written by the build from page-src/
 ```
 
 The entry exports only its default function; exporting other names is an error, because Tilefold would refuse them.
@@ -169,7 +176,7 @@ Fifteen tiles in `examples/` show the common cases, from a few lines to full til
 | `examples/github-inbox` | **An API key it never sees.** `auth` with `apiKey` (header, scheme, the one host it may go to); `tf.auth.has` before asking; `{ auth: "github" }` on the request; telling a missing token (`CredentialMissingError`) from a refused one (401/403); a count in the activity log, never titles; twelve languages | 0.1.6 | Add a GitHub token (classic, `notifications` scope) under **Keys** on its card, then run **GitHub Inbox: Check notifications** |
 | `examples/shell-tips` | **Asking Claude.** `ai.ask` and `tf.ai.ask` with a system prompt, a conversation that continues the last tip, `maxTokens` and `model: "fast"`; the user's language named in the tile's own strings; "Don't send" treated as a choice, not a failure; one question at a time; the last tip kept in `tf.store`; twelve languages | 0.1.6 | Save your Anthropic key in Settings → AI, pick a topic, run **Shell Tips: New tip** |
 | `examples/tuneboard` | **Signing in to a service.** A Spotify now-playing card with previous, play/pause, next, volume and mute buttons and shortcuts. Its `tile.json` declares a Spotify sign-in that uses the user's own Spotify app; Tilefold runs the sign-in in the browser, keeps it in the keychain and adds it to the tile's requests, so the tile never holds a token. It checks Spotify only while the card is shown. From 0.3.0, when no Spotify app is open, ▶ plays inside Tilefold through Spotify's player in a hidden tile page; from 0.4.0, **Tuneboard: Show playlists** opens the same page as a window listing your playlists as thumbnails or a list, and a click plays one; the card's ☰ button opens a playlist panel right next to it; twelve languages | 0.1.7 | Run **Tuneboard: Show or hide**; the sign-in steps are below |
-| `examples/watchpane` | **Someone else's player in a tile page.** YouTube videos in a window of the tile's own: paste a link (watch pages, youtu.be, Shorts, live, a bare id, with its start time) or pick one of the last twelve watched. The page loads YouTube's IFrame Player API with `script:www.youtube.com`, plays from www.youtube-nocookie.com in private mode, and shows thumbnails from i.ytimg.com; no key and no sign-in, and the tile never talks to YouTube itself. Every pasted link is checked before it reaches the player, the page reports YouTube's error codes in the user's words, the recent list lives in `tf.store`, and the activity log records that a video started and from where, never which one; twelve languages | 0.1.7 | Run **Watchpane: Open** (⌃⌥Y) and paste a YouTube link |
+| `examples/watchpane` | **Someone else's player in a tile page.** YouTube videos in a window of the tile's own: paste a link (watch pages, youtu.be, Shorts, live, a bare id, with its start time) or pick one of the last twelve watched. The page opens with `origin: "https"` (a web address of its own, which YouTube requires), is built from `page-src/` into one `page/main.js`, loads YouTube's IFrame Player API with `script:www.youtube.com`, plays from www.youtube-nocookie.com in private mode, and shows thumbnails from i.ytimg.com; no key and no sign-in, and the tile never talks to YouTube itself. Every pasted link is checked before it reaches the player, the page reports YouTube's error codes in the user's words, the recent list lives in `tf.store`, and the activity log records that a video started and from where, never which one; twelve languages | 0.1.9 | Run **Watchpane: Open** (⌃⌥Y) and paste a YouTube link |
 | `examples/weather-card` | **The internet and Claude together, on a card.** Today's weather in a corner of the pane from Open-Meteo, a free service with no key: two `net:` hosts (place lookup, then forecast) and no credential. With its summary turned on, each new forecast is followed by one `tf.ai.ask` with the fast model, a small `maxTokens` and the user's language; "Don't send" holds until the user refreshes by hand. It checks only while the card is shown, remembers the place and the last forecast across restarts, and tells Tilefold's refusals from the service failing; twelve languages | 0.1.6 | Set a city under **Place** in its settings, then run **Weather Card: Show or hide** (⌃⌥W) |
 | `examples/pipeline-board` | **A second sign-in, with notices.** The latest CI pipelines of a GitLab project on a card: status, branch, number and age, a ring while running. Its `tile.json` declares a GitLab sign-in with the user's own GitLab application (`read_api` only); requests name the sign-in and never carry a token. It checks every 30 seconds while a pipeline runs and every 2 minutes otherwise, notices a new sign-in within seconds, says when a pipeline it saw running finishes (recording the result, never the project), and backs off on GitLab's rate limit; twelve languages | 0.1.6 | Sign in (steps below), set **GitLab project**, run **Pipeline Board: Show or hide** (⌃⌥G) |
 | `examples/orbit-guard` | **An arcade shooter.** Rows of drones march and drop bombs while you fire from behind shields that wear away; a courier ship crosses for bonus points. Built on the shared arcade kit (below): a pure, seeded engine, the board drawn as one SVG with `<use>` symbols, a button row under it, sounds made in code, the best score in `tf.store`; twelve languages | 0.1.4 | **Orbit Guard: Show or hide** (⌃⌥I), click the board, then ⌃⌥, / ⌃⌥. to move and ⌃⌥/ to fire |
@@ -262,7 +269,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1128 tests in 51 files, all passing on 2026-10-14).
+Run with `npm test` (1149 tests in 52 files, all passing on 2026-10-14).
 
 | Area | Covers |
 |---|---|
@@ -271,6 +278,7 @@ Run with `npm test` (1128 tests in 51 files, all passing on 2026-10-14).
 | Finishing | Header and built-from line, export rewrite (multi-line and minified), legal comment kept once, named exports refused |
 | Bundling | Local imports, npm packages, TypeScript, tree-shaking, syntax and resolve errors with location, minify |
 | Commands | build writes and logs, `--check` fresh/stale/missing, folder without `tile.json`, validate, watch rebuilds and keeps the last good build |
+| Page script | `page-src/` bundled into one `page/main.js` with no imports left and the notice on top, TypeScript, tiles without `page-src/` left alone, `--check` stale page, errors with their place, `--watch` rebuilds; every example with `page-src/` ships a fresh `page/main.js` |
 | CLI | help, version, unknown command and option, extra argument, `--watch` with `--check`, named entry, stop function for a watch |
 | Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, credentials only for hosts it asks for and never with a secret), uses exactly the messages it defines, registers up front with command ids; hello greets by name, break-timer rings, stops and resumes after a restart, with-npm-package makes IDs with the bundled nanoid |
 | Example translations | Service Status, GitHub Inbox, Shell Tips, Weather Card, Pipeline Board, Watchpane, Orbit Guard, Brickfold and Girder Jump in all twelve languages: the English keys exactly, the same variables, simple lines, and GitHub, GitLab, Open-Meteo, YouTube, Claude, Tilefold, tile and game names, host names and `tf.` calls kept as they are |
@@ -293,8 +301,8 @@ Run with `npm test` (1128 tests in 51 files, all passing on 2026-10-14).
 
 ## Known blockers
 
-- Tilefold 0.1.7 is on the update server (2026-10-14). Service Status, GitHub Inbox, Shell Tips, Weather Card and Pipeline Board need 0.1.6 or later (tile networking, keys, sign-ins and AI), and Tuneboard 0.3.0 and later and Watchpane need 0.1.7 (tile pages). All of them load and start in Tilefold's own tile loader, but only Tuneboard has talked to its real service from a running Tilefold (its sign-in, playing in a tile page, the Library and the playlist panel, against a real Spotify account in a Tilefold development build on 2026-10-13): the others' behaviour tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13, and tile pages against the 0.1.7 source on 2026-10-14. Pipeline Board's sign-in has not been tried against a real GitLab account, and Shell Tips and Weather Card have not asked the real Claude.
-- Watchpane has not yet played a video in a running Tilefold. Its page loads from Tilefold's own `tilepage://` address rather than a website, and YouTube's player may refuse to play there (error 152 or 153, which Watchpane shows). If it does, the fix belongs in Tilefold's tile pages, not in the tile.
+- Tilefold 0.1.7 is on the update server (2026-10-14). Service Status, GitHub Inbox, Shell Tips, Weather Card and Pipeline Board need 0.1.6 or later (tile networking, keys, sign-ins and AI), and Tuneboard 0.3.0 and later need 0.1.7 (tile pages), and Watchpane 0.1.9 (tile pages with a web address). All of them load and start in Tilefold's own tile loader, but only Tuneboard has talked to its real service from a running Tilefold (its sign-in, playing in a tile page, the Library and the playlist panel, against a real Spotify account in a Tilefold development build on 2026-10-13): the others' behaviour tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13, and tile pages against the 0.1.7 source on 2026-10-14. Pipeline Board's sign-in has not been tried against a real GitLab account, and Shell Tips and Weather Card have not asked the real Claude.
+- Watchpane needs Tilefold 0.1.9 on macOS: it opens its page with `origin: "https"`, because YouTube's player refuses a `tilepage://` page (error 153). On 0.1.7 and 0.1.8 the page opens but YouTube shows error 153. A test app built on the same approach played a video on 2026-10-14; Watchpane itself has yet to be confirmed in a running Tilefold 0.1.9.
 - On Tilefold 0.1.6, Tuneboard 0.3.0 and later don't load: 0.1.6 refuses their `page` sign-in field. Update Tilefold, or use Tuneboard 0.2.1 from this repository's history (commit `9ddcd9d`).
 - Pipeline Board reads gitlab.com only. For a self-managed GitLab, copy the tile and change the addresses in its `tile.json` (`auth.gitlab` and the `net:` permission).
 - Orbit Guard, Brickfold and Girder Jump have been played only against the fake host and checked as rendered pictures; how they feel in a real Tilefold (speeds, jump timing, how shortcut auto-repeat moves the paddle and cannon) is still to be tried and tuned.

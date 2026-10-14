@@ -137,7 +137,7 @@ describe("Watchpane", () => {
       settings: { captions: true, private: "maybe" },
     });
     await host.command("open");
-    expect(host.page.calls).toEqual([["open", {}]]);
+    expect(host.page.calls).toEqual([["open", { origin: "https" }]]);
     expect(host.audits).toEqual([{ action: "opened", details: {} }]);
 
     await host.fromPage({ type: "hello" });
@@ -190,7 +190,7 @@ describe("Watchpane", () => {
   it("Play or pause opens a closed page, and toggles an open one", async () => {
     const host = createHost();
     await host.command("toggle");
-    expect(host.page.calls).toEqual([["open", {}]]);
+    expect(host.page.calls).toEqual([["open", { origin: "https" }]]);
     await host.command("toggle");
     expect(host.lastPost()).toEqual({ do: "toggle" });
   });
@@ -219,8 +219,8 @@ describe("Watchpane", () => {
     await host.command("open");
     await host.command("toggle");
     expect(host.toasts).toEqual([
-      "Watchpane needs Tilefold 0.1.7 or later.",
-      "Watchpane needs Tilefold 0.1.7 or later.",
+      "Watchpane needs Tilefold 0.1.9 or later.",
+      "Watchpane needs Tilefold 0.1.9 or later.",
     ]);
   });
 });

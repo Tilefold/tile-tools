@@ -11,7 +11,7 @@
  * to the top; the list never grows past MAX_RECENT, so the oldest video
  * drops off the end.
  */
-import { isVideoId } from "../../page/links.js";
+import { isVideoId } from "../../page-src/links.js";
 
 /** How many videos the list keeps. */
 export const MAX_RECENT = 12;

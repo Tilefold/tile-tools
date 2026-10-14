@@ -10,7 +10,7 @@
  * anything that isn't a YouTube video link is refused.
  */
 import { describe, expect, it } from "vitest";
-import { isVideoId, parseStart, parseVideoLink } from "../../examples/watchpane/page/links.js";
+import { isVideoId, parseStart, parseVideoLink } from "../../examples/watchpane/page-src/links.js";
 
 const ID = "dQw4w9WgXcQ";
 

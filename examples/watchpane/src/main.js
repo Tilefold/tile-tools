@@ -17,7 +17,7 @@
  *   private mode) and the thumbnails (i.ytimg.com);
  * - no keys and no sign-in: the tile never talks to YouTube itself.
  *
- * Needs Tilefold 0.1.7 or later (tile pages). Built into main.js with
+ * Needs Tilefold 0.1.9 or later (tile pages with a web address). Built into main.js with
  * `npx @tilefold/tile-tools build`.
  */
 import { runWatchpane } from "./tile/run.js";

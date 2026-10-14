@@ -22,7 +22,7 @@ import {
   started,
   statusLine,
   submit,
-} from "../../examples/watchpane/page/watch-model.js";
+} from "../../examples/watchpane/page-src/watch-model.js";
 
 const ID = "dQw4w9WgXcQ";
 const OTHER = "9bZkp7q19f0";

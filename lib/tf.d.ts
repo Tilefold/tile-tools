@@ -241,11 +241,14 @@ export interface Tf {
    * Needs page. The tile's own web page (its page/ folder) in a window of
    * its own, or hidden ({ visible: false }) for one that only plays sound;
    * with `keepRunning: true` closing its window only hides it, and an open
-   * that leaves `keepRunning` out keeps the current choice. `post` sends
-   * plain JSON to the open page. Missing on a Tilefold without tile pages.
+   * that leaves `keepRunning` out keeps the current choice. `origin: "https"`
+   * (Tilefold 0.1.9, macOS) gives the page a web address of its own, which
+   * some embedded players (YouTube's) require; the page is then one
+   * self-contained document. `post` sends plain JSON to the open page.
+   * Missing on a Tilefold without tile pages.
    */
   readonly page?: {
-    open(options?: { visible?: boolean; keepRunning?: boolean }): Promise<null>;
+    open(options?: { visible?: boolean; keepRunning?: boolean; origin?: "https" }): Promise<null>;
     close(): Promise<null>;
     post(message: unknown): Promise<null>;
   };

@@ -22,6 +22,12 @@
  * work in the background, as Tilefold gives them half a second. A Tilefold
  * without tile pages (0.1.6 and earlier) gets a plain message.
  *
+ * The page opens with `origin: "https"`: Tilefold then serves it at a web
+ * address of the tile's own, which YouTube's player requires (in a
+ * `tilepage:` page it refuses to play, with error 153). Such a page is one
+ * self-contained document, so its script is built from page-src/ into the
+ * single page/main.js.
+ *
  * Registration comes first, with no `await` before it.
  */
 import { addRecent, readRecent } from "./recent.js";
@@ -110,7 +116,8 @@ export function runWatchpane(tf) {
       await tf.toast(tf.t("toast-no-pages"));
       return;
     }
-    await tf.page.open();
+    // A web address of its own: YouTube's player plays only in a page that has one.
+    await tf.page.open({ origin: "https" });
     if (!open) void audit("opened", {});
     open = true;
   };

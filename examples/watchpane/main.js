@@ -17,11 +17,11 @@
  *   private mode) and the thumbnails (i.ytimg.com);
  * - no keys and no sign-in: the tile never talks to YouTube itself.
  *
- * Needs Tilefold 0.1.7 or later (tile pages). Built into main.js with
+ * Needs Tilefold 0.1.9 or later (tile pages with a web address). Built into main.js with
  * `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
-// page/links.js
+// page-src/links.js
 var VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 var MAX_START = 24 * 60 * 60;
 function isVideoId(id) {
@@ -132,7 +132,7 @@ function runWatchpane(tf) {
       await tf.toast(tf.t("toast-no-pages"));
       return;
     }
-    await tf.page.open();
+    await tf.page.open({ origin: "https" });
     if (!open) void audit("opened", {});
     open = true;
   };
