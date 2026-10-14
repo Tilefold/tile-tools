@@ -78,11 +78,13 @@ describe("examples", () => {
       "break-timer",
       "github-inbox",
       "hello",
+      "pipeline-board",
       "service-status",
       "shell-tips",
       "tilefall",
       "tilefold-pet",
       "tuneboard",
+      "weather-card",
       "with-npm-package",
     ]);
   });
