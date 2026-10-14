@@ -27,6 +27,7 @@ const EXAMPLES = [
   "pipeline-board",
   "service-status",
   "shell-tips",
+  "watchpane",
   "weather-card",
 ];
 
@@ -45,6 +46,8 @@ const KEPT = [
   "Orbit Guard",
   "Brickfold",
   "Girder Jump",
+  "YouTube",
+  "Watchpane",
 ];
 
 /** The messages of one locale, checking every line on the way. */

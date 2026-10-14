@@ -1,0 +1,16 @@
+{
+  "id": "example.watchpane",
+  "version": "0.1.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "page": "to show YouTube's player, the box for your link and the videos you watched lately, in a window of its own"
+    },
+    { "script:www.youtube.com": "to load YouTube's own player in that window" },
+    {
+      "net:www.youtube-nocookie.com": "to show YouTube's player in private mode, which sets no cookies until you play a video"
+    },
+    { "net:i.ytimg.com": "to show the pictures of the videos you watched lately" }
+  ]
+}

@@ -87,6 +87,7 @@ describe("examples", () => {
       "tilefall",
       "tilefold-pet",
       "tuneboard",
+      "watchpane",
       "weather-card",
       "with-npm-package",
     ]);

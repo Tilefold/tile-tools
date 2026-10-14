@@ -4,6 +4,8 @@ From **Tilefold 0.1.7**, a tile with the `page` permission can show **a web page
 
 The **Tuneboard** example (`examples/tuneboard`) is a complete tile with a page. A hidden page runs Spotify's player, and the same page shown as a window lists the user's playlists.
 
+The **Watchpane** example (`examples/watchpane`) hosts another website's player instead: YouTube's IFrame Player API, loaded with `script:www.youtube.com`, in a window of its own. It needs no key or sign-in, and the tile never talks to YouTube itself; the page checks every link the user pastes before the player sees it.
+
 ## 1. Ask for the permissions
 
 ```json
