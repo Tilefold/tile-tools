@@ -15,7 +15,10 @@
  * `tf.net.fetch` (a recording stub) and `tf.auth.has`, as a Tilefold that
  * grants network access and runs sign-ins does; `host.signedIn` says
  * whether the user has signed in to Spotify there (`auth: false` leaves
- * `tf.auth` out, as an older Tilefold would).
+ * `tf.auth` out, as an older Tilefold would). `page: true` adds `tf.page`
+ * (open, close and post are recorded; `host.fromPage(message)` delivers a
+ * page message and `host.closePage()` closes it as the user would), and
+ * notices shown with `tf.toast` are kept in `host.toasts`.
  *
  * Use with Vitest fake timers: `advance(ms)` moves time on and lets the
  * tile's background work finish.
@@ -72,7 +75,7 @@ export async function drain(rounds = 50) {
  *
  * @param {{ locale?: string, settings?: Record<string, unknown>, store?: Record<string, unknown>,
  *           layout?: object, overlaysOff?: boolean, failStore?: boolean, net?: boolean,
- *           auth?: boolean, signedIn?: boolean,
+ *           auth?: boolean, signedIn?: boolean, page?: boolean,
  *           fetch?: (url: string, init?: any) => Promise<any> }} [opts]
  */
 export function createHost(opts = {}) {
@@ -91,6 +94,19 @@ export function createHost(opts = {}) {
     signedIn: opts.signedIn ?? true,
     logs: [],
     errors: [],
+    /** Notices shown with tf.toast. */
+    toasts: [],
+    /** The page: whether it is open, and every call made to it. */
+    page: { open: false, visible: null, calls: [] },
+    /** A message from the tile's page. */
+    async fromPage(message) {
+      await host.emit("page.message", { message });
+    },
+    /** The user closes the page window. */
+    async closePage() {
+      host.page.open = false;
+      await host.emit("page.closed", {});
+    },
     store: new Map(Object.entries(opts.store ?? {})),
     /** The scene as drawn, or null when hidden. */
     overlay: null,
@@ -165,7 +181,7 @@ export function createHost(opts = {}) {
       warn: async (text) => void host.logs.push(String(text)),
       error: async (text) => void host.errors.push(String(text)),
     },
-    toast: async () => {},
+    toast: async (text) => void host.toasts.push(String(text)),
     overlay: {
       async layout() {
         return structuredClone(host.layout);
@@ -192,6 +208,28 @@ export function createHost(opts = {}) {
       },
     },
   };
+
+  if (opts.page) {
+    tf.page = {
+      async open(options = {}) {
+        host.page.open = true;
+        host.page.visible = options.visible !== false;
+        host.page.calls.push(["open", options]);
+        return null;
+      },
+      async close() {
+        host.page.open = false;
+        host.page.calls.push(["close"]);
+        return null;
+      },
+      async post(message) {
+        if (!host.page.open)
+          throw Object.assign(new Error("the page is not open"), { name: "PageError" });
+        host.page.calls.push(["post", message]);
+        return null;
+      },
+    };
+  }
 
   if (opts.net) {
     // `opts.fetch` answers like a server would; without it every request gets an empty 204.

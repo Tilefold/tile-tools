@@ -15,7 +15,10 @@
  * shows and hides the overlay, and records an activity trail.
  *
  * The controls work from the keyboard even while the card is hidden, so
- * the shortcuts double as media keys. Polling stops while the card is
+ * the shortcuts double as media keys. When nothing is playing anywhere,
+ * Play starts Tuneboard's own player inside Tilefold (a hidden page running
+ * Spotify's player) and moves playback there; "Play in Tilefold" does that
+ * on request, and "Stop playing in Tilefold" closes it. Polling stops while the card is
  * hidden, the window is in the background or the user is away, and starts
  * again with an immediate ask when they come back.
  *
@@ -27,6 +30,7 @@
  */
 import { createTrail } from "./audit.js";
 import { registerCommands } from "./commands.js";
+import { createPagePlayer } from "./player.js";
 import { createPoller } from "./poller.js";
 import { LAYOUT_KEYS, readSettings } from "./settings.js";
 import { createSession } from "./session.js";
@@ -62,6 +66,14 @@ const CONTROL_ACTION = {
   volume: "control.volume",
 };
 
+/** The message shown when playing in Tilefold fails, by error code. */
+const PLAYER_MESSAGE = {
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported",
+};
+
 /** The audit action recorded for a control that did not go through. */
 const FAILED_ACTION = {
   playPause: "control.play",
@@ -88,6 +100,10 @@ export function runTuneboard(tf, deps = {}) {
   const trail = createTrail(tf);
   const store = createStore(tf);
   const settings = () => readSettings(tf.settings);
+  // Registers its page listeners now, before any await.
+  const player = createPagePlayer(tf, { trail });
+  /** The Spotify client, once connected. */
+  let spotify = null;
 
   /** Whether the card is meant to be on screen. */
   let visible = false;
@@ -212,7 +228,8 @@ export function runTuneboard(tf, deps = {}) {
         session.setClient(null, "signed-out");
         return;
       }
-      session.setClient(deps.createSpotify({ fetchFn, now }));
+      spotify = deps.createSpotify({ fetchFn, now });
+      session.setClient(spotify);
       trail.record("auth.connected", {});
       // Polling (when on) asks at once; otherwise ask once so the card is not left empty.
       if (!poller.running) await session.refresh();
@@ -289,6 +306,27 @@ export function runTuneboard(tf, deps = {}) {
     else setTimeout(() => void session.refresh().catch((err) => trail.error(err)), CONFIRM_MS);
   };
 
+  /** Tells the user something with the tile's own message. */
+  const tell = (key) => void Promise.resolve(tf.toast(tf.t(key))).catch(() => {});
+
+  /** Starts the player inside Tilefold and moves Spotify's playback there. */
+  const playHere = async () => {
+    if (!player.available()) return tell("player-unavailable");
+    if (!spotify) await connect();
+    if (!spotify) return tell("state-signed-out-hint");
+    try {
+      const device = await player.start();
+      await spotify.transfer(device, true);
+      trail.record("control.play-here", { ok: true });
+      confirmSoon();
+    } catch (err) {
+      const code = String(err?.code ?? "unknown").slice(0, 40);
+      trail.record("control.play-here", { ok: false, code });
+      tell(PLAYER_MESSAGE[code] ?? "player-error-other");
+    }
+    return visible ? draw() : undefined;
+  };
+
   /**
    * Runs one action, from a command or a click.
    *
@@ -308,6 +346,16 @@ export function runTuneboard(tf, deps = {}) {
       updateTimers();
       if (poller.running) poller.soon(0);
       return visible ? draw() : undefined;
+    }
+    if (action === "playHere") return playHere();
+    if (action === "stopHere") {
+      if (player.available()) await player.stop();
+      confirmSoon();
+      return visible ? draw() : undefined;
+    }
+    // Nothing is playing anywhere: Play starts the player inside Tilefold.
+    if (action === "playPause" && session.status === "no-device" && player.available()) {
+      return playHere();
     }
     const result = await session.control(/** @type {any} */ (action));
     if (result.ok) {

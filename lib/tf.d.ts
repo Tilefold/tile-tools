@@ -30,7 +30,9 @@ export type TileEvent =
   | "curtain.dismissed"
   | "overlay.pointer"
   | "overlay.layout"
-  | "overlay.hidden";
+  | "overlay.hidden"
+  | "page.closed"
+  | "page.message";
 
 /** A rectangle in the window's content area, in CSS pixels. */
 export interface Rect {
@@ -63,6 +65,9 @@ export interface TileEventPayloads {
   };
   "overlay.layout": OverlayLayout;
   "overlay.hidden": { by: "user" };
+  "page.closed": Record<string, never>;
+  /** Plain JSON the tile's page sent with `window.tilefold.post`. */
+  "page.message": { message: unknown };
 }
 
 /** One entry of a setting's drop-down. */
@@ -232,4 +237,26 @@ export interface Tf {
   readonly auth?: { has(name: string): Promise<boolean> };
   /** Needs ai.ask. Each question is shown to the user first. */
   readonly ai?: { ask(question: AiAsk): Promise<AiAnswer> };
+  /**
+   * Needs page. The tile's own web page (its page/ folder) in a window of
+   * its own, or hidden ({ visible: false }) for one that only plays sound;
+   * `post` sends plain JSON to the open page. Missing on a Tilefold
+   * without tile pages.
+   */
+  readonly page?: {
+    open(options?: { visible?: boolean }): Promise<null>;
+    close(): Promise<null>;
+    post(message: unknown): Promise<null>;
+  };
+}
+
+/**
+ * What Tilefold gives a tile's page as `window.tilefold` (in the page, not
+ * in the tile). `token` returns a key or sign-in declared with
+ * `"page": true` in tile.json.
+ */
+export interface TilePageBridge {
+  post(message: unknown): Promise<void>;
+  onMessage(listener: (message: unknown) => void): () => void;
+  token(name: string): Promise<string>;
 }

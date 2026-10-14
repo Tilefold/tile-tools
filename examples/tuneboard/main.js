@@ -150,6 +150,10 @@ function createSpotify({ fetchFn, now = Date.now } = {}) {
     seek(ms) {
       return request("/seek", { method: "PUT", query: { position_ms: nonnegativeMs(ms) } });
     },
+    transfer(deviceId, play = true) {
+      if (typeof deviceId !== "string" || !deviceId) throw new TypeError("A device id is required");
+      return request("", { method: "PUT", body: { device_ids: [deviceId], play: Boolean(play) } });
+    },
     setShuffle(enabled) {
       if (typeof enabled !== "boolean") throw new TypeError("Shuffle must be a boolean");
       return request("/shuffle", { method: "PUT", query: { state: enabled } });
@@ -453,7 +457,14 @@ var ACTIONS = Object.freeze([
   "state.change",
   "auth.failed",
   "auth.connected",
-  "auth.legacy-cleared"
+  "auth.legacy-cleared",
+  "control.play-here",
+  "player.start",
+  "player.ready",
+  "player.not-ready",
+  "player.error",
+  "player.stop",
+  "player.closed"
 ]);
 var DETAIL_KEYS = Object.freeze(["from", "to", "volume", "ok", "code", "via"]);
 function cleanDetails(details) {
@@ -538,12 +549,98 @@ var COMMANDS = [
     title: "cmd-refresh",
     action: "refresh",
     key: { mac: "Ctrl+Alt+R", other: "Ctrl+Alt+R" }
-  }
+  },
+  { id: "play-here", title: "cmd-play-here", action: "playHere" },
+  { id: "stop-here", title: "cmd-stop-here", action: "stopHere" }
 ];
 function registerCommands(tf, run) {
   for (const c of COMMANDS) {
-    tf.command(tf.t(c.title), () => run(c.action), { id: c.id, key: c.key });
+    tf.command(tf.t(c.title), () => run(c.action), { id: c.id, ...c.key ? { key: c.key } : {} });
   }
+}
+
+// src/tile/player.js
+var READY_TIMEOUT_MS = 15e3;
+var PLAYER_ERRORS = Object.freeze([
+  "initialization_error",
+  "authentication_error",
+  "account_error",
+  "playback_error",
+  "token"
+]);
+function playerError(code) {
+  return Object.assign(new Error(`the player in Tilefold failed (${code})`), { code });
+}
+function createPagePlayer(tf, { trail }) {
+  let deviceId = null;
+  let waiting = [];
+  const settle = (fn) => {
+    const pending = waiting;
+    waiting = [];
+    for (const w of pending) fn(w);
+  };
+  const hear = (message) => {
+    if (!message || typeof message !== "object") return;
+    if (message.type === "ready" && typeof message.deviceId === "string") {
+      deviceId = message.deviceId;
+      trail.record("player.ready", {});
+      settle((w) => w.resolve(message.deviceId));
+    } else if (message.type === "not-ready") {
+      deviceId = null;
+      trail.record("player.not-ready", {});
+    } else if (message.type === "error") {
+      const code = PLAYER_ERRORS.includes(message.kind) ? message.kind : "unknown";
+      trail.record("player.error", { code });
+      settle((w) => w.reject(playerError(code)));
+    }
+  };
+  if (tf.page) {
+    tf.on("page.message", (e) => hear(e && e.message));
+    tf.on("page.closed", () => {
+      deviceId = null;
+      trail.record("player.closed", {});
+      settle((w) => w.reject(playerError("closed")));
+    });
+  }
+  return {
+    /** Whether this Tilefold can run the player (it has tile pages). */
+    available: () => Boolean(tf.page && typeof tf.page.open === "function"),
+    /** Whether the player is running and ready. */
+    ready: () => deviceId !== null,
+    /**
+     * Starts the player (or reuses the running one); resolves to its device id.
+     *
+     * @returns {Promise<string>}
+     */
+    async start() {
+      if (deviceId) return deviceId;
+      const ready = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          waiting = waiting.filter((w) => w.resolve !== resolve);
+          reject(playerError("timeout"));
+        }, READY_TIMEOUT_MS);
+        waiting.push({
+          resolve: (id) => {
+            clearTimeout(timer);
+            resolve(id);
+          },
+          reject: (err) => {
+            clearTimeout(timer);
+            reject(err);
+          }
+        });
+      });
+      await tf.page.open({ visible: false });
+      trail.record("player.start", {});
+      return ready;
+    },
+    /** Stops the player and closes its page. */
+    async stop() {
+      deviceId = null;
+      await tf.page.close();
+      trail.record("player.stop", {});
+    }
+  };
 }
 
 // src/tile/poller.js
@@ -1004,6 +1101,12 @@ var CONTROL_ACTION = {
   previous: "control.previous",
   volume: "control.volume"
 };
+var PLAYER_MESSAGE = {
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported"
+};
 var FAILED_ACTION = {
   playPause: "control.play",
   next: "control.next",
@@ -1016,6 +1119,8 @@ function runTuneboard(tf, deps = {}) {
   const trail = createTrail(tf);
   const store = createStore(tf);
   const settings = () => readSettings(tf.settings);
+  const player = createPagePlayer(tf, { trail });
+  let spotify = null;
   let visible = false;
   let present = true;
   let layout = null;
@@ -1112,7 +1217,8 @@ function runTuneboard(tf, deps = {}) {
         session.setClient(null, "signed-out");
         return;
       }
-      session.setClient(deps.createSpotify({ fetchFn, now }));
+      spotify = deps.createSpotify({ fetchFn, now });
+      session.setClient(spotify);
       trail.record("auth.connected", {});
       if (!poller.running) await session.refresh();
     })().catch((err) => {
@@ -1170,6 +1276,24 @@ function runTuneboard(tf, deps = {}) {
     if (poller.running) poller.soon(CONFIRM_MS);
     else setTimeout(() => void session.refresh().catch((err) => trail.error(err)), CONFIRM_MS);
   };
+  const tell = (key) => void Promise.resolve(tf.toast(tf.t(key))).catch(() => {
+  });
+  const playHere = async () => {
+    if (!player.available()) return tell("player-unavailable");
+    if (!spotify) await connect();
+    if (!spotify) return tell("state-signed-out-hint");
+    try {
+      const device = await player.start();
+      await spotify.transfer(device, true);
+      trail.record("control.play-here", { ok: true });
+      confirmSoon();
+    } catch (err) {
+      const code = String(err?.code ?? "unknown").slice(0, 40);
+      trail.record("control.play-here", { ok: false, code });
+      tell(PLAYER_MESSAGE[code] ?? "player-error-other");
+    }
+    return visible ? draw() : void 0;
+  };
   const run = async (action) => {
     await ensureConnected();
     if (action === "toggle") return visible ? hide() : show();
@@ -1183,6 +1307,15 @@ function runTuneboard(tf, deps = {}) {
       updateTimers();
       if (poller.running) poller.soon(0);
       return visible ? draw() : void 0;
+    }
+    if (action === "playHere") return playHere();
+    if (action === "stopHere") {
+      if (player.available()) await player.stop();
+      confirmSoon();
+      return visible ? draw() : void 0;
+    }
+    if (action === "playPause" && session.status === "no-device" && player.available()) {
+      return playHere();
     }
     const result = await session.control(
       /** @type {any} */

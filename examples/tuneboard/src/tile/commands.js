@@ -11,6 +11,8 @@
  * Tilefold's own Ctrl+Alt shortcuts (F, H, L, O, W) and of the Tilefall
  * tile's (N, P, G, Z, C, the arrows and Enter), so both tiles can be
  * installed together. Users can change any of them in Settings → Keyboard.
+ * Playing in Tilefold itself (Tuneboard's own player page) and stopping it
+ * have no default keys; users can give them one.
  */
 
 /**
@@ -18,7 +20,7 @@
  * languages), the message key of its title, the action it runs, and its
  * default keys.
  *
- * @type {{ id: string, title: string, action: string, key: { mac: string, other: string } }[]}
+ * @type {{ id: string, title: string, action: string, key?: { mac: string, other: string } }[]}
  */
 export const COMMANDS = [
   {
@@ -63,6 +65,8 @@ export const COMMANDS = [
     action: "refresh",
     key: { mac: "Ctrl+Alt+R", other: "Ctrl+Alt+R" },
   },
+  { id: "play-here", title: "cmd-play-here", action: "playHere" },
+  { id: "stop-here", title: "cmd-stop-here", action: "stopHere" },
 ];
 
 /**
@@ -74,6 +78,6 @@ export const COMMANDS = [
  */
 export function registerCommands(tf, run) {
   for (const c of COMMANDS) {
-    tf.command(tf.t(c.title), () => run(c.action), { id: c.id, key: c.key });
+    tf.command(tf.t(c.title), () => run(c.action), { id: c.id, ...(c.key ? { key: c.key } : {}) });
   }
 }

@@ -6,9 +6,10 @@
  * Package tests
  *
  * The tile as Tilefold will load it: tile.json follows Tilefold's rules,
- * asks for the overlay and Spotify's API host, and declares the Spotify
- * sign-in (the user's own app, no client secret, hosts within its
- * permissions), main.js is a fresh build
+ * asks for the overlay, Spotify's API host, its player page and Spotify's
+ * player script, and declares the Spotify sign-in (the user's own app, no
+ * client secret, hosts within its permissions, given to the player page),
+ * the page loads its own script before Spotify's, main.js is a fresh build
  * of the sources with the shape Tilefold accepts and no way to the network
  * except through the host, every message the code asks for exists in
  * English (and every English message is used), and every source file
@@ -57,11 +58,28 @@ describe("tile.json", () => {
     expect(en.get("tile-description")).toContain("Spotify");
   });
 
-  it("asks for the overlay and Spotify's API host, each with a reason", () => {
+  it("asks for the overlay, Spotify's API host and its player page, each with a reason", () => {
     const perms = tile.permissions.map((p) => Object.entries(p)[0]);
-    expect(perms.map(([name]) => name)).toEqual(["window.overlay", "net:api.spotify.com"]);
+    expect(perms.map(([name]) => name)).toEqual([
+      "window.overlay",
+      "net:api.spotify.com",
+      "page",
+      "script:sdk.scdn.co",
+    ]);
     for (const [, reason] of perms) expect(reason.length).toBeGreaterThan(10);
     expect(sourceText).toContain("tf.overlay.show");
+    expect(sourceText).toContain("tf.page.open");
+  });
+
+  it("has a player page that loads its own script, then Spotify's", () => {
+    const html = readFileSync(join(ROOT, "page", "index.html"), "utf8");
+    const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+    expect(scripts).toEqual(["player.js", "https://sdk.scdn.co/spotify-player.js"]);
+    // Tilefold refuses inline scripts in a page.
+    expect(html).not.toMatch(/<script>(?!<\/script>)/);
+    const page = readFileSync(join(ROOT, "page", "player.js"), "utf8");
+    expect(page).toContain('bridge.token("spotify")');
+    expect(page).toContain("onSpotifyWebPlaybackSDKReady");
   });
 
   it("declares the Spotify sign-in with the user's own app and no secret", () => {
@@ -76,7 +94,15 @@ describe("tile.json", () => {
       label: "Spotify",
     });
     expect(s.setupUrl).toMatch(/^https:\/\/developer\.spotify\.com\//);
-    expect(s.scopes).toEqual(["user-read-playback-state", "user-modify-playback-state"]);
+    expect(s.scopes).toEqual([
+      "user-read-playback-state",
+      "user-modify-playback-state",
+      "streaming",
+      "user-read-email",
+      "user-read-private",
+    ]);
+    // Spotify's player in the page needs the sign-in itself.
+    expect(s.page).toBe(true);
     expect(s).not.toHaveProperty("clientSecret");
     for (const host of s.hosts) expect(tile.permissions.some((p) => `net:${host}` in p)).toBe(true);
   });

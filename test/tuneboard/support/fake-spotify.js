@@ -98,6 +98,13 @@ export function createFakeClient(opts = {}) {
       client.check(`setVolume:${v}`);
       state.volume = v;
     },
+    /** Moves playback to a device; Spotify resumes the last track there. */
+    async transfer(id, play) {
+      client.check(`transfer:${id}:${play}`);
+      state.device = "Tilefold";
+      state.track ??= { ...TRACK };
+      state.isPlaying = Boolean(play);
+    },
   };
   return client;
 }

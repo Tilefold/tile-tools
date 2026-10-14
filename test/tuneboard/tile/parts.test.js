@@ -171,17 +171,20 @@ describe("commands", () => {
   });
 
   it("uses unique Ctrl+Alt letter shortcuts", () => {
-    const keys = COMMANDS.map((c) => c.key.other);
+    const keyed = COMMANDS.filter((c) => c.key);
+    const keys = keyed.map((c) => c.key.other);
     expect(new Set(keys).size).toBe(keys.length);
-    for (const c of COMMANDS) {
+    for (const c of keyed) {
       expect(c.key.mac).toMatch(/^Ctrl\+Alt\+[A-Z]$/);
       expect(c.key.other).toBe(c.key.mac);
     }
+    // Playing in Tilefold and stopping it have no default keys.
+    expect(COMMANDS.filter((c) => !c.key).map((c) => c.id)).toEqual(["play-here", "stop-here"]);
   });
 
   it("stays clear of Tilefold's and Tilefall's shortcuts", () => {
     const taken = ["F", "H", "L", "O", "W", "N", "P", "G", "Z", "C"].map((k) => `Ctrl+Alt+${k}`);
-    for (const c of COMMANDS) expect(taken).not.toContain(c.key.mac);
+    for (const c of COMMANDS) if (c.key) expect(taken).not.toContain(c.key.mac);
   });
 });
 

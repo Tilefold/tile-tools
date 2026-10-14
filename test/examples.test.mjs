@@ -104,16 +104,20 @@ describe("examples", () => {
       const keys = Object.keys(manifest).filter((k) => k !== "permissions" && k !== "auth");
       expect(keys.sort()).toEqual(["description", "id", "name", "version"]);
       // Permissions, when asked for, each come with the reason shown to the user:
-      // window/sound/ai ones, or `net:` with a public host.
+      // window/sound/ai ones, `page`, or `net:` / `script:` with a public host.
       for (const p of manifest.permissions ?? []) {
         const [[name, reason]] = Object.entries(p);
-        expect(name).toMatch(/^(?:[a-z]+\.[a-z]+|net:(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)$/);
+        expect(name).toMatch(
+          /^(?:[a-z]+\.[a-z]+|page|(?:net|script):(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)$/,
+        );
         expect(reason.length).toBeGreaterThan(10);
       }
       // Credentials, when declared, go only to hosts the tile asks for, and never carry a secret.
       for (const [name, entry] of Object.entries(manifest.auth ?? {})) {
         expect(name).toMatch(/^[a-z][a-z0-9-]{0,31}$/);
         expect(entry).not.toHaveProperty("clientSecret");
+        // A credential given to the page needs the page permission.
+        if (entry.page) expect((manifest.permissions ?? []).some((p) => "page" in p)).toBe(true);
         for (const host of entry.hosts) {
           expect(
             (manifest.permissions ?? []).some((p) => `net:${host}` in p),

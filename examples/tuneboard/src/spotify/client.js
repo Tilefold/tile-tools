@@ -8,6 +8,8 @@
  * the `spotify` sign-in, so Tilefold adds the user's token itself: the
  * client never sees, stores or refreshes a token. A 401 means the user has
  * to sign in again. HTTP is injected, so it is tested offline.
+ * `transfer` moves playback to a device, such as the player Tuneboard's own
+ * page starts inside Tilefold.
  */
 import { hostError, networkError, responseError } from "./errors.js";
 
@@ -92,6 +94,10 @@ export function createSpotify({ fetchFn, now = Date.now } = {}) {
     },
     seek(ms) {
       return request("/seek", { method: "PUT", query: { position_ms: nonnegativeMs(ms) } });
+    },
+    transfer(deviceId, play = true) {
+      if (typeof deviceId !== "string" || !deviceId) throw new TypeError("A device id is required");
+      return request("", { method: "PUT", body: { device_ids: [deviceId], play: Boolean(play) } });
     },
     setShuffle(enabled) {
       if (typeof enabled !== "boolean") throw new TypeError("Shuffle must be a boolean");
