@@ -6,8 +6,8 @@
  * Package tests
  *
  * The tile as Tilefold will load it: tile.json follows Tilefold's rules,
- * asks for the overlay, Spotify's API host, its player page and Spotify's
- * player script, and declares the Spotify sign-in (the user's own app, no
+ * asks for the overlay, Spotify's API host, its player page, Spotify's
+ * player script and Spotify's image hosts (for playlist covers), and declares the Spotify sign-in (the user's own app, no
  * client secret, hosts within its permissions, given to the player page),
  * the page loads its own script before Spotify's, main.js is a fresh build
  * of the sources with the shape Tilefold accepts and no way to the network
@@ -58,13 +58,15 @@ describe("tile.json", () => {
     expect(en.get("tile-description")).toContain("Spotify");
   });
 
-  it("asks for the overlay, Spotify's API host and its player page, each with a reason", () => {
+  it("asks for the overlay, Spotify's hosts and its player page, each with a reason", () => {
     const perms = tile.permissions.map((p) => Object.entries(p)[0]);
     expect(perms.map(([name]) => name)).toEqual([
       "window.overlay",
       "net:api.spotify.com",
       "page",
       "script:sdk.scdn.co",
+      "net:*.scdn.co",
+      "net:*.spotifycdn.com",
     ]);
     for (const [, reason] of perms) expect(reason.length).toBeGreaterThan(10);
     expect(sourceText).toContain("tf.overlay.show");
@@ -80,6 +82,12 @@ describe("tile.json", () => {
     const page = readFileSync(join(ROOT, "page", "player.js"), "utf8");
     expect(page).toContain('bridge.token("spotify")');
     expect(page).toContain("onSpotifyWebPlaybackSDKReady");
+    // The Library is a module of the page's own, hidden until the tile shows it.
+    expect(html).toContain('<script type="module" src="library.js"></script>');
+    expect(html).toMatch(/<main id="library" hidden>/);
+    const library = readFileSync(join(ROOT, "page", "library.js"), "utf8");
+    // Text goes in as text, never as HTML.
+    expect(library).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write/);
   });
 
   it("declares the Spotify sign-in with the user's own app and no secret", () => {
@@ -100,6 +108,8 @@ describe("tile.json", () => {
       "streaming",
       "user-read-email",
       "user-read-private",
+      "playlist-read-private",
+      "playlist-read-collaborative",
     ]);
     // Spotify's player in the page needs the sign-in itself.
     expect(s.page).toBe(true);
@@ -125,7 +135,9 @@ describe("main.js", () => {
   });
 
   it("bundles the Spotify client and leaves signing in to Tilefold", () => {
-    expect(main).toContain("https://api.spotify.com/v1/me/player");
+    expect(main).toContain("https://api.spotify.com/v1");
+    expect(main).toContain("/me/player");
+    expect(main).toContain("/me/playlists");
     expect(main).toContain("auth.has(");
     // No sign-in, token or secret handling of its own.
     expect(main).not.toMatch(/accounts\.spotify\.com|refresh_token|code_verifier|client_secret/);

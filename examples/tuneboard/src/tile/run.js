@@ -18,7 +18,9 @@
  * the shortcuts double as media keys. When nothing is playing anywhere,
  * Play starts Tuneboard's own player inside Tilefold (a hidden page running
  * Spotify's player) and moves playback there; "Play in Tilefold" does that
- * on request, and "Stop playing in Tilefold" closes it. Polling stops while the card is
+ * on request, and "Stop playing in Tilefold" closes it. "Show playlists"
+ * opens the Library, the same page as a window, to pick a playlist to play.
+ * Polling stops while the card is
  * hidden, the window is in the background or the user is away, and starts
  * again with an immediate ask when they come back.
  *
@@ -30,6 +32,7 @@
  */
 import { createTrail } from "./audit.js";
 import { registerCommands } from "./commands.js";
+import { createLibrary } from "./library.js";
 import { createPagePlayer } from "./player.js";
 import { createPoller } from "./poller.js";
 import { LAYOUT_KEYS, readSettings } from "./settings.js";
@@ -102,6 +105,16 @@ export function runTuneboard(tf, deps = {}) {
   const settings = () => readSettings(tf.settings);
   // Registers its page listeners now, before any await.
   const player = createPagePlayer(tf, { trail });
+  const library = createLibrary(tf, {
+    trail,
+    player,
+    client: async () => {
+      await ensureConnected();
+      if (!spotify) await connect();
+      return spotify;
+    },
+    afterPlay: () => confirmSoon(),
+  });
   /** The Spotify client, once connected. */
   let spotify = null;
 
@@ -219,6 +232,8 @@ export function runTuneboard(tf, deps = {}) {
   const connect = () => {
     connecting = (async () => {
       poller.stop();
+      // Until connected again, nothing may use the previous client.
+      spotify = null;
       const fetchFn = findTransport(tf);
       if (!fetchFn || typeof deps.createSpotify !== "function" || !tf.auth) {
         session.setClient(null, "no-network");
@@ -315,8 +330,8 @@ export function runTuneboard(tf, deps = {}) {
     if (!spotify) await connect();
     if (!spotify) return tell("state-signed-out-hint");
     try {
-      const device = await player.start();
-      await spotify.transfer(device, true);
+      // Playing on the device (not moving playback to it) starts the sound there.
+      await spotify.playOn(await player.start());
       trail.record("control.play-here", { ok: true });
       confirmSoon();
     } catch (err) {
@@ -348,6 +363,9 @@ export function runTuneboard(tf, deps = {}) {
       return visible ? draw() : undefined;
     }
     if (action === "playHere") return playHere();
+    if (action === "library") {
+      return library.available() ? library.show() : tell("player-unavailable");
+    }
     if (action === "stopHere") {
       if (player.available()) await player.stop();
       confirmSoon();

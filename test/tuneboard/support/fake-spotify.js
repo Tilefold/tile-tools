@@ -10,6 +10,8 @@
  * records every call. `failNext(code)` makes the next call throw an error
  * with that code, the way the real client reports Spotify's answers;
  * `failAll(code)` keeps failing until `failAll(null)`.
+ * `opts.playlists` is the user's playlists (in the page shape the real
+ * client returns them), served a page of `PLAYLIST_PAGE` at a time.
  * `createFactory()` returns a `createSpotify` replacement that remembers the
  * options it was built with and the clients it made.
  */
@@ -20,6 +22,18 @@ export const TRACK = Object.freeze({
   artists: ["Claude Debussy", "Ivan Moravec"],
   album: "Suite bergamasque",
   durationMs: 300000,
+});
+
+/** How many playlists the fake serves at a time. */
+export const PLAYLIST_PAGE = 2;
+
+/** A playlist as the real client returns it. */
+export const playlist = (n) => ({
+  uri: `spotify:playlist:pl${n}`,
+  name: `Playlist ${n}`,
+  owner: "Ana",
+  tracks: n * 10,
+  cover: `https://i.scdn.co/image/${n}`,
 });
 
 /**
@@ -104,6 +118,28 @@ export function createFakeClient(opts = {}) {
       state.device = "Tilefold";
       state.track ??= { ...TRACK };
       state.isPlaying = Boolean(play);
+    },
+    /** Starts playing on a device; Spotify resumes the last track there. */
+    async playOn(id) {
+      client.check(`playOn:${id}`);
+      state.device = "Tilefold";
+      state.track ??= { ...TRACK };
+      state.isPlaying = true;
+    },
+    /** Plays a playlist; with no device, only where something is already active. */
+    async playContext(uri, id) {
+      client.check(`playContext:${uri}:${id ?? "active"}`);
+      if (id === undefined && !state.track) throw spotifyError("no-device");
+      if (id !== undefined) state.device = "Tilefold";
+      state.track = { ...TRACK, title: "From the playlist" };
+      state.isPlaying = true;
+    },
+    async playlists(offset = 0) {
+      client.check(`playlists:${offset}`);
+      const all = opts.playlists ?? [];
+      const items = all.slice(offset, offset + PLAYLIST_PAGE);
+      const after = offset + items.length;
+      return { items, total: all.length, nextOffset: after < all.length ? after : null };
     },
   };
   return client;

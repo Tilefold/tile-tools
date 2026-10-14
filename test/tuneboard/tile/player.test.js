@@ -6,8 +6,8 @@
  * Tuneboard — playing inside Tilefold
  *
  * With nothing playing anywhere, Play opens Tuneboard's player page hidden,
- * waits for the page's "ready" with its device id and moves Spotify's
- * playback there; "Play in Tilefold" does the same on request and "Stop
+ * waits for the page's "ready" with its device id and starts Spotify
+ * playing there; "Play in Tilefold" does the same on request and "Stop
  * playing in Tilefold" closes the page. Spotify's player errors become the
  * right notice (Premium, sign in again, not supported), a page that never
  * gets ready times out, a closed page is noticed, and a Tilefold without
@@ -49,7 +49,7 @@ describe("playing in Tilefold", () => {
     expect(host.page).toMatchObject({ open: true, visible: false });
     await host.fromPage({ type: "ready", deviceId: "dev-1" });
     await host.advance(0);
-    expect(factory.client.calls).toContain("transfer:dev-1:true");
+    expect(factory.client.calls).toContain("playOn:dev-1");
     await host.advance(1000);
     expect(session.status).toBe("playing");
     expect(host.actions()).toEqual(
@@ -66,7 +66,7 @@ describe("playing in Tilefold", () => {
     await host.advance(1000);
     await host.command("play-here");
     expect(host.page.calls.filter(([c]) => c === "open")).toHaveLength(1);
-    expect(factory.client.calls.filter((c) => c.startsWith("transfer:"))).toHaveLength(2);
+    expect(factory.client.calls.filter((c) => c.startsWith("playOn:"))).toHaveLength(2);
     await host.command("stop-here");
     expect(host.page.open).toBe(false);
     expect(host.actions()).toContain("player.stop");
@@ -86,7 +86,7 @@ describe("playing in Tilefold", () => {
       await host.fromPage({ type: "error", kind });
       await host.advance(0);
       expect(host.toasts, kind).toEqual([EN.get(key)]);
-      expect(factory.client.calls.some((c) => c.startsWith("transfer:"))).toBe(false);
+      expect(factory.client.calls.some((c) => c.startsWith("playOn:"))).toBe(false);
       const done = host.audits.find((a) => a.action === "control.play-here");
       expect(done.details).toEqual({ ok: false, code: kind });
     }
@@ -118,7 +118,7 @@ describe("playing in Tilefold", () => {
     await host.advance(0);
     await host.fromPage({ type: "ready", deviceId: "dev-2" });
     await host.advance(0);
-    expect(factory.client.calls).toContain("transfer:dev-2:true");
+    expect(factory.client.calls).toContain("playOn:dev-2");
   });
 
   it("ignores messages it does not know", async () => {

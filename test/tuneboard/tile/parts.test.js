@@ -178,8 +178,12 @@ describe("commands", () => {
       expect(c.key.mac).toMatch(/^Ctrl\+Alt\+[A-Z]$/);
       expect(c.key.other).toBe(c.key.mac);
     }
-    // Playing in Tilefold and stopping it have no default keys.
-    expect(COMMANDS.filter((c) => !c.key).map((c) => c.id)).toEqual(["play-here", "stop-here"]);
+    // Playing in Tilefold, stopping it and the Library have no default keys.
+    expect(COMMANDS.filter((c) => !c.key).map((c) => c.id)).toEqual([
+      "play-here",
+      "stop-here",
+      "library",
+    ]);
   });
 
   it("stays clear of Tilefold's and Tilefall's shortcuts", () => {

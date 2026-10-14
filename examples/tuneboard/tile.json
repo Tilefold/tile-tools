@@ -1,6 +1,6 @@
 {
   "id": "example.tuneboard",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
@@ -8,13 +8,19 @@
       "window.overlay": "to draw the now-playing card and its play, skip and volume buttons above your panes"
     },
     {
-      "net:api.spotify.com": "to ask Spotify what is playing and to play, pause, skip and change the volume"
+      "net:api.spotify.com": "to ask Spotify what is playing, to read your playlists, and to play, pause, skip and change the volume"
     },
     {
-      "page": "to play Spotify inside Tilefold, in a hidden page that only makes sound"
+      "page": "to play Spotify inside Tilefold, in a hidden page, and to show your playlists in a window of its own"
     },
     {
       "script:sdk.scdn.co": "to load Spotify's own player in that page"
+    },
+    {
+      "net:*.scdn.co": "to show your playlists' cover pictures"
+    },
+    {
+      "net:*.spotifycdn.com": "to show your playlists' cover pictures"
     }
   ],
   "auth": {
@@ -29,11 +35,11 @@
         "user-modify-playback-state",
         "streaming",
         "user-read-email",
-        "user-read-private"
+        "user-read-private",
+        "playlist-read-private",
+        "playlist-read-collaborative"
       ],
-      "hosts": [
-        "api.spotify.com"
-      ],
+      "hosts": ["api.spotify.com"],
       "label": "Spotify",
       "page": true
     }

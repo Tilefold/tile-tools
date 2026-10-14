@@ -78,6 +78,7 @@ async function responseError(response, { now = Date.now } = {}) {
   let code = "unknown";
   if (status === 401) code = "auth";
   else if (status === 403 && reason === "PREMIUM_REQUIRED") code = "premium";
+  else if (status === 403 && /scope/i.test(String(message))) code = "scope";
   else if (status === 404 && reason === "NO_ACTIVE_DEVICE") code = "no-device";
   else if (status === 429) code = "rate-limit";
   else if (status >= 500) code = "server";
@@ -87,8 +88,60 @@ async function responseError(response, { now = Date.now } = {}) {
   });
 }
 
+// src/spotify/playlists.js
+var PAGE_SIZE = 50;
+var MAX_TEXT = 200;
+var COVER_WIDTH = 160;
+var IMAGE_DOMAINS = ["scdn.co", "spotifycdn.com"];
+function isPlaylistUri(uri) {
+  return typeof uri === "string" && /^spotify:playlist:[A-Za-z0-9]{1,64}$/.test(uri);
+}
+function isCoverUrl(url) {
+  if (typeof url !== "string") return false;
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:" || parsed.port || parsed.username) return false;
+  return IMAGE_DOMAINS.some((d) => parsed.hostname.endsWith(`.${d}`));
+}
+function pickCover(images) {
+  if (!Array.isArray(images)) return null;
+  const usable = images.filter((i) => i && isCoverUrl(i.url));
+  if (usable.length === 0) return null;
+  const width = (i) => Number.isFinite(i.width) ? i.width : 0;
+  const bigEnough = usable.filter((i) => width(i) >= COVER_WIDTH);
+  const pool = bigEnough.length ? bigEnough : usable;
+  const best = pool.reduce(
+    (a, b) => bigEnough.length ? width(b) < width(a) ? b : a : width(b) > width(a) ? b : a
+  );
+  return best.url;
+}
+var text = (value) => typeof value === "string" ? value.trim().slice(0, MAX_TEXT) : "";
+function playlistModel(p) {
+  if (!p || typeof p !== "object" || !isPlaylistUri(p.uri)) return null;
+  const total = p.tracks?.total ?? p.items?.total;
+  return {
+    uri: p.uri,
+    name: text(p.name),
+    owner: text(p.owner?.display_name ?? p.owner?.id),
+    tracks: Number.isSafeInteger(total) && total >= 0 ? total : null,
+    cover: pickCover(p.images)
+  };
+}
+function playlistPage(data, offset) {
+  const raw = Array.isArray(data?.items) ? data.items : [];
+  const items = raw.map(playlistModel).filter((p) => p !== null);
+  const total = Number.isSafeInteger(data?.total) && data.total >= 0 ? data.total : items.length;
+  const after = offset + raw.length;
+  return { items, total, nextOffset: data?.next && raw.length > 0 && after < total ? after : null };
+}
+
 // src/spotify/client.js
-var PLAYER_URL = "https://api.spotify.com/v1/me/player";
+var API_URL = "https://api.spotify.com/v1";
+var PLAYER = "/me/player";
 var AUTH_NAME = "spotify";
 function playbackModel(data) {
   const item = data.item;
@@ -108,8 +161,8 @@ function playbackModel(data) {
 }
 function createSpotify({ fetchFn, now = Date.now } = {}) {
   if (typeof fetchFn !== "function") throw new TypeError("fetchFn is required");
-  async function request(path = "", { method = "GET", query, body } = {}) {
-    const url = new URL(PLAYER_URL + path);
+  async function request(path, { method = "GET", query, body } = {}) {
+    const url = new URL(API_URL + path);
     if (query)
       for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
     const init = { method, auth: AUTH_NAME };
@@ -128,6 +181,12 @@ function createSpotify({ fetchFn, now = Date.now } = {}) {
     if (method === "GET") return response.json();
     return void 0;
   }
+  const player = (path = "", init) => request(PLAYER + path, init);
+  const deviceQuery = (deviceId) => {
+    if (deviceId === void 0) return void 0;
+    if (typeof deviceId !== "string" || !deviceId) throw new TypeError("A device id is required");
+    return { device_id: deviceId };
+  };
   const nonnegativeMs = (value) => {
     if (!Number.isSafeInteger(value) || value < 0)
       throw new RangeError("Position must be a nonnegative integer in milliseconds");
@@ -135,28 +194,48 @@ function createSpotify({ fetchFn, now = Date.now } = {}) {
   };
   return {
     async getPlayback() {
-      const data = await request();
+      const data = await player();
       return data === null ? null : playbackModel(data);
     },
-    play: () => request("/play", { method: "PUT" }),
-    pause: () => request("/pause", { method: "PUT" }),
-    next: () => request("/next", { method: "POST" }),
-    previous: () => request("/previous", { method: "POST" }),
+    play: () => player("/play", { method: "PUT" }),
+    pause: () => player("/pause", { method: "PUT" }),
+    next: () => player("/next", { method: "POST" }),
+    previous: () => player("/previous", { method: "POST" }),
     setVolume(volume) {
       if (!Number.isInteger(volume) || volume < 0 || volume > 100)
         throw new RangeError("Volume must be an integer from 0 to 100");
-      return request("/volume", { method: "PUT", query: { volume_percent: volume } });
+      return player("/volume", { method: "PUT", query: { volume_percent: volume } });
     },
     seek(ms) {
-      return request("/seek", { method: "PUT", query: { position_ms: nonnegativeMs(ms) } });
+      return player("/seek", { method: "PUT", query: { position_ms: nonnegativeMs(ms) } });
     },
     transfer(deviceId, play = true) {
       if (typeof deviceId !== "string" || !deviceId) throw new TypeError("A device id is required");
-      return request("", { method: "PUT", body: { device_ids: [deviceId], play: Boolean(play) } });
+      return player("", { method: "PUT", body: { device_ids: [deviceId], play: Boolean(play) } });
+    },
+    /** Starts playing on a device (it becomes the active one); resumes what was last played. */
+    playOn(deviceId) {
+      return player("/play", { method: "PUT", query: deviceQuery(deviceId) });
+    },
+    /** Plays a playlist on a device, or on the active device when none is given. */
+    playContext(uri, deviceId) {
+      if (!isPlaylistUri(uri)) throw new TypeError("A Spotify playlist URI is required");
+      return player("/play", {
+        method: "PUT",
+        query: deviceQuery(deviceId),
+        body: { context_uri: uri }
+      });
+    },
+    /** One page of the user's playlists, from `offset`. */
+    async playlists(offset = 0) {
+      if (!Number.isSafeInteger(offset) || offset < 0)
+        throw new RangeError("Offset must be a nonnegative integer");
+      const data = await request("/me/playlists", { query: { limit: PAGE_SIZE, offset } });
+      return playlistPage(data ?? {}, offset);
     },
     setShuffle(enabled) {
       if (typeof enabled !== "boolean") throw new TypeError("Shuffle must be a boolean");
-      return request("/shuffle", { method: "PUT", query: { state: enabled } });
+      return player("/shuffle", { method: "PUT", query: { state: enabled } });
     }
   };
 }
@@ -190,30 +269,30 @@ function svgUrl(logicalW, logicalH, body, displayW = logicalW, displayH = logica
 function isWide(cp) {
   return cp >= 4352 && cp <= 4607 || cp >= 11904 && cp <= 42191 || cp >= 44032 && cp <= 55203 || cp >= 63744 && cp <= 64255 || cp >= 65280 && cp <= 65376;
 }
-function textWidth(text, size) {
+function textWidth(text2, size) {
   let em = 0;
-  for (const ch of String(text)) em += isWide(ch.codePointAt(0) ?? 0) ? 1 : 0.6;
+  for (const ch of String(text2)) em += isWide(ch.codePointAt(0) ?? 0) ? 1 : 0.6;
   return em * size;
 }
-function ellipsize(text, size, maxWidth) {
-  const s = String(text);
+function ellipsize(text2, size, maxWidth) {
+  const s = String(text2);
   if (textWidth(s, size) <= maxWidth) return s;
   const chars = [...s];
   while (chars.length > 0 && textWidth(chars.join("") + "\u2026", size) > maxWidth) chars.pop();
   return chars.join("").trimEnd() + "\u2026";
 }
 function textEl(o) {
-  let text = String(o.text);
+  let text2 = String(o.text);
   const anchor = o.anchor ?? "start";
   const fill = o.fill ?? THEME.text;
   const weight = o.weight ?? 400;
   let fit = "";
-  if (o.maxWidth && textWidth(text, o.size) > o.maxWidth) {
+  if (o.maxWidth && textWidth(text2, o.size) > o.maxWidth) {
     if (o.squeeze) fit = ` textLength="${round2(o.maxWidth)}" lengthAdjust="spacingAndGlyphs"`;
-    else text = ellipsize(text, o.size, o.maxWidth);
+    else text2 = ellipsize(text2, o.size, o.maxWidth);
   }
   const opacity = o.opacity === void 0 ? "" : ` opacity="${o.opacity}"`;
-  return `<text x="${round2(o.x)}" y="${round2(o.y)}" font-size="${o.size}" font-family="${FONT}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}"${opacity}${fit}>${escapeXml(text)}</text>`;
+  return `<text x="${round2(o.x)}" y="${round2(o.y)}" font-size="${o.size}" font-family="${FONT}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}"${opacity}${fit}>${escapeXml(text2)}</text>`;
 }
 
 // src/render/buttons.js
@@ -250,8 +329,8 @@ var CARD_H = 72;
 var TEXT_X = 54;
 var TEXT_W = CARD_W - TEXT_X - 12;
 var TONES = { info: THEME.accent, warn: THEME.warn, error: THEME.error };
-function wrapLines(text, size, maxWidth, maxLines) {
-  const words = String(text).split(/\s+/).filter(Boolean);
+function wrapLines(text2, size, maxWidth, maxLines) {
+  const words = String(text2).split(/\s+/).filter(Boolean);
   const lines = [];
   let line = "";
   const flush = () => {
@@ -464,7 +543,10 @@ var ACTIONS = Object.freeze([
   "player.not-ready",
   "player.error",
   "player.stop",
-  "player.closed"
+  "player.closed",
+  "library.show",
+  "library.load",
+  "library.play"
 ]);
 var DETAIL_KEYS = Object.freeze(["from", "to", "volume", "ok", "code", "via"]);
 function cleanDetails(details) {
@@ -492,16 +574,16 @@ function createTrail(tf) {
       quiet(() => tf.audit(action, clean));
       quiet(() => tf.log.info(`${action} ${JSON.stringify(clean)}`));
     },
-    info(text) {
-      quiet(() => tf.log.info(String(text)));
+    info(text2) {
+      quiet(() => tf.log.info(String(text2)));
     },
     error(err) {
       const e = (
         /** @type {any} */
         err
       );
-      const text = e && e.code ? `${e.code}: ${e.message ?? ""}` : String(e && e.message || e);
-      quiet(() => tf.log.error(text.slice(0, 200)));
+      const text2 = e && e.code ? `${e.code}: ${e.message ?? ""}` : String(e && e.message || e);
+      quiet(() => tf.log.error(text2.slice(0, 200)));
     }
   };
 }
@@ -551,12 +633,128 @@ var COMMANDS = [
     key: { mac: "Ctrl+Alt+R", other: "Ctrl+Alt+R" }
   },
   { id: "play-here", title: "cmd-play-here", action: "playHere" },
-  { id: "stop-here", title: "cmd-stop-here", action: "stopHere" }
+  { id: "stop-here", title: "cmd-stop-here", action: "stopHere" },
+  { id: "library", title: "cmd-library", action: "library" }
 ];
 function registerCommands(tf, run) {
   for (const c of COMMANDS) {
     tf.command(tf.t(c.title), () => run(c.action), { id: c.id, ...c.key ? { key: c.key } : {} });
   }
+}
+
+// src/tile/library.js
+var STRINGS = {
+  title: "library-title",
+  refresh: "library-refresh",
+  loading: "library-loading",
+  empty: "library-empty",
+  more: "library-more"
+};
+var ERROR_MESSAGE = {
+  auth: "player-error-sign-in",
+  scope: "library-error-scope",
+  premium: "player-error-premium",
+  denied: "state-denied-hint",
+  network: "library-error-network",
+  "rate-limit": "library-error-network",
+  timeout: "player-error-other",
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported"
+};
+var codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
+function createLibrary(tf, { trail, player, client, afterPlay = () => {
+} }) {
+  let wanted = false;
+  const post = async (message) => {
+    try {
+      await tf.page.post(message);
+    } catch {
+    }
+  };
+  const language = () => ({
+    lang: tf.t("library-lang"),
+    dir: tf.t("library-dir") === "rtl" ? "rtl" : "ltr"
+  });
+  const open = () => {
+    const strings = {};
+    for (const [k, key] of Object.entries(STRINGS)) strings[k] = tf.t(key);
+    return post({ do: "library", ...language(), strings });
+  };
+  const fail = (err) => post({
+    do: "library-error",
+    message: tf.t(ERROR_MESSAGE[codeOf(err)] ?? "library-error-other")
+  });
+  const load = async (offset) => {
+    const spotify = await client();
+    if (!spotify) {
+      trail.record("library.load", { ok: false, code: "auth" });
+      return fail({ code: "auth" });
+    }
+    try {
+      const page = await spotify.playlists(offset);
+      trail.record("library.load", { ok: true });
+      const items = page.items.map((p) => ({
+        ...p,
+        byline: p.owner ? tf.t("library-by", { owner: p.owner }) : ""
+      }));
+      await post({ do: "playlists", offset, ...page, items });
+    } catch (err) {
+      trail.record("library.load", { ok: false, code: codeOf(err) });
+      await fail(err);
+    }
+  };
+  const play = async (uri) => {
+    const spotify = await client();
+    if (!spotify) return fail({ code: "auth" });
+    let via = "device";
+    try {
+      try {
+        await spotify.playContext(uri);
+      } catch (err) {
+        if (err?.code !== "no-device" || !player.available()) throw err;
+        via = "tilefold";
+        await spotify.playContext(uri, await player.start());
+      }
+      trail.record("library.play", { ok: true, via });
+      await post({ do: "playing", uri, message: tf.t("library-playing") });
+      afterPlay();
+    } catch (err) {
+      trail.record("library.play", { ok: false, code: codeOf(err), via });
+      await fail(err);
+    }
+  };
+  const hear = async (message) => {
+    if (!message || typeof message !== "object") return;
+    if (message.type === "hello") {
+      if (wanted) await open();
+    } else if (message.type === "want-playlists") {
+      const offset = Number.isSafeInteger(message.offset) && message.offset >= 0 ? message.offset : 0;
+      await load(offset);
+    } else if (message.type === "play-playlist") {
+      if (isPlaylistUri(message.uri)) await play(message.uri);
+    }
+  };
+  if (tf.page) {
+    tf.on("page.message", (e) => {
+      void hear(e && e.message).catch((err) => trail.error(err));
+    });
+    tf.on("page.closed", () => {
+      wanted = false;
+    });
+  }
+  return {
+    /** Whether this Tilefold can show the Library (it has tile pages). */
+    available: () => Boolean(tf.page && typeof tf.page.open === "function"),
+    /** Opens the Library window (or brings it back) and fills it. */
+    async show() {
+      wanted = true;
+      await tf.page.open({ visible: true, keepRunning: true });
+      trail.record("library.show", {});
+      await open();
+    }
+  };
 }
 
 // src/tile/player.js
@@ -1022,11 +1220,11 @@ function cardView(input) {
   };
 }
 function cardLabel(view, t) {
-  const text = view.mode === "track" ? t(view.playing ? "card-label-playing" : "card-label-paused", {
+  const text2 = view.mode === "track" ? t(view.playing ? "card-label-playing" : "card-label-paused", {
     title: view.title,
     artists: view.artists
   }) : `${view.title}. ${view.hint}`;
-  return text.slice(0, MAX_LABEL);
+  return text2.slice(0, MAX_LABEL);
 }
 function sceneItems(input) {
   const { status, playback, settings, t } = input;
@@ -1120,6 +1318,16 @@ function runTuneboard(tf, deps = {}) {
   const store = createStore(tf);
   const settings = () => readSettings(tf.settings);
   const player = createPagePlayer(tf, { trail });
+  const library = createLibrary(tf, {
+    trail,
+    player,
+    client: async () => {
+      await ensureConnected();
+      if (!spotify) await connect();
+      return spotify;
+    },
+    afterPlay: () => confirmSoon()
+  });
   let spotify = null;
   let visible = false;
   let present = true;
@@ -1208,6 +1416,7 @@ function runTuneboard(tf, deps = {}) {
   const connect = () => {
     connecting = (async () => {
       poller.stop();
+      spotify = null;
       const fetchFn = findTransport(tf);
       if (!fetchFn || typeof deps.createSpotify !== "function" || !tf.auth) {
         session.setClient(null, "no-network");
@@ -1283,8 +1492,7 @@ function runTuneboard(tf, deps = {}) {
     if (!spotify) await connect();
     if (!spotify) return tell("state-signed-out-hint");
     try {
-      const device = await player.start();
-      await spotify.transfer(device, true);
+      await spotify.playOn(await player.start());
       trail.record("control.play-here", { ok: true });
       confirmSoon();
     } catch (err) {
@@ -1309,6 +1517,9 @@ function runTuneboard(tf, deps = {}) {
       return visible ? draw() : void 0;
     }
     if (action === "playHere") return playHere();
+    if (action === "library") {
+      return library.available() ? library.show() : tell("player-unavailable");
+    }
     if (action === "stopHere") {
       if (player.available()) await player.stop();
       confirmSoon();
