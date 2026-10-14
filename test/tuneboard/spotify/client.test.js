@@ -71,7 +71,7 @@ describe("player client", () => {
           duration_ms: 1000,
         },
         progress_ms: 250,
-        device: { name: "Phone", volume_percent: 40 },
+        device: { id: "dev-7", name: "Phone", volume_percent: 40 },
         shuffle_state: true,
         repeat_state: "track",
       }),
@@ -80,7 +80,7 @@ describe("player client", () => {
       isPlaying: true,
       track: { title: "Song", artists: ["A", "B"], album: "Record", durationMs: 1000 },
       progressMs: 250,
-      device: { name: "Phone", volume: 40 },
+      device: { id: "dev-7", name: "Phone", volume: 40 },
       shuffle: true,
       repeat: "track",
     });

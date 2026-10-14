@@ -40,7 +40,11 @@ function playbackModel(data) {
       : null,
     progressMs: data.progress_ms ?? 0,
     device: data.device
-      ? { name: data.device.name ?? "", volume: data.device.volume_percent ?? null }
+      ? {
+          id: data.device.id ?? "",
+          name: data.device.name ?? "",
+          volume: data.device.volume_percent ?? null,
+        }
       : null,
     shuffle: Boolean(data.shuffle_state),
     repeat: data.repeat_state ?? "off",

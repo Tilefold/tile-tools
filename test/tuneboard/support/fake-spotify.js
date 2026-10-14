@@ -57,6 +57,7 @@ export function createFakeClient(opts = {}) {
     isPlaying: opts.playing ?? true,
     progressMs: 60000,
     device: opts.device ?? "MacBook",
+    deviceId: "mac-1",
     volume: opts.volume === undefined ? 50 : opts.volume,
   };
   /** @type {{ code: string, extra?: object }[]} */
@@ -86,7 +87,7 @@ export function createFakeClient(opts = {}) {
         isPlaying: state.isPlaying,
         track: { ...state.track, artists: [...state.track.artists] },
         progressMs: state.progressMs,
-        device: { name: state.device, volume: state.volume },
+        device: { id: state.deviceId, name: state.device, volume: state.volume },
         shuffle: false,
         repeat: "off",
       };
@@ -123,6 +124,7 @@ export function createFakeClient(opts = {}) {
     async playOn(id) {
       client.check(`playOn:${id}`);
       state.device = "Tilefold";
+      state.deviceId = id;
       state.track ??= { ...TRACK };
       state.isPlaying = true;
     },
@@ -130,7 +132,7 @@ export function createFakeClient(opts = {}) {
     async playContext(uri, id) {
       client.check(`playContext:${uri}:${id ?? "active"}`);
       if (id === undefined && !state.track) throw spotifyError("no-device");
-      if (id !== undefined) state.device = "Tilefold";
+      if (id !== undefined) Object.assign(state, { device: "Tilefold", deviceId: id });
       state.track = { ...TRACK, title: "From the playlist" };
       state.isPlaying = true;
     },

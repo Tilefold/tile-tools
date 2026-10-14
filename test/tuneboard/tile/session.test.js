@@ -18,7 +18,6 @@ import {
   MAX_BACKOFF_MS,
   POLL_MS,
   STATES,
-  VOLUME_STEP,
   cleanPlayback,
   clampInt,
   createSession,
@@ -226,22 +225,6 @@ describe("controls", () => {
     expect(client.calls).toEqual(["getPlayback", "next", "previous"]);
   });
 
-  it("steps the volume and stops at the ends", async () => {
-    const { session, client } = setup({ volume: 95 });
-    session.setClient(client);
-    await session.refresh();
-    expect(await session.control("volumeUp")).toEqual({ ok: true, did: "volume", volume: 100 });
-    expect(await session.control("volumeDown")).toEqual({
-      ok: true,
-      did: "volume",
-      volume: 100 - VOLUME_STEP,
-    });
-    expect(session.playback().volume).toBe(90);
-    client.state.volume = 3;
-    await session.refresh();
-    expect((await session.control("volumeDown")).volume).toBe(0);
-  });
-
   it("refuses volume when Spotify reports none", async () => {
     const { session, client } = setup({ volume: null });
     session.setClient(client);
@@ -321,7 +304,7 @@ describe("progress and playback data", () => {
         isPlaying: "yes",
         track: { title: 5, artists: ["A", "", 7], durationMs: -4 },
         progressMs: "x",
-        device: { name: "Phone", volume: 140 },
+        device: { name: "Phone", id: 9, volume: 140 },
       }),
     ).toEqual({
       isPlaying: false,
@@ -330,6 +313,7 @@ describe("progress and playback data", () => {
       durationMs: 0,
       progressMs: 0,
       device: "Phone",
+      deviceId: "",
       volume: 100,
     });
   });

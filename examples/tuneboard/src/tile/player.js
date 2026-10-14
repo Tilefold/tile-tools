@@ -11,6 +11,8 @@
  * for the page to say the device is ready, and hears the page's errors.
  * The page asks Tilefold for the Spotify sign-in itself (the sign-in is
  * declared with `"page": true`), so the tile still never sees a token.
+ * While music plays there, the volume is set in the page directly, which
+ * is instant, rather than through Spotify's servers.
  *
  * Its listeners are registered when it is created, so create it at the top
  * of the tile's function, before any `await`.
@@ -83,6 +85,20 @@ export function createPagePlayer(tf, { trail }) {
 
     /** Whether the player is running and ready. */
     ready: () => deviceId !== null,
+
+    /** The ready player's Spotify device id, or null. */
+    deviceId: () => deviceId,
+
+    /**
+     * Sets the volume of the player inside Tilefold (0–100).
+     *
+     * @param {number} volume
+     */
+    async setVolume(volume) {
+      if (deviceId === null)
+        throw Object.assign(new Error("the player is not ready"), { code: "closed" });
+      await tf.page.post({ do: "volume", value: Math.min(100, Math.max(0, volume)) / 100 });
+    },
 
     /**
      * Starts the player (or reuses the running one); resolves to its device id.

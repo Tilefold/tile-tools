@@ -32,16 +32,13 @@
  */
 import { createTrail } from "./audit.js";
 import { registerCommands } from "./commands.js";
-import { createLibrary } from "./library.js";
 import { createPagePlayer } from "./player.js";
 import { createPoller } from "./poller.js";
 import { LAYOUT_KEYS, readSettings } from "./settings.js";
 import { createSession } from "./session.js";
 import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
-import { createCovers } from "../spotify/covers.js";
-import { createPanel } from "./panel.js";
-import { createPicker } from "./pick.js";
+import { createPlaylistViews } from "./playlists.js";
 import { PANEL_ID, actionForClick, diffItems, removedIds, sceneItems } from "./view.js";
 import { computeLayout } from "./scene.js";
 
@@ -115,16 +112,9 @@ export function runTuneboard(tf, deps = {}) {
     if (!spotify) await connect();
     return spotify;
   };
-  const picker = createPicker({ trail, player, client });
-  const afterPlay = () => confirmSoon();
-  const library = createLibrary(tf, { trail, store, picker, client, afterPlay });
-  const panel = createPanel(tf, {
-    trail,
-    client,
-    picker,
-    library,
-    afterPlay,
-    covers: createCovers({ fetchFn: findTransport(tf) }),
+  const { library, panel } = createPlaylistViews(tf, {
+    ...{ trail, store, player, client },
+    afterPlay: () => confirmSoon(),
     onChange: () => void draw(),
   });
   /** The Spotify client, once connected. */
@@ -207,6 +197,12 @@ export function runTuneboard(tf, deps = {}) {
       }
       updateSignInCheck();
     },
+    // Music playing inside Tilefold takes its volume from the page at once.
+    setVolume: (volume, playing) =>
+      player.ready() && playing?.deviceId === player.deviceId()
+        ? player.setVolume(volume)
+        : spotify.setVolume(volume),
+    onVolumeError: (code) => trail.record("control.volume", { ok: false, code }),
   });
 
   const poller = createPoller({

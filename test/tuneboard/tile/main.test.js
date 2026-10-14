@@ -134,6 +134,7 @@ describe("built main.js", () => {
     expect(card(host)).toContain("Rêverie");
     await host.command("previous");
     await host.command("volume-up");
+    await host.advance(400);
     expect(api.log.some((r) => r.url.endsWith("/volume?volume_percent=60"))).toBe(true);
     expect(api.player.volume).toBe(60);
     expectWithinLimits(host);

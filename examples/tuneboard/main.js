@@ -164,7 +164,11 @@ function playbackModel(data) {
       durationMs: item.duration_ms ?? 0
     } : null,
     progressMs: data.progress_ms ?? 0,
-    device: data.device ? { name: data.device.name ?? "", volume: data.device.volume_percent ?? null } : null,
+    device: data.device ? {
+      id: data.device.id ?? "",
+      name: data.device.name ?? "",
+      volume: data.device.volume_percent ?? null
+    } : null,
     shuffle: Boolean(data.shuffle_state),
     repeat: data.repeat_state ?? "off"
   };
@@ -788,212 +792,6 @@ function registerCommands(tf, run) {
   }
 }
 
-// src/tile/pick.js
-var ERROR_MESSAGE = {
-  auth: "player-error-sign-in",
-  scope: "library-error-scope",
-  premium: "player-error-premium",
-  denied: "state-denied-hint",
-  network: "library-error-network",
-  "rate-limit": "library-error-network",
-  "no-device": "state-no-device-hint",
-  timeout: "player-error-other",
-  account_error: "player-error-premium",
-  authentication_error: "player-error-sign-in",
-  token: "player-error-sign-in",
-  initialization_error: "player-error-unsupported"
-};
-var codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
-function messageFor(err) {
-  return ERROR_MESSAGE[codeOf(err)] ?? "library-error-other";
-}
-function createPicker({ trail, player, client }) {
-  return {
-    /**
-     * Plays a playlist; resolves when Spotify took it, rejects with a coded
-     * error otherwise.
-     *
-     * @param {string} uri A playlist URI the caller has checked.
-     * @param {string} from Where the pick came from: "window" or "panel".
-     */
-    async play(uri, from) {
-      const spotify = await client();
-      if (!spotify) {
-        trail.record("library.play", { ok: false, code: "auth", from });
-        throw Object.assign(new Error("not signed in"), { code: "auth" });
-      }
-      let via = "device";
-      try {
-        try {
-          await spotify.playContext(uri);
-        } catch (err) {
-          if (err?.code !== "no-device" || !player.available()) throw err;
-          via = "tilefold";
-          await spotify.playContext(uri, await player.start());
-        }
-        trail.record("library.play", { ok: true, via, from });
-      } catch (err) {
-        trail.record("library.play", { ok: false, code: codeOf(err), via, from });
-        throw err;
-      }
-    }
-  };
-}
-
-// src/tile/store.js
-var KEYS = { visible: "visible", auth: "auth", libraryView: "libraryView" };
-var LIBRARY_VIEWS = Object.freeze(["grid", "list"]);
-function createStore(tf) {
-  const read = async (key) => {
-    try {
-      return await tf.store.get(key);
-    } catch (err) {
-      void Promise.resolve(
-        tf.log.warn(`store read ${key} failed: ${String(err && err.message || err)}`)
-      ).catch(() => {
-      });
-      return null;
-    }
-  };
-  const write = async (key, value) => {
-    try {
-      await tf.store.set(key, value);
-      return true;
-    } catch (err) {
-      void Promise.resolve(
-        tf.log.warn(`store write ${key} failed: ${String(err && err.message || err)}`)
-      ).catch(() => {
-      });
-      return false;
-    }
-  };
-  return {
-    /** Whether the card was last left on screen (default: hidden). */
-    async visible() {
-      return await read(KEYS.visible) === true;
-    },
-    /** Remembers whether the card is on screen. */
-    async setVisible(on) {
-      return write(KEYS.visible, Boolean(on));
-    },
-    /** How the Library lists playlists (default: thumbnails). */
-    async libraryView() {
-      const view = await read(KEYS.libraryView);
-      return LIBRARY_VIEWS.includes(view) ? view : LIBRARY_VIEWS[0];
-    },
-    /** Remembers how the Library lists playlists; refuses unknown views. */
-    async setLibraryView(view) {
-      if (!LIBRARY_VIEWS.includes(view)) return false;
-      return write(KEYS.libraryView, view);
-    },
-    /**
-     * Overwrites a refresh token an earlier version saved, if there is one.
-     * Returns true when there was one to clear.
-     */
-    async clearLegacyAuth() {
-      if (await read(KEYS.auth) === null) return false;
-      await write(KEYS.auth, null);
-      return true;
-    }
-  };
-}
-
-// src/tile/library.js
-var STRINGS = {
-  title: "library-title",
-  refresh: "library-refresh",
-  loading: "library-loading",
-  empty: "library-empty",
-  more: "library-more",
-  viewGrid: "library-view-grid",
-  viewList: "library-view-list"
-};
-function createLibrary(tf, { trail, store, picker, client, afterPlay = () => {
-} }) {
-  let wanted = false;
-  const post = async (message) => {
-    try {
-      await tf.page.post(message);
-    } catch {
-    }
-  };
-  const language = () => ({
-    lang: tf.t("library-lang"),
-    dir: tf.t("library-dir") === "rtl" ? "rtl" : "ltr"
-  });
-  const open = async () => {
-    const strings = {};
-    for (const [k, key] of Object.entries(STRINGS)) strings[k] = tf.t(key);
-    return post({ do: "library", ...language(), view: await store.libraryView(), strings });
-  };
-  const fail = (err) => post({
-    do: "library-error",
-    message: tf.t(messageFor(err))
-  });
-  const load = async (offset) => {
-    const spotify = await client();
-    if (!spotify) {
-      trail.record("library.load", { ok: false, code: "auth" });
-      return fail({ code: "auth" });
-    }
-    try {
-      const page = await spotify.playlists(offset);
-      trail.record("library.load", { ok: true });
-      const items = page.items.map((p) => ({
-        ...p,
-        byline: p.owner ? tf.t("library-by", { owner: p.owner }) : ""
-      }));
-      await post({ do: "playlists", offset, ...page, items });
-    } catch (err) {
-      trail.record("library.load", { ok: false, code: codeOf(err) });
-      await fail(err);
-    }
-  };
-  const play = async (uri) => {
-    try {
-      await picker.play(uri, "window");
-      await post({ do: "playing", uri, message: tf.t("library-playing") });
-      afterPlay();
-    } catch (err) {
-      await fail(err);
-    }
-  };
-  const hear = async (message) => {
-    if (!message || typeof message !== "object") return;
-    if (message.type === "hello") {
-      if (wanted) await open();
-    } else if (message.type === "want-playlists") {
-      const offset = Number.isSafeInteger(message.offset) && message.offset >= 0 ? message.offset : 0;
-      await load(offset);
-    } else if (message.type === "play-playlist") {
-      if (isPlaylistUri(message.uri)) await play(message.uri);
-    } else if (message.type === "set-view") {
-      if (!LIBRARY_VIEWS.includes(message.view)) return;
-      await store.setLibraryView(message.view);
-      trail.record("library.view", { to: message.view });
-    }
-  };
-  if (tf.page) {
-    tf.on("page.message", (e) => {
-      void hear(e && e.message).catch((err) => trail.error(err));
-    });
-    tf.on("page.closed", () => {
-      wanted = false;
-    });
-  }
-  return {
-    /** Whether this Tilefold can show the Library (it has tile pages). */
-    available: () => Boolean(tf.page && typeof tf.page.open === "function"),
-    /** Opens the Library window (or brings it back) and fills it. */
-    async show() {
-      wanted = true;
-      await tf.page.open({ visible: true, keepRunning: true });
-      trail.record("library.show", {});
-      await open();
-    }
-  };
-}
-
 // src/tile/player.js
 var READY_TIMEOUT_MS = 15e3;
 var PLAYER_ERRORS = Object.freeze([
@@ -1042,6 +840,18 @@ function createPagePlayer(tf, { trail }) {
     available: () => Boolean(tf.page && typeof tf.page.open === "function"),
     /** Whether the player is running and ready. */
     ready: () => deviceId !== null,
+    /** The ready player's Spotify device id, or null. */
+    deviceId: () => deviceId,
+    /**
+     * Sets the volume of the player inside Tilefold (0–100).
+     *
+     * @param {number} volume
+     */
+    async setVolume(volume) {
+      if (deviceId === null)
+        throw Object.assign(new Error("the player is not ready"), { code: "closed" });
+      await tf.page.post({ do: "volume", value: Math.min(100, Math.max(0, volume)) / 100 });
+    },
     /**
      * Starts the player (or reuses the running one); resolves to its device id.
      *
@@ -1156,6 +966,8 @@ var CONTROL_STATES = Object.freeze(["playing", "paused", "no-device", "premium",
 var POLL_MS = 5e3;
 var MAX_BACKOFF_MS = 6e4;
 var VOLUME_STEP = 10;
+var VOLUME_SETTLE_MS = 300;
+var VOLUME_HOLD_MS = 3e3;
 function clampInt(value, min, max, fallback) {
   if (value === null || value === void 0 || value === "") return fallback;
   const n = Math.round(Number(value));
@@ -1175,6 +987,7 @@ function cleanPlayback(p) {
     durationMs,
     progressMs: clampInt(p.progressMs, 0, durationMs || 24 * 3600 * 1e3, 0) ?? 0,
     device: p.device && typeof p.device.name === "string" ? p.device.name : "",
+    deviceId: p.device && typeof p.device.id === "string" ? p.device.id : "",
     volume: p.device ? clampInt(p.device.volume, 0, 100, null) : null
   };
 }
@@ -1187,6 +1000,11 @@ function createSession(o = {}) {
   let failures = 0;
   let retryAfter = null;
   let lastCode = "";
+  let volumeTarget = null;
+  let holdUntil = 0;
+  let volumeTimer = null;
+  let sendingVolume = false;
+  let sentVolume = null;
   const go = (next) => {
     if (next === status) return;
     const from = status;
@@ -1202,6 +1020,11 @@ function createSession(o = {}) {
     lastCode = "";
     playback = cleanPlayback(raw);
     fetchedAt = now();
+    if (volumeTarget !== null && now() < holdUntil) {
+      if (playback) playback = { ...playback, volume: volumeTarget };
+    } else if (!sendingVolume && volumeTimer === null) {
+      volumeTarget = null;
+    }
     if (!playback) go("no-device");
     else go(playback.isPlaying ? "playing" : "paused");
   };
@@ -1227,6 +1050,30 @@ function createSession(o = {}) {
       go("error");
     }
     return code;
+  };
+  const sendVolume = async () => {
+    volumeTimer = null;
+    if (sendingVolume || volumeTarget === null || !client) return;
+    const volume = volumeTarget;
+    sendingVolume = true;
+    try {
+      await (o.setVolume ? o.setVolume(volume, playback) : client.setVolume(volume));
+      sentVolume = volume;
+      holdUntil = now() + VOLUME_HOLD_MS;
+    } catch (err) {
+      volumeTarget = null;
+      holdUntil = 0;
+      const code = applyError(err);
+      changed();
+      if (o.onVolumeError) o.onVolumeError(code);
+    } finally {
+      sendingVolume = false;
+    }
+    if (volumeTarget !== null && volumeTarget !== sentVolume) scheduleVolume();
+  };
+  const scheduleVolume = () => {
+    if (volumeTimer !== null) clearTimeout(volumeTimer);
+    volumeTimer = setTimeout(() => void sendVolume(), VOLUME_SETTLE_MS);
   };
   const session = {
     get status() {
@@ -1296,15 +1143,17 @@ function createSession(o = {}) {
           return { ok: true, did: action };
         }
         if (action === "volumeUp" || action === "volumeDown") {
-          const current = playback ? playback.volume : null;
+          const current = volumeTarget ?? (playback ? playback.volume : null);
           if (current === null) return { ok: false, code: "no-volume" };
           const step = action === "volumeUp" ? VOLUME_STEP : -VOLUME_STEP;
           const volume = (
             /** @type {number} */
             clampInt(current + step, 0, 100, current)
           );
-          await client.setVolume(volume);
+          volumeTarget = volume;
+          holdUntil = now() + VOLUME_HOLD_MS;
           if (playback) playback = { ...playback, volume };
+          scheduleVolume();
           changed();
           return { ok: true, did: "volume", volume };
         }
@@ -1342,6 +1191,64 @@ function createSession(o = {}) {
     }
   };
   return session;
+}
+
+// src/tile/store.js
+var KEYS = { visible: "visible", auth: "auth", libraryView: "libraryView" };
+var LIBRARY_VIEWS = Object.freeze(["grid", "list"]);
+function createStore(tf) {
+  const read = async (key) => {
+    try {
+      return await tf.store.get(key);
+    } catch (err) {
+      void Promise.resolve(
+        tf.log.warn(`store read ${key} failed: ${String(err && err.message || err)}`)
+      ).catch(() => {
+      });
+      return null;
+    }
+  };
+  const write = async (key, value) => {
+    try {
+      await tf.store.set(key, value);
+      return true;
+    } catch (err) {
+      void Promise.resolve(
+        tf.log.warn(`store write ${key} failed: ${String(err && err.message || err)}`)
+      ).catch(() => {
+      });
+      return false;
+    }
+  };
+  return {
+    /** Whether the card was last left on screen (default: hidden). */
+    async visible() {
+      return await read(KEYS.visible) === true;
+    },
+    /** Remembers whether the card is on screen. */
+    async setVisible(on) {
+      return write(KEYS.visible, Boolean(on));
+    },
+    /** How the Library lists playlists (default: thumbnails). */
+    async libraryView() {
+      const view = await read(KEYS.libraryView);
+      return LIBRARY_VIEWS.includes(view) ? view : LIBRARY_VIEWS[0];
+    },
+    /** Remembers how the Library lists playlists; refuses unknown views. */
+    async setLibraryView(view) {
+      if (!LIBRARY_VIEWS.includes(view)) return false;
+      return write(KEYS.libraryView, view);
+    },
+    /**
+     * Overwrites a refresh token an earlier version saved, if there is one.
+     * Returns true when there was one to clear.
+     */
+    async clearLegacyAuth() {
+      if (await read(KEYS.auth) === null) return false;
+      await write(KEYS.auth, null);
+      return true;
+    }
+  };
 }
 
 // src/tile/transport.js
@@ -1420,6 +1327,154 @@ function createCovers({ fetchFn }) {
     peek(url) {
       if (!url || !known.has(url)) return void 0;
       return known.get(url);
+    }
+  };
+}
+
+// src/tile/pick.js
+var ERROR_MESSAGE = {
+  auth: "player-error-sign-in",
+  scope: "library-error-scope",
+  premium: "player-error-premium",
+  denied: "state-denied-hint",
+  network: "library-error-network",
+  "rate-limit": "library-error-network",
+  "no-device": "state-no-device-hint",
+  timeout: "player-error-other",
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported"
+};
+var codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
+function messageFor(err) {
+  return ERROR_MESSAGE[codeOf(err)] ?? "library-error-other";
+}
+function createPicker({ trail, player, client }) {
+  return {
+    /**
+     * Plays a playlist; resolves when Spotify took it, rejects with a coded
+     * error otherwise.
+     *
+     * @param {string} uri A playlist URI the caller has checked.
+     * @param {string} from Where the pick came from: "window" or "panel".
+     */
+    async play(uri, from) {
+      const spotify = await client();
+      if (!spotify) {
+        trail.record("library.play", { ok: false, code: "auth", from });
+        throw Object.assign(new Error("not signed in"), { code: "auth" });
+      }
+      let via = "device";
+      try {
+        try {
+          await spotify.playContext(uri);
+        } catch (err) {
+          if (err?.code !== "no-device" || !player.available()) throw err;
+          via = "tilefold";
+          await spotify.playContext(uri, await player.start());
+        }
+        trail.record("library.play", { ok: true, via, from });
+      } catch (err) {
+        trail.record("library.play", { ok: false, code: codeOf(err), via, from });
+        throw err;
+      }
+    }
+  };
+}
+
+// src/tile/library.js
+var STRINGS = {
+  title: "library-title",
+  refresh: "library-refresh",
+  loading: "library-loading",
+  empty: "library-empty",
+  more: "library-more",
+  viewGrid: "library-view-grid",
+  viewList: "library-view-list"
+};
+function createLibrary(tf, { trail, store, picker, client, afterPlay = () => {
+} }) {
+  let wanted = false;
+  const post = async (message) => {
+    try {
+      await tf.page.post(message);
+    } catch {
+    }
+  };
+  const language = () => ({
+    lang: tf.t("library-lang"),
+    dir: tf.t("library-dir") === "rtl" ? "rtl" : "ltr"
+  });
+  const open = async () => {
+    const strings = {};
+    for (const [k, key] of Object.entries(STRINGS)) strings[k] = tf.t(key);
+    return post({ do: "library", ...language(), view: await store.libraryView(), strings });
+  };
+  const fail = (err) => post({
+    do: "library-error",
+    message: tf.t(messageFor(err))
+  });
+  const load = async (offset) => {
+    const spotify = await client();
+    if (!spotify) {
+      trail.record("library.load", { ok: false, code: "auth" });
+      return fail({ code: "auth" });
+    }
+    try {
+      const page = await spotify.playlists(offset);
+      trail.record("library.load", { ok: true });
+      const items = page.items.map((p) => ({
+        ...p,
+        byline: p.owner ? tf.t("library-by", { owner: p.owner }) : ""
+      }));
+      await post({ do: "playlists", offset, ...page, items });
+    } catch (err) {
+      trail.record("library.load", { ok: false, code: codeOf(err) });
+      await fail(err);
+    }
+  };
+  const play = async (uri) => {
+    try {
+      await picker.play(uri, "window");
+      await post({ do: "playing", uri, message: tf.t("library-playing") });
+      afterPlay();
+    } catch (err) {
+      await fail(err);
+    }
+  };
+  const hear = async (message) => {
+    if (!message || typeof message !== "object") return;
+    if (message.type === "hello") {
+      if (wanted) await open();
+    } else if (message.type === "want-playlists") {
+      const offset = Number.isSafeInteger(message.offset) && message.offset >= 0 ? message.offset : 0;
+      await load(offset);
+    } else if (message.type === "play-playlist") {
+      if (isPlaylistUri(message.uri)) await play(message.uri);
+    } else if (message.type === "set-view") {
+      if (!LIBRARY_VIEWS.includes(message.view)) return;
+      await store.setLibraryView(message.view);
+      trail.record("library.view", { to: message.view });
+    }
+  };
+  if (tf.page) {
+    tf.on("page.message", (e) => {
+      void hear(e && e.message).catch((err) => trail.error(err));
+    });
+    tf.on("page.closed", () => {
+      wanted = false;
+    });
+  }
+  return {
+    /** Whether this Tilefold can show the Library (it has tile pages). */
+    available: () => Boolean(tf.page && typeof tf.page.open === "function"),
+    /** Opens the Library window (or brings it back) and fills it. */
+    async show() {
+      wanted = true;
+      await tf.page.open({ visible: true, keepRunning: true });
+      trail.record("library.show", {});
+      await open();
     }
   };
 }
@@ -1607,6 +1662,22 @@ function createPanel(tf, deps) {
   };
 }
 
+// src/tile/playlists.js
+function createPlaylistViews(tf, { trail, store, player, client, afterPlay, onChange }) {
+  const picker = createPicker({ trail, player, client });
+  const library = createLibrary(tf, { trail, store, picker, client, afterPlay });
+  const panel = createPanel(tf, {
+    trail,
+    client,
+    picker,
+    library,
+    afterPlay,
+    covers: createCovers({ fetchFn: findTransport(tf) }),
+    onChange
+  });
+  return { library, panel };
+}
+
 // src/tile/view.js
 var CARD_ID = "card";
 var PANEL_ID = "panel";
@@ -1778,16 +1849,9 @@ function runTuneboard(tf, deps = {}) {
     if (!spotify) await connect();
     return spotify;
   };
-  const picker = createPicker({ trail, player, client });
-  const afterPlay = () => confirmSoon();
-  const library = createLibrary(tf, { trail, store, picker, client, afterPlay });
-  const panel = createPanel(tf, {
-    trail,
-    client,
-    picker,
-    library,
-    afterPlay,
-    covers: createCovers({ fetchFn: findTransport(tf) }),
+  const { library, panel } = createPlaylistViews(tf, {
+    ...{ trail, store, player, client },
+    afterPlay: () => confirmSoon(),
     onChange: () => void draw()
   });
   let spotify = null;
@@ -1852,7 +1916,10 @@ function runTuneboard(tf, deps = {}) {
         trail.record("auth.failed", { code: "auth" });
       }
       updateSignInCheck();
-    }
+    },
+    // Music playing inside Tilefold takes its volume from the page at once.
+    setVolume: (volume, playing) => player.ready() && playing?.deviceId === player.deviceId() ? player.setVolume(volume) : spotify.setVolume(volume),
+    onVolumeError: (code) => trail.record("control.volume", { ok: false, code })
   });
   const poller = createPoller({
     tick: () => session.refresh(),

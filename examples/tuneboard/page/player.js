@@ -12,7 +12,7 @@
  * when it is due. The page tells its tile when the device is ready (with
  * its id, so the tile can move playback here), when it is gone, and when
  * Spotify's player fails, by Spotify's error kind; the tile shows the
- * message. Tilefold allows this page scripts from sdk.scdn.co only.
+ * message. The tile sets this player's volume directly (`volume`, 0–1). Tilefold allows this page scripts from sdk.scdn.co only.
  */
 (() => {
   const bridge = window.tilefold;
@@ -40,7 +40,11 @@
     player.addListener("ready", ({ device_id }) => tell({ type: "ready", deviceId: device_id }));
     player.addListener("not_ready", () => tell({ type: "not-ready" }));
     bridge.onMessage((message) => {
-      if (message && message.do === "disconnect") player.disconnect();
+      if (!message) return;
+      if (message.do === "disconnect") player.disconnect();
+      else if (message.do === "volume" && Number.isFinite(message.value)) {
+        void player.setVolume(Math.min(1, Math.max(0, message.value)));
+      }
     });
     void player.connect();
   };

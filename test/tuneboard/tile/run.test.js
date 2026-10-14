@@ -22,7 +22,7 @@ import {
   SIGN_IN_CHECK_MS,
   runTuneboard,
 } from "../../../examples/tuneboard/src/tile/run.js";
-import { POLL_MS } from "../../../examples/tuneboard/src/tile/session.js";
+import { POLL_MS, VOLUME_SETTLE_MS } from "../../../examples/tuneboard/src/tile/session.js";
 import { COMMANDS } from "../../../examples/tuneboard/src/tile/commands.js";
 import { registerSettings } from "../../../examples/tuneboard/src/tile/settings.js";
 import { KEYS } from "../../../examples/tuneboard/src/tile/store.js";
@@ -224,7 +224,10 @@ describe("controls", () => {
     await host.command("next");
     await host.command("previous");
     await host.command("volume-up");
+    // The volume goes out once the clicks pause.
+    await host.advance(VOLUME_SETTLE_MS);
     await host.command("volume-down");
+    await host.advance(VOLUME_SETTLE_MS);
     expect(factory.client.calls).toEqual(
       expect.arrayContaining(["next", "previous", "setVolume:60", "setVolume:50"]),
     );
