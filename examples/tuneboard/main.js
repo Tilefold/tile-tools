@@ -264,8 +264,9 @@ var THEME = {
   error: "#ef4444"
 };
 var FONT = "system-ui,-apple-system,'Segoe UI',sans-serif";
+var NOT_XML = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 function escapeXml(value) {
-  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  return String(value).replace(NOT_XML, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 function round2(n) {
   return Math.round(n * 100) / 100;
@@ -439,8 +440,7 @@ var NEXT_X = 38;
 var FOOT_BTN = 26;
 var ALL_X = 128;
 var TEXT_X2 = 44;
-function rowSvg(row, i) {
-  const y = PAD + i * ROW_H;
+function rowSvg(row, i, y) {
   const parts = [];
   if (row.picked) {
     parts.push(
@@ -488,7 +488,19 @@ function renderPanel(view, opts = {}) {
       )
     );
   } else {
-    view.rows.slice(0, ROWS).forEach((row, i) => parts.push(rowSvg(row, i)));
+    const shift = Math.min(Math.max(Number(view.shift) || 0, 0), ROW_H);
+    const rows = view.rows.slice(0, ROWS + 1).map((row, i) => rowSvg(row, i, round2(PAD + i * ROW_H - shift)));
+    parts.push(
+      `<clipPath id="rows"><rect x="0" y="${PAD}" width="${PANEL_W}" height="${ROWS * ROW_H}"/></clipPath><g clip-path="url(#rows)">${rows.join("")}</g>`
+    );
+    if (view.bar) {
+      const room = ROWS * ROW_H - 4;
+      const h = Math.max(12, room * view.bar.size);
+      const top = PAD + 2 + (room - h) * view.bar.top;
+      parts.push(
+        `<rect x="${PANEL_W - 5}" y="${round2(top)}" width="3" height="${round2(h)}" rx="1.5" fill="${THEME.muted}" fill-opacity="0.6"/>`
+      );
+    }
   }
   parts.push(
     `<path d="M8 ${FOOT_Y + 0.5} H${PANEL_W - 8}" stroke="${THEME.border}"/>`,
@@ -519,12 +531,16 @@ function renderPanel(view, opts = {}) {
   }
   return svgUrl(PANEL_W, PANEL_H, parts.join(""), opts.displayW, opts.displayH);
 }
-function panelHit(rect, x, y) {
+function panelPoint(rect, x, y) {
   if (!rect || rect.w <= 0 || rect.h <= 0) return null;
-  const lx = (x - rect.x) * PANEL_W / rect.w;
-  const ly = (y - rect.y) * PANEL_H / rect.h;
+  return { x: (x - rect.x) * PANEL_W / rect.w, y: (y - rect.y) * PANEL_H / rect.h };
+}
+function panelHit(rect, x, y) {
+  const p = panelPoint(rect, x, y);
+  if (!p) return null;
+  const { x: lx, y: ly } = p;
   if (lx < 0 || lx > PANEL_W || ly < 0 || ly > PANEL_H) return null;
-  if (ly >= PAD && ly < FOOT_Y) return { kind: "row", index: Math.floor((ly - PAD) / ROW_H) };
+  if (ly >= PAD && ly < FOOT_Y) return { kind: "row", y: ly - PAD };
   if (ly >= FOOT_Y && ly < FOOT_Y + FOOT_H) {
     if (lx >= PREV_X && lx < PREV_X + FOOT_BTN) return { kind: "prev" };
     if (lx >= NEXT_X && lx < NEXT_X + FOOT_BTN) return { kind: "next" };
@@ -1409,6 +1425,8 @@ function createCovers({ fetchFn }) {
 }
 
 // src/tile/panel.js
+var MAX_REQUESTS = 3;
+var LOAD_AHEAD = ROWS;
 function createPanel(tf, deps) {
   const { trail, client, picker, covers, library, onChange } = deps;
   const afterPlay = deps.afterPlay ?? (() => {
@@ -1420,16 +1438,21 @@ function createPanel(tf, deps) {
     total: 0,
     /** @type {number|null} */
     nextOffset: null,
-    /** Index of the first row on screen. */
-    first: 0,
+    /** How far the rows are scrolled, in the panel's own pixels. */
+    scroll: 0,
     loading: false,
     /** @type {string|null} An error message key, shown instead of the rows. */
     error: null,
     /** @type {string|null} The playlist picked last, highlighted. */
-    picked: null
+    picked: null,
+    /** @type {{ y: number, scroll: number } | null} Where a drag started. */
+    drag: null
   };
+  const maxScroll = () => Math.max(0, (state.items.length - ROWS) * ROW_H);
+  const top = () => Math.floor(state.scroll / ROW_H);
+  const snapped = (scroll) => Math.round(scroll / ROW_H) * ROW_H;
   const fetchCovers = () => {
-    for (const p of state.items.slice(state.first, state.first + ROWS)) {
+    for (const p of state.items.slice(top(), top() + ROWS + 1)) {
       if (p.thumb && covers.peek(p.thumb) === void 0) {
         void covers.get(p.thumb).then((cover) => {
           if (cover && state.open) onChange();
@@ -1437,8 +1460,7 @@ function createPanel(tf, deps) {
       }
     }
   };
-  const MAX_REQUESTS = 3;
-  const load = async (offset, want = offset) => {
+  const load = async (offset, want = offset + ROWS) => {
     state.loading = true;
     state.error = null;
     onChange();
@@ -1453,11 +1475,12 @@ function createPanel(tf, deps) {
         state.items = from === 0 ? fresh : [...state.items, ...fresh];
         state.total = page.total;
         state.nextOffset = page.nextOffset;
-        from = state.items.length < want + ROWS ? page.nextOffset : null;
+        from = state.items.length < want ? page.nextOffset : null;
       }
       trail.record("library.load", { ok: true, from: "panel" });
     } catch (err) {
-      state.error = messageFor(err);
+      if (state.items.length === 0 || offset === 0) state.error = messageFor(err);
+      else state.nextOffset = null;
       trail.record("library.load", { ok: false, code: codeOf(err), from: "panel" });
     } finally {
       state.loading = false;
@@ -1465,21 +1488,31 @@ function createPanel(tf, deps) {
     fetchCovers();
     onChange();
   };
-  const turn = async (step) => {
-    if (state.loading) return;
-    const first = state.first + step * ROWS;
-    if (first < 0) return;
-    if (first + ROWS > state.items.length && state.nextOffset !== null) {
-      await load(state.nextOffset, first);
-    }
-    if (first >= state.items.length) return;
-    state.first = first;
+  const loadAhead = () => {
+    if (state.loading || state.nextOffset === null) return;
+    if (top() + ROWS + LOAD_AHEAD < state.items.length) return;
+    void load(state.nextOffset, top() + ROWS + LOAD_AHEAD).catch((err) => trail.error(err));
+  };
+  const scrollTo = (scroll) => {
+    const next = Math.min(Math.max(0, scroll), maxScroll());
+    if (next === state.scroll) return;
+    state.scroll = next;
     fetchCovers();
+    loadAhead();
     onChange();
   };
-  const pick = async (index) => {
-    const p = state.items[state.first + index];
-    if (!p || state.loading) return;
+  const turn = async (step) => {
+    if (state.loading) return;
+    const target = snapped(state.scroll) + step * ROWS * ROW_H;
+    const needed = Math.floor(target / ROW_H) + ROWS;
+    if (step > 0 && needed > state.items.length && state.nextOffset !== null) {
+      await load(state.nextOffset, needed);
+    }
+    scrollTo(target);
+  };
+  const pick = async (y) => {
+    const p = state.items[Math.floor((y + state.scroll) / ROW_H)];
+    if (!p || state.error) return;
     state.picked = p.uri;
     onChange();
     try {
@@ -1489,49 +1522,68 @@ function createPanel(tf, deps) {
       tf.toast(tf.t(messageFor(err)));
     }
   };
+  const click = async (hit) => {
+    if (!hit) return;
+    if (hit.kind === "row") return pick(hit.y);
+    if (hit.kind === "prev") return turn(-1);
+    if (hit.kind === "next") return turn(1);
+    if (hit.kind === "all" && library.available()) return library.show();
+  };
   return {
     /** Whether the panel is open. */
     get open() {
       return state.open;
     },
-    /** Opens or closes the panel; opening loads the list afresh. */
+    /** Opens or closes the panel; opening loads the list afresh, from the top. */
     async toggle() {
       state.open = !state.open;
+      state.drag = null;
       trail.record(state.open ? "panel.show" : "panel.hide", {});
       if (!state.open) return onChange();
-      state.first = 0;
+      state.scroll = 0;
       await load(0);
     },
     /**
-     * Acts on a click the picture decoded (see `panelHit`).
+     * Handles a pointer event on the panel: clicks, and drags that scroll.
      *
-     * @param {{ kind: string, index?: number } | null} hit
+     * @param {{ type: string, x: number, y: number }} e Tilefold's event.
+     * @param {{ x: number, y: number, w: number, h: number }} rect Where the panel is.
      */
-    async click(hit) {
-      if (!hit || !state.open) return;
-      if (hit.kind === "row") return pick(hit.index ?? -1);
-      if (hit.kind === "prev") return turn(-1);
-      if (hit.kind === "next") return turn(1);
-      if (hit.kind === "all" && library.available()) return library.show();
+    async pointer(e, rect) {
+      if (!state.open || !e) return;
+      if (e.type === "click") return click(panelHit(rect, Number(e.x), Number(e.y)));
+      const p = panelPoint(rect, Number(e.x), Number(e.y));
+      if (!p) return;
+      if (e.type === "dragstart") {
+        const hit = panelHit(rect, Number(e.x), Number(e.y));
+        state.drag = hit && hit.kind === "row" ? { y: p.y, scroll: state.scroll } : null;
+      } else if (e.type === "drag" && state.drag) {
+        scrollTo(state.drag.scroll - (p.y - state.drag.y));
+      } else if (e.type === "drop" && state.drag) {
+        scrollTo(state.drag.scroll - (p.y - state.drag.y));
+        state.drag = null;
+        scrollTo(snapped(state.scroll));
+      }
     },
     /**
      * What the panel shows now, in the user's language, or null when closed.
      *
-     * @returns {null | { rows: object[], status: { text: string, error?: boolean } | null,
-     *   range: string, canPrev: boolean, canNext: boolean, allLabel: string|null, label: string }}
+     * @returns {null | { rows: object[], shift: number, bar: { top: number, size: number } | null,
+     *   status: { text: string, error?: boolean } | null, range: string,
+     *   canPrev: boolean, canNext: boolean, allLabel: string|null, label: string }}
      */
     view() {
       if (!state.open) return null;
-      const shown = state.items.slice(state.first, state.first + ROWS);
+      const first = top();
+      const shown = state.items.slice(first, first + ROWS + 1);
       let status = null;
       if (state.error) status = { text: tf.t(state.error), error: true };
       else if (state.loading && shown.length === 0) status = { text: tf.t("library-loading") };
       else if (shown.length === 0) status = { text: tf.t("library-empty") };
-      const range = shown.length ? tf.t("panel-range", {
-        from: state.first + 1,
-        to: state.first + shown.length,
-        total: Math.max(state.total, state.items.length)
-      }) : "";
+      const count = Math.max(state.total, state.items.length);
+      const last = Math.min(first + ROWS, state.items.length);
+      const range = shown.length ? tf.t("panel-range", { from: first + 1, to: last, total: count }) : "";
+      const room = (count - ROWS) * ROW_H;
       return {
         rows: shown.map((p) => ({
           name: p.name,
@@ -1542,10 +1594,12 @@ function createPanel(tf, deps) {
           cover: covers.peek(p.thumb) ?? null,
           picked: p.uri === state.picked
         })),
+        shift: state.scroll - first * ROW_H,
+        bar: count > ROWS ? { top: Math.min(1, state.scroll / room), size: ROWS / count } : null,
         status,
         range,
-        canPrev: state.first > 0,
-        canNext: state.first + ROWS < state.items.length || state.nextOffset !== null,
+        canPrev: state.scroll > 0,
+        canNext: state.scroll < maxScroll() || state.nextOffset !== null,
         allLabel: library.available() ? tf.t("panel-show-all") : null,
         label: [tf.t("library-title"), range].filter(Boolean).join(", ")
       };
@@ -1973,11 +2027,11 @@ function runTuneboard(tf, deps = {}) {
   tf.on(
     "overlay.pointer",
     background(async (e) => {
-      if (!e || e.type !== "click" || !visible) return;
+      if (!e || !visible) return;
       if (e.item === PANEL_ID) {
-        const rect = computeLayout(layout, settings(), { panel: true })[PANEL_ID];
-        return panel.click(panelHit(rect, Number(e.x), Number(e.y)));
+        return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
       }
+      if (e.type !== "click") return;
       const action = actionForClick(String(e.item));
       if (action) await run(action);
     })

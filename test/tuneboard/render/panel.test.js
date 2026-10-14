@@ -5,12 +5,15 @@
  *
  * Tuneboard — the playlist panel's picture and its covers
  *
- * The panel is one picture within the overlay's size limit, with up to five
- * rows (cover or note, escaped name, owner line, the picked row
- * highlighted), a message instead of the rows while loading, empty or
+ * The panel is one picture within the overlay's size limit, with the rows
+ * in view (cover or note, escaped name, owner line, the picked row
+ * highlighted; one more half scrolled in, clipped), a scroll bar when the
+ * list is longer, a message instead of the rows while loading, empty or
  * failed, and a footer whose arrows dim at the ends and whose "Show all"
- * appears only when it can work. Clicks map to rows and footer buttons at
- * any display size, and outside clicks to nothing. Covers are fetched
+ * appears only when it can work. Characters XML can't hold are dropped, so
+ * a strange name can't break the picture. Clicks map to a point in the
+ * rows or a footer button at any display size, and outside clicks to
+ * nothing. Covers are fetched
  * without the sign-in, only small pictures of known types are kept, and
  * each is fetched once, failures included.
  */
@@ -69,13 +72,30 @@ describe("panel picture", () => {
     expect(svg).toContain('fill-opacity="0.18"');
   });
 
-  it("shows at most five rows, or the message instead of them", () => {
-    const many = renderPanel(view({ rows: [1, 2, 3, 4, 5, 6, 7].map((n) => row(n)) }));
-    expect(svgOf(many)).toContain("Mix 5");
-    expect(svgOf(many)).not.toContain("Mix 6");
+  it("draws the rows in view and one scrolled in, or the message instead of them", () => {
+    const many = renderPanel(view({ rows: [1, 2, 3, 4, 5, 6, 7].map((n) => row(n)), shift: 10 }));
+    expect(svgOf(many)).toContain("Mix 6");
+    expect(svgOf(many)).not.toContain("Mix 7");
+    expect(svgOf(many)).toContain('clip-path="url(#rows)"');
+    // The first row is moved up by the scrolled-off part.
+    expect(svgOf(many)).toContain(`y="${6 + 4 - 10}"`);
     const failed = svgOf(renderPanel(view({ status: { text: "Sign in again.", error: true } })));
     expect(failed).toContain("Sign in again.");
     expect(failed).not.toContain("Mix 1");
+  });
+
+  it("shows a scroll bar only for a longer list", () => {
+    expect(svgOf(renderPanel(view()))).not.toContain('fill-opacity="0.6"');
+    const svg = svgOf(renderPanel(view({ bar: { top: 0.5, size: 0.25 } })));
+    expect(svg).toContain('fill-opacity="0.6"');
+  });
+
+  it("drops characters XML can't hold, so the picture stays valid", () => {
+    const svg = svgOf(
+      renderPanel(view({ rows: [row(1, { name: "A\u0001B\u0008C\uFFFED\uD800E 🎧" })] })),
+    );
+    expect(svg).toContain("ABCDE 🎧");
+    expect(svg).not.toMatch(/[\u0000-\u0008\uFFFE\uD800]/u);
   });
 
   it("dims arrows at the ends and leaves out Show all when it can't work", () => {
@@ -97,8 +117,11 @@ describe("panel clicks", () => {
   const at = { x: 100, y: 200, w: PANEL_W, h: PANEL_H };
 
   it("map to rows and footer buttons", () => {
-    expect(panelHit(at, 150, 200 + 6 + 2)).toEqual({ kind: "row", index: 0 });
-    expect(panelHit(at, 150, 200 + 6 + 34 * 4 + 10)).toEqual({ kind: "row", index: ROWS - 1 });
+    expect(panelHit(at, 150, 200 + 6 + 2)).toEqual({ kind: "row", y: 2 });
+    expect(panelHit(at, 150, 200 + 6 + 34 * (ROWS - 1) + 10)).toEqual({
+      kind: "row",
+      y: 34 * (ROWS - 1) + 10,
+    });
     const foot = 200 + PANEL_H - 6 - 13;
     expect(panelHit(at, 100 + 20, foot)).toEqual({ kind: "prev" });
     expect(panelHit(at, 100 + 50, foot)).toEqual({ kind: "next" });
@@ -108,7 +131,9 @@ describe("panel clicks", () => {
 
   it("work at the small size too, and ignore clicks outside", () => {
     const small = { x: 0, y: 0, w: PANEL_W * 0.8, h: PANEL_H * 0.8 };
-    expect(panelHit(small, 20 * 0.8, (6 + 34 + 5) * 0.8)).toEqual({ kind: "row", index: 1 });
+    const hit = panelHit(small, 20 * 0.8, (6 + 34 + 5) * 0.8);
+    expect(hit.kind).toBe("row");
+    expect(hit.y).toBeCloseTo(39);
     expect(panelHit(at, 0, 0)).toBeNull();
     expect(panelHit(at, 100 + PANEL_W + 5, 250)).toBeNull();
     expect(panelHit(null, 1, 1)).toBeNull();

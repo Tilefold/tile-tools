@@ -10,15 +10,19 @@
  * single picture and clicks are told apart by where they land:
  *
  *     ┌──────────────────────────┐
- *     │ ▣ Road trip              │  five rows: cover, name,
- *     │   by Ana · ♪ 42          │  owner and track count
- *     │ ▣ …                      │
+ *     │ ▣ Road trip             ▐│  five rows' room: cover, name,
+ *     │   by Ana · ♪ 42          │  owner and track count; scrolled
+ *     │ ▣ …                      │  by dragging, with a thin bar
  *     │ [▲][▼] 1–5 of 23  Show all│  footer: pages, range, the window
  *     └──────────────────────────┘
  *
- * While loading, when empty or after an error, the rows' place shows that
- * message instead. Covers come in already as `data:` URLs; a missing one
- * is drawn as a note. `panelHit` maps a click to a row or a footer button.
+ * The rows scroll smoothly: the view says which playlist is at the top and
+ * how many pixels of it are scrolled off (`shift`), and up to six rows are
+ * drawn, clipped to the rows' room. While loading, when empty or after an
+ * error, that room shows the message instead. Covers come in already as
+ * `data:` URLs; a missing one is drawn as a note. `panelHit` maps a click
+ * to a point in the rows (the controller knows the scroll) or a footer
+ * button, and `panelPoint` turns window pixels into the panel's own.
  */
 import { THEME, ellipsize, escapeXml, round2, svgUrl, textEl } from "./svg.js";
 import { CARD_W, wrapLines } from "./card.js";
@@ -28,8 +32,8 @@ export const ROWS = 5;
 
 /** The panel's logical size and parts. */
 export const PANEL_W = CARD_W;
-const PAD = 6;
-const ROW_H = 34;
+export const PAD = 6;
+export const ROW_H = 34;
 const FOOT_H = 26;
 export const PANEL_H = PAD + ROWS * ROW_H + FOOT_H + PAD;
 
@@ -48,11 +52,11 @@ const TEXT_X = 44;
  * One row: highlight, cover (or a note), name and the owner line.
  *
  * @param {{ name: string, meta: string, cover: string|null, picked: boolean }} row
- * @param {number} i
+ * @param {number} i Its place among the rows drawn (names its cover's clip).
+ * @param {number} y Its top edge.
  * @returns {string}
  */
-function rowSvg(row, i) {
-  const y = PAD + i * ROW_H;
+function rowSvg(row, i, y) {
   const parts = [];
   if (row.picked) {
     parts.push(
@@ -102,11 +106,15 @@ function arrowSvg(x, up, enabled) {
  * Draws the panel.
  *
  * @param {{ rows: { name: string, meta: string, cover: string|null, picked: boolean }[],
+ *           shift?: number, bar?: { top: number, size: number } | null,
  *           status: { text: string, error?: boolean } | null,
  *           range: string, canPrev: boolean, canNext: boolean,
  *           allLabel: string|null }} view
- *   `status` replaces the rows when set; `allLabel` is the "Show all" link
- *   (null when this Tilefold can't open the Library window).
+ *   `rows` start with the one at the top, `shift` pixels of it scrolled
+ *   off; `bar` is the scroll bar (where it is and how much of the list
+ *   shows, both 0–1; null when it all fits); `status` replaces the rows
+ *   when set; `allLabel` is the "Show all" link (null when this Tilefold
+ *   can't open the Library window).
  * @param {{ displayW?: number, displayH?: number }} [opts]
  * @returns {string} A `data:image/svg+xml` URL.
  */
@@ -131,7 +139,24 @@ export function renderPanel(view, opts = {}) {
       ),
     );
   } else {
-    view.rows.slice(0, ROWS).forEach((row, i) => parts.push(rowSvg(row, i)));
+    // Up to one more row than fits, for the one half scrolled in.
+    const shift = Math.min(Math.max(Number(view.shift) || 0, 0), ROW_H);
+    const rows = view.rows
+      .slice(0, ROWS + 1)
+      .map((row, i) => rowSvg(row, i, round2(PAD + i * ROW_H - shift)));
+    parts.push(
+      `<clipPath id="rows"><rect x="0" y="${PAD}" width="${PANEL_W}" height="${ROWS * ROW_H}"/></clipPath>` +
+        `<g clip-path="url(#rows)">${rows.join("")}</g>`,
+    );
+    if (view.bar) {
+      const room = ROWS * ROW_H - 4;
+      const h = Math.max(12, room * view.bar.size);
+      const top = PAD + 2 + (room - h) * view.bar.top;
+      parts.push(
+        `<rect x="${PANEL_W - 5}" y="${round2(top)}" width="3" height="${round2(h)}" rx="1.5" ` +
+          `fill="${THEME.muted}" fill-opacity="0.6"/>`,
+      );
+    }
   }
   parts.push(
     `<path d="M8 ${FOOT_Y + 0.5} H${PANEL_W - 8}" stroke="${THEME.border}"/>`,
@@ -164,20 +189,34 @@ export function renderPanel(view, opts = {}) {
 }
 
 /**
- * What a click on the panel means: a row (by index on screen), the
- * previous or next page, the Library window, or nothing.
+ * A point in window pixels as the panel's own (logical) coordinates.
+ *
+ * @param {{ x: number, y: number, w: number, h: number }} rect The panel's place on screen.
+ * @param {number} x
+ * @param {number} y
+ * @returns {{ x: number, y: number } | null} Null for a rectangle with no size.
+ */
+export function panelPoint(rect, x, y) {
+  if (!rect || rect.w <= 0 || rect.h <= 0) return null;
+  return { x: ((x - rect.x) * PANEL_W) / rect.w, y: ((y - rect.y) * PANEL_H) / rect.h };
+}
+
+/**
+ * What a click on the panel means: a point in the rows' room (`y` from its
+ * top edge, before scrolling), the previous or next page, the Library
+ * window, or nothing.
  *
  * @param {{ x: number, y: number, w: number, h: number }} rect The panel's place on screen.
  * @param {number} x The click, in window pixels.
  * @param {number} y
- * @returns {{ kind: "row", index: number } | { kind: "prev"|"next"|"all" } | null}
+ * @returns {{ kind: "row", y: number } | { kind: "prev"|"next"|"all" } | null}
  */
 export function panelHit(rect, x, y) {
-  if (!rect || rect.w <= 0 || rect.h <= 0) return null;
-  const lx = ((x - rect.x) * PANEL_W) / rect.w;
-  const ly = ((y - rect.y) * PANEL_H) / rect.h;
+  const p = panelPoint(rect, x, y);
+  if (!p) return null;
+  const { x: lx, y: ly } = p;
   if (lx < 0 || lx > PANEL_W || ly < 0 || ly > PANEL_H) return null;
-  if (ly >= PAD && ly < FOOT_Y) return { kind: "row", index: Math.floor((ly - PAD) / ROW_H) };
+  if (ly >= PAD && ly < FOOT_Y) return { kind: "row", y: ly - PAD };
   if (ly >= FOOT_Y && ly < FOOT_Y + FOOT_H) {
     if (lx >= PREV_X && lx < PREV_X + FOOT_BTN) return { kind: "prev" };
     if (lx >= NEXT_X && lx < NEXT_X + FOOT_BTN) return { kind: "next" };

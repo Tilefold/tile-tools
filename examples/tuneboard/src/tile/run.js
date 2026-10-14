@@ -39,7 +39,6 @@ import { LAYOUT_KEYS, readSettings } from "./settings.js";
 import { createSession } from "./session.js";
 import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
-import { panelHit } from "../render/panel.js";
 import { createCovers } from "../spotify/covers.js";
 import { createPanel } from "./panel.js";
 import { createPicker } from "./pick.js";
@@ -431,11 +430,12 @@ export function runTuneboard(tf, deps = {}) {
   tf.on(
     "overlay.pointer",
     background(async (e) => {
-      if (!e || e.type !== "click" || !visible) return;
+      if (!e || !visible) return;
+      // The panel takes clicks and drags (which scroll it); the rest only clicks.
       if (e.item === PANEL_ID) {
-        const rect = computeLayout(layout, settings(), { panel: true })[PANEL_ID];
-        return panel.click(panelHit(rect, Number(e.x), Number(e.y)));
+        return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
       }
+      if (e.type !== "click") return;
       const action = actionForClick(String(e.item));
       if (action) await run(action);
     }),
