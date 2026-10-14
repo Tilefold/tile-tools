@@ -9,7 +9,7 @@
  *   export default (tf: Tf) => { ... };
  *
  * Types only: nothing here runs, and the build strips it away. `net`,
- * `auth`, `ai`, `page`, `pane`, `fs` and `viewer` are optional because an
+ * `auth`, `ai`, `page`, `panel`, `pane`, `fs` and `viewer` are optional because an
  * older Tilefold doesn't have them; check before use.
  */
 
@@ -33,7 +33,9 @@ export type TileEvent =
   | "overlay.hidden"
   | "page.closed"
   | "page.message"
-  | "pane.cwd";
+  | "pane.cwd"
+  | "panel.click"
+  | "panel.closed";
 
 /** A rectangle in the window's content area, in CSS pixels. */
 export interface Rect {
@@ -71,6 +73,39 @@ export interface TileEventPayloads {
   "page.message": { message: unknown };
   /** The focused pane's folder changed (needs pane.cwd); null when none is known. */
   "pane.cwd": { path: string | null };
+  /** A row of the tile's docked panel was clicked (needs window.panel). */
+  "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
+  /** The tile's panel was closed by the user, or replaced by another tile's. */
+  "panel.closed": { by: "user" | "replaced" };
+}
+
+/** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
+export type PanelIcon = "folder" | "file" | "link" | "loading" | "error" | "info" | "none";
+
+/** One line of a docked panel. */
+export interface PanelRow {
+  /** Unique in the panel, 1–1,024 characters; `panel.click` sends it back. */
+  id: string;
+  /** Shown as plain text, 1–256 characters. */
+  label: string;
+  /** Indent, from 0 (drawn at most 32 deep). */
+  depth?: number;
+  icon?: PanelIcon;
+  /** The row opens and closes (a folder); `expanded` draws it open. */
+  expandable?: boolean;
+  expanded?: boolean;
+  /** A quiet note, such as "Loading…". */
+  muted?: boolean;
+  /** A tooltip, at most 512 characters. */
+  hint?: string;
+}
+
+/** What `tf.panel.show` takes. */
+export interface PanelContent {
+  title: string;
+  subtitle?: string;
+  /** At most 5,000. */
+  rows: PanelRow[];
 }
 
 /** One name in a folder listing. */
@@ -273,6 +308,14 @@ export interface Tf {
     open(options?: { visible?: boolean; keepRunning?: boolean }): Promise<null>;
     close(): Promise<null>;
     post(message: unknown): Promise<null>;
+  };
+  /**
+   * Needs window.panel. A panel docked beside the panes, drawn by Tilefold
+   * from your rows; each `show` replaces it. Missing before Tilefold 0.1.9.
+   */
+  readonly panel?: {
+    show(content: PanelContent): Promise<boolean>;
+    hide(): Promise<null>;
   };
   /**
    * Needs pane.cwd. The folder the focused pane is in, or null; the

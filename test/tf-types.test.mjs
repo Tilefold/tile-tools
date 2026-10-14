@@ -44,6 +44,7 @@ describe("lib/tf.d.ts", () => {
       "readonly auth?:",
       "readonly ai?:",
       "readonly page?:",
+      "readonly panel?:",
       "readonly pane?:",
       "readonly fs?:",
       "readonly viewer?:",
@@ -67,6 +68,8 @@ describe("lib/tf.d.ts", () => {
       "page.message",
       "overlay.hidden",
       "pane.cwd",
+      "panel.click",
+      "panel.closed",
     ];
     for (const e of events) expect(TYPES, e).toContain(`| "${e}"`);
     const docs = readFileSync(new URL("../docs/limits-and-errors.md", import.meta.url), "utf8");

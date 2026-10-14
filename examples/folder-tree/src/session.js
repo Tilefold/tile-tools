@@ -3,34 +3,33 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Folder Tree — the tile's side
+ * Folder Tree — the tile
  *
- * Follows the folder the focused pane is in and answers the page, which
- * only draws. The page never touches the user's files: it asks, and the
- * tile lists (`tf.fs.list`) or opens (`tf.viewer.open`) through Tilefold,
- * which only reaches folders the user's panes are in.
+ * Shows the folder the focused pane is in as a tree, in a panel Tilefold
+ * docks beside the panes (`tf.panel`), and keeps it current: it follows
+ * the pane (`pane.cwd`), lists a folder the first time it is opened
+ * (`tf.fs.list`), and opens a clicked file in the document viewer
+ * (`tf.viewer.open`). Tilefold lets it reach only folders the user's panes
+ * are in, and draws the panel itself from the rows built in model.js.
  *
- * Messages, all plain JSON:
- * - page → tile: `ready` (the page has loaded), `expand {path}` (a folder
- *   was opened in the tree), `open {path}` (a file was clicked; a link is
- *   listed if it leads to a folder, else opened), `refresh`.
- * - tile → page: `tree {lang, dir, strings, root, name, listing | error}`
- *   (start again from this folder), `children {path, listing | error}`.
- *
- * Listings are filtered here (hidden names, folders to skip) so the page
- * gets only what it shows. Errors reach the page as a short message in the
- * user's language; anything unexpected is also written to the tile's log.
+ * Clicks arrive as `panel.click` with the row's id and an action:
+ * `expand` / `collapse` for folders, `activate` for anything (a folder
+ * toggles, a file opens, a link opens or, when it leads to a folder, is
+ * listed and opened like one). Errors listing a folder show inside the
+ * tree; errors opening a file are a notice. Both are in the user's
+ * language; anything unexpected also goes to the tile's log.
  */
-import { folderName, parseSkip, visibleEntries } from "./tree.js";
-
-/** Keys of the strings the page shows, by the page's own names. */
-const STRINGS = {
-  refresh: "page-refresh",
-  loading: "page-loading",
-  empty: "page-empty",
-  truncated: "page-truncated",
-  noFolder: "page-no-folder",
-};
+import {
+  closed,
+  emptyTree,
+  isLoaded,
+  opened,
+  startLoading,
+  treeRows,
+  withError,
+  withListing,
+} from "./model.js";
+import { folderName, parseSkip } from "./tree.js";
 
 /** The message for an error from Tilefold, by its name. */
 const ERROR_KEYS = {
@@ -42,18 +41,11 @@ const ERROR_KEYS = {
 
 /** Starts the Folder Tree for `tf`; returns its handlers (for main.js and tests). */
 export function createFolderTree(tf) {
-  /** The folder the tree starts from (the focused pane's), or null. */
-  let root = null;
-  /** Whether the page is open, so changes are worth sending. */
-  let pageOpen = false;
-
-  const post = (message) => tf.page.post(message).catch(() => {});
-
-  /** The user's choices about what to leave out. */
-  const filters = () => ({
-    showHidden: tf.settings.get("showHidden") === true,
-    skip: parseSkip(tf.settings.get("skipFolders")),
-  });
+  let tree = emptyTree(null);
+  /** Whether the panel is shown (the user may close it any time). */
+  let shown = false;
+  /** Row id → what it stands for, from the last drawing. */
+  let targets = new Map();
 
   /** A short message for an error, in the user's language. */
   const explain = (err) => {
@@ -62,80 +54,111 @@ export function createFolderTree(tf) {
     return tf.t(key ?? "error-other");
   };
 
-  /** One level of `path`, filtered, or an error message. */
-  const listing = async (path) => {
+  /** Draws the tree in the panel (only while it is shown). */
+  const draw = async () => {
+    if (!shown) return;
+    const built = treeRows(tree, {
+      strings: {
+        loading: tf.t("row-loading"),
+        empty: tf.t("row-empty"),
+        truncated: tf.t("row-truncated"),
+        noFolder: tf.t("row-no-folder"),
+      },
+      filters: {
+        showHidden: tf.settings.get("showHidden") === true,
+        skip: parseSkip(tf.settings.get("skipFolders")),
+      },
+    });
+    targets = built.targets;
+    await tf.panel.show({
+      title: tree.root ? folderName(tree.root) : tf.t("title-no-folder"),
+      ...(tree.root ? { subtitle: tree.root } : {}),
+      rows: built.rows,
+    });
+  };
+
+  /** Lists `path` (showing it open and loading meanwhile). */
+  const load = async (path) => {
+    tree = startLoading(tree, path);
+    await draw();
     try {
-      const l = await tf.fs.list(path);
-      return { listing: { ...l, entries: visibleEntries(l.entries, filters()) } };
+      tree = withListing(tree, path, await tf.fs.list(path));
     } catch (err) {
-      return { error: explain(err) };
+      tree = withError(tree, path, explain(err));
     }
+    await draw();
   };
 
-  /** Sends the whole tree again, from the current root. */
-  const sendTree = async () => {
-    const strings = {};
-    for (const [k, key] of Object.entries(STRINGS)) strings[k] = tf.t(key);
-    const base = {
-      do: "tree",
-      lang: tf.t("page-lang"),
-      dir: tf.t("page-dir") === "rtl" ? "rtl" : "ltr",
-      strings,
-      root,
-      name: root ? folderName(root) : tf.t("page-title-none"),
-    };
-    await post(root ? { ...base, ...(await listing(root)) } : base);
+  /** Starts again from `root`. */
+  const start = async (root) => {
+    tree = emptyTree(root);
+    if (root) await load(root);
+    else await draw();
   };
 
-  /** A clicked file, or a link that may lead to a folder. */
-  const openPath = async (path) => {
+  /** Opens or closes a folder, listing it the first time. */
+  const toggle = async (path, open) => {
+    if (!open) {
+      tree = closed(tree, path);
+      return draw();
+    }
+    if (isLoaded(tree, path)) {
+      tree = opened(tree, path);
+      return draw();
+    }
+    return load(path);
+  };
+
+  /** A file, or a link that may lead to a folder. */
+  const openFile = async (path, isLink) => {
     try {
       await tf.viewer.open(path);
     } catch (err) {
-      // A link to a folder: list it in place instead.
-      if (err?.name === "NotAFileError") {
-        return post({ do: "children", path, ...(await listing(path)) });
-      }
-      return post({ do: "children", path, error: explain(err) });
+      if (isLink && err?.name === "NotAFileError") return load(path);
+      await tf.toast(explain(err));
     }
-    return null;
+    return undefined;
   };
 
   return {
-    /** Opens the window (or brings it forward) and draws the tree. */
-    async show() {
-      root = await tf.pane.cwd();
-      await tf.page.open({ keepRunning: false });
-      pageOpen = true;
-      await tf.audit("shown", { hasFolder: root !== null });
-      // The page asks with `ready` once it has loaded; a page already open
-      // gets the tree now.
-      await sendTree();
-    },
-    /** A message from the page. */
-    async fromPage(message) {
-      const m = message && typeof message === "object" ? message : {};
-      if (m.do === "ready" || m.do === "refresh") {
-        pageOpen = true;
-        return sendTree();
+    /** Shows the panel, or hides it when it is shown. */
+    async toggleShown() {
+      if (shown) {
+        shown = false;
+        return tf.panel.hide();
       }
-      if (typeof m.path !== "string" || !m.path) return null;
-      if (m.do === "expand")
-        return post({ do: "children", path: m.path, ...(await listing(m.path)) });
-      if (m.do === "open") return openPath(m.path);
-      return null;
+      shown = true;
+      const root = await tf.pane.cwd();
+      await tf.audit("shown", { hasFolder: root !== null });
+      return start(root);
+    },
+    /** Lists everything again from the top. */
+    refresh: () => (shown ? start(tree.root) : undefined),
+    /** A click (or key) on a row of the panel. */
+    async clicked({ row, action } = {}) {
+      const target = targets.get(row);
+      if (!target) return undefined;
+      if (target.kind === "dir") {
+        const open = action === "expand" || (action === "activate" && !tree.open.includes(row));
+        return toggle(target.path, open);
+      }
+      if (target.kind === "file" || target.kind === "link") {
+        return openFile(target.path, target.kind === "link");
+      }
+      return undefined;
     },
     /** The focused pane's folder changed. */
     async paneChanged(path) {
-      if (path === root) return null;
-      root = path;
-      return pageOpen ? sendTree() : null;
+      if (path === tree.root) return undefined;
+      if (shown) return start(path);
+      tree = emptyTree(path);
+      return undefined;
     },
     /** A setting changed: draw again with the new filters. */
-    settingChanged: () => (pageOpen ? sendTree() : null),
-    /** The user closed the window. */
+    settingChanged: () => draw(),
+    /** The user closed the panel (or another tile's took its place). */
     closed() {
-      pageOpen = false;
+      shown = false;
     },
   };
 }

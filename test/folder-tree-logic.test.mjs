@@ -6,27 +6,39 @@
  *
  * Folder Tree's logic — tests
  *
- * The tile's helpers: the "folders to skip" setting, what is left out, and
- * folder names for titles. The page's model: a `tree` message starts over;
- * opening a folder asks the tile once and shows the answer; closing and
- * opening again needs no new request; files and links are passed to the
- * tile to open; refresh asks again; and the rows to draw show depth, open
- * folders, and notes for loading, empty, cut-short and failed folders.
+ * The helpers: the "folders to skip" setting, what is left out, folder
+ * names for titles. The tree model: child paths keep the folder's
+ * separator; a folder being listed shows open with a loading note; a
+ * listing or an error replaces the note; folders open and close; the rows
+ * carry ids, icons, indent and hints, notes for empty, cut-short and failed
+ * folders and for no folder at all, filters apply, a link becomes a folder
+ * once it has been listed as one; and the targets map each clickable row.
  */
 import { describe, expect, it } from "vitest";
-import { folderName, parseSkip, visibleEntries } from "../examples/folder-tree/src/tree.js";
 import {
   childPath,
-  initialState,
-  pick,
-  receive,
-  refresh,
-  rows,
-  toggle,
-} from "../examples/folder-tree/page/tree-model.js";
+  closed,
+  emptyTree,
+  isLoaded,
+  opened,
+  startLoading,
+  treeRows,
+  withError,
+  withListing,
+} from "../examples/folder-tree/src/model.js";
+import { folderName, parseSkip, visibleEntries } from "../examples/folder-tree/src/tree.js";
 
 const dir = (name) => ({ name, kind: "dir" });
 const file = (name) => ({ name, kind: "file" });
+const link = (name) => ({ name, kind: "link" });
+
+const STRINGS = { loading: "Loading", empty: "Empty", truncated: "Cut", noFolder: "None" };
+const FILTERS = { showHidden: false, skip: new Set(["node_modules"]) };
+/** The rows as "depth:label" (notes as "depth:(label)"). */
+const lines = (tree, filters = FILTERS) =>
+  treeRows(tree, { strings: STRINGS, filters }).rows.map(
+    (r) => `${r.depth}:${r.muted ? `(${r.label})` : r.label}`,
+  );
 
 describe("Folder Tree: what to show", () => {
   it("reads the folders to skip, ignoring paths and blanks", () => {
@@ -68,17 +80,13 @@ describe("Folder Tree: what to show", () => {
   });
 });
 
-describe("Folder Tree page: the model", () => {
-  /** The page after the tile sent /work/app with `src` and `README.md`. */
-  const started = () =>
-    receive(initialState(), {
-      do: "tree",
-      lang: "ar",
-      dir: "rtl",
-      strings: { empty: "Empty" },
-      root: "/work/app",
-      name: "app",
-      listing: { path: "/work/app", entries: [dir("src"), file("README.md")], truncated: false },
+describe("Folder Tree: the tree", () => {
+  /** /work/app listed with src, node_modules, .git and README.md. */
+  const listed = () =>
+    withListing(startLoading(emptyTree("/work/app"), "/work/app"), "/work/app", {
+      path: "/work/app",
+      entries: [dir(".git"), dir("node_modules"), dir("src"), file("README.md")],
+      truncated: false,
     });
 
   it("builds child paths with the folder's own separator", () => {
@@ -87,76 +95,84 @@ describe("Folder Tree page: the model", () => {
     expect(childPath("C:\\work", "a")).toBe("C:\\work\\a");
   });
 
-  it("starts over from a tree message, in the tile's language", () => {
-    const s = started();
-    expect(s).toMatchObject({
-      ready: true,
-      lang: "ar",
-      dir: "rtl",
-      root: "/work/app",
-      name: "app",
-    });
-    expect(rows(s).map((r) => r.path)).toEqual(["/work/app/src", "/work/app/README.md"]);
-    // A tree without a folder shows nothing to click.
-    const none = receive(s, { do: "tree", root: null, name: "No folder" });
-    expect(none.root).toBeNull();
-    expect(rows(none)).toEqual([]);
-  });
-
-  it("asks the tile for a folder once, then opens and closes it locally", () => {
-    let step = toggle(started(), "/work/app/src");
-    expect(step.send).toEqual({ do: "expand", path: "/work/app/src" });
-    expect(rows(step.state)).toContainEqual({ note: "loading", depth: 1 });
-    // A second click while it loads asks nothing more.
-    expect(toggle(step.state, "/work/app/src").send).toBeUndefined();
-    let s = receive(step.state, {
-      do: "children",
-      path: "/work/app/src",
-      listing: { path: "/work/app/src", entries: [file("main.js")], truncated: true },
-    });
-    expect(rows(s).map((r) => r.note ?? `${r.depth}:${r.entry.name}`)).toEqual([
+  it("shows a folder loading, then its entries with filters applied", () => {
+    const loading = startLoading(emptyTree("/work/app"), "/work/app");
+    expect(lines(loading)).toEqual(["0:(Loading)"]);
+    expect(lines(listed())).toEqual(["0:src", "0:README.md"]);
+    expect(lines(listed(), { showHidden: true, skip: new Set() })).toEqual([
+      "0:.git",
+      "0:node_modules",
       "0:src",
-      "1:main.js",
-      "truncated",
       "0:README.md",
     ]);
-    step = toggle(s, "/work/app/src");
-    expect(step.send).toBeUndefined();
-    expect(rows(step.state)).toHaveLength(2);
-    s = toggle(step.state, "/work/app/src").state;
-    expect(rows(s)).toHaveLength(4);
   });
 
-  it("shows empty and failed folders as notes", () => {
-    let s = receive(started(), {
-      do: "children",
+  it("opens and closes folders, with notes for empty, cut-short and failed ones", () => {
+    let tree = startLoading(listed(), "/work/app/src");
+    expect(lines(tree)).toEqual(["0:src", "1:(Loading)", "0:README.md"]);
+    tree = withListing(tree, "/work/app/src", {
       path: "/work/app/src",
-      listing: { path: "/work/app/src", entries: [], truncated: false },
+      entries: [],
+      truncated: true,
     });
-    expect(rows(s)).toContainEqual({ note: "empty", depth: 1 });
-    s = receive(s, { do: "children", path: "/work/app/src", error: "Not allowed" });
-    expect(rows(s)).toContainEqual({ note: "error", text: "Not allowed", depth: 1 });
+    expect(lines(tree)).toEqual(["0:src", "1:(Empty)", "1:(Cut)", "0:README.md"]);
+    tree = withError(tree, "/work/app/src", "Gone");
+    expect(lines(tree)).toEqual(["0:src", "1:(Gone)", "0:README.md"]);
+    expect(isLoaded(tree, "/work/app/src")).toBe(true);
+    tree = closed(tree, "/work/app/src");
+    expect(lines(tree)).toEqual(["0:src", "0:README.md"]);
+    expect(lines(opened(tree, "/work/app/src"))).toContain("1:(Gone)");
   });
 
-  it("passes files and links to the tile to open", () => {
-    const s = started();
-    expect(pick(s, "/work/app", file("README.md")).send).toEqual({
-      do: "open",
-      path: "/work/app/README.md",
+  it("gives each row its id, icon, hint and state, and maps the clickable ones", () => {
+    let tree = startLoading(listed(), "/work/app/src");
+    tree = withListing(tree, "/work/app/src", {
+      path: "/work/app/src",
+      entries: [file("main.rs"), link("shared")],
+      truncated: false,
     });
-    expect(pick(s, "/work/app", { name: "docs", kind: "link" }).send).toEqual({
-      do: "open",
-      path: "/work/app/docs",
+    const { rows, targets } = treeRows(tree, { strings: STRINGS, filters: FILTERS });
+    expect(rows[0]).toEqual({
+      id: "/work/app/src",
+      label: "src",
+      icon: "folder",
+      depth: 0,
+      expandable: true,
+      expanded: true,
+      hint: "/work/app/src",
     });
-    expect(pick(s, "/work/app", dir("src")).send).toEqual({ do: "expand", path: "/work/app/src" });
-    expect(pick(s, "/work/app", { name: "sock", kind: "other" }).send).toBeUndefined();
+    expect(rows[1]).toMatchObject({
+      id: "/work/app/src/main.rs",
+      icon: "file",
+      depth: 1,
+      expandable: false,
+    });
+    expect(rows[2]).toMatchObject({ id: "/work/app/src/shared", icon: "link", expandable: false });
+    expect([...targets]).toEqual([
+      ["/work/app/src", { kind: "dir", path: "/work/app/src" }],
+      ["/work/app/src/main.rs", { kind: "file", path: "/work/app/src/main.rs" }],
+      ["/work/app/src/shared", { kind: "link", path: "/work/app/src/shared" }],
+      ["/work/app/README.md", { kind: "file", path: "/work/app/README.md" }],
+    ]);
+    // A link listed as a folder opens like one.
+    tree = withListing(startLoading(tree, "/work/app/src/shared"), "/work/app/src/shared", {
+      path: "/work/lib",
+      entries: [file("x.js")],
+      truncated: false,
+    });
+    const after = treeRows(tree, { strings: STRINGS, filters: FILTERS });
+    expect(after.rows.find((r) => r.label === "shared")).toMatchObject({
+      icon: "link",
+      expandable: true,
+      expanded: true,
+    });
+    expect(after.targets.get("/work/app/src/shared").kind).toBe("dir");
+    // Children of a link are built from where it leads.
+    expect(after.rows.find((r) => r.label === "x.js").id).toBe("/work/lib/x.js");
   });
 
-  it("asks for everything again on refresh, and ignores unknown messages", () => {
-    const step = refresh(started());
-    expect(step.send).toEqual({ do: "refresh" });
-    expect(step.state.loading).toEqual(["/work/app"]);
-    expect(receive(started(), { do: "dance" })).toEqual(started());
-    expect(receive(started(), null)).toEqual(started());
+  it("says so when no folder is known", () => {
+    expect(lines(emptyTree(null))).toEqual(["0:(None)"]);
+    expect(treeRows(emptyTree(null), { strings: STRINGS, filters: FILTERS }).targets.size).toBe(0);
   });
 });

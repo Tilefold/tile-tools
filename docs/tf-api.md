@@ -94,6 +94,8 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `page.message` | The tile's page sent a message (`window.tilefold.post`) | `{ message }` |
 | `page.closed` | The tile's page closed, whatever closed it | `{}` |
 | `pane.cwd` | The focused pane's folder changed: another pane or tab, or a `cd` (needs `pane.cwd`; Tilefold 0.1.9) | `{ path }`, `null` when none is known |
+| `panel.click` | A row of the tile's docked panel was clicked (needs `window.panel`; Tilefold 0.1.9) | `{ row, action }`, action `activate`, `expand` or `collapse` |
+| `panel.closed` | The user closed the tile's panel, or another tile's panel replaced it | `{ by }`, `user` or `replaced` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 
@@ -178,6 +180,10 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 ## A web page of its own
 
 `tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7). See [Tile pages](tile-pages.md).
+
+## A docked panel
+
+`tf.panel.show({ title, subtitle, rows })` docks a panel beside the panes that Tilefold draws from your rows, and `tf.panel.hide()` takes it away (`window.panel`, Tilefold 0.1.9). See [Panels](panels.md).
 
 ## Your folders
 

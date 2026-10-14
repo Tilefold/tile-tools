@@ -21,12 +21,17 @@
  * the user has set up, for `tf.auth.has`; `ai` answers `tf.ai.ask` (every
  * question is recorded; without it, asking fails with `AiNotSetUpError`).
  *
- * For tiles that use folders: `folders: { cwd, roots, files }` adds
+ * For tiles that use folders: `folders: { cwd, roots, files, links }` adds
  * `tf.pane`, `tf.fs` and `tf.viewer` with Tilefold's rules (only paths
  * inside a `roots` folder; `files` are absolute file paths and their
- * folders exist implicitly; opened files are kept in `host.opened`;
+ * folders exist implicitly; `links` maps a link's path to its target,
+ * listed as kind "link" and followed when listed or opened; opened files
+ * are kept in `host.opened`;
  * `host.cwd` is the focused pane's folder). `page: true` adds `tf.page`
- * (opens, closes and posted messages are kept in `host.page`).
+ * (opens, closes and posted messages are kept in `host.page`). `panel: true`
+ * adds `tf.panel` (`host.panel.content` is what is docked, or null; rows
+ * are checked the way Tilefold checks them: unique ids, labels, depth, a
+ * known icon).
  *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
@@ -235,6 +240,7 @@ export async function startTile(dir, opts = {}) {
 
   if (opts.folders) addFolders(tf, host, opts.folders, named);
   if (opts.page) addPage(tf, host);
+  if (opts.panel) addPanel(tf, host, named);
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;
@@ -251,11 +257,20 @@ const parentOf = (path) => {
 };
 
 /** `tf.pane`, `tf.fs` and `tf.viewer` over a list of files, with Tilefold's rules. */
-function addFolders(tf, host, { cwd = null, roots = [], files = [] }, named) {
+function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {} }, named) {
   host.cwd = cwd;
   host.roots = roots;
-  host.files = files;
+  // Copies, so a test that changes the files never changes the next test's.
+  host.files = [...files];
+  host.links = { ...links };
   host.opened = [];
+  /** A path with a link at its start followed, as Tilefold resolves it. */
+  const resolve = (path) => {
+    for (const [link, target] of Object.entries(host.links)) {
+      if (path === link || path.startsWith(`${link}/`)) return target + path.slice(link.length);
+    }
+    return path;
+  };
   const dirs = () => {
     const out = new Set();
     for (const f of host.files) {
@@ -266,19 +281,22 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [] }, named) {
     }
     return out;
   };
-  const check = (path) => {
+  const check = (raw) => {
+    const path = resolve(raw);
     const inside = host.roots.some((r) => path === r || path.startsWith(`${r}/`));
     if (!inside) throw named("PathNotAllowedError", "not inside a pane's folder");
     if (!dirs().has(path) && !host.files.includes(path)) throw named("NotFoundError", "missing");
+    return path;
   };
   tf.pane = { cwd: async () => host.cwd };
   tf.fs = {
-    async list(path) {
-      check(path);
+    async list(raw) {
+      const path = check(raw);
       if (!dirs().has(path)) throw named("NotADirectoryError", "not a folder");
       const names = new Map();
       for (const d of dirs()) if (d !== path && parentOf(d) === path) names.set(d, "dir");
       for (const f of host.files) if (parentOf(f) === path) names.set(f, "file");
+      for (const l of Object.keys(host.links)) if (parentOf(l) === path) names.set(l, "link");
       const entries = [...names]
         .map(([p, kind]) => ({ name: p.slice(p.lastIndexOf("/") + 1), kind }))
         .sort((a, b) =>
@@ -288,8 +306,8 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [] }, named) {
     },
   };
   tf.viewer = {
-    async open(path) {
-      check(path);
+    async open(raw) {
+      const path = check(raw);
       if (!host.files.includes(path)) throw named("NotAFileError", "not a file");
       host.opened.push(path);
       return null;
@@ -315,6 +333,43 @@ function addPage(tf, host) {
       if (!host.page.open)
         throw Object.assign(new Error("the page is not open"), { name: "PageError" });
       host.page.posted.push(structuredClone(message));
+      return null;
+    },
+  };
+}
+
+/** Icons Tilefold draws in panel rows. */
+const PANEL_ICONS = ["folder", "file", "link", "loading", "error", "info", "none"];
+
+/** `tf.panel`, keeping the docked content and checking rows as Tilefold does. */
+function addPanel(tf, host, named) {
+  host.panel = { content: null, shows: 0 };
+  tf.panel = {
+    async show(content) {
+      const ids = new Set();
+      if (typeof content?.title !== "string" || !content.title.trim()) {
+        throw named("TypeError", "title");
+      }
+      for (const [i, r] of (content.rows ?? []).entries()) {
+        const ok =
+          typeof r.id === "string" &&
+          r.id.length > 0 &&
+          r.id.length <= 1024 &&
+          !ids.has(r.id) &&
+          typeof r.label === "string" &&
+          r.label.length > 0 &&
+          r.label.length <= 256 &&
+          (r.depth === undefined || (Number.isInteger(r.depth) && r.depth >= 0)) &&
+          (r.icon === undefined || PANEL_ICONS.includes(r.icon));
+        if (!ok) throw named("TypeError", `rows[${i}]`);
+        ids.add(r.id);
+      }
+      host.panel.content = structuredClone(content);
+      host.panel.shows += 1;
+      return true;
+    },
+    async hide() {
+      host.panel.content = null;
       return null;
     },
   };

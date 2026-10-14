@@ -8,7 +8,7 @@ From **Tilefold 0.1.9**, a tile can follow the folder the user is working in, li
 | `fs.list` | See the names and kinds in a folder, one level at a time. Never what's in a file | `tf.fs.list(path)` |
 | `viewer.open` | Show a file in the document viewer. The tile never receives the file's contents | `tf.viewer.open(path)` |
 
-The **Folder Tree** example (`examples/folder-tree`) uses all three.
+The **Folder Tree** example (`examples/folder-tree`) uses all three, and shows the tree in a [docked panel](panels.md).
 
 ## 1. Ask for the permissions
 
