@@ -234,7 +234,7 @@ var main_default = (tf) => {
   const unsupported = () => tf.toast(tf.t("needs-newer-tilefold"));
   tf.command(tf.t("cmd-toggle"), () => tree ? tree.toggleShown() : unsupported(), {
     id: "toggle",
-    key: { mac: "Ctrl+Alt+T", other: "Ctrl+Alt+Y" }
+    key: { mac: "Ctrl+Alt+T", other: "Ctrl+Alt+Shift+Y" }
   });
   tf.command(tf.t("cmd-refresh"), () => tree ? tree.refresh() : unsupported(), {
     id: "refresh"
