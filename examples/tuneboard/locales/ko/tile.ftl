@@ -66,3 +66,5 @@ library-playing = 재생 중입니다.
 library-error-scope = Tuneboard가 플레이리스트를 읽을 수 있도록 설정 → Tiles의 Tuneboard 카드에서 Spotify에 다시 로그인하세요.
 library-error-network = Spotify에 연결할 수 없습니다. 잠시 후 다시 시도하세요.
 library-error-other = 문제가 발생했습니다. 다시 시도하세요.
+library-view-grid = 썸네일
+library-view-list = 목록

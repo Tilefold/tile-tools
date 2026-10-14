@@ -5,14 +5,22 @@
  *
  * Tuneboard's Library page — on screen
  *
- * Draws the Library from its state (library-model.js) and passes the
- * user's clicks to the tile through Tilefold's bridge (`window.tilefold`).
+ * Draws the Library from its state (library-model.js), as thumbnails or as
+ * a list, and passes the user's clicks to the tile through Tilefold's bridge (`window.tilefold`).
  * It stays hidden until the tile says to show it, so the same page can also
  * run hidden as the player. All text goes in with `textContent`, never as
  * HTML, so a playlist's name can't change the page. Covers load only from
  * Spotify's image hosts, the ones Tilefold allows this page.
  */
-import { initialState, more, play, receive, refresh, statusLine } from "./library-model.js";
+import {
+  initialState,
+  more,
+  play,
+  receive,
+  refresh,
+  setView,
+  statusLine,
+} from "./library-model.js";
 
 const bridge = window.tilefold;
 let state = initialState();
@@ -46,6 +54,8 @@ function tile(p) {
     cover.alt = "";
     cover.loading = "lazy";
   }
+  const text = document.createElement("span");
+  text.className = "text";
   const name = document.createElement("span");
   name.className = "name";
   name.textContent = p.name;
@@ -54,7 +64,8 @@ function tile(p) {
   meta.textContent = [p.byline, p.tracks === null ? "" : `♪ ${p.tracks}`]
     .filter(Boolean)
     .join(" · ");
-  button.append(cover, name, meta);
+  text.append(name, meta);
+  button.append(cover, text);
   return button;
 }
 
@@ -72,6 +83,15 @@ function render() {
   const line = statusLine(state);
   $("status").textContent = line.text;
   $("status").classList.toggle("error", Boolean(line.error));
+  for (const [id, view, label] of [
+    ["view-grid", "grid", state.strings.viewGrid],
+    ["view-list", "list", state.strings.viewList],
+  ]) {
+    $(id).setAttribute("aria-pressed", String(state.view === view));
+    $(id).setAttribute("aria-label", label ?? view);
+    $(id).title = label ?? view;
+  }
+  $("list").className = state.view;
   $("list").replaceChildren(...state.items.map(tile));
   $("more").hidden = state.nextOffset === null;
   $("more").textContent = state.strings.more ?? "…";
@@ -82,6 +102,9 @@ if (bridge) {
   bridge.onMessage((message) => apply(receive(state, message)));
   $("refresh").addEventListener("click", () => apply(refresh(state)));
   $("more").addEventListener("click", () => apply(more(state)));
+  for (const id of ["view-grid", "view-list"]) {
+    $(id).addEventListener("click", () => apply(setView(state, $(id).dataset.view)));
+  }
   // Tells the tile the page is here, in case it is waiting to show the Library.
   send({ type: "hello" });
 }

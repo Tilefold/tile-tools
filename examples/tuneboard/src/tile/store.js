@@ -8,7 +8,8 @@
  * What Tuneboard keeps between sessions in `tf.store` (the tile's own
  * storage, which nothing else can read):
  *
- *   visible  whether the card was on screen, so it comes back the same
+ *   visible      whether the card was on screen, so it comes back the same
+ *   libraryView  how the Library lists playlists: "grid" (thumbnails) or "list"
  *
  * Signing in to Spotify is Tilefold's job: the token lives in the system
  * keychain and never reaches the tile. Earlier versions of Tuneboard kept
@@ -21,7 +22,10 @@
 
 /** Storage keys. */
 /** `auth` is only read to clear what earlier versions saved there. */
-export const KEYS = { visible: "visible", auth: "auth" };
+export const KEYS = { visible: "visible", auth: "auth", libraryView: "libraryView" };
+
+/** The Library's ways of listing playlists; the first is the default. */
+export const LIBRARY_VIEWS = Object.freeze(["grid", "list"]);
 
 /**
  * Wraps `tf.store` with checked reads and forgiving writes.
@@ -61,6 +65,16 @@ export function createStore(tf) {
     /** Remembers whether the card is on screen. */
     async setVisible(on) {
       return write(KEYS.visible, Boolean(on));
+    },
+    /** How the Library lists playlists (default: thumbnails). */
+    async libraryView() {
+      const view = await read(KEYS.libraryView);
+      return LIBRARY_VIEWS.includes(view) ? view : LIBRARY_VIEWS[0];
+    },
+    /** Remembers how the Library lists playlists; refuses unknown views. */
+    async setLibraryView(view) {
+      if (!LIBRARY_VIEWS.includes(view)) return false;
+      return write(KEYS.libraryView, view);
     },
     /**
      * Overwrites a refresh token an earlier version saved, if there is one.

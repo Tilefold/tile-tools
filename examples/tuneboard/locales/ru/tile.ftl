@@ -66,3 +66,5 @@ library-playing = Воспроизводится.
 library-error-scope = Войдите в Spotify ещё раз в Настройки → Tiles, на карточке Tuneboard, чтобы Tuneboard мог читать ваши плейлисты.
 library-error-network = Не удаётся связаться со Spotify. Попробуйте чуть позже.
 library-error-other = Что-то пошло не так. Попробуйте ещё раз.
+library-view-grid = Миниатюры
+library-view-list = Список

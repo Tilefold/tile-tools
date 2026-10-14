@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and nine example tiles from a few lines to a game, a Spotify card and a tile that asks Claude.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-691%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-9-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-694%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-9-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -166,7 +166,7 @@ Nine tiles in `examples/` show the common cases, from a few lines to full tiles 
 | `examples/service-status` | **The internet, no key.** `net:www.githubstatus.com` and `tf.net.fetch` against a public API; a command that starts the request and returns; errors by name; an interval setting that checks quietly and speaks only on a change; `tf.audit` of each change; twelve languages | 0.1.6 | Run **Service Status: Check GitHub now**, or pick an interval in its settings |
 | `examples/github-inbox` | **An API key it never sees.** `auth` with `apiKey` (header, scheme, the one host it may go to); `tf.auth.has` before asking; `{ auth: "github" }` on the request; telling a missing token (`CredentialMissingError`) from a refused one (401/403); a count in the activity log, never titles; twelve languages | 0.1.6 | Add a GitHub token (classic, `notifications` scope) under **Keys** on its card, then run **GitHub Inbox: Check notifications** |
 | `examples/shell-tips` | **Asking Claude.** `ai.ask` and `tf.ai.ask` with a system prompt, a conversation that continues the last tip, `maxTokens` and `model: "fast"`; the user's language named in the tile's own strings; "Don't send" treated as a choice, not a failure; one question at a time; the last tip kept in `tf.store`; twelve languages | 0.1.6 | Save your Anthropic key in Settings → AI, pick a topic, run **Shell Tips: New tip** |
-| `examples/tuneboard` | **Signing in to a service.** A Spotify now-playing card with previous, play/pause, next and volume buttons and shortcuts. Its `tile.json` declares a Spotify sign-in that uses the user's own Spotify app; Tilefold runs the sign-in in the browser, keeps it in the keychain and adds it to the tile's requests, so the tile never holds a token. It checks Spotify only while the card is shown. From 0.3.0, when no Spotify app is open, ▶ plays inside Tilefold through Spotify's player in a hidden tile page; from 0.4.0, **Tuneboard: Show playlists** opens the same page as a window listing your playlists, and a click plays one; twelve languages | 0.1.6 (playing inside Tilefold: tile pages, not yet released) | Run **Tuneboard: Show or hide**; the sign-in steps are below |
+| `examples/tuneboard` | **Signing in to a service.** A Spotify now-playing card with previous, play/pause, next and volume buttons and shortcuts. Its `tile.json` declares a Spotify sign-in that uses the user's own Spotify app; Tilefold runs the sign-in in the browser, keeps it in the keychain and adds it to the tile's requests, so the tile never holds a token. It checks Spotify only while the card is shown. From 0.3.0, when no Spotify app is open, ▶ plays inside Tilefold through Spotify's player in a hidden tile page; from 0.4.0, **Tuneboard: Show playlists** opens the same page as a window listing your playlists as thumbnails or a list, and a click plays one; twelve languages | 0.1.6 (playing inside Tilefold: tile pages, not yet released) | Run **Tuneboard: Show or hide**; the sign-in steps are below |
 
 To build one yourself:
 
@@ -245,7 +245,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (691 tests in 34 files, all passing on 2026-10-13).
+Run with `npm test` (694 tests in 34 files, all passing on 2026-10-13).
 
 | Area | Covers |
 |---|---|

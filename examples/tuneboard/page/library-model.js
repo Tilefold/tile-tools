@@ -7,11 +7,14 @@
  *
  * What the Library window shows, kept apart from the page's HTML so it can
  * be tested on its own. `receive` applies a message from the tile (show the
- * Library, a page of playlists, an error, "now playing"); `refresh`, `more`
- * and `play` are the user's clicks. Each returns the new state and, when the
+ * Library, a page of playlists, an error, "now playing"); `refresh`, `more`,
+ * `play` and `setView` (thumbnails or list) are the user's clicks. Each returns the new state and, when the
  * tile must be asked for something, the message to send it. State is never
  * changed in place.
  */
+
+/** The ways the Library lists playlists: thumbnails or rows. */
+export const VIEWS = Object.freeze(["grid", "list"]);
 
 /** The Library before the tile has said anything: hidden and empty. */
 export function initialState() {
@@ -19,6 +22,7 @@ export function initialState() {
     shown: false,
     lang: "en",
     dir: "ltr",
+    view: "grid",
     strings: {},
     items: [],
     total: 0,
@@ -72,6 +76,7 @@ export function receive(state, message) {
         shown: true,
         lang: typeof message.lang === "string" ? message.lang : state.lang,
         dir: message.dir === "rtl" ? "rtl" : "ltr",
+        view: VIEWS.includes(message.view) ? message.view : state.view,
         strings: message.strings && typeof message.strings === "object" ? message.strings : {},
       };
       return ask(next, 0);
@@ -102,6 +107,12 @@ export function refresh(state) {
 export function more(state) {
   if (state.loading || state.nextOffset === null) return { state, send: null };
   return ask(state, state.nextOffset);
+}
+
+/** The user switches between thumbnails and list; the tile remembers it. */
+export function setView(state, view) {
+  if (!VIEWS.includes(view) || view === state.view) return { state, send: null };
+  return { state: { ...state, view }, send: { type: "set-view", view } };
 }
 
 /** The user picks a playlist to play. */

@@ -66,3 +66,5 @@ library-playing = चल रहा है।
 library-error-scope = सेटिंग्स → Tiles में Tuneboard के कार्ड पर Spotify में फिर से साइन इन करें, ताकि Tuneboard आपकी प्लेलिस्ट पढ़ सके।
 library-error-network = Spotify तक नहीं पहुँच पा रहे। थोड़ी देर में फिर कोशिश करें।
 library-error-other = कुछ गलत हो गया। फिर कोशिश करें।
+library-view-grid = थंबनेल
+library-view-list = सूची

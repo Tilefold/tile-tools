@@ -66,3 +66,5 @@ library-playing = 正在播放。
 library-error-scope = 请在 设置 → Tiles 中 Tuneboard 的卡片上重新登录 Spotify，以便 Tuneboard 读取你的歌单。
 library-error-network = 无法连接 Spotify。请稍后再试。
 library-error-other = 出了点问题。请再试一次。
+library-view-grid = 缩略图
+library-view-list = 列表

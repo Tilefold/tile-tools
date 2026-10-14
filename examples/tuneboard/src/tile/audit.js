@@ -10,8 +10,8 @@
  * user used, state changes (signed out, no device, playing…), sign-in
  * failures and token rotation, and the player inside Tilefold starting,
  * getting ready, failing (by Spotify's error kind), stopping or closing, and
- * the Library shown, its playlists loaded and one played (where, and whether
- * it worked). Never a token, a client id, a track title, a playlist
+ * the Library shown, its playlists loaded, one played (where, and whether
+ * it worked) and its view changed. Never a token, a client id, a track title, a playlist
  * or anything else about what the user listens to: details are limited to
  * a known set of short keys. Every record is fire-and-forget, so a failing
  * log can never slow down or break the tile.
@@ -41,6 +41,7 @@ export const ACTIONS = Object.freeze([
   "library.show",
   "library.load",
   "library.play",
+  "library.view",
 ]);
 
 /**

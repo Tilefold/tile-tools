@@ -546,7 +546,8 @@ var ACTIONS = Object.freeze([
   "player.closed",
   "library.show",
   "library.load",
-  "library.play"
+  "library.play",
+  "library.view"
 ]);
 var DETAIL_KEYS = Object.freeze(["from", "to", "volume", "ok", "code", "via"]);
 function cleanDetails(details) {
@@ -642,13 +643,73 @@ function registerCommands(tf, run) {
   }
 }
 
+// src/tile/store.js
+var KEYS = { visible: "visible", auth: "auth", libraryView: "libraryView" };
+var LIBRARY_VIEWS = Object.freeze(["grid", "list"]);
+function createStore(tf) {
+  const read = async (key) => {
+    try {
+      return await tf.store.get(key);
+    } catch (err) {
+      void Promise.resolve(
+        tf.log.warn(`store read ${key} failed: ${String(err && err.message || err)}`)
+      ).catch(() => {
+      });
+      return null;
+    }
+  };
+  const write = async (key, value) => {
+    try {
+      await tf.store.set(key, value);
+      return true;
+    } catch (err) {
+      void Promise.resolve(
+        tf.log.warn(`store write ${key} failed: ${String(err && err.message || err)}`)
+      ).catch(() => {
+      });
+      return false;
+    }
+  };
+  return {
+    /** Whether the card was last left on screen (default: hidden). */
+    async visible() {
+      return await read(KEYS.visible) === true;
+    },
+    /** Remembers whether the card is on screen. */
+    async setVisible(on) {
+      return write(KEYS.visible, Boolean(on));
+    },
+    /** How the Library lists playlists (default: thumbnails). */
+    async libraryView() {
+      const view = await read(KEYS.libraryView);
+      return LIBRARY_VIEWS.includes(view) ? view : LIBRARY_VIEWS[0];
+    },
+    /** Remembers how the Library lists playlists; refuses unknown views. */
+    async setLibraryView(view) {
+      if (!LIBRARY_VIEWS.includes(view)) return false;
+      return write(KEYS.libraryView, view);
+    },
+    /**
+     * Overwrites a refresh token an earlier version saved, if there is one.
+     * Returns true when there was one to clear.
+     */
+    async clearLegacyAuth() {
+      if (await read(KEYS.auth) === null) return false;
+      await write(KEYS.auth, null);
+      return true;
+    }
+  };
+}
+
 // src/tile/library.js
 var STRINGS = {
   title: "library-title",
   refresh: "library-refresh",
   loading: "library-loading",
   empty: "library-empty",
-  more: "library-more"
+  more: "library-more",
+  viewGrid: "library-view-grid",
+  viewList: "library-view-list"
 };
 var ERROR_MESSAGE = {
   auth: "player-error-sign-in",
@@ -664,7 +725,7 @@ var ERROR_MESSAGE = {
   initialization_error: "player-error-unsupported"
 };
 var codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
-function createLibrary(tf, { trail, player, client, afterPlay = () => {
+function createLibrary(tf, { trail, store, player, client, afterPlay = () => {
 } }) {
   let wanted = false;
   const post = async (message) => {
@@ -677,10 +738,10 @@ function createLibrary(tf, { trail, player, client, afterPlay = () => {
     lang: tf.t("library-lang"),
     dir: tf.t("library-dir") === "rtl" ? "rtl" : "ltr"
   });
-  const open = () => {
+  const open = async () => {
     const strings = {};
     for (const [k, key] of Object.entries(STRINGS)) strings[k] = tf.t(key);
-    return post({ do: "library", ...language(), strings });
+    return post({ do: "library", ...language(), view: await store.libraryView(), strings });
   };
   const fail = (err) => post({
     do: "library-error",
@@ -734,6 +795,10 @@ function createLibrary(tf, { trail, player, client, afterPlay = () => {
       await load(offset);
     } else if (message.type === "play-playlist") {
       if (isPlaylistUri(message.uri)) await play(message.uri);
+    } else if (message.type === "set-view") {
+      if (!LIBRARY_VIEWS.includes(message.view)) return;
+      await store.setLibraryView(message.view);
+      trail.record("library.view", { to: message.view });
     }
   };
   if (tf.page) {
@@ -1107,53 +1172,6 @@ function createSession(o = {}) {
   return session;
 }
 
-// src/tile/store.js
-var KEYS = { visible: "visible", auth: "auth" };
-function createStore(tf) {
-  const read = async (key) => {
-    try {
-      return await tf.store.get(key);
-    } catch (err) {
-      void Promise.resolve(
-        tf.log.warn(`store read ${key} failed: ${String(err && err.message || err)}`)
-      ).catch(() => {
-      });
-      return null;
-    }
-  };
-  const write = async (key, value) => {
-    try {
-      await tf.store.set(key, value);
-      return true;
-    } catch (err) {
-      void Promise.resolve(
-        tf.log.warn(`store write ${key} failed: ${String(err && err.message || err)}`)
-      ).catch(() => {
-      });
-      return false;
-    }
-  };
-  return {
-    /** Whether the card was last left on screen (default: hidden). */
-    async visible() {
-      return await read(KEYS.visible) === true;
-    },
-    /** Remembers whether the card is on screen. */
-    async setVisible(on) {
-      return write(KEYS.visible, Boolean(on));
-    },
-    /**
-     * Overwrites a refresh token an earlier version saved, if there is one.
-     * Returns true when there was one to clear.
-     */
-    async clearLegacyAuth() {
-      if (await read(KEYS.auth) === null) return false;
-      await write(KEYS.auth, null);
-      return true;
-    }
-  };
-}
-
 // src/tile/transport.js
 function withOk(response) {
   if (!response || typeof response !== "object" || typeof response.ok === "boolean")
@@ -1320,6 +1338,7 @@ function runTuneboard(tf, deps = {}) {
   const player = createPagePlayer(tf, { trail });
   const library = createLibrary(tf, {
     trail,
+    store,
     player,
     client: async () => {
       await ensureConnected();

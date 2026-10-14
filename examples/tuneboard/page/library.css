@@ -3,8 +3,9 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Tuneboard's Library page: a grid of playlist covers that follows the
- * system's light or dark appearance and the language's direction.
+ * Tuneboard's Library page: playlists as a grid of covers or as a list of
+ * rows, following the system's light or dark appearance and the language's
+ * direction.
  */
 :root {
   --bg: #f6f6f4;
@@ -65,6 +66,26 @@ button {
   color: inherit;
 }
 
+.views {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.views button {
+  border: 0;
+  background: var(--card);
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.views button[aria-pressed="true"] {
+  background: var(--line);
+  color: var(--fg);
+}
+
 #refresh,
 #more {
   border: 1px solid var(--line);
@@ -93,7 +114,7 @@ button {
   color: var(--error);
 }
 
-#list {
+#list.grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 12px;
@@ -132,6 +153,30 @@ button {
   object-fit: cover;
   border-radius: 4px;
   background: var(--line);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#list.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#list.list .playlist {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+}
+
+#list.list .cover {
+  width: 48px;
+  flex: none;
 }
 
 .name {

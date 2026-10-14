@@ -107,6 +107,7 @@ export function runTuneboard(tf, deps = {}) {
   const player = createPagePlayer(tf, { trail });
   const library = createLibrary(tf, {
     trail,
+    store,
     player,
     client: async () => {
       await ensureConnected();

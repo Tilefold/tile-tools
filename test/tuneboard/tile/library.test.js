@@ -12,7 +12,9 @@
  * translated; a pick plays where music already plays, or starts the player
  * inside Tilefold when nothing does. Failures reach the page as the user's
  * own message; bad requests from the page are ignored; a Tilefold without
- * pages says so. Every step is recorded, never with a name or URI.
+ * pages says so. The view (thumbnails or list) the user picks is
+ * remembered and sent each time the Library opens. Every step is recorded,
+ * never with a name or URI.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runTuneboard } from "../../../examples/tuneboard/src/tile/run.js";
@@ -54,12 +56,15 @@ describe("the Library", () => {
       do: "library",
       lang: "en",
       dir: "ltr",
+      view: "grid",
       strings: {
         title: EN.get("library-title"),
         refresh: EN.get("library-refresh"),
         loading: EN.get("library-loading"),
         empty: EN.get("library-empty"),
         more: EN.get("library-more"),
+        viewGrid: EN.get("library-view-grid"),
+        viewList: EN.get("library-view-list"),
       },
     });
     expect(host.actions()).toContain("library.show");
@@ -196,6 +201,23 @@ describe("the Library", () => {
     await host.advance(0);
     expect(factory.clients).toEqual([]);
     expect(lastPost(host, "library-error").message).toBe(EN.get("player-error-sign-in"));
+  });
+
+  it("remembers the view the user picks and opens with it next time", async () => {
+    const { host } = await start();
+    await host.command("library");
+    for (const view of ["list", "sideways", 42]) await host.fromPage({ type: "set-view", view });
+    await host.advance(0);
+    expect(host.store.get("libraryView")).toBe("list");
+    expect(host.audits.filter((a) => a.action === "library.view").map((a) => a.details)).toEqual([
+      { to: "list" },
+    ]);
+    await host.command("library");
+    expect(lastPost(host, "library").view).toBe("list");
+    // A damaged saved value falls back to thumbnails.
+    host.store.set("libraryView", "carousel");
+    await host.command("library");
+    expect(lastPost(host, "library").view).toBe("grid");
   });
 
   it("says this Tilefold can't show it without tile pages", async () => {

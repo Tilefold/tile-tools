@@ -15,9 +15,10 @@
  * and says what the user clicked. Messages between them:
  *
  * - page → tile: `hello` (the page has loaded), `want-playlists {offset}`,
- *   `play-playlist {uri}`;
- * - tile → page: `library {lang, dir, strings}` (show the Library, in the
- *   user's language), `playlists {offset, items, total, nextOffset}`,
+ *   `play-playlist {uri}`, `set-view {view}` (thumbnails or list, which the
+ *   tile remembers);
+ * - tile → page: `library {lang, dir, view, strings}` (show the Library, in
+ *   the user's language and the view they chose last), `playlists {offset, items, total, nextOffset}`,
  *   `library-error {message}`, `playing {uri, message}`.
  *
  * A pick plays on the device Spotify is already using; when there is none,
@@ -30,6 +31,7 @@
  * of the tile's function, before any `await`.
  */
 import { isPlaylistUri } from "../spotify/playlists.js";
+import { LIBRARY_VIEWS } from "./store.js";
 
 /** The page's text, by the key the page uses, from the tile's messages. */
 const STRINGS = {
@@ -38,6 +40,8 @@ const STRINGS = {
   loading: "library-loading",
   empty: "library-empty",
   more: "library-more",
+  viewGrid: "library-view-grid",
+  viewList: "library-view-list",
 };
 
 /** The message shown for a failed Library request, by error code. */
@@ -63,13 +67,14 @@ const codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
  *
  * @param {any} tf The tile API.
  * @param {{ trail: { record: Function, error: Function },
+ *           store: { libraryView: () => Promise<string>, setLibraryView: (v: string) => Promise<boolean> },
  *           player: { available: () => boolean, start: () => Promise<string> },
  *           client: () => Promise<any>,
  *           afterPlay?: () => void }} deps
  *   `client` resolves to the connected Spotify client (or null when the user
  *   isn't signed in); `afterPlay` lets the card catch up after a pick.
  */
-export function createLibrary(tf, { trail, player, client, afterPlay = () => {} }) {
+export function createLibrary(tf, { trail, store, player, client, afterPlay = () => {} }) {
   /** Whether the user asked for the Library since the page last opened. */
   let wanted = false;
 
@@ -89,10 +94,10 @@ export function createLibrary(tf, { trail, player, client, afterPlay = () => {} 
   });
 
   /** Tells the page to show the Library, with its text. */
-  const open = () => {
+  const open = async () => {
     const strings = {};
     for (const [k, key] of Object.entries(STRINGS)) strings[k] = tf.t(key);
-    return post({ do: "library", ...language(), strings });
+    return post({ do: "library", ...language(), view: await store.libraryView(), strings });
   };
 
   /** Says what went wrong, in the page. */
@@ -157,6 +162,10 @@ export function createLibrary(tf, { trail, player, client, afterPlay = () => {} 
       await load(offset);
     } else if (message.type === "play-playlist") {
       if (isPlaylistUri(message.uri)) await play(message.uri);
+    } else if (message.type === "set-view") {
+      if (!LIBRARY_VIEWS.includes(message.view)) return;
+      await store.setLibraryView(message.view);
+      trail.record("library.view", { to: message.view });
     }
   };
 

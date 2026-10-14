@@ -14,11 +14,13 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  VIEWS,
   initialState,
   more,
   play,
   receive,
   refresh,
+  setView,
   statusLine,
 } from "../../../examples/tuneboard/page/library-model.js";
 
@@ -42,6 +44,26 @@ function loaded() {
   }));
   return state;
 }
+
+describe("Library views", () => {
+  it("start as thumbnails, take the tile's saved view, and ignore unknown ones", () => {
+    expect(VIEWS).toEqual(["grid", "list"]);
+    expect(initialState().view).toBe("grid");
+    expect(receive(initialState(), { do: "library", view: "list" }).state.view).toBe("list");
+    expect(receive(initialState(), { do: "library", view: "wall" }).state.view).toBe("grid");
+  });
+
+  it("tell the tile when the user switches, and only then", () => {
+    const state = loaded();
+    const step = setView(state, "list");
+    expect(step.state.view).toBe("list");
+    expect(step.send).toEqual({ type: "set-view", view: "list" });
+    expect(setView(step.state, "list").send).toBeNull();
+    expect(setView(state, "wall")).toEqual({ state, send: null });
+    // Switching keeps the list as it is.
+    expect(step.state.items).toBe(state.items);
+  });
+});
 
 describe("Library state", () => {
   it("stays hidden until the tile shows it, then asks for the first page", () => {

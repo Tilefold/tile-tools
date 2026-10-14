@@ -66,3 +66,5 @@ library-playing = Playing.
 library-error-scope = Sign in to Spotify again in Settings → Tiles, on Tuneboard's card, so Tuneboard can read your playlists.
 library-error-network = Can't reach Spotify. Try again in a moment.
 library-error-other = Something went wrong. Try again.
+library-view-grid = Thumbnails
+library-view-list = List
