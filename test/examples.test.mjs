@@ -76,8 +76,11 @@ describe("examples", () => {
   it("are there", () => {
     expect(folders).toEqual([
       "break-timer",
+      "brickfold",
+      "girder-jump",
       "github-inbox",
       "hello",
+      "orbit-guard",
       "pipeline-board",
       "service-status",
       "shell-tips",
