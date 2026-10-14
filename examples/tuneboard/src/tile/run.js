@@ -15,7 +15,12 @@
  * shows and hides the overlay, and records an activity trail.
  *
  * The controls work from the keyboard even while the card is hidden, so
- * the shortcuts double as media keys. Polling stops while the card is
+ * the shortcuts double as media keys. When nothing is playing anywhere,
+ * Play starts Tuneboard's own player inside Tilefold (a hidden page running
+ * Spotify's player) and moves playback there; "Play in Tilefold" does that
+ * on request, and "Stop playing in Tilefold" closes it. "Show playlists"
+ * opens the Library, the same page as a window, to pick a playlist to play.
+ * Polling stops while the card is
  * hidden, the window is in the background or the user is away, and starts
  * again with an immediate ask when they come back.
  *
@@ -27,12 +32,16 @@
  */
 import { createTrail } from "./audit.js";
 import { registerCommands } from "./commands.js";
+import { createPagePlayer } from "./player.js";
 import { createPoller } from "./poller.js";
 import { LAYOUT_KEYS, readSettings } from "./settings.js";
 import { createSession } from "./session.js";
 import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
-import { actionForClick, diffItems, sceneItems } from "./view.js";
+import { createPlaylistViews } from "./playlists.js";
+import { volumeHit } from "../render/buttons.js";
+import { PANEL_ID, VOLUME_ID, actionForClick, diffItems, removedIds, sceneItems } from "./view.js";
+import { computeLayout } from "./scene.js";
 
 /** How often the progress bar moves while a track plays, in ms. */
 export const CLOCK_MS = 1000;
@@ -62,6 +71,14 @@ const CONTROL_ACTION = {
   volume: "control.volume",
 };
 
+/** The message shown when playing in Tilefold fails, by error code. */
+const PLAYER_MESSAGE = {
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported",
+};
+
 /** The audit action recorded for a control that did not go through. */
 const FAILED_ACTION = {
   playPause: "control.play",
@@ -69,6 +86,7 @@ const FAILED_ACTION = {
   previous: "control.previous",
   volumeUp: "control.volume",
   volumeDown: "control.volume",
+  mute: "control.volume",
 };
 
 /**
@@ -88,6 +106,21 @@ export function runTuneboard(tf, deps = {}) {
   const trail = createTrail(tf);
   const store = createStore(tf);
   const settings = () => readSettings(tf.settings);
+  // Registers its page listeners now, before any await.
+  const player = createPagePlayer(tf, { trail });
+  /** The connected Spotify client, connecting first when needed (null: signed out). */
+  const client = async () => {
+    await ensureConnected();
+    if (!spotify) await connect();
+    return spotify;
+  };
+  const { library, panel } = createPlaylistViews(tf, {
+    ...{ trail, store, player, client },
+    afterPlay: () => confirmSoon(),
+    onChange: () => void draw(),
+  });
+  /** The Spotify client, once connected. */
+  let spotify = null;
 
   /** Whether the card is meant to be on screen. */
   let visible = false;
@@ -112,6 +145,7 @@ export function runTuneboard(tf, deps = {}) {
       settings: settings(),
       layout,
       t: (key, args) => tf.t(key, args),
+      panel: panel.view(),
     });
     if (!shown) {
       const ok = await tf.overlay.show({ items });
@@ -120,8 +154,11 @@ export function runTuneboard(tf, deps = {}) {
       return;
     }
     const changes = diffItems(shown, items);
+    const remove = removedIds(shown, items);
     shown = items;
-    if (changes.length) await tf.overlay.update({ items: changes });
+    if (changes.length || remove.length) {
+      await tf.overlay.update({ items: changes, ...(remove.length ? { remove } : {}) });
+    }
   };
 
   /** Asks for a redraw; resolves when the window is up to date. */
@@ -162,6 +199,12 @@ export function runTuneboard(tf, deps = {}) {
       }
       updateSignInCheck();
     },
+    // Music playing inside Tilefold takes its volume from the page at once.
+    setVolume: (volume, playing) =>
+      player.ready() && playing?.deviceId === player.deviceId()
+        ? player.setVolume(volume)
+        : spotify.setVolume(volume),
+    onVolumeError: (code) => trail.record("control.volume", { ok: false, code }),
   });
 
   const poller = createPoller({
@@ -203,6 +246,8 @@ export function runTuneboard(tf, deps = {}) {
   const connect = () => {
     connecting = (async () => {
       poller.stop();
+      // Until connected again, nothing may use the previous client.
+      spotify = null;
       const fetchFn = findTransport(tf);
       if (!fetchFn || typeof deps.createSpotify !== "function" || !tf.auth) {
         session.setClient(null, "no-network");
@@ -212,7 +257,8 @@ export function runTuneboard(tf, deps = {}) {
         session.setClient(null, "signed-out");
         return;
       }
-      session.setClient(deps.createSpotify({ fetchFn, now }));
+      spotify = deps.createSpotify({ fetchFn, now });
+      session.setClient(spotify);
       trail.record("auth.connected", {});
       // Polling (when on) asks at once; otherwise ask once so the card is not left empty.
       if (!poller.running) await session.refresh();
@@ -289,6 +335,27 @@ export function runTuneboard(tf, deps = {}) {
     else setTimeout(() => void session.refresh().catch((err) => trail.error(err)), CONFIRM_MS);
   };
 
+  /** Tells the user something with the tile's own message. */
+  const tell = (key) => void Promise.resolve(tf.toast(tf.t(key))).catch(() => {});
+
+  /** Starts the player inside Tilefold and moves Spotify's playback there. */
+  const playHere = async () => {
+    if (!player.available()) return tell("player-unavailable");
+    if (!spotify) await connect();
+    if (!spotify) return tell("state-signed-out-hint");
+    try {
+      // Playing on the device (not moving playback to it) starts the sound there.
+      await spotify.playOn(await player.start());
+      trail.record("control.play-here", { ok: true });
+      confirmSoon();
+    } catch (err) {
+      const code = String(err?.code ?? "unknown").slice(0, 40);
+      trail.record("control.play-here", { ok: false, code });
+      tell(PLAYER_MESSAGE[code] ?? "player-error-other");
+    }
+    return visible ? draw() : undefined;
+  };
+
   /**
    * Runs one action, from a command or a click.
    *
@@ -308,6 +375,23 @@ export function runTuneboard(tf, deps = {}) {
       updateTimers();
       if (poller.running) poller.soon(0);
       return visible ? draw() : undefined;
+    }
+    if (action === "playHere") return playHere();
+    if (action === "panel") {
+      if (!visible) await show();
+      return panel.toggle();
+    }
+    if (action === "library") {
+      return library.available() ? library.show() : tell("player-unavailable");
+    }
+    if (action === "stopHere") {
+      if (player.available()) await player.stop();
+      confirmSoon();
+      return visible ? draw() : undefined;
+    }
+    // Nothing is playing anywhere: Play starts the player inside Tilefold.
+    if (action === "playPause" && session.status === "no-device" && player.available()) {
+      return playHere();
     }
     const result = await session.control(/** @type {any} */ (action));
     if (result.ok) {
@@ -344,8 +428,17 @@ export function runTuneboard(tf, deps = {}) {
   tf.on(
     "overlay.pointer",
     background(async (e) => {
-      if (!e || e.type !== "click" || !visible) return;
-      const action = actionForClick(String(e.item));
+      if (!e || !visible) return;
+      // The panel takes clicks and drags (which scroll it); the rest only clicks.
+      if (e.item === PANEL_ID) {
+        return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
+      }
+      if (e.type !== "click") return;
+      // The volume control's action depends on which third is clicked.
+      const action =
+        e.item === VOLUME_ID
+          ? volumeHit(computeLayout(layout, settings())[VOLUME_ID], Number(e.x))
+          : actionForClick(String(e.item));
       if (action) await run(action);
     }),
   );

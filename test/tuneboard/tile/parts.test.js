@@ -95,7 +95,7 @@ describe("scene layout", () => {
   it("lines the outer buttons up with the card's edges", () => {
     const r = computeLayout(ONE_PANE, {});
     expect(r["btn-previous"].x).toBe(r.card.x);
-    expect(r["btn-volume-up"].x + r["btn-volume-up"].w).toBe(r.card.x + r.card.w);
+    expect(r["btn-playlists"].x + r["btn-playlists"].w).toBe(r.card.x + r.card.w);
   });
 
   it("stays inside a pane too small for it", () => {
@@ -171,17 +171,25 @@ describe("commands", () => {
   });
 
   it("uses unique Ctrl+Alt letter shortcuts", () => {
-    const keys = COMMANDS.map((c) => c.key.other);
+    const keyed = COMMANDS.filter((c) => c.key);
+    const keys = keyed.map((c) => c.key.other);
     expect(new Set(keys).size).toBe(keys.length);
-    for (const c of COMMANDS) {
+    for (const c of keyed) {
       expect(c.key.mac).toMatch(/^Ctrl\+Alt\+[A-Z]$/);
       expect(c.key.other).toBe(c.key.mac);
     }
+    // Playing in Tilefold, stopping it and the Library have no default keys.
+    expect(COMMANDS.filter((c) => !c.key).map((c) => c.id)).toEqual([
+      "play-here",
+      "stop-here",
+      "library",
+      "playlists",
+    ]);
   });
 
   it("stays clear of Tilefold's and Tilefall's shortcuts", () => {
     const taken = ["F", "H", "L", "O", "W", "N", "P", "G", "Z", "C"].map((k) => `Ctrl+Alt+${k}`);
-    for (const c of COMMANDS) expect(taken).not.toContain(c.key.mac);
+    for (const c of COMMANDS) if (c.key) expect(taken).not.toContain(c.key.mac);
   });
 });
 

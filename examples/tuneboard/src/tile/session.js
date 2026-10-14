@@ -23,6 +23,14 @@
  *   premium     a control was refused because the account isn't Premium
  *   error       Spotify or the network failed; retried with back-off
  *
+ * Volume clicks show the new volume at once and are sent once the user
+ * pauses (quick clicks become one request). For a few seconds after, the
+ * volume the user chose wins over the one Spotify reports, which lags
+ * behind; otherwise the card would jump back and the next click would
+ * start from the old volume. Mute sets the volume to 0 and remembers the
+ * volume before, which a second mute brings back (Spotify has no mute of
+ * its own); raising the volume while muted unmutes too.
+ *
  * `nextDelay()` tells the poller how long to wait: the normal interval
  * after an answer, Spotify's Retry-After when rate-limited, a doubling
  * back-off after errors, a slow retry while refused, and null (stop) when
@@ -54,6 +62,15 @@ export const MAX_BACKOFF_MS = 60000;
 /** How much one volume step changes the volume, in percent. */
 export const VOLUME_STEP = 10;
 
+/** The volume unmuting goes back to when the volume before muting is unknown. */
+export const UNMUTE_VOLUME = 50;
+
+/** How long volume clicks wait for more before the volume is sent, in ms. */
+export const VOLUME_SETTLE_MS = 300;
+
+/** How long the chosen volume wins over what Spotify reports, in ms. */
+export const VOLUME_HOLD_MS = 3000;
+
 /**
  * A whole number within [min, max], or `fallback` when it is not a number.
  *
@@ -76,7 +93,7 @@ export function clampInt(value, min, max, fallback) {
  *
  * @param {any} p
  * @returns {{ isPlaying: boolean, title: string, artists: string[], durationMs: number,
- *             progressMs: number, device: string, volume: number|null } | null}
+ *             progressMs: number, device: string, deviceId: string, volume: number|null } | null}
  */
 export function cleanPlayback(p) {
   if (!p || typeof p !== "object") return null;
@@ -91,6 +108,7 @@ export function cleanPlayback(p) {
     durationMs,
     progressMs: clampInt(p.progressMs, 0, durationMs || 24 * 3600 * 1000, 0) ?? 0,
     device: p.device && typeof p.device.name === "string" ? p.device.name : "",
+    deviceId: p.device && typeof p.device.id === "string" ? p.device.id : "",
     volume: p.device ? clampInt(p.device.volume, 0, 100, null) : null,
   };
 }
@@ -99,9 +117,12 @@ export function cleanPlayback(p) {
  * Creates a session.
  *
  * @param {{ now?: () => number, onChange?: () => void,
- *           onState?: (from: string, to: string) => void }} [o]
+ *           onState?: (from: string, to: string) => void,
+ *           setVolume?: (volume: number, playback: any) => Promise<unknown>,
+ *           onVolumeError?: (code: string) => void }} [o]
  *   `onChange` hears about anything that changes the picture; `onState`
- *   about each change of state.
+ *   about each change of state. `setVolume` sends a volume (default: the
+ *   client's), and `onVolumeError` hears when sending it failed.
  */
 export function createSession(o = {}) {
   const now = o.now ?? (() => Date.now());
@@ -116,6 +137,29 @@ export function createSession(o = {}) {
   let retryAfter = null;
   /** The code of the last failure, for the card and the trail. */
   let lastCode = "";
+  /** @type {number|null} The volume the user chose last, until it is sent and settled. */
+  let volumeTarget = null;
+  /** Until when `volumeTarget` wins over Spotify's reports. */
+  let holdUntil = 0;
+  /** @type {ReturnType<typeof setTimeout>|null} The pending send. */
+  let volumeTimer = null;
+  /** Whether a volume is being sent now. */
+  let sendingVolume = false;
+  /** The volume last sent. */
+  let sentVolume = null;
+  /** @type {number|null} The volume before muting, which unmuting brings back. */
+  let mutedFrom = null;
+
+  /** Chooses a volume: shown at once, sent once the clicks pause, held a while. */
+  const chooseVolume = (volume) => {
+    volumeTarget = volume;
+    holdUntil = now() + VOLUME_HOLD_MS;
+    if (playback) playback = { ...playback, volume };
+    if (volume > 0) mutedFrom = null;
+    scheduleVolume();
+    changed();
+    return { ok: true, did: "volume", volume };
+  };
 
   /** Moves to a state, telling listeners. */
   const go = (next) => {
@@ -135,6 +179,12 @@ export function createSession(o = {}) {
     lastCode = "";
     playback = cleanPlayback(raw);
     fetchedAt = now();
+    // Spotify reports a new volume late: the one the user chose wins for a while.
+    if (volumeTarget !== null && now() < holdUntil) {
+      if (playback) playback = { ...playback, volume: volumeTarget };
+    } else if (!sendingVolume && volumeTimer === null) {
+      volumeTarget = null;
+    }
     if (!playback) go("no-device");
     else go(playback.isPlaying ? "playing" : "paused");
   };
@@ -162,6 +212,34 @@ export function createSession(o = {}) {
       go("error");
     }
     return code;
+  };
+
+  /** Sends the chosen volume, once, and again if it changed meanwhile. */
+  const sendVolume = async () => {
+    volumeTimer = null;
+    if (sendingVolume || volumeTarget === null || !client) return;
+    const volume = volumeTarget;
+    sendingVolume = true;
+    try {
+      await (o.setVolume ? o.setVolume(volume, playback) : client.setVolume(volume));
+      sentVolume = volume;
+      holdUntil = now() + VOLUME_HOLD_MS;
+    } catch (err) {
+      volumeTarget = null;
+      holdUntil = 0;
+      const code = applyError(err);
+      changed();
+      if (o.onVolumeError) o.onVolumeError(code);
+    } finally {
+      sendingVolume = false;
+    }
+    if (volumeTarget !== null && volumeTarget !== sentVolume) scheduleVolume();
+  };
+
+  /** Sends the volume once the clicks pause. */
+  const scheduleVolume = () => {
+    if (volumeTimer !== null) clearTimeout(volumeTimer);
+    volumeTimer = setTimeout(() => void sendVolume(), VOLUME_SETTLE_MS);
   };
 
   const session = {
@@ -211,7 +289,7 @@ export function createSession(o = {}) {
      * Runs one control. Shows the likely result at once (play turns into
      * pause, the volume moves) and leaves confirming it to the next poll.
      *
-     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"} action
+     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"|"mute"} action
      * @returns {Promise<{ ok: boolean, code?: string, did?: string, volume?: number }>}
      */
     async control(action) {
@@ -235,14 +313,24 @@ export function createSession(o = {}) {
           return { ok: true, did: action };
         }
         if (action === "volumeUp" || action === "volumeDown") {
-          const current = playback ? playback.volume : null;
+          // Quick clicks build on the volume just chosen, not on Spotify's stale one.
+          const current = volumeTarget ?? (playback ? playback.volume : null);
           if (current === null) return { ok: false, code: "no-volume" };
           const step = action === "volumeUp" ? VOLUME_STEP : -VOLUME_STEP;
-          const volume = /** @type {number} */ (clampInt(current + step, 0, 100, current));
-          await client.setVolume(volume);
-          if (playback) playback = { ...playback, volume };
-          changed();
-          return { ok: true, did: "volume", volume };
+          // Raising from mute starts from the volume before muting.
+          const base = current === 0 && step > 0 && mutedFrom !== null ? mutedFrom - step : current;
+          return chooseVolume(/** @type {number} */ (clampInt(base + step, 0, 100, current)));
+        }
+        if (action === "mute") {
+          const current = volumeTarget ?? (playback ? playback.volume : null);
+          if (current === null) return { ok: false, code: "no-volume" };
+          if (current > 0) {
+            const before = current;
+            chooseVolume(0);
+            mutedFrom = before;
+            return { ok: true, did: "volume", volume: 0 };
+          }
+          return chooseVolume(mutedFrom ?? UNMUTE_VOLUME);
         }
         return { ok: false, code: "unknown-action" };
       } catch (err) {

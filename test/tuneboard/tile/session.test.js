@@ -18,7 +18,6 @@ import {
   MAX_BACKOFF_MS,
   POLL_MS,
   STATES,
-  VOLUME_STEP,
   cleanPlayback,
   clampInt,
   createSession,
@@ -226,22 +225,6 @@ describe("controls", () => {
     expect(client.calls).toEqual(["getPlayback", "next", "previous"]);
   });
 
-  it("steps the volume and stops at the ends", async () => {
-    const { session, client } = setup({ volume: 95 });
-    session.setClient(client);
-    await session.refresh();
-    expect(await session.control("volumeUp")).toEqual({ ok: true, did: "volume", volume: 100 });
-    expect(await session.control("volumeDown")).toEqual({
-      ok: true,
-      did: "volume",
-      volume: 100 - VOLUME_STEP,
-    });
-    expect(session.playback().volume).toBe(90);
-    client.state.volume = 3;
-    await session.refresh();
-    expect((await session.control("volumeDown")).volume).toBe(0);
-  });
-
   it("refuses volume when Spotify reports none", async () => {
     const { session, client } = setup({ volume: null });
     session.setClient(client);
@@ -321,7 +304,7 @@ describe("progress and playback data", () => {
         isPlaying: "yes",
         track: { title: 5, artists: ["A", "", 7], durationMs: -4 },
         progressMs: "x",
-        device: { name: "Phone", volume: 140 },
+        device: { name: "Phone", id: 9, volume: 140 },
       }),
     ).toEqual({
       isPlaying: false,
@@ -330,6 +313,7 @@ describe("progress and playback data", () => {
       durationMs: 0,
       progressMs: 0,
       device: "Phone",
+      deviceId: "",
       volume: 100,
     });
   });
@@ -376,7 +360,8 @@ describe("view", () => {
       mode: "track",
       title: "Clair de Lune",
       artists: "Claude Debussy, Ivan Moravec",
-      detail: "On MacBook · volume 50%",
+      detail: "On MacBook",
+      volume: "50%",
       progress: 0.25,
       playing: true,
     });
@@ -390,6 +375,13 @@ describe("view", () => {
     });
     expect(v.detail).toBe("Paused");
     expect(v.title).toBe("Unknown track");
+    // Muted shows as such, and an unknown volume not at all.
+    expect(
+      cardView({ ...base, status: "playing", playback: { ...playback, volume: 0 } }).volume,
+    ).toBe("Muted");
+    expect(
+      cardView({ ...base, status: "playing", playback: { ...playback, volume: null } }).volume,
+    ).toBe("");
     expect(v.playing).toBe(false);
   });
 
@@ -424,8 +416,8 @@ describe("view", () => {
       "btn-previous",
       "btn-play",
       "btn-next",
-      "btn-volume-down",
-      "btn-volume-up",
+      "btn-volume",
+      "btn-playlists",
     ]);
     for (const i of items) {
       expect(i.w).toBeLessThanOrEqual(256);
@@ -442,14 +434,14 @@ describe("view", () => {
     expect(sceneItems({ ...base, status: "paused" })[2].label).toBe("Play");
   });
 
-  it("dims every button when the controls can't work, and volume without a volume", () => {
+  it("dims every control when it can't work, and volume without a volume; never playlists", () => {
     const dimmed = (items) => items.slice(1).map((i) => svgOf(i.image).includes(`opacity="0.35"`));
     expect(dimmed(sceneItems({ ...base, status: "signed-out", playback: null }))).toEqual([
       true,
       true,
       true,
       true,
-      true,
+      false,
     ]);
     expect(dimmed(sceneItems({ ...base, status: "playing" }))).toEqual([
       false,
@@ -463,7 +455,7 @@ describe("view", () => {
       false,
       false,
       true,
-      true,
+      false,
     ]);
   });
 
@@ -480,7 +472,9 @@ describe("view", () => {
   it("maps clicks to actions", () => {
     expect(actionForClick(CARD_ID)).toBe("refresh");
     expect(actionForClick(buttonId("play"))).toBe("playPause");
-    expect(actionForClick(buttonId("volume-up"))).toBe("volumeUp");
+    expect(actionForClick(buttonId("next"))).toBe("next");
+    // The volume control's action depends on where it is clicked (volumeHit).
+    expect(actionForClick(buttonId("volume"))).toBeNull();
     expect(actionForClick("nope")).toBeNull();
   });
 });

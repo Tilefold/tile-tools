@@ -36,13 +36,23 @@ export const THEME = {
 const FONT = "system-ui,-apple-system,'Segoe UI',sans-serif";
 
 /**
- * Escapes text for use inside an XML element or a double-quoted attribute.
+ * Characters XML forbids even when escaped: controls other than tab, line
+ * feed and carriage return, lone surrogates, and U+FFFE/U+FFFF. One of
+ * them in a name makes the whole picture invalid (a broken image).
+ */
+const NOT_XML =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * Escapes text for use inside an XML element or a double-quoted attribute,
+ * dropping characters XML can't hold at all.
  *
  * @param {unknown} value
  * @returns {string}
  */
 export function escapeXml(value) {
   return String(value)
+    .replace(NOT_XML, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

@@ -43,6 +43,8 @@ describe("lib/tf.d.ts", () => {
       "readonly net?:",
       "readonly auth?:",
       "readonly ai?:",
+      "readonly page?:",
+      "interface TilePageBridge",
     ];
     for (const m of members) expect(TYPES, m).toContain(m);
   });
@@ -58,6 +60,8 @@ describe("lib/tf.d.ts", () => {
       "curtain.dismissed",
       "overlay.pointer",
       "overlay.layout",
+      "page.closed",
+      "page.message",
       "overlay.hidden",
     ];
     for (const e of events) expect(TYPES, e).toContain(`| "${e}"`);

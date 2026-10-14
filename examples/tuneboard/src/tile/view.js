@@ -6,21 +6,27 @@
  * Tuneboard — overlay view
  *
  * Turns the session into the overlay scene Tilefold draws: six items (the
- * card and five buttons), each with its picture, rectangle, spoken label
- * and click settings. `sceneItems` builds the full scene; `diffItems` keeps
- * only what changed since the last frame, so the progress bar moving
- * resends just the card and leaves the buttons alone.
+ * card, four buttons and the volume control), plus the playlist panel
+ * while it is open,
+ * each with its picture, rectangle, spoken label and click settings.
+ * `sceneItems` builds the full scene; `diffItems` keeps only what changed
+ * since the last frame, so the progress bar moving resends just the card
+ * and leaves the buttons alone, and `removedIds` names the items that are
+ * gone (the panel, when it closes).
  *
  * Pure: everything it needs — state, playback, settings, layout and
  * labels — is passed in.
  */
-import { BUTTONS, iconFor, renderButton } from "../render/buttons.js";
+import { BUTTONS, iconFor, renderButton, renderVolume } from "../render/buttons.js";
 import { renderCard } from "../render/card.js";
+import { renderPanel } from "../render/panel.js";
 import { computeLayout } from "./scene.js";
 import { CONTROL_STATES } from "./session.js";
 
 /** Item ids. */
 export const CARD_ID = "card";
+export const PANEL_ID = "panel";
+export const VOLUME_ID = "btn-volume";
 /** Title and hint for each status card, spelled out so the keys can be found. */
 const STATE_TEXT = {
   "no-network": ["state-no-network", "state-no-network-hint"],
@@ -64,16 +70,22 @@ const MAX_LABEL = 80;
 export function cardView(input) {
   const { status, playback, t } = input;
   if ((status === "playing" || status === "paused") && playback) {
-    const device = playback.device
-      ? t("card-device", { device: playback.device, volume: playback.volume ?? "–" })
-      : "";
+    const device = playback.device ? t("card-on-device", { device: playback.device }) : "";
     const detail =
       status === "paused" ? [t("card-paused"), device].filter(Boolean).join(" · ") : device;
+    // The volume is shown on its own, so a long device name never cuts it off.
+    const volume =
+      playback.volume === null
+        ? ""
+        : playback.volume === 0
+          ? t("card-muted")
+          : t("card-volume", { volume: playback.volume });
     return {
       mode: "track",
       title: playback.title || t("card-unknown-title"),
       artists: playback.artists.join(", "),
       detail,
+      volume,
       progress: playback.durationMs > 0 ? input.progressMs / playback.durationMs : 0,
       playing: status === "playing",
     };
@@ -114,12 +126,14 @@ export function cardLabel(view, t) {
  *   settings: { size: string, corner: string },
  *   layout: any,
  *   t: (key: string, args?: object) => string,
- * }} input
+ *   panel?: any,
+ * }} input `panel` is what the open panel shows (null or left out: closed).
  * @returns {object[]} Overlay items.
  */
 export function sceneItems(input) {
   const { status, playback, settings, t } = input;
-  const rects = computeLayout(input.layout, settings);
+  const panel = input.panel ?? null;
+  const rects = computeLayout(input.layout, settings, { panel: panel !== null });
   const view = cardView(input);
   const card = rects[CARD_ID];
   const playing = status === "playing";
@@ -138,19 +152,51 @@ export function sceneItems(input) {
   for (const b of BUTTONS) {
     const r = rects[buttonId(b.id)];
     // Volume needs a device whose volume Spotify reported.
-    const isVolume = b.id.startsWith("volume");
-    const dim = !canControl || (isVolume && !(playback && playback.volume !== null));
+    const isVolume = b.id === "volume";
+    // The playlists button works whatever plays; the others need a device.
+    const dim =
+      b.id !== "playlists" &&
+      (!canControl || (isVolume && !(playback && playback.volume !== null)));
     const label = b.id === "play" && playing ? t("button-pause") : t(b.label);
     items.push({
       id: buttonId(b.id),
-      image: renderButton(iconFor(b.id, playing), { displaySize: r.w, dim }),
+      image: isVolume
+        ? renderVolume({ displayW: r.w, displayH: r.h, dim, muted: playback?.volume === 0 })
+        : renderButton(iconFor(b.id, playing), {
+            displaySize: r.w,
+            dim,
+            on: b.id === "playlists" && panel !== null,
+          }),
       ...r,
       hit: true,
       cursor: "pointer",
       label: label.slice(0, MAX_LABEL),
     });
   }
+  if (panel) {
+    const r = rects[PANEL_ID];
+    items.push({
+      id: PANEL_ID,
+      image: renderPanel(panel, { displayW: r.w, displayH: r.h }),
+      ...r,
+      hit: true,
+      cursor: "pointer",
+      label: String(panel.label ?? "").slice(0, MAX_LABEL),
+    });
+  }
   return items;
+}
+
+/**
+ * The ids of items in `prev` that `next` no longer has.
+ *
+ * @param {object[]|null} prev
+ * @param {object[]} next
+ * @returns {string[]}
+ */
+export function removedIds(prev, next) {
+  const kept = new Set(next.map((i) => i.id));
+  return (prev ?? []).map((i) => i.id).filter((id) => !kept.has(id));
 }
 
 /**
@@ -185,7 +231,9 @@ export function diffItems(prev, next) {
 
 /**
  * The action a click on an item asks for: the card refreshes, each button
- * runs its own action.
+ * runs its own action. The panel's and the volume control's clicks depend
+ * on where they land, so the tile decodes them itself (`panelHit`,
+ * `volumeHit`).
  *
  * @param {string} itemId
  * @returns {string|null}

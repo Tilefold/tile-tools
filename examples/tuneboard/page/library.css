@@ -1,0 +1,195 @@
+/**
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Tuneboard's Library page: playlists as a grid of covers or as a list of
+ * rows, following the system's light or dark appearance and the language's
+ * direction.
+ */
+:root {
+  --bg: #f6f6f4;
+  --fg: #1d1d1b;
+  --muted: #6b6b66;
+  --card: #ffffff;
+  --line: #e2e2dd;
+  --accent: #1db954;
+  --error: #c0392b;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141414;
+    --fg: #ececec;
+    --muted: #9a9a96;
+    --card: #1f1f1f;
+    --line: #2e2e2e;
+    --error: #ff6b5b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+
+main {
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.views {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.views button {
+  border: 0;
+  background: var(--card);
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.views button[aria-pressed="true"] {
+  background: var(--line);
+  color: var(--fg);
+}
+
+#refresh,
+#more {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+#more {
+  display: block;
+  margin: 16px auto 0;
+}
+
+#more[hidden] {
+  display: none;
+}
+
+#status {
+  min-height: 1.4em;
+  margin: 8px 0 12px;
+  color: var(--muted);
+}
+
+#status.error {
+  color: var(--error);
+}
+
+#list.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.playlist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--card);
+  text-align: start;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.playlist:hover,
+.playlist:focus-visible {
+  border-color: var(--line);
+}
+
+.playlist:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.playlist.playing {
+  border-color: var(--accent);
+}
+
+.cover {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--line);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#list.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#list.list .playlist {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+}
+
+#list.list .cover {
+  width: 48px;
+  flex: none;
+}
+
+.name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

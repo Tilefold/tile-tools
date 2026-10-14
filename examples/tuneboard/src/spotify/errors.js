@@ -6,7 +6,8 @@
  * Small, stable error vocabulary for the tile UI. Spotify's error bodies
  * vary between endpoints, so the status is also considered. Errors thrown
  * by Tilefold itself (its sign-in, network rules and limits) are mapped by
- * their `name`.
+ * their `name`. "scope" means the sign-in lacks a permission Tuneboard asks
+ * for now (such as reading playlists): the user signs in again.
  */
 
 export class SpotifyError extends Error {
@@ -78,6 +79,8 @@ export async function responseError(response, { now = Date.now } = {}) {
   let code = "unknown";
   if (status === 401) code = "auth";
   else if (status === 403 && reason === "PREMIUM_REQUIRED") code = "premium";
+  // A sign-in made before Tuneboard asked for a permission it now needs.
+  else if (status === 403 && /scope/i.test(String(message))) code = "scope";
   else if (status === 404 && reason === "NO_ACTIVE_DEVICE") code = "no-device";
   else if (status === 429) code = "rate-limit";
   else if (status >= 500) code = "server";

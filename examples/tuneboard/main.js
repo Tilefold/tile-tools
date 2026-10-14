@@ -78,6 +78,7 @@ async function responseError(response, { now = Date.now } = {}) {
   let code = "unknown";
   if (status === 401) code = "auth";
   else if (status === 403 && reason === "PREMIUM_REQUIRED") code = "premium";
+  else if (status === 403 && /scope/i.test(String(message))) code = "scope";
   else if (status === 404 && reason === "NO_ACTIVE_DEVICE") code = "no-device";
   else if (status === 429) code = "rate-limit";
   else if (status >= 500) code = "server";
@@ -87,8 +88,70 @@ async function responseError(response, { now = Date.now } = {}) {
   });
 }
 
+// src/spotify/playlists.js
+var PAGE_SIZE = 50;
+var MAX_TEXT = 200;
+var COVER_WIDTH = 160;
+var THUMB_WIDTH = 160;
+var IMAGE_DOMAINS = ["scdn.co", "spotifycdn.com"];
+function isPlaylistUri(uri) {
+  return typeof uri === "string" && /^spotify:playlist:[A-Za-z0-9]{1,64}$/.test(uri);
+}
+function isCoverUrl(url) {
+  if (typeof url !== "string") return false;
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:" || parsed.port || parsed.username) return false;
+  return IMAGE_DOMAINS.some((d) => parsed.hostname.endsWith(`.${d}`));
+}
+function pickCover(images) {
+  if (!Array.isArray(images)) return null;
+  const usable = images.filter((i) => i && isCoverUrl(i.url));
+  if (usable.length === 0) return null;
+  const width = (i) => Number.isFinite(i.width) ? i.width : 0;
+  const bigEnough = usable.filter((i) => width(i) >= COVER_WIDTH);
+  const pool = bigEnough.length ? bigEnough : usable;
+  const best = pool.reduce(
+    (a, b) => bigEnough.length ? width(b) < width(a) ? b : a : width(b) > width(a) ? b : a
+  );
+  return best.url;
+}
+function pickThumb(images) {
+  if (!Array.isArray(images)) return null;
+  const small = images.filter(
+    (i) => i && isCoverUrl(i.url) && Number.isFinite(i.width) && i.width <= THUMB_WIDTH
+  );
+  if (small.length === 0) return null;
+  return small.reduce((a, b) => b.width < a.width ? b : a).url;
+}
+var text = (value) => typeof value === "string" ? value.trim().slice(0, MAX_TEXT) : "";
+function playlistModel(p) {
+  if (!p || typeof p !== "object" || !isPlaylistUri(p.uri)) return null;
+  const total = p.tracks?.total ?? p.items?.total;
+  return {
+    uri: p.uri,
+    name: text(p.name),
+    owner: text(p.owner?.display_name ?? p.owner?.id),
+    tracks: Number.isSafeInteger(total) && total >= 0 ? total : null,
+    cover: pickCover(p.images),
+    thumb: pickThumb(p.images)
+  };
+}
+function playlistPage(data, offset) {
+  const raw = Array.isArray(data?.items) ? data.items : [];
+  const items = raw.map(playlistModel).filter((p) => p !== null);
+  const total = Number.isSafeInteger(data?.total) && data.total >= 0 ? data.total : items.length;
+  const after = offset + raw.length;
+  return { items, total, nextOffset: data?.next && raw.length > 0 && after < total ? after : null };
+}
+
 // src/spotify/client.js
-var PLAYER_URL = "https://api.spotify.com/v1/me/player";
+var API_URL = "https://api.spotify.com/v1";
+var PLAYER = "/me/player";
 var AUTH_NAME = "spotify";
 function playbackModel(data) {
   const item = data.item;
@@ -101,15 +164,19 @@ function playbackModel(data) {
       durationMs: item.duration_ms ?? 0
     } : null,
     progressMs: data.progress_ms ?? 0,
-    device: data.device ? { name: data.device.name ?? "", volume: data.device.volume_percent ?? null } : null,
+    device: data.device ? {
+      id: data.device.id ?? "",
+      name: data.device.name ?? "",
+      volume: data.device.volume_percent ?? null
+    } : null,
     shuffle: Boolean(data.shuffle_state),
     repeat: data.repeat_state ?? "off"
   };
 }
 function createSpotify({ fetchFn, now = Date.now } = {}) {
   if (typeof fetchFn !== "function") throw new TypeError("fetchFn is required");
-  async function request(path = "", { method = "GET", query, body } = {}) {
-    const url = new URL(PLAYER_URL + path);
+  async function request(path, { method = "GET", query, body } = {}) {
+    const url = new URL(API_URL + path);
     if (query)
       for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
     const init = { method, auth: AUTH_NAME };
@@ -128,6 +195,12 @@ function createSpotify({ fetchFn, now = Date.now } = {}) {
     if (method === "GET") return response.json();
     return void 0;
   }
+  const player = (path = "", init) => request(PLAYER + path, init);
+  const deviceQuery = (deviceId) => {
+    if (deviceId === void 0) return void 0;
+    if (typeof deviceId !== "string" || !deviceId) throw new TypeError("A device id is required");
+    return { device_id: deviceId };
+  };
   const nonnegativeMs = (value) => {
     if (!Number.isSafeInteger(value) || value < 0)
       throw new RangeError("Position must be a nonnegative integer in milliseconds");
@@ -135,24 +208,48 @@ function createSpotify({ fetchFn, now = Date.now } = {}) {
   };
   return {
     async getPlayback() {
-      const data = await request();
+      const data = await player();
       return data === null ? null : playbackModel(data);
     },
-    play: () => request("/play", { method: "PUT" }),
-    pause: () => request("/pause", { method: "PUT" }),
-    next: () => request("/next", { method: "POST" }),
-    previous: () => request("/previous", { method: "POST" }),
+    play: () => player("/play", { method: "PUT" }),
+    pause: () => player("/pause", { method: "PUT" }),
+    next: () => player("/next", { method: "POST" }),
+    previous: () => player("/previous", { method: "POST" }),
     setVolume(volume) {
       if (!Number.isInteger(volume) || volume < 0 || volume > 100)
         throw new RangeError("Volume must be an integer from 0 to 100");
-      return request("/volume", { method: "PUT", query: { volume_percent: volume } });
+      return player("/volume", { method: "PUT", query: { volume_percent: volume } });
     },
     seek(ms) {
-      return request("/seek", { method: "PUT", query: { position_ms: nonnegativeMs(ms) } });
+      return player("/seek", { method: "PUT", query: { position_ms: nonnegativeMs(ms) } });
+    },
+    transfer(deviceId, play = true) {
+      if (typeof deviceId !== "string" || !deviceId) throw new TypeError("A device id is required");
+      return player("", { method: "PUT", body: { device_ids: [deviceId], play: Boolean(play) } });
+    },
+    /** Starts playing on a device (it becomes the active one); resumes what was last played. */
+    playOn(deviceId) {
+      return player("/play", { method: "PUT", query: deviceQuery(deviceId) });
+    },
+    /** Plays a playlist on a device, or on the active device when none is given. */
+    playContext(uri, deviceId) {
+      if (!isPlaylistUri(uri)) throw new TypeError("A Spotify playlist URI is required");
+      return player("/play", {
+        method: "PUT",
+        query: deviceQuery(deviceId),
+        body: { context_uri: uri }
+      });
+    },
+    /** One page of the user's playlists, from `offset`. */
+    async playlists(offset = 0) {
+      if (!Number.isSafeInteger(offset) || offset < 0)
+        throw new RangeError("Offset must be a nonnegative integer");
+      const data = await request("/me/playlists", { query: { limit: PAGE_SIZE, offset } });
+      return playlistPage(data ?? {}, offset);
     },
     setShuffle(enabled) {
       if (typeof enabled !== "boolean") throw new TypeError("Shuffle must be a boolean");
-      return request("/shuffle", { method: "PUT", query: { state: enabled } });
+      return player("/shuffle", { method: "PUT", query: { state: enabled } });
     }
   };
 }
@@ -171,8 +268,9 @@ var THEME = {
   error: "#ef4444"
 };
 var FONT = "system-ui,-apple-system,'Segoe UI',sans-serif";
+var NOT_XML = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 function escapeXml(value) {
-  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  return String(value).replace(NOT_XML, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 function round2(n) {
   return Math.round(n * 100) / 100;
@@ -186,58 +284,76 @@ function svgUrl(logicalW, logicalH, body, displayW = logicalW, displayH = logica
 function isWide(cp) {
   return cp >= 4352 && cp <= 4607 || cp >= 11904 && cp <= 42191 || cp >= 44032 && cp <= 55203 || cp >= 63744 && cp <= 64255 || cp >= 65280 && cp <= 65376;
 }
-function textWidth(text, size) {
+function textWidth(text2, size) {
   let em = 0;
-  for (const ch of String(text)) em += isWide(ch.codePointAt(0) ?? 0) ? 1 : 0.6;
+  for (const ch of String(text2)) em += isWide(ch.codePointAt(0) ?? 0) ? 1 : 0.6;
   return em * size;
 }
-function ellipsize(text, size, maxWidth) {
-  const s = String(text);
+function ellipsize(text2, size, maxWidth) {
+  const s = String(text2);
   if (textWidth(s, size) <= maxWidth) return s;
   const chars = [...s];
   while (chars.length > 0 && textWidth(chars.join("") + "\u2026", size) > maxWidth) chars.pop();
   return chars.join("").trimEnd() + "\u2026";
 }
 function textEl(o) {
-  let text = String(o.text);
+  let text2 = String(o.text);
   const anchor = o.anchor ?? "start";
   const fill = o.fill ?? THEME.text;
   const weight = o.weight ?? 400;
   let fit = "";
-  if (o.maxWidth && textWidth(text, o.size) > o.maxWidth) {
+  if (o.maxWidth && textWidth(text2, o.size) > o.maxWidth) {
     if (o.squeeze) fit = ` textLength="${round2(o.maxWidth)}" lengthAdjust="spacingAndGlyphs"`;
-    else text = ellipsize(text, o.size, o.maxWidth);
+    else text2 = ellipsize(text2, o.size, o.maxWidth);
   }
   const opacity = o.opacity === void 0 ? "" : ` opacity="${o.opacity}"`;
-  return `<text x="${round2(o.x)}" y="${round2(o.y)}" font-size="${o.size}" font-family="${FONT}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}"${opacity}${fit}>${escapeXml(text)}</text>`;
+  return `<text x="${round2(o.x)}" y="${round2(o.y)}" font-size="${o.size}" font-family="${FONT}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}"${opacity}${fit}>${escapeXml(text2)}</text>`;
 }
 
 // src/render/buttons.js
 var BUTTON = 28;
+var VOLUME_W = 76;
 var BUTTONS = [
-  { id: "previous", action: "previous", label: "button-previous" },
-  { id: "play", action: "playPause", label: "button-play" },
-  { id: "next", action: "next", label: "button-next" },
-  { id: "volume-down", action: "volumeDown", label: "button-volume-down" },
-  { id: "volume-up", action: "volumeUp", label: "button-volume-up" }
+  { id: "previous", action: "previous", label: "button-previous", w: BUTTON },
+  { id: "play", action: "playPause", label: "button-play", w: BUTTON },
+  { id: "next", action: "next", label: "button-next", w: BUTTON },
+  { id: "volume", action: null, label: "button-volume", w: VOLUME_W },
+  { id: "playlists", action: "panel", label: "button-playlists", w: BUTTON }
 ];
 var ICONS = {
   previous: `<rect x="8" y="9" width="2.4" height="10" rx="1" fill="${THEME.text}"/><path d="M20 9 L11.5 14 L20 19 Z" fill="${THEME.text}"/>`,
   next: `<rect x="17.6" y="9" width="2.4" height="10" rx="1" fill="${THEME.text}"/><path d="M8 9 L16.5 14 L8 19 Z" fill="${THEME.text}"/>`,
   play: `<path d="M11 8 L20 14 L11 20 Z" fill="${THEME.accent}"/>`,
   pause: `<rect x="9.5" y="8.5" width="3.2" height="11" rx="1" fill="${THEME.text}"/><rect x="15.3" y="8.5" width="3.2" height="11" rx="1" fill="${THEME.text}"/>`,
-  "volume-down": `<path d="M7 11.5 H10 L14 8.5 V19.5 L10 16.5 H7 Z" fill="${THEME.text}"/><path d="M17 14 H22" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`,
-  "volume-up": `<path d="M6 11.5 H9 L13 8.5 V19.5 L9 16.5 H6 Z" fill="${THEME.text}"/><path d="M16 14 H22 M19 11 V17" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`
+  // Three lines with a note: a list of music.
+  playlists: `<path d="M7 10 H16 M7 14 H16 M7 18 H12" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/><path d="M20.5 18.5 V9.5 L23.5 9" stroke="${THEME.accent}" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="18.8" cy="18.6" r="2" fill="${THEME.accent}"/>`
 };
 function renderButton(icon, opts = {}) {
   const art = ICONS[icon] ?? "";
-  const body = `<rect x="0.5" y="0.5" width="${BUTTON - 1}" height="${BUTTON - 1}" rx="7" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/><g opacity="${opts.dim ? 0.35 : 1}">${art}</g>`;
+  const body = `<rect x="0.5" y="0.5" width="${BUTTON - 1}" height="${BUTTON - 1}" rx="7" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${opts.on ? THEME.accent : THEME.border}"/><g opacity="${opts.dim ? 0.35 : 1}">${art}</g>`;
   const size = opts.displaySize ?? BUTTON;
   return svgUrl(BUTTON, BUTTON, body, size, size);
 }
 function iconFor(id, playing) {
   if (id === "play") return playing ? "pause" : "play";
   return id;
+}
+function speaker(x, y, muted) {
+  const body = `<path d="M${x} ${y + 4} H${x + 3} L${x + 7} ${y + 0.5} V${y + 11.5} L${x + 3} ${y + 8} H${x} Z" fill="${THEME.text}"/>`;
+  const mark = muted ? `<path d="M${x + 9.5} ${y + 3.5} L${x + 14} ${y + 8.5} M${x + 14} ${y + 3.5} L${x + 9.5} ${y + 8.5}" stroke="${THEME.error}" stroke-width="1.6" stroke-linecap="round"/>` : `<path d="M${x + 9.5} ${y + 3.5} Q${x + 11.5} ${y + 6} ${x + 9.5} ${y + 8.5} M${x + 11.5} ${y + 1.5} Q${x + 15} ${y + 6} ${x + 11.5} ${y + 10.5}" stroke="${THEME.text}" stroke-width="1.4" fill="none" stroke-linecap="round"/>`;
+  return body + mark;
+}
+function renderVolume(opts = {}) {
+  const third = VOLUME_W / 3;
+  const mid = BUTTON / 2;
+  const body = `<rect x="0.5" y="0.5" width="${VOLUME_W - 1}" height="${BUTTON - 1}" rx="7" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${opts.muted ? THEME.error : THEME.border}"/><path d="M${third} 7 V21 M${third * 2} 7 V21" stroke="${THEME.border}"/><g opacity="${opts.dim ? 0.35 : 1}"><path d="M${third / 2 - 5} ${mid} H${third / 2 + 5}" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>` + speaker(third + third / 2 - 7, mid - 6, Boolean(opts.muted)) + `<path d="M${third * 2.5 - 5} ${mid} H${third * 2.5 + 5} M${third * 2.5} ${mid - 5} V${mid + 5}" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/></g>`;
+  return svgUrl(VOLUME_W, BUTTON, body, opts.displayW ?? VOLUME_W, opts.displayH ?? BUTTON);
+}
+function volumeHit(rect, x) {
+  if (!rect || rect.w <= 0) return null;
+  const at = (x - rect.x) / rect.w;
+  if (at < 0 || at > 1) return null;
+  return at < 1 / 3 ? "volumeDown" : at < 2 / 3 ? "mute" : "volumeUp";
 }
 
 // src/render/card.js
@@ -246,8 +362,8 @@ var CARD_H = 72;
 var TEXT_X = 54;
 var TEXT_W = CARD_W - TEXT_X - 12;
 var TONES = { info: THEME.accent, warn: THEME.warn, error: THEME.error };
-function wrapLines(text, size, maxWidth, maxLines) {
-  const words = String(text).split(/\s+/).filter(Boolean);
+function wrapLines(text2, size, maxWidth, maxLines) {
+  const words = String(text2).split(/\s+/).filter(Boolean);
   const lines = [];
   let line = "";
   const flush = () => {
@@ -309,8 +425,17 @@ function renderCard(view, opts = {}) {
       text: view.detail,
       size: 9,
       fill: THEME.muted,
-      maxWidth: TEXT_W
-    }) + `<rect x="${TEXT_X}" y="58" width="${barW}" height="3" rx="1.5" fill="${THEME.track}"/><rect x="${TEXT_X}" y="58" width="${round2(barW * p)}" height="3" rx="1.5" fill="${THEME.accent}"/>`;
+      // The volume, right-aligned, always shows whole; the device gives way.
+      maxWidth: view.volume ? TEXT_W - textWidth(view.volume, 9) - 6 : TEXT_W
+    }) + (view.volume ? textEl({
+      x: TEXT_X + TEXT_W,
+      y: 51,
+      text: view.volume,
+      size: 9,
+      weight: 600,
+      fill: THEME.muted,
+      anchor: "end"
+    }) : "") + `<rect x="${TEXT_X}" y="58" width="${barW}" height="3" rx="1.5" fill="${THEME.track}"/><rect x="${TEXT_X}" y="58" width="${round2(barW * p)}" height="3" rx="1.5" fill="${THEME.accent}"/>`;
   } else {
     const color = TONES[view.tone] ?? THEME.accent;
     const icon = view.tone === "info" ? noteIcon(12, 12, color, 1) : alertIcon(12, 12, color);
@@ -328,6 +453,128 @@ function renderCard(view, opts = {}) {
     ).join("");
   }
   return svgUrl(CARD_W, CARD_H, body, opts.displayW ?? CARD_W, opts.displayH ?? CARD_H);
+}
+
+// src/render/panel.js
+var ROWS = 5;
+var PANEL_W = CARD_W;
+var PAD = 6;
+var ROW_H = 34;
+var FOOT_H = 26;
+var PANEL_H = PAD + ROWS * ROW_H + FOOT_H + PAD;
+var FOOT_Y = PAD + ROWS * ROW_H;
+var PREV_X = 8;
+var NEXT_X = 38;
+var FOOT_BTN = 26;
+var ALL_X = 128;
+var TEXT_X2 = 44;
+function rowSvg(row, i, y) {
+  const parts = [];
+  if (row.picked) {
+    parts.push(
+      `<rect x="4" y="${y + 1}" width="${PANEL_W - 8}" height="${ROW_H - 2}" rx="6" fill="${THEME.accent}" fill-opacity="0.18"/>`
+    );
+  }
+  if (row.cover) {
+    parts.push(
+      `<clipPath id="c${i}"><rect x="10" y="${y + 4}" width="26" height="26" rx="4"/></clipPath><image href="${escapeXml(row.cover)}" x="10" y="${y + 4}" width="26" height="26" preserveAspectRatio="xMidYMid slice" clip-path="url(#c${i})"/>`
+    );
+  } else {
+    parts.push(
+      `<rect x="10" y="${y + 4}" width="26" height="26" rx="4" fill="${THEME.track}"/><path d="M21 ${y + 23} V${y + 11} L28 ${y + 9.5} V${y + 21}" stroke="${THEME.muted}" stroke-width="1.6" fill="none"/><circle cx="19.5" cy="${y + 23}" r="2.2" fill="${THEME.muted}"/><circle cx="26.5" cy="${y + 21}" r="2.2" fill="${THEME.muted}"/>`
+    );
+  }
+  const width = PANEL_W - TEXT_X2 - 10;
+  parts.push(
+    textEl({ x: TEXT_X2, y: y + 15, text: row.name, size: 12, weight: 600, maxWidth: width }),
+    textEl({ x: TEXT_X2, y: y + 28, text: row.meta, size: 10, fill: THEME.muted, maxWidth: width })
+  );
+  return parts.join("");
+}
+function arrowSvg(x, up, enabled) {
+  const y = FOOT_Y + 1;
+  const tip = up ? `M${x + 8} ${y + 15} L${x + 13} ${y + 9} L${x + 18} ${y + 15}` : `M${x + 8} ${y + 9} L${x + 13} ${y + 15} L${x + 18} ${y + 9}`;
+  return `<g opacity="${enabled ? 1 : 0.35}"><rect x="${x + 0.5}" y="${y + 0.5}" width="${FOOT_BTN - 1}" height="${FOOT_BTN - 4}" rx="5" fill="none" stroke="${THEME.border}"/><path d="${tip}" stroke="${THEME.text}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+}
+function renderPanel(view, opts = {}) {
+  const parts = [
+    `<rect x="0.5" y="0.5" width="${PANEL_W - 1}" height="${PANEL_H - 1}" rx="10" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/>`
+  ];
+  if (view.status) {
+    const lines = wrapLines(view.status.text, 12, PANEL_W - 28, 4);
+    const top = PAD + ROWS * ROW_H / 2 - lines.length * 16 / 2 + 12;
+    lines.forEach(
+      (line, i) => parts.push(
+        textEl({
+          x: PANEL_W / 2,
+          y: round2(top + i * 16),
+          text: line,
+          size: 12,
+          anchor: "middle",
+          fill: view.status.error ? THEME.error : THEME.muted
+        })
+      )
+    );
+  } else {
+    const shift = Math.min(Math.max(Number(view.shift) || 0, 0), ROW_H);
+    const rows = view.rows.slice(0, ROWS + 1).map((row, i) => rowSvg(row, i, round2(PAD + i * ROW_H - shift)));
+    parts.push(
+      `<clipPath id="rows"><rect x="0" y="${PAD}" width="${PANEL_W}" height="${ROWS * ROW_H}"/></clipPath><g clip-path="url(#rows)">${rows.join("")}</g>`
+    );
+    if (view.bar) {
+      const room = ROWS * ROW_H - 4;
+      const h = Math.max(12, room * view.bar.size);
+      const top = PAD + 2 + (room - h) * view.bar.top;
+      parts.push(
+        `<rect x="${PANEL_W - 5}" y="${round2(top)}" width="3" height="${round2(h)}" rx="1.5" fill="${THEME.muted}" fill-opacity="0.6"/>`
+      );
+    }
+  }
+  parts.push(
+    `<path d="M8 ${FOOT_Y + 0.5} H${PANEL_W - 8}" stroke="${THEME.border}"/>`,
+    arrowSvg(PREV_X, true, view.canPrev),
+    arrowSvg(NEXT_X, false, view.canNext),
+    textEl({
+      x: NEXT_X + FOOT_BTN + 6,
+      y: FOOT_Y + 17,
+      text: ellipsize(view.range, 10, ALL_X - NEXT_X - FOOT_BTN - 10),
+      size: 10,
+      fill: THEME.muted
+    })
+  );
+  if (view.allLabel) {
+    parts.push(
+      textEl({
+        x: PANEL_W - 10,
+        y: FOOT_Y + 17,
+        text: view.allLabel,
+        size: 11,
+        weight: 600,
+        anchor: "end",
+        fill: THEME.accent,
+        maxWidth: PANEL_W - ALL_X - 12,
+        squeeze: true
+      })
+    );
+  }
+  return svgUrl(PANEL_W, PANEL_H, parts.join(""), opts.displayW, opts.displayH);
+}
+function panelPoint(rect, x, y) {
+  if (!rect || rect.w <= 0 || rect.h <= 0) return null;
+  return { x: (x - rect.x) * PANEL_W / rect.w, y: (y - rect.y) * PANEL_H / rect.h };
+}
+function panelHit(rect, x, y) {
+  const p = panelPoint(rect, x, y);
+  if (!p) return null;
+  const { x: lx, y: ly } = p;
+  if (lx < 0 || lx > PANEL_W || ly < 0 || ly > PANEL_H) return null;
+  if (ly >= PAD && ly < FOOT_Y) return { kind: "row", y: ly - PAD };
+  if (ly >= FOOT_Y && ly < FOOT_Y + FOOT_H) {
+    if (lx >= PREV_X && lx < PREV_X + FOOT_BTN) return { kind: "prev" };
+    if (lx >= NEXT_X && lx < NEXT_X + FOOT_BTN) return { kind: "next" };
+    if (lx >= ALL_X) return { kind: "all" };
+  }
+  return null;
 }
 
 // src/tile/scene.js
@@ -365,7 +612,7 @@ function areaOf(layout) {
   const content = layout && layout.content || { w: 800, h: 600 };
   return { x: 0, y: 0, w: content.w, h: content.h };
 }
-function computeLayout(layout, settings = {}) {
+function computeLayout(layout, settings = {}, options = {}) {
   const scale = scaleOf(settings.size);
   const corner = cornerOf(settings.corner);
   const area = areaOf(layout);
@@ -378,10 +625,22 @@ function computeLayout(layout, settings = {}) {
   const rects = { card: { x: gx, y: gy, w, h: Math.round(CARD_H * scale) } };
   const btn = Math.round(BUTTON * scale);
   const rowY = Math.round(gy + (CARD_H + GAP) * scale);
-  const step = BUTTONS.length > 1 ? (w - btn) / (BUTTONS.length - 1) : 0;
+  const widths = BUTTONS.map((b) => Math.round(b.w * scale));
+  const used = widths.reduce((a, b) => a + b, 0);
+  const gap = BUTTONS.length > 1 ? (w - used) / (BUTTONS.length - 1) : 0;
+  let left = gx;
   BUTTONS.forEach((b, i) => {
-    rects[`btn-${b.id}`] = { x: Math.round(gx + i * step), y: rowY, w: btn, h: btn };
+    const last = i === BUTTONS.length - 1;
+    const x = last ? gx + w - widths[i] : Math.round(left);
+    rects[`btn-${b.id}`] = { x, y: rowY, w: widths[i], h: btn };
+    left += widths[i] + gap;
   });
+  if (options.panel) {
+    const pw = Math.round(PANEL_W * scale);
+    const ph = Math.round(PANEL_H * scale);
+    const py = bottom ? gy - Math.round(GAP * scale) - ph : gy + h + Math.round(GAP * scale);
+    rects.panel = { x: gx, y: Math.max(0, py), w: pw, h: ph };
+  }
   return rects;
 }
 
@@ -453,7 +712,20 @@ var ACTIONS = Object.freeze([
   "state.change",
   "auth.failed",
   "auth.connected",
-  "auth.legacy-cleared"
+  "auth.legacy-cleared",
+  "control.play-here",
+  "player.start",
+  "player.ready",
+  "player.not-ready",
+  "player.error",
+  "player.stop",
+  "player.closed",
+  "library.show",
+  "library.load",
+  "library.play",
+  "library.view",
+  "panel.show",
+  "panel.hide"
 ]);
 var DETAIL_KEYS = Object.freeze(["from", "to", "volume", "ok", "code", "via"]);
 function cleanDetails(details) {
@@ -481,16 +753,16 @@ function createTrail(tf) {
       quiet(() => tf.audit(action, clean));
       quiet(() => tf.log.info(`${action} ${JSON.stringify(clean)}`));
     },
-    info(text) {
-      quiet(() => tf.log.info(String(text)));
+    info(text2) {
+      quiet(() => tf.log.info(String(text2)));
     },
     error(err) {
       const e = (
         /** @type {any} */
         err
       );
-      const text = e && e.code ? `${e.code}: ${e.message ?? ""}` : String(e && e.message || e);
-      quiet(() => tf.log.error(text.slice(0, 200)));
+      const text2 = e && e.code ? `${e.code}: ${e.message ?? ""}` : String(e && e.message || e);
+      quiet(() => tf.log.error(text2.slice(0, 200)));
     }
   };
 }
@@ -534,16 +806,122 @@ var COMMANDS = [
     key: { mac: "Ctrl+Alt+D", other: "Ctrl+Alt+D" }
   },
   {
+    id: "mute",
+    title: "cmd-mute",
+    action: "mute",
+    key: { mac: "Ctrl+Alt+S", other: "Ctrl+Alt+S" }
+  },
+  {
     id: "refresh",
     title: "cmd-refresh",
     action: "refresh",
     key: { mac: "Ctrl+Alt+R", other: "Ctrl+Alt+R" }
-  }
+  },
+  { id: "play-here", title: "cmd-play-here", action: "playHere" },
+  { id: "stop-here", title: "cmd-stop-here", action: "stopHere" },
+  { id: "library", title: "cmd-library", action: "library" },
+  { id: "playlists", title: "cmd-playlists", action: "panel" }
 ];
 function registerCommands(tf, run) {
   for (const c of COMMANDS) {
-    tf.command(tf.t(c.title), () => run(c.action), { id: c.id, key: c.key });
+    tf.command(tf.t(c.title), () => run(c.action), { id: c.id, ...c.key ? { key: c.key } : {} });
   }
+}
+
+// src/tile/player.js
+var READY_TIMEOUT_MS = 15e3;
+var PLAYER_ERRORS = Object.freeze([
+  "initialization_error",
+  "authentication_error",
+  "account_error",
+  "playback_error",
+  "token"
+]);
+function playerError(code) {
+  return Object.assign(new Error(`the player in Tilefold failed (${code})`), { code });
+}
+function createPagePlayer(tf, { trail }) {
+  let deviceId = null;
+  let waiting = [];
+  const settle = (fn) => {
+    const pending = waiting;
+    waiting = [];
+    for (const w of pending) fn(w);
+  };
+  const hear = (message) => {
+    if (!message || typeof message !== "object") return;
+    if (message.type === "ready" && typeof message.deviceId === "string") {
+      deviceId = message.deviceId;
+      trail.record("player.ready", {});
+      settle((w) => w.resolve(message.deviceId));
+    } else if (message.type === "not-ready") {
+      deviceId = null;
+      trail.record("player.not-ready", {});
+    } else if (message.type === "error") {
+      const code = PLAYER_ERRORS.includes(message.kind) ? message.kind : "unknown";
+      trail.record("player.error", { code });
+      settle((w) => w.reject(playerError(code)));
+    }
+  };
+  if (tf.page) {
+    tf.on("page.message", (e) => hear(e && e.message));
+    tf.on("page.closed", () => {
+      deviceId = null;
+      trail.record("player.closed", {});
+      settle((w) => w.reject(playerError("closed")));
+    });
+  }
+  return {
+    /** Whether this Tilefold can run the player (it has tile pages). */
+    available: () => Boolean(tf.page && typeof tf.page.open === "function"),
+    /** Whether the player is running and ready. */
+    ready: () => deviceId !== null,
+    /** The ready player's Spotify device id, or null. */
+    deviceId: () => deviceId,
+    /**
+     * Sets the volume of the player inside Tilefold (0–100).
+     *
+     * @param {number} volume
+     */
+    async setVolume(volume) {
+      if (deviceId === null)
+        throw Object.assign(new Error("the player is not ready"), { code: "closed" });
+      await tf.page.post({ do: "volume", value: Math.min(100, Math.max(0, volume)) / 100 });
+    },
+    /**
+     * Starts the player (or reuses the running one); resolves to its device id.
+     *
+     * @returns {Promise<string>}
+     */
+    async start() {
+      if (deviceId) return deviceId;
+      const ready = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          waiting = waiting.filter((w) => w.resolve !== resolve);
+          reject(playerError("timeout"));
+        }, READY_TIMEOUT_MS);
+        waiting.push({
+          resolve: (id) => {
+            clearTimeout(timer);
+            resolve(id);
+          },
+          reject: (err) => {
+            clearTimeout(timer);
+            reject(err);
+          }
+        });
+      });
+      await tf.page.open({ visible: false });
+      trail.record("player.start", {});
+      return ready;
+    },
+    /** Stops the player and closes its page. */
+    async stop() {
+      deviceId = null;
+      await tf.page.close();
+      trail.record("player.stop", {});
+    }
+  };
 }
 
 // src/tile/poller.js
@@ -624,6 +1002,9 @@ var CONTROL_STATES = Object.freeze(["playing", "paused", "no-device", "premium",
 var POLL_MS = 5e3;
 var MAX_BACKOFF_MS = 6e4;
 var VOLUME_STEP = 10;
+var UNMUTE_VOLUME = 50;
+var VOLUME_SETTLE_MS = 300;
+var VOLUME_HOLD_MS = 3e3;
 function clampInt(value, min, max, fallback) {
   if (value === null || value === void 0 || value === "") return fallback;
   const n = Math.round(Number(value));
@@ -643,6 +1024,7 @@ function cleanPlayback(p) {
     durationMs,
     progressMs: clampInt(p.progressMs, 0, durationMs || 24 * 3600 * 1e3, 0) ?? 0,
     device: p.device && typeof p.device.name === "string" ? p.device.name : "",
+    deviceId: p.device && typeof p.device.id === "string" ? p.device.id : "",
     volume: p.device ? clampInt(p.device.volume, 0, 100, null) : null
   };
 }
@@ -655,6 +1037,21 @@ function createSession(o = {}) {
   let failures = 0;
   let retryAfter = null;
   let lastCode = "";
+  let volumeTarget = null;
+  let holdUntil = 0;
+  let volumeTimer = null;
+  let sendingVolume = false;
+  let sentVolume = null;
+  let mutedFrom = null;
+  const chooseVolume = (volume) => {
+    volumeTarget = volume;
+    holdUntil = now() + VOLUME_HOLD_MS;
+    if (playback) playback = { ...playback, volume };
+    if (volume > 0) mutedFrom = null;
+    scheduleVolume();
+    changed();
+    return { ok: true, did: "volume", volume };
+  };
   const go = (next) => {
     if (next === status) return;
     const from = status;
@@ -670,6 +1067,11 @@ function createSession(o = {}) {
     lastCode = "";
     playback = cleanPlayback(raw);
     fetchedAt = now();
+    if (volumeTarget !== null && now() < holdUntil) {
+      if (playback) playback = { ...playback, volume: volumeTarget };
+    } else if (!sendingVolume && volumeTimer === null) {
+      volumeTarget = null;
+    }
     if (!playback) go("no-device");
     else go(playback.isPlaying ? "playing" : "paused");
   };
@@ -695,6 +1097,30 @@ function createSession(o = {}) {
       go("error");
     }
     return code;
+  };
+  const sendVolume = async () => {
+    volumeTimer = null;
+    if (sendingVolume || volumeTarget === null || !client) return;
+    const volume = volumeTarget;
+    sendingVolume = true;
+    try {
+      await (o.setVolume ? o.setVolume(volume, playback) : client.setVolume(volume));
+      sentVolume = volume;
+      holdUntil = now() + VOLUME_HOLD_MS;
+    } catch (err) {
+      volumeTarget = null;
+      holdUntil = 0;
+      const code = applyError(err);
+      changed();
+      if (o.onVolumeError) o.onVolumeError(code);
+    } finally {
+      sendingVolume = false;
+    }
+    if (volumeTarget !== null && volumeTarget !== sentVolume) scheduleVolume();
+  };
+  const scheduleVolume = () => {
+    if (volumeTimer !== null) clearTimeout(volumeTimer);
+    volumeTimer = setTimeout(() => void sendVolume(), VOLUME_SETTLE_MS);
   };
   const session = {
     get status() {
@@ -740,7 +1166,7 @@ function createSession(o = {}) {
      * Runs one control. Shows the likely result at once (play turns into
      * pause, the volume moves) and leaves confirming it to the next poll.
      *
-     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"} action
+     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"|"mute"} action
      * @returns {Promise<{ ok: boolean, code?: string, did?: string, volume?: number }>}
      */
     async control(action) {
@@ -764,17 +1190,25 @@ function createSession(o = {}) {
           return { ok: true, did: action };
         }
         if (action === "volumeUp" || action === "volumeDown") {
-          const current = playback ? playback.volume : null;
+          const current = volumeTarget ?? (playback ? playback.volume : null);
           if (current === null) return { ok: false, code: "no-volume" };
           const step = action === "volumeUp" ? VOLUME_STEP : -VOLUME_STEP;
-          const volume = (
+          const base = current === 0 && step > 0 && mutedFrom !== null ? mutedFrom - step : current;
+          return chooseVolume(
             /** @type {number} */
-            clampInt(current + step, 0, 100, current)
+            clampInt(base + step, 0, 100, current)
           );
-          await client.setVolume(volume);
-          if (playback) playback = { ...playback, volume };
-          changed();
-          return { ok: true, did: "volume", volume };
+        }
+        if (action === "mute") {
+          const current = volumeTarget ?? (playback ? playback.volume : null);
+          if (current === null) return { ok: false, code: "no-volume" };
+          if (current > 0) {
+            const before = current;
+            chooseVolume(0);
+            mutedFrom = before;
+            return { ok: true, did: "volume", volume: 0 };
+          }
+          return chooseVolume(mutedFrom ?? UNMUTE_VOLUME);
         }
         return { ok: false, code: "unknown-action" };
       } catch (err) {
@@ -813,7 +1247,8 @@ function createSession(o = {}) {
 }
 
 // src/tile/store.js
-var KEYS = { visible: "visible", auth: "auth" };
+var KEYS = { visible: "visible", auth: "auth", libraryView: "libraryView" };
+var LIBRARY_VIEWS = Object.freeze(["grid", "list"]);
 function createStore(tf) {
   const read = async (key) => {
     try {
@@ -847,6 +1282,16 @@ function createStore(tf) {
     async setVisible(on) {
       return write(KEYS.visible, Boolean(on));
     },
+    /** How the Library lists playlists (default: thumbnails). */
+    async libraryView() {
+      const view = await read(KEYS.libraryView);
+      return LIBRARY_VIEWS.includes(view) ? view : LIBRARY_VIEWS[0];
+    },
+    /** Remembers how the Library lists playlists; refuses unknown views. */
+    async setLibraryView(view) {
+      if (!LIBRARY_VIEWS.includes(view)) return false;
+      return write(KEYS.libraryView, view);
+    },
     /**
      * Overwrites a refresh token an earlier version saved, if there is one.
      * Returns true when there was one to clear.
@@ -878,8 +1323,418 @@ function findTransport(tf) {
   return null;
 }
 
+// src/spotify/covers.js
+var MAX_COVER_BYTES = 24 * 1024;
+var MAX_REMEMBERED = 200;
+var TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+function base64Of(bytes) {
+  let binary = "";
+  const CHUNK = 32768;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+function createCovers({ fetchFn }) {
+  const pending = /* @__PURE__ */ new Map();
+  const known = /* @__PURE__ */ new Map();
+  const remember = (url, value) => {
+    known.set(url, value);
+    while (known.size > MAX_REMEMBERED) known.delete(known.keys().next().value);
+  };
+  const download = async (url) => {
+    try {
+      const response = await fetchFn(url, { method: "GET" });
+      if (!response || !response.ok) return null;
+      const type = String(response.headers?.["content-type"] ?? "").split(";")[0].trim().toLowerCase();
+      if (!TYPES.includes(type)) return null;
+      const bytes = await response.bytes();
+      if (!(bytes instanceof Uint8Array) || bytes.length === 0) return null;
+      if (bytes.length > MAX_COVER_BYTES) return null;
+      return `data:${type};base64,${base64Of(bytes)}`;
+    } catch {
+      return null;
+    }
+  };
+  return {
+    /** The cover as a data URL, fetching it the first time; null when there is none. */
+    get(url) {
+      if (!fetchFn || !isCoverUrl(url)) return Promise.resolve(null);
+      if (known.has(url)) return Promise.resolve(known.get(url) ?? null);
+      if (!pending.has(url)) {
+        pending.set(
+          url,
+          download(url).then((value) => {
+            pending.delete(url);
+            remember(url, value);
+            return value;
+          })
+        );
+      }
+      return (
+        /** @type {Promise<string|null>} */
+        pending.get(url)
+      );
+    },
+    /** The cover if it is already known (undefined while not fetched yet). */
+    peek(url) {
+      if (!url || !known.has(url)) return void 0;
+      return known.get(url);
+    }
+  };
+}
+
+// src/tile/pick.js
+var ERROR_MESSAGE = {
+  auth: "player-error-sign-in",
+  scope: "library-error-scope",
+  premium: "player-error-premium",
+  denied: "state-denied-hint",
+  network: "library-error-network",
+  "rate-limit": "library-error-network",
+  "no-device": "state-no-device-hint",
+  timeout: "player-error-other",
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported"
+};
+var codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
+function messageFor(err) {
+  return ERROR_MESSAGE[codeOf(err)] ?? "library-error-other";
+}
+function createPicker({ trail, player, client }) {
+  return {
+    /**
+     * Plays a playlist; resolves when Spotify took it, rejects with a coded
+     * error otherwise.
+     *
+     * @param {string} uri A playlist URI the caller has checked.
+     * @param {string} from Where the pick came from: "window" or "panel".
+     */
+    async play(uri, from) {
+      const spotify = await client();
+      if (!spotify) {
+        trail.record("library.play", { ok: false, code: "auth", from });
+        throw Object.assign(new Error("not signed in"), { code: "auth" });
+      }
+      let via = "device";
+      try {
+        try {
+          await spotify.playContext(uri);
+        } catch (err) {
+          if (err?.code !== "no-device" || !player.available()) throw err;
+          via = "tilefold";
+          await spotify.playContext(uri, await player.start());
+        }
+        trail.record("library.play", { ok: true, via, from });
+      } catch (err) {
+        trail.record("library.play", { ok: false, code: codeOf(err), via, from });
+        throw err;
+      }
+    }
+  };
+}
+
+// src/tile/library.js
+var STRINGS = {
+  title: "library-title",
+  refresh: "library-refresh",
+  loading: "library-loading",
+  empty: "library-empty",
+  more: "library-more",
+  viewGrid: "library-view-grid",
+  viewList: "library-view-list"
+};
+function createLibrary(tf, { trail, store, picker, client, afterPlay = () => {
+} }) {
+  let wanted = false;
+  const post = async (message) => {
+    try {
+      await tf.page.post(message);
+    } catch {
+    }
+  };
+  const language = () => ({
+    lang: tf.t("library-lang"),
+    dir: tf.t("library-dir") === "rtl" ? "rtl" : "ltr"
+  });
+  const open = async () => {
+    const strings = {};
+    for (const [k, key] of Object.entries(STRINGS)) strings[k] = tf.t(key);
+    return post({ do: "library", ...language(), view: await store.libraryView(), strings });
+  };
+  const fail = (err) => post({
+    do: "library-error",
+    message: tf.t(messageFor(err))
+  });
+  const load = async (offset) => {
+    const spotify = await client();
+    if (!spotify) {
+      trail.record("library.load", { ok: false, code: "auth" });
+      return fail({ code: "auth" });
+    }
+    try {
+      const page = await spotify.playlists(offset);
+      trail.record("library.load", { ok: true });
+      const items = page.items.map((p) => ({
+        ...p,
+        byline: p.owner ? tf.t("library-by", { owner: p.owner }) : ""
+      }));
+      await post({ do: "playlists", offset, ...page, items });
+    } catch (err) {
+      trail.record("library.load", { ok: false, code: codeOf(err) });
+      await fail(err);
+    }
+  };
+  const play = async (uri) => {
+    try {
+      await picker.play(uri, "window");
+      await post({ do: "playing", uri, message: tf.t("library-playing") });
+      afterPlay();
+    } catch (err) {
+      await fail(err);
+    }
+  };
+  const hear = async (message) => {
+    if (!message || typeof message !== "object") return;
+    if (message.type === "hello") {
+      if (wanted) await open();
+    } else if (message.type === "want-playlists") {
+      const offset = Number.isSafeInteger(message.offset) && message.offset >= 0 ? message.offset : 0;
+      await load(offset);
+    } else if (message.type === "play-playlist") {
+      if (isPlaylistUri(message.uri)) await play(message.uri);
+    } else if (message.type === "set-view") {
+      if (!LIBRARY_VIEWS.includes(message.view)) return;
+      await store.setLibraryView(message.view);
+      trail.record("library.view", { to: message.view });
+    }
+  };
+  if (tf.page) {
+    tf.on("page.message", (e) => {
+      void hear(e && e.message).catch((err) => trail.error(err));
+    });
+    tf.on("page.closed", () => {
+      wanted = false;
+    });
+  }
+  return {
+    /** Whether this Tilefold can show the Library (it has tile pages). */
+    available: () => Boolean(tf.page && typeof tf.page.open === "function"),
+    /** Opens the Library window (or brings it back) and fills it. */
+    async show() {
+      wanted = true;
+      await tf.page.open({ visible: true, keepRunning: true });
+      trail.record("library.show", {});
+      await open();
+    }
+  };
+}
+
+// src/tile/panel.js
+var MAX_REQUESTS = 3;
+var LOAD_AHEAD = ROWS;
+function createPanel(tf, deps) {
+  const { trail, client, picker, covers, library, onChange } = deps;
+  const afterPlay = deps.afterPlay ?? (() => {
+  });
+  const state = {
+    open: false,
+    /** @type {any[]} */
+    items: [],
+    total: 0,
+    /** @type {number|null} */
+    nextOffset: null,
+    /** How far the rows are scrolled, in the panel's own pixels. */
+    scroll: 0,
+    loading: false,
+    /** @type {string|null} An error message key, shown instead of the rows. */
+    error: null,
+    /** @type {string|null} The playlist picked last, highlighted. */
+    picked: null,
+    /** @type {{ y: number, scroll: number } | null} Where a drag started. */
+    drag: null
+  };
+  const maxScroll = () => Math.max(0, (state.items.length - ROWS) * ROW_H);
+  const top = () => Math.floor(state.scroll / ROW_H);
+  const snapped = (scroll) => Math.round(scroll / ROW_H) * ROW_H;
+  const fetchCovers = () => {
+    for (const p of state.items.slice(top(), top() + ROWS + 1)) {
+      if (p.thumb && covers.peek(p.thumb) === void 0) {
+        void covers.get(p.thumb).then((cover) => {
+          if (cover && state.open) onChange();
+        });
+      }
+    }
+  };
+  const load = async (offset, want = offset + ROWS) => {
+    state.loading = true;
+    state.error = null;
+    onChange();
+    try {
+      const spotify = await client();
+      if (!spotify) throw Object.assign(new Error("not signed in"), { code: "auth" });
+      let from = offset;
+      for (let i = 0; i < MAX_REQUESTS && from !== null; i++) {
+        const page = await spotify.playlists(from);
+        const known = new Set(from === 0 ? [] : state.items.map((p) => p.uri));
+        const fresh = page.items.filter((p) => !known.has(p.uri));
+        state.items = from === 0 ? fresh : [...state.items, ...fresh];
+        state.total = page.total;
+        state.nextOffset = page.nextOffset;
+        from = state.items.length < want ? page.nextOffset : null;
+      }
+      trail.record("library.load", { ok: true, from: "panel" });
+    } catch (err) {
+      if (state.items.length === 0 || offset === 0) state.error = messageFor(err);
+      else state.nextOffset = null;
+      trail.record("library.load", { ok: false, code: codeOf(err), from: "panel" });
+    } finally {
+      state.loading = false;
+    }
+    fetchCovers();
+    onChange();
+  };
+  const loadAhead = () => {
+    if (state.loading || state.nextOffset === null) return;
+    if (top() + ROWS + LOAD_AHEAD < state.items.length) return;
+    void load(state.nextOffset, top() + ROWS + LOAD_AHEAD).catch((err) => trail.error(err));
+  };
+  const scrollTo = (scroll) => {
+    const next = Math.min(Math.max(0, scroll), maxScroll());
+    if (next === state.scroll) return;
+    state.scroll = next;
+    fetchCovers();
+    loadAhead();
+    onChange();
+  };
+  const turn = async (step) => {
+    if (state.loading) return;
+    const target = snapped(state.scroll) + step * ROWS * ROW_H;
+    const needed = Math.floor(target / ROW_H) + ROWS;
+    if (step > 0 && needed > state.items.length && state.nextOffset !== null) {
+      await load(state.nextOffset, needed);
+    }
+    scrollTo(target);
+  };
+  const pick = async (y) => {
+    const p = state.items[Math.floor((y + state.scroll) / ROW_H)];
+    if (!p || state.error) return;
+    state.picked = p.uri;
+    onChange();
+    try {
+      await picker.play(p.uri, "panel");
+      afterPlay();
+    } catch (err) {
+      tf.toast(tf.t(messageFor(err)));
+    }
+  };
+  const click = async (hit) => {
+    if (!hit) return;
+    if (hit.kind === "row") return pick(hit.y);
+    if (hit.kind === "prev") return turn(-1);
+    if (hit.kind === "next") return turn(1);
+    if (hit.kind === "all" && library.available()) return library.show();
+  };
+  return {
+    /** Whether the panel is open. */
+    get open() {
+      return state.open;
+    },
+    /** Opens or closes the panel; opening loads the list afresh, from the top. */
+    async toggle() {
+      state.open = !state.open;
+      state.drag = null;
+      trail.record(state.open ? "panel.show" : "panel.hide", {});
+      if (!state.open) return onChange();
+      state.scroll = 0;
+      await load(0);
+    },
+    /**
+     * Handles a pointer event on the panel: clicks, and drags that scroll.
+     *
+     * @param {{ type: string, x: number, y: number }} e Tilefold's event.
+     * @param {{ x: number, y: number, w: number, h: number }} rect Where the panel is.
+     */
+    async pointer(e, rect) {
+      if (!state.open || !e) return;
+      if (e.type === "click") return click(panelHit(rect, Number(e.x), Number(e.y)));
+      const p = panelPoint(rect, Number(e.x), Number(e.y));
+      if (!p) return;
+      if (e.type === "dragstart") {
+        const hit = panelHit(rect, Number(e.x), Number(e.y));
+        state.drag = hit && hit.kind === "row" ? { y: p.y, scroll: state.scroll } : null;
+      } else if (e.type === "drag" && state.drag) {
+        scrollTo(state.drag.scroll - (p.y - state.drag.y));
+      } else if (e.type === "drop" && state.drag) {
+        scrollTo(state.drag.scroll - (p.y - state.drag.y));
+        state.drag = null;
+        scrollTo(snapped(state.scroll));
+      }
+    },
+    /**
+     * What the panel shows now, in the user's language, or null when closed.
+     *
+     * @returns {null | { rows: object[], shift: number, bar: { top: number, size: number } | null,
+     *   status: { text: string, error?: boolean } | null, range: string,
+     *   canPrev: boolean, canNext: boolean, allLabel: string|null, label: string }}
+     */
+    view() {
+      if (!state.open) return null;
+      const first = top();
+      const shown = state.items.slice(first, first + ROWS + 1);
+      let status = null;
+      if (state.error) status = { text: tf.t(state.error), error: true };
+      else if (state.loading && shown.length === 0) status = { text: tf.t("library-loading") };
+      else if (shown.length === 0) status = { text: tf.t("library-empty") };
+      const count = Math.max(state.total, state.items.length);
+      const last = Math.min(first + ROWS, state.items.length);
+      const range = shown.length ? tf.t("panel-range", { from: first + 1, to: last, total: count }) : "";
+      const room = (count - ROWS) * ROW_H;
+      return {
+        rows: shown.map((p) => ({
+          name: p.name,
+          meta: [
+            p.owner ? tf.t("library-by", { owner: p.owner }) : "",
+            p.tracks === null ? "" : `\u266A ${p.tracks}`
+          ].filter(Boolean).join(" \xB7 "),
+          cover: covers.peek(p.thumb) ?? null,
+          picked: p.uri === state.picked
+        })),
+        shift: state.scroll - first * ROW_H,
+        bar: count > ROWS ? { top: Math.min(1, state.scroll / room), size: ROWS / count } : null,
+        status,
+        range,
+        canPrev: state.scroll > 0,
+        canNext: state.scroll < maxScroll() || state.nextOffset !== null,
+        allLabel: library.available() ? tf.t("panel-show-all") : null,
+        label: [tf.t("library-title"), range].filter(Boolean).join(", ")
+      };
+    }
+  };
+}
+
+// src/tile/playlists.js
+function createPlaylistViews(tf, { trail, store, player, client, afterPlay, onChange }) {
+  const picker = createPicker({ trail, player, client });
+  const library = createLibrary(tf, { trail, store, picker, client, afterPlay });
+  const panel = createPanel(tf, {
+    trail,
+    client,
+    picker,
+    library,
+    afterPlay,
+    covers: createCovers({ fetchFn: findTransport(tf) }),
+    onChange
+  });
+  return { library, panel };
+}
+
 // src/tile/view.js
 var CARD_ID = "card";
+var PANEL_ID = "panel";
+var VOLUME_ID = "btn-volume";
 var STATE_TEXT = {
   "no-network": ["state-no-network", "state-no-network-hint"],
   denied: ["state-denied", "state-denied-hint"],
@@ -906,13 +1761,15 @@ var MAX_LABEL = 80;
 function cardView(input) {
   const { status, playback, t } = input;
   if ((status === "playing" || status === "paused") && playback) {
-    const device = playback.device ? t("card-device", { device: playback.device, volume: playback.volume ?? "\u2013" }) : "";
+    const device = playback.device ? t("card-on-device", { device: playback.device }) : "";
     const detail = status === "paused" ? [t("card-paused"), device].filter(Boolean).join(" \xB7 ") : device;
+    const volume = playback.volume === null ? "" : playback.volume === 0 ? t("card-muted") : t("card-volume", { volume: playback.volume });
     return {
       mode: "track",
       title: playback.title || t("card-unknown-title"),
       artists: playback.artists.join(", "),
       detail,
+      volume,
       progress: playback.durationMs > 0 ? input.progressMs / playback.durationMs : 0,
       playing: status === "playing"
     };
@@ -925,15 +1782,16 @@ function cardView(input) {
   };
 }
 function cardLabel(view, t) {
-  const text = view.mode === "track" ? t(view.playing ? "card-label-playing" : "card-label-paused", {
+  const text2 = view.mode === "track" ? t(view.playing ? "card-label-playing" : "card-label-paused", {
     title: view.title,
     artists: view.artists
   }) : `${view.title}. ${view.hint}`;
-  return text.slice(0, MAX_LABEL);
+  return text2.slice(0, MAX_LABEL);
 }
 function sceneItems(input) {
   const { status, playback, settings, t } = input;
-  const rects = computeLayout(input.layout, settings);
+  const panel = input.panel ?? null;
+  const rects = computeLayout(input.layout, settings, { panel: panel !== null });
   const view = cardView(input);
   const card = rects[CARD_ID];
   const playing = status === "playing";
@@ -950,19 +1808,38 @@ function sceneItems(input) {
   ];
   for (const b of BUTTONS) {
     const r = rects[buttonId(b.id)];
-    const isVolume = b.id.startsWith("volume");
-    const dim = !canControl || isVolume && !(playback && playback.volume !== null);
+    const isVolume = b.id === "volume";
+    const dim = b.id !== "playlists" && (!canControl || isVolume && !(playback && playback.volume !== null));
     const label = b.id === "play" && playing ? t("button-pause") : t(b.label);
     items.push({
       id: buttonId(b.id),
-      image: renderButton(iconFor(b.id, playing), { displaySize: r.w, dim }),
+      image: isVolume ? renderVolume({ displayW: r.w, displayH: r.h, dim, muted: playback?.volume === 0 }) : renderButton(iconFor(b.id, playing), {
+        displaySize: r.w,
+        dim,
+        on: b.id === "playlists" && panel !== null
+      }),
       ...r,
       hit: true,
       cursor: "pointer",
       label: label.slice(0, MAX_LABEL)
     });
   }
+  if (panel) {
+    const r = rects[PANEL_ID];
+    items.push({
+      id: PANEL_ID,
+      image: renderPanel(panel, { displayW: r.w, displayH: r.h }),
+      ...r,
+      hit: true,
+      cursor: "pointer",
+      label: String(panel.label ?? "").slice(0, MAX_LABEL)
+    });
+  }
   return items;
+}
+function removedIds(prev, next) {
+  const kept = new Set(next.map((i) => i.id));
+  return (prev ?? []).map((i) => i.id).filter((id) => !kept.has(id));
 }
 function diffItems(prev, next) {
   const before = new Map((prev ?? []).map((i) => [i.id, i]));
@@ -1004,18 +1881,37 @@ var CONTROL_ACTION = {
   previous: "control.previous",
   volume: "control.volume"
 };
+var PLAYER_MESSAGE = {
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported"
+};
 var FAILED_ACTION = {
   playPause: "control.play",
   next: "control.next",
   previous: "control.previous",
   volumeUp: "control.volume",
-  volumeDown: "control.volume"
+  volumeDown: "control.volume",
+  mute: "control.volume"
 };
 function runTuneboard(tf, deps = {}) {
   const now = deps.now ?? (() => Date.now());
   const trail = createTrail(tf);
   const store = createStore(tf);
   const settings = () => readSettings(tf.settings);
+  const player = createPagePlayer(tf, { trail });
+  const client = async () => {
+    await ensureConnected();
+    if (!spotify) await connect();
+    return spotify;
+  };
+  const { library, panel } = createPlaylistViews(tf, {
+    ...{ trail, store, player, client },
+    afterPlay: () => confirmSoon(),
+    onChange: () => void draw()
+  });
+  let spotify = null;
   let visible = false;
   let present = true;
   let layout = null;
@@ -1030,7 +1926,8 @@ function runTuneboard(tf, deps = {}) {
       progressMs: session.progressMs(),
       settings: settings(),
       layout,
-      t: (key, args) => tf.t(key, args)
+      t: (key, args) => tf.t(key, args),
+      panel: panel.view()
     });
     if (!shown) {
       const ok = await tf.overlay.show({ items });
@@ -1038,8 +1935,11 @@ function runTuneboard(tf, deps = {}) {
       return;
     }
     const changes = diffItems(shown, items);
+    const remove = removedIds(shown, items);
     shown = items;
-    if (changes.length) await tf.overlay.update({ items: changes });
+    if (changes.length || remove.length) {
+      await tf.overlay.update({ items: changes, ...remove.length ? { remove } : {} });
+    }
   };
   const draw = () => {
     dirty = true;
@@ -1073,7 +1973,10 @@ function runTuneboard(tf, deps = {}) {
         trail.record("auth.failed", { code: "auth" });
       }
       updateSignInCheck();
-    }
+    },
+    // Music playing inside Tilefold takes its volume from the page at once.
+    setVolume: (volume, playing) => player.ready() && playing?.deviceId === player.deviceId() ? player.setVolume(volume) : spotify.setVolume(volume),
+    onVolumeError: (code) => trail.record("control.volume", { ok: false, code })
   });
   const poller = createPoller({
     tick: () => session.refresh(),
@@ -1103,6 +2006,7 @@ function runTuneboard(tf, deps = {}) {
   const connect = () => {
     connecting = (async () => {
       poller.stop();
+      spotify = null;
       const fetchFn = findTransport(tf);
       if (!fetchFn || typeof deps.createSpotify !== "function" || !tf.auth) {
         session.setClient(null, "no-network");
@@ -1112,7 +2016,8 @@ function runTuneboard(tf, deps = {}) {
         session.setClient(null, "signed-out");
         return;
       }
-      session.setClient(deps.createSpotify({ fetchFn, now }));
+      spotify = deps.createSpotify({ fetchFn, now });
+      session.setClient(spotify);
       trail.record("auth.connected", {});
       if (!poller.running) await session.refresh();
     })().catch((err) => {
@@ -1170,6 +2075,23 @@ function runTuneboard(tf, deps = {}) {
     if (poller.running) poller.soon(CONFIRM_MS);
     else setTimeout(() => void session.refresh().catch((err) => trail.error(err)), CONFIRM_MS);
   };
+  const tell = (key) => void Promise.resolve(tf.toast(tf.t(key))).catch(() => {
+  });
+  const playHere = async () => {
+    if (!player.available()) return tell("player-unavailable");
+    if (!spotify) await connect();
+    if (!spotify) return tell("state-signed-out-hint");
+    try {
+      await spotify.playOn(await player.start());
+      trail.record("control.play-here", { ok: true });
+      confirmSoon();
+    } catch (err) {
+      const code = String(err?.code ?? "unknown").slice(0, 40);
+      trail.record("control.play-here", { ok: false, code });
+      tell(PLAYER_MESSAGE[code] ?? "player-error-other");
+    }
+    return visible ? draw() : void 0;
+  };
   const run = async (action) => {
     await ensureConnected();
     if (action === "toggle") return visible ? hide() : show();
@@ -1183,6 +2105,22 @@ function runTuneboard(tf, deps = {}) {
       updateTimers();
       if (poller.running) poller.soon(0);
       return visible ? draw() : void 0;
+    }
+    if (action === "playHere") return playHere();
+    if (action === "panel") {
+      if (!visible) await show();
+      return panel.toggle();
+    }
+    if (action === "library") {
+      return library.available() ? library.show() : tell("player-unavailable");
+    }
+    if (action === "stopHere") {
+      if (player.available()) await player.stop();
+      confirmSoon();
+      return visible ? draw() : void 0;
+    }
+    if (action === "playPause" && session.status === "no-device" && player.available()) {
+      return playHere();
     }
     const result = await session.control(
       /** @type {any} */
@@ -1213,8 +2151,12 @@ function runTuneboard(tf, deps = {}) {
   tf.on(
     "overlay.pointer",
     background(async (e) => {
-      if (!e || e.type !== "click" || !visible) return;
-      const action = actionForClick(String(e.item));
+      if (!e || !visible) return;
+      if (e.item === PANEL_ID) {
+        return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
+      }
+      if (e.type !== "click") return;
+      const action = e.item === VOLUME_ID ? volumeHit(computeLayout(layout, settings())[VOLUME_ID], Number(e.x)) : actionForClick(String(e.item));
       if (action) await run(action);
     })
   );

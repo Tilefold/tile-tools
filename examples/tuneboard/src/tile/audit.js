@@ -8,7 +8,11 @@
  * Records what happened in Tilefold's activity log (`tf.audit`) and the
  * tile's own log (`tf.log`): the card shown or hidden, each control the
  * user used, state changes (signed out, no device, playing…), sign-in
- * failures and token rotation. Never a token, a client id, a track title
+ * failures and token rotation, and the player inside Tilefold starting,
+ * getting ready, failing (by Spotify's error kind), stopping or closing, and
+ * the Library shown, its playlists loaded, one played (where, and whether
+ * it worked) and its view changed, and the card's playlist panel opened or
+ * closed. Never a token, a client id, a track title, a playlist
  * or anything else about what the user listens to: details are limited to
  * a known set of short keys. Every record is fire-and-forget, so a failing
  * log can never slow down or break the tile.
@@ -28,6 +32,19 @@ export const ACTIONS = Object.freeze([
   "auth.failed",
   "auth.connected",
   "auth.legacy-cleared",
+  "control.play-here",
+  "player.start",
+  "player.ready",
+  "player.not-ready",
+  "player.error",
+  "player.stop",
+  "player.closed",
+  "library.show",
+  "library.load",
+  "library.play",
+  "library.view",
+  "panel.show",
+  "panel.hide",
 ]);
 
 /**
