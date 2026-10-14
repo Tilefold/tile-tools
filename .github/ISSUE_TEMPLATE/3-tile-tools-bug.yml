@@ -1,0 +1,99 @@
+# Copyright (c) 2026 Tilefold
+# Author: Tilefold
+# Released under the MIT License.
+#
+# Issue form: a bug in Tile Tools (the tilefold-tile command, the tf types,
+# the docs) or in one of the example tiles. The "Which part" choices must list
+# every folder in examples/; a test checks that they do.
+
+name: "Tile Tools or example tile: bug"
+description: A problem with the tilefold-tile command, the tf types, the docs or an example tile.
+title: "[Tile Tools] "
+labels: ["area: tile-tools", "type: bug", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. Please search the open issues first.
+        Write in whichever language you are most comfortable with.
+        For a tile you wrote yourself, include the smallest tile.json and code that shows the problem.
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options:
+        - "tilefold-tile command (build, --check, validate, --watch)"
+        - "tf types (@tilefold/tile-tools/tf)"
+        - "Documentation"
+        - "Example: break-timer"
+        - "Example: brickfold"
+        - "Example: folder-tree"
+        - "Example: girder-jump"
+        - "Example: github-inbox"
+        - "Example: hello"
+        - "Example: orbit-guard"
+        - "Example: pipeline-board"
+        - "Example: service-status"
+        - "Example: shell-tips"
+        - "Example: tilefall"
+        - "Example: tilefold-pet"
+        - "Example: tuneboard"
+        - "Example: watchpane"
+        - "Example: weather-card"
+        - "Example: with-npm-package"
+        - "Something else"
+    validations:
+      required: true
+  - type: input
+    id: tile-tools-version
+    attributes:
+      label: Tile Tools version
+      description: "npx tilefold-tile --version, or the example's tile.json version."
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: input
+    id: tilefold-version
+    attributes:
+      label: Tilefold version
+      description: Needed when a tile misbehaves inside Tilefold.
+      placeholder: "0.1.8"
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Node.js version and operating system
+      placeholder: "Node.js 24.3, macOS 26.1"
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Command output or error
+      description: Remove tokens and other private details first.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps or a small tile that shows it
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this is not one of them.
+          required: true
+        - label: I removed anything private (tokens, passwords, personal paths) from this report.
+          required: true

@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1194%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-16-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1228%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-16-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -18,6 +18,7 @@ Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types 
 - TypeScript
 - Using it from a script
 - Developing it
+- Reporting issues
 - License
 - Test cases (TCs)
 - Known blockers
@@ -122,6 +123,7 @@ The rules that matter most: register commands, settings and listeners at the top
 | [Folders](docs/folders.md) | Following the user's folder, listing it and opening files in the viewer |
 | [Asking Claude](docs/ai.md) | Questions to Claude with the user's key and confirmation |
 | [Limits and errors](docs/limits-and-errors.md) | Every limit and every error name in one place |
+| [Reporting issues and ideas](docs/reporting-issues.md) | Where to report Tilefold and Tile Tools bugs and ideas, the issue forms and the labels |
 
 ## Commands
 
@@ -203,6 +205,10 @@ node bin/tilefold-tile.mjs build path/to/a/tile
 
 CI runs the tests on Node.js 22, 24 and 26 on Linux, macOS and Windows. The rules in `lib/rules.mjs` mirror the checks Tilefold makes when it loads a tile. `test/fake-host.mjs` runs a built tile against a fake Tilefold; copy it to test your own tiles.
 
+## Reporting issues
+
+This repository's Issues tab is the tracker for the Tilefold app as well as for Tile Tools and the example tiles. Each issue starts from a form (a bug or an idea, for the app or for Tile Tools and the examples), and the form sets its labels. Security problems go to the private **Report a vulnerability** form on the Security tab. You can write in any language. [Reporting issues and ideas](docs/reporting-issues.md) explains the forms and the labels.
+
 ## License
 
 MIT. Tile Tools, its documentation and its examples are open source so tile authors can use them in their own projects and CI. Copy an example and make it your own.
@@ -213,7 +219,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1194 tests in 54 files, all passing on 2026-10-14).
+Run with `npm test` (1228 tests in 55 files, all passing on 2026-10-14).
 
 | Area | Covers |
 |---|---|
@@ -223,6 +229,7 @@ Run with `npm test` (1194 tests in 54 files, all passing on 2026-10-14).
 | Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises against the fake host |
 | Fake host | The fake Tilefold behaves like the real one for settings, strings, storage, overlays, panels, pages, sounds, network, keys, AI and folders |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
+| Issue tracker | The issue forms parse, set one area, one type and `status: triage` from `labels.json`, and list every example tile; blank issues off; the label sync creates and corrects labels without deleting any, and a dry run changes nothing |
 | Package | Public and MIT-licensed, the right files exported and packed, the MIT line in every shipped file |
 
 ## Known blockers

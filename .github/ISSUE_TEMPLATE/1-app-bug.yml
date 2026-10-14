@@ -1,0 +1,71 @@
+# Copyright (c) 2026 Tilefold
+# Author: Tilefold
+# Released under the MIT License.
+#
+# Issue form: a bug in the Tilefold app itself (not in a tile or Tile Tools).
+
+name: "Tilefold app: bug"
+description: Something in the Tilefold app doesn't work as it should.
+title: "[App] "
+labels: ["area: tilefold app", "type: bug", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. Please search the open issues first, in case it is already known.
+        Write in whichever language you are most comfortable with.
+  - type: input
+    id: version
+    attributes:
+      label: Tilefold version
+      description: "Shown in About Tilefold, in the Tilefold menu."
+      placeholder: "0.1.8"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: macOS version and Mac
+      placeholder: "macOS 26.1, MacBook Pro M3"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected to see instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a new tab
+        2. …
+    validations:
+      required: false
+  - type: textarea
+    id: activity
+    attributes:
+      label: Activity log or error text
+      description: "Optional. Copy the relevant lines from Tilefold's activity log. Remove anything private (paths, host names, tokens) first."
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Screenshots, shell (zsh, bash, fish…), agent CLIs or tiles you use, and whether it happens every time.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this is not one of them.
+          required: true
+        - label: I removed anything private (tokens, passwords, personal paths) from this report.
+          required: true

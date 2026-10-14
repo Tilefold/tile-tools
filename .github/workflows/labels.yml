@@ -1,0 +1,41 @@
+# Copyright (c) 2026 Tilefold
+# Author: Tilefold
+# Released under the MIT License.
+#
+# Labels: keeps the repository's issue labels in step with .github/labels.json,
+# which the issue forms rely on. Runs when that file (or the sync script)
+# changes on main, and on demand from the Actions tab. It creates and corrects
+# labels but never deletes one; the run log lists every change.
+
+name: labels
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/labels.json
+      - scripts/sync-labels.mjs
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Only list what would change
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Sync labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
+        run: node scripts/sync-labels.mjs $DRY_RUN

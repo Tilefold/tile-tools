@@ -1,0 +1,62 @@
+{
+  "labels": [
+    {
+      "name": "area: tilefold app",
+      "color": "8b6cff",
+      "description": "The Tilefold app itself: terminal, panes, Composer, agents, updates"
+    },
+    {
+      "name": "area: tile-tools",
+      "color": "4c8bf5",
+      "description": "The tilefold-tile command, the tf types or this package"
+    },
+    {
+      "name": "area: example tile",
+      "color": "2da44e",
+      "description": "One of the example tiles in examples/"
+    },
+    {
+      "name": "area: docs",
+      "color": "0e8a8a",
+      "description": "Documentation, guides and help text"
+    },
+    {
+      "name": "type: bug",
+      "color": "d73a4a",
+      "description": "Something doesn't work as it should"
+    },
+    { "name": "type: idea", "color": "a2eeef", "description": "A new feature or an improvement" },
+    {
+      "name": "type: question",
+      "color": "d876e3",
+      "description": "A question about using Tilefold or writing tiles"
+    },
+    { "name": "status: triage", "color": "fbca04", "description": "New; not looked at yet" },
+    {
+      "name": "status: needs info",
+      "color": "f9d0c4",
+      "description": "Waiting for more detail from the reporter"
+    },
+    { "name": "status: confirmed", "color": "0052cc", "description": "Reproduced or accepted" },
+    {
+      "name": "status: planned",
+      "color": "5319e7",
+      "description": "Scheduled for an upcoming release"
+    },
+    {
+      "name": "status: blocked",
+      "color": "b60205",
+      "description": "Waiting on something outside this issue"
+    },
+    {
+      "name": "status: released",
+      "color": "0e8a16",
+      "description": "Fixed or shipped in a published release"
+    },
+    {
+      "name": "status: won't do",
+      "color": "cfd3d7",
+      "description": "Closed without a change, with the reason in the issue"
+    }
+  ]
+}

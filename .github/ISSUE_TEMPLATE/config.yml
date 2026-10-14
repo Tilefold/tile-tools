@@ -1,0 +1,15 @@
+# Copyright (c) 2026 Tilefold
+# Author: Tilefold
+# Released under the MIT License.
+#
+# Issue chooser: every issue starts from one of the forms in this folder, so
+# each arrives with its area, type and "status: triage" labels already set.
+
+blank_issues_enabled: false
+contact_links:
+  - name: Writing a tile? Read the guides first
+    url: https://github.com/Tilefold/tile-tools/tree/main/docs
+    about: Getting started, tile.json, the tf API, networking, AI, limits and error names.
+  - name: Security problem
+    url: https://github.com/Tilefold/tile-tools/security/advisories/new
+    about: Report a vulnerability in Tilefold or Tile Tools privately. Please don't open a public issue for it.
