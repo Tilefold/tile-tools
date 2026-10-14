@@ -10,11 +10,15 @@
  * reports for a few seconds, so the card doesn't jump back and the next
  * click builds on it; a failed send is reported and lets Spotify's report
  * count again. While music plays inside Tilefold, the volume goes straight
- * to the player in Tuneboard's page instead of through Spotify.
+ * to the player in Tuneboard's page instead of through Spotify. Mute sets
+ * 0 and brings back the volume before (raising does too); the volume stops
+ * at 0 and 100 however often it is pushed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runTuneboard } from "../../../examples/tuneboard/src/tile/run.js";
+import { THEME, svgOf } from "../../../examples/tuneboard/src/render/svg.js";
 import {
+  UNMUTE_VOLUME,
   VOLUME_HOLD_MS,
   VOLUME_SETTLE_MS,
   VOLUME_STEP,
@@ -115,6 +119,77 @@ describe("volume in the session", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("mute", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("goes to 0 and back to the volume before", async () => {
+    const { session, client } = setup({ volume: 70 });
+    session.setClient(client);
+    await session.refresh();
+    expect(await session.control("mute")).toEqual({ ok: true, did: "volume", volume: 0 });
+    expect(session.playback().volume).toBe(0);
+    await vi.advanceTimersByTimeAsync(VOLUME_SETTLE_MS);
+    expect(client.calls).toContain("setVolume:0");
+    expect((await session.control("mute")).volume).toBe(70);
+  });
+
+  it("unmutes when raised, to the volume before, and stays at 0 when lowered", async () => {
+    const { session, client } = setup({ volume: 30 });
+    session.setClient(client);
+    await session.refresh();
+    await session.control("mute");
+    expect((await session.control("volumeDown")).volume).toBe(0);
+    expect((await session.control("volumeUp")).volume).toBe(30);
+    // Muting again remembers the new volume.
+    await session.control("volumeUp");
+    await session.control("mute");
+    expect((await session.control("mute")).volume).toBe(40);
+  });
+
+  it("unmutes to a middle volume when the one before is unknown", async () => {
+    const { session, client } = setup({ volume: 0 });
+    session.setClient(client);
+    await session.refresh();
+    expect((await session.control("mute")).volume).toBe(UNMUTE_VOLUME);
+  });
+
+  it("stays at 100 and at 0 however often it is pushed", async () => {
+    const { session, client } = setup({ volume: 90 });
+    session.setClient(client);
+    await session.refresh();
+    for (let i = 0; i < 4; i++) await session.control("volumeUp");
+    expect(session.playback().volume).toBe(100);
+    for (let i = 0; i < 15; i++) await session.control("volumeDown");
+    expect(session.playback().volume).toBe(0);
+    await vi.advanceTimersByTimeAsync(VOLUME_SETTLE_MS);
+    expect(client.calls.filter((c) => c.startsWith("setVolume"))).toEqual(["setVolume:0"]);
+  });
+
+  it("mutes from its command and from the middle of the volume control", async () => {
+    const { host, tf } = createHost({ net: true });
+    const factory = createFactory({ volume: 50 });
+    registerSettings(tf);
+    runTuneboard(tf, { createSpotify: factory.createSpotify });
+    await drain();
+    await host.command("toggle");
+    await host.command("mute");
+    await host.advance(VOLUME_SETTLE_MS);
+    expect(factory.client.calls).toContain("setVolume:0");
+    expect(svgOf(host.item("btn-volume").image)).toContain(THEME.error);
+    const v = host.item("btn-volume");
+    await host.click("btn-volume", v.x + v.w / 2, v.y + 5);
+    await host.advance(VOLUME_SETTLE_MS);
+    expect(factory.client.calls).toContain("setVolume:50");
+    await host.click("btn-volume", v.x + v.w - 2, v.y + 5);
+    await host.advance(VOLUME_SETTLE_MS);
+    expect(factory.client.calls).toContain("setVolume:60");
+    await host.click("btn-volume", v.x + 2, v.y + 5);
+    await host.advance(VOLUME_SETTLE_MS);
+    expect(factory.client.calls.filter((c) => c === "setVolume:50")).toHaveLength(2);
   });
 });
 

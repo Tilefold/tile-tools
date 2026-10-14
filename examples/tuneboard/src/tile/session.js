@@ -27,7 +27,9 @@
  * pauses (quick clicks become one request). For a few seconds after, the
  * volume the user chose wins over the one Spotify reports, which lags
  * behind; otherwise the card would jump back and the next click would
- * start from the old volume.
+ * start from the old volume. Mute sets the volume to 0 and remembers the
+ * volume before, which a second mute brings back (Spotify has no mute of
+ * its own); raising the volume while muted unmutes too.
  *
  * `nextDelay()` tells the poller how long to wait: the normal interval
  * after an answer, Spotify's Retry-After when rate-limited, a doubling
@@ -59,6 +61,9 @@ export const MAX_BACKOFF_MS = 60000;
 
 /** How much one volume step changes the volume, in percent. */
 export const VOLUME_STEP = 10;
+
+/** The volume unmuting goes back to when the volume before muting is unknown. */
+export const UNMUTE_VOLUME = 50;
 
 /** How long volume clicks wait for more before the volume is sent, in ms. */
 export const VOLUME_SETTLE_MS = 300;
@@ -142,6 +147,19 @@ export function createSession(o = {}) {
   let sendingVolume = false;
   /** The volume last sent. */
   let sentVolume = null;
+  /** @type {number|null} The volume before muting, which unmuting brings back. */
+  let mutedFrom = null;
+
+  /** Chooses a volume: shown at once, sent once the clicks pause, held a while. */
+  const chooseVolume = (volume) => {
+    volumeTarget = volume;
+    holdUntil = now() + VOLUME_HOLD_MS;
+    if (playback) playback = { ...playback, volume };
+    if (volume > 0) mutedFrom = null;
+    scheduleVolume();
+    changed();
+    return { ok: true, did: "volume", volume };
+  };
 
   /** Moves to a state, telling listeners. */
   const go = (next) => {
@@ -271,7 +289,7 @@ export function createSession(o = {}) {
      * Runs one control. Shows the likely result at once (play turns into
      * pause, the volume moves) and leaves confirming it to the next poll.
      *
-     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"} action
+     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"|"mute"} action
      * @returns {Promise<{ ok: boolean, code?: string, did?: string, volume?: number }>}
      */
     async control(action) {
@@ -299,13 +317,20 @@ export function createSession(o = {}) {
           const current = volumeTarget ?? (playback ? playback.volume : null);
           if (current === null) return { ok: false, code: "no-volume" };
           const step = action === "volumeUp" ? VOLUME_STEP : -VOLUME_STEP;
-          const volume = /** @type {number} */ (clampInt(current + step, 0, 100, current));
-          volumeTarget = volume;
-          holdUntil = now() + VOLUME_HOLD_MS;
-          if (playback) playback = { ...playback, volume };
-          scheduleVolume();
-          changed();
-          return { ok: true, did: "volume", volume };
+          // Raising from mute starts from the volume before muting.
+          const base = current === 0 && step > 0 && mutedFrom !== null ? mutedFrom - step : current;
+          return chooseVolume(/** @type {number} */ (clampInt(base + step, 0, 100, current)));
+        }
+        if (action === "mute") {
+          const current = volumeTarget ?? (playback ? playback.volume : null);
+          if (current === null) return { ok: false, code: "no-volume" };
+          if (current > 0) {
+            const before = current;
+            chooseVolume(0);
+            mutedFrom = before;
+            return { ok: true, did: "volume", volume: 0 };
+          }
+          return chooseVolume(mutedFrom ?? UNMUTE_VOLUME);
         }
         return { ok: false, code: "unknown-action" };
       } catch (err) {

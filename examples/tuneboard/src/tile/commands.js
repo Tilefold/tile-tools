@@ -61,6 +61,12 @@ export const COMMANDS = [
     key: { mac: "Ctrl+Alt+D", other: "Ctrl+Alt+D" },
   },
   {
+    id: "mute",
+    title: "cmd-mute",
+    action: "mute",
+    key: { mac: "Ctrl+Alt+S", other: "Ctrl+Alt+S" },
+  },
+  {
     id: "refresh",
     title: "cmd-refresh",
     action: "refresh",

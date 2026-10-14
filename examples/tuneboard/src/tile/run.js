@@ -39,7 +39,8 @@ import { createSession } from "./session.js";
 import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
 import { createPlaylistViews } from "./playlists.js";
-import { PANEL_ID, actionForClick, diffItems, removedIds, sceneItems } from "./view.js";
+import { volumeHit } from "../render/buttons.js";
+import { PANEL_ID, VOLUME_ID, actionForClick, diffItems, removedIds, sceneItems } from "./view.js";
 import { computeLayout } from "./scene.js";
 
 /** How often the progress bar moves while a track plays, in ms. */
@@ -85,6 +86,7 @@ const FAILED_ACTION = {
   previous: "control.previous",
   volumeUp: "control.volume",
   volumeDown: "control.volume",
+  mute: "control.volume",
 };
 
 /**
@@ -432,7 +434,11 @@ export function runTuneboard(tf, deps = {}) {
         return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
       }
       if (e.type !== "click") return;
-      const action = actionForClick(String(e.item));
+      // The volume control's action depends on which third is clicked.
+      const action =
+        e.item === VOLUME_ID
+          ? volumeHit(computeLayout(layout, settings())[VOLUME_ID], Number(e.x))
+          : actionForClick(String(e.item));
       if (action) await run(action);
     }),
   );

@@ -145,7 +145,7 @@ export function clampProgress(p) {
  * Draws the card.
  *
  * @param {{ mode: "track", title: string, artists: string, detail: string,
- *           progress: number, playing: boolean }
+ *           volume?: string, progress: number, playing: boolean }
  *       | { mode: "message", tone: "info"|"warn"|"error", title: string, hint: string }} view
  * @param {{ displayW?: number, displayH?: number }} [opts]
  * @returns {string} A `data:image/svg+xml` URL.
@@ -172,8 +172,20 @@ export function renderCard(view, opts = {}) {
         text: view.detail,
         size: 9,
         fill: THEME.muted,
-        maxWidth: TEXT_W,
+        // The volume, right-aligned, always shows whole; the device gives way.
+        maxWidth: view.volume ? TEXT_W - textWidth(view.volume, 9) - 6 : TEXT_W,
       }) +
+      (view.volume
+        ? textEl({
+            x: TEXT_X + TEXT_W,
+            y: 51,
+            text: view.volume,
+            size: 9,
+            weight: 600,
+            fill: THEME.muted,
+            anchor: "end",
+          })
+        : "") +
       `<rect x="${TEXT_X}" y="58" width="${barW}" height="3" rx="1.5" fill="${THEME.track}"/>` +
       `<rect x="${TEXT_X}" y="58" width="${round2(barW * p)}" height="3" rx="1.5" fill="${THEME.accent}"/>`;
   } else {

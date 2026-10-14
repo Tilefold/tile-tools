@@ -257,7 +257,7 @@ describe("every state in every language", () => {
             true,
           );
         }
-        for (const b of ["previous", "play", "next", "volume-down", "volume-up"]) {
+        for (const b of ["previous", "play", "next", "volume", "playlists"]) {
           expect(host.item(buttonId(b)).label.length).toBeGreaterThan(0);
         }
       }

@@ -360,7 +360,8 @@ describe("view", () => {
       mode: "track",
       title: "Clair de Lune",
       artists: "Claude Debussy, Ivan Moravec",
-      detail: "On MacBook · volume 50%",
+      detail: "On MacBook",
+      volume: "50%",
       progress: 0.25,
       playing: true,
     });
@@ -374,6 +375,13 @@ describe("view", () => {
     });
     expect(v.detail).toBe("Paused");
     expect(v.title).toBe("Unknown track");
+    // Muted shows as such, and an unknown volume not at all.
+    expect(
+      cardView({ ...base, status: "playing", playback: { ...playback, volume: 0 } }).volume,
+    ).toBe("Muted");
+    expect(
+      cardView({ ...base, status: "playing", playback: { ...playback, volume: null } }).volume,
+    ).toBe("");
     expect(v.playing).toBe(false);
   });
 
@@ -400,16 +408,15 @@ describe("view", () => {
     });
   }
 
-  it("builds seven items within Tilefold's limits", () => {
+  it("builds six items within Tilefold's limits", () => {
     const items = sceneItems({ ...base, status: "playing" });
-    expect(items).toHaveLength(7);
+    expect(items).toHaveLength(6);
     expect(items.map((i) => i.id)).toEqual([
       CARD_ID,
       "btn-previous",
       "btn-play",
       "btn-next",
-      "btn-volume-down",
-      "btn-volume-up",
+      "btn-volume",
       "btn-playlists",
     ]);
     for (const i of items) {
@@ -434,11 +441,9 @@ describe("view", () => {
       true,
       true,
       true,
-      true,
       false,
     ]);
     expect(dimmed(sceneItems({ ...base, status: "playing" }))).toEqual([
-      false,
       false,
       false,
       false,
@@ -449,7 +454,6 @@ describe("view", () => {
       false,
       false,
       false,
-      true,
       true,
       false,
     ]);
@@ -468,7 +472,9 @@ describe("view", () => {
   it("maps clicks to actions", () => {
     expect(actionForClick(CARD_ID)).toBe("refresh");
     expect(actionForClick(buttonId("play"))).toBe("playPause");
-    expect(actionForClick(buttonId("volume-up"))).toBe("volumeUp");
+    expect(actionForClick(buttonId("next"))).toBe("next");
+    // The volume control's action depends on where it is clicked (volumeHit).
+    expect(actionForClick(buttonId("volume"))).toBeNull();
     expect(actionForClick("nope")).toBeNull();
   });
 });

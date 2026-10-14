@@ -312,21 +312,19 @@ function textEl(o) {
 
 // src/render/buttons.js
 var BUTTON = 28;
+var VOLUME_W = 76;
 var BUTTONS = [
-  { id: "previous", action: "previous", label: "button-previous" },
-  { id: "play", action: "playPause", label: "button-play" },
-  { id: "next", action: "next", label: "button-next" },
-  { id: "volume-down", action: "volumeDown", label: "button-volume-down" },
-  { id: "volume-up", action: "volumeUp", label: "button-volume-up" },
-  { id: "playlists", action: "panel", label: "button-playlists" }
+  { id: "previous", action: "previous", label: "button-previous", w: BUTTON },
+  { id: "play", action: "playPause", label: "button-play", w: BUTTON },
+  { id: "next", action: "next", label: "button-next", w: BUTTON },
+  { id: "volume", action: null, label: "button-volume", w: VOLUME_W },
+  { id: "playlists", action: "panel", label: "button-playlists", w: BUTTON }
 ];
 var ICONS = {
   previous: `<rect x="8" y="9" width="2.4" height="10" rx="1" fill="${THEME.text}"/><path d="M20 9 L11.5 14 L20 19 Z" fill="${THEME.text}"/>`,
   next: `<rect x="17.6" y="9" width="2.4" height="10" rx="1" fill="${THEME.text}"/><path d="M8 9 L16.5 14 L8 19 Z" fill="${THEME.text}"/>`,
   play: `<path d="M11 8 L20 14 L11 20 Z" fill="${THEME.accent}"/>`,
   pause: `<rect x="9.5" y="8.5" width="3.2" height="11" rx="1" fill="${THEME.text}"/><rect x="15.3" y="8.5" width="3.2" height="11" rx="1" fill="${THEME.text}"/>`,
-  "volume-down": `<path d="M7 11.5 H10 L14 8.5 V19.5 L10 16.5 H7 Z" fill="${THEME.text}"/><path d="M17 14 H22" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`,
-  "volume-up": `<path d="M6 11.5 H9 L13 8.5 V19.5 L9 16.5 H6 Z" fill="${THEME.text}"/><path d="M16 14 H22 M19 11 V17" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`,
   // Three lines with a note: a list of music.
   playlists: `<path d="M7 10 H16 M7 14 H16 M7 18 H12" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/><path d="M20.5 18.5 V9.5 L23.5 9" stroke="${THEME.accent}" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="18.8" cy="18.6" r="2" fill="${THEME.accent}"/>`
 };
@@ -339,6 +337,23 @@ function renderButton(icon, opts = {}) {
 function iconFor(id, playing) {
   if (id === "play") return playing ? "pause" : "play";
   return id;
+}
+function speaker(x, y, muted) {
+  const body = `<path d="M${x} ${y + 4} H${x + 3} L${x + 7} ${y + 0.5} V${y + 11.5} L${x + 3} ${y + 8} H${x} Z" fill="${THEME.text}"/>`;
+  const mark = muted ? `<path d="M${x + 9.5} ${y + 3.5} L${x + 14} ${y + 8.5} M${x + 14} ${y + 3.5} L${x + 9.5} ${y + 8.5}" stroke="${THEME.error}" stroke-width="1.6" stroke-linecap="round"/>` : `<path d="M${x + 9.5} ${y + 3.5} Q${x + 11.5} ${y + 6} ${x + 9.5} ${y + 8.5} M${x + 11.5} ${y + 1.5} Q${x + 15} ${y + 6} ${x + 11.5} ${y + 10.5}" stroke="${THEME.text}" stroke-width="1.4" fill="none" stroke-linecap="round"/>`;
+  return body + mark;
+}
+function renderVolume(opts = {}) {
+  const third = VOLUME_W / 3;
+  const mid = BUTTON / 2;
+  const body = `<rect x="0.5" y="0.5" width="${VOLUME_W - 1}" height="${BUTTON - 1}" rx="7" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${opts.muted ? THEME.error : THEME.border}"/><path d="M${third} 7 V21 M${third * 2} 7 V21" stroke="${THEME.border}"/><g opacity="${opts.dim ? 0.35 : 1}"><path d="M${third / 2 - 5} ${mid} H${third / 2 + 5}" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>` + speaker(third + third / 2 - 7, mid - 6, Boolean(opts.muted)) + `<path d="M${third * 2.5 - 5} ${mid} H${third * 2.5 + 5} M${third * 2.5} ${mid - 5} V${mid + 5}" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/></g>`;
+  return svgUrl(VOLUME_W, BUTTON, body, opts.displayW ?? VOLUME_W, opts.displayH ?? BUTTON);
+}
+function volumeHit(rect, x) {
+  if (!rect || rect.w <= 0) return null;
+  const at = (x - rect.x) / rect.w;
+  if (at < 0 || at > 1) return null;
+  return at < 1 / 3 ? "volumeDown" : at < 2 / 3 ? "mute" : "volumeUp";
 }
 
 // src/render/card.js
@@ -410,8 +425,17 @@ function renderCard(view, opts = {}) {
       text: view.detail,
       size: 9,
       fill: THEME.muted,
-      maxWidth: TEXT_W
-    }) + `<rect x="${TEXT_X}" y="58" width="${barW}" height="3" rx="1.5" fill="${THEME.track}"/><rect x="${TEXT_X}" y="58" width="${round2(barW * p)}" height="3" rx="1.5" fill="${THEME.accent}"/>`;
+      // The volume, right-aligned, always shows whole; the device gives way.
+      maxWidth: view.volume ? TEXT_W - textWidth(view.volume, 9) - 6 : TEXT_W
+    }) + (view.volume ? textEl({
+      x: TEXT_X + TEXT_W,
+      y: 51,
+      text: view.volume,
+      size: 9,
+      weight: 600,
+      fill: THEME.muted,
+      anchor: "end"
+    }) : "") + `<rect x="${TEXT_X}" y="58" width="${barW}" height="3" rx="1.5" fill="${THEME.track}"/><rect x="${TEXT_X}" y="58" width="${round2(barW * p)}" height="3" rx="1.5" fill="${THEME.accent}"/>`;
   } else {
     const color = TONES[view.tone] ?? THEME.accent;
     const icon = view.tone === "info" ? noteIcon(12, 12, color, 1) : alertIcon(12, 12, color);
@@ -601,9 +625,15 @@ function computeLayout(layout, settings = {}, options = {}) {
   const rects = { card: { x: gx, y: gy, w, h: Math.round(CARD_H * scale) } };
   const btn = Math.round(BUTTON * scale);
   const rowY = Math.round(gy + (CARD_H + GAP) * scale);
-  const step = BUTTONS.length > 1 ? (w - btn) / (BUTTONS.length - 1) : 0;
+  const widths = BUTTONS.map((b) => Math.round(b.w * scale));
+  const used = widths.reduce((a, b) => a + b, 0);
+  const gap = BUTTONS.length > 1 ? (w - used) / (BUTTONS.length - 1) : 0;
+  let left = gx;
   BUTTONS.forEach((b, i) => {
-    rects[`btn-${b.id}`] = { x: Math.round(gx + i * step), y: rowY, w: btn, h: btn };
+    const last = i === BUTTONS.length - 1;
+    const x = last ? gx + w - widths[i] : Math.round(left);
+    rects[`btn-${b.id}`] = { x, y: rowY, w: widths[i], h: btn };
+    left += widths[i] + gap;
   });
   if (options.panel) {
     const pw = Math.round(PANEL_W * scale);
@@ -774,6 +804,12 @@ var COMMANDS = [
     title: "cmd-volume-down",
     action: "volumeDown",
     key: { mac: "Ctrl+Alt+D", other: "Ctrl+Alt+D" }
+  },
+  {
+    id: "mute",
+    title: "cmd-mute",
+    action: "mute",
+    key: { mac: "Ctrl+Alt+S", other: "Ctrl+Alt+S" }
   },
   {
     id: "refresh",
@@ -966,6 +1002,7 @@ var CONTROL_STATES = Object.freeze(["playing", "paused", "no-device", "premium",
 var POLL_MS = 5e3;
 var MAX_BACKOFF_MS = 6e4;
 var VOLUME_STEP = 10;
+var UNMUTE_VOLUME = 50;
 var VOLUME_SETTLE_MS = 300;
 var VOLUME_HOLD_MS = 3e3;
 function clampInt(value, min, max, fallback) {
@@ -1005,6 +1042,16 @@ function createSession(o = {}) {
   let volumeTimer = null;
   let sendingVolume = false;
   let sentVolume = null;
+  let mutedFrom = null;
+  const chooseVolume = (volume) => {
+    volumeTarget = volume;
+    holdUntil = now() + VOLUME_HOLD_MS;
+    if (playback) playback = { ...playback, volume };
+    if (volume > 0) mutedFrom = null;
+    scheduleVolume();
+    changed();
+    return { ok: true, did: "volume", volume };
+  };
   const go = (next) => {
     if (next === status) return;
     const from = status;
@@ -1119,7 +1166,7 @@ function createSession(o = {}) {
      * Runs one control. Shows the likely result at once (play turns into
      * pause, the volume moves) and leaves confirming it to the next poll.
      *
-     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"} action
+     * @param {"playPause"|"next"|"previous"|"volumeUp"|"volumeDown"|"mute"} action
      * @returns {Promise<{ ok: boolean, code?: string, did?: string, volume?: number }>}
      */
     async control(action) {
@@ -1146,16 +1193,22 @@ function createSession(o = {}) {
           const current = volumeTarget ?? (playback ? playback.volume : null);
           if (current === null) return { ok: false, code: "no-volume" };
           const step = action === "volumeUp" ? VOLUME_STEP : -VOLUME_STEP;
-          const volume = (
+          const base = current === 0 && step > 0 && mutedFrom !== null ? mutedFrom - step : current;
+          return chooseVolume(
             /** @type {number} */
-            clampInt(current + step, 0, 100, current)
+            clampInt(base + step, 0, 100, current)
           );
-          volumeTarget = volume;
-          holdUntil = now() + VOLUME_HOLD_MS;
-          if (playback) playback = { ...playback, volume };
-          scheduleVolume();
-          changed();
-          return { ok: true, did: "volume", volume };
+        }
+        if (action === "mute") {
+          const current = volumeTarget ?? (playback ? playback.volume : null);
+          if (current === null) return { ok: false, code: "no-volume" };
+          if (current > 0) {
+            const before = current;
+            chooseVolume(0);
+            mutedFrom = before;
+            return { ok: true, did: "volume", volume: 0 };
+          }
+          return chooseVolume(mutedFrom ?? UNMUTE_VOLUME);
         }
         return { ok: false, code: "unknown-action" };
       } catch (err) {
@@ -1681,6 +1734,7 @@ function createPlaylistViews(tf, { trail, store, player, client, afterPlay, onCh
 // src/tile/view.js
 var CARD_ID = "card";
 var PANEL_ID = "panel";
+var VOLUME_ID = "btn-volume";
 var STATE_TEXT = {
   "no-network": ["state-no-network", "state-no-network-hint"],
   denied: ["state-denied", "state-denied-hint"],
@@ -1707,13 +1761,15 @@ var MAX_LABEL = 80;
 function cardView(input) {
   const { status, playback, t } = input;
   if ((status === "playing" || status === "paused") && playback) {
-    const device = playback.device ? t("card-device", { device: playback.device, volume: playback.volume ?? "\u2013" }) : "";
+    const device = playback.device ? t("card-on-device", { device: playback.device }) : "";
     const detail = status === "paused" ? [t("card-paused"), device].filter(Boolean).join(" \xB7 ") : device;
+    const volume = playback.volume === null ? "" : playback.volume === 0 ? t("card-muted") : t("card-volume", { volume: playback.volume });
     return {
       mode: "track",
       title: playback.title || t("card-unknown-title"),
       artists: playback.artists.join(", "),
       detail,
+      volume,
       progress: playback.durationMs > 0 ? input.progressMs / playback.durationMs : 0,
       playing: status === "playing"
     };
@@ -1752,12 +1808,12 @@ function sceneItems(input) {
   ];
   for (const b of BUTTONS) {
     const r = rects[buttonId(b.id)];
-    const isVolume = b.id.startsWith("volume");
+    const isVolume = b.id === "volume";
     const dim = b.id !== "playlists" && (!canControl || isVolume && !(playback && playback.volume !== null));
     const label = b.id === "play" && playing ? t("button-pause") : t(b.label);
     items.push({
       id: buttonId(b.id),
-      image: renderButton(iconFor(b.id, playing), {
+      image: isVolume ? renderVolume({ displayW: r.w, displayH: r.h, dim, muted: playback?.volume === 0 }) : renderButton(iconFor(b.id, playing), {
         displaySize: r.w,
         dim,
         on: b.id === "playlists" && panel !== null
@@ -1836,7 +1892,8 @@ var FAILED_ACTION = {
   next: "control.next",
   previous: "control.previous",
   volumeUp: "control.volume",
-  volumeDown: "control.volume"
+  volumeDown: "control.volume",
+  mute: "control.volume"
 };
 function runTuneboard(tf, deps = {}) {
   const now = deps.now ?? (() => Date.now());
@@ -2099,7 +2156,7 @@ function runTuneboard(tf, deps = {}) {
         return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
       }
       if (e.type !== "click") return;
-      const action = actionForClick(String(e.item));
+      const action = e.item === VOLUME_ID ? volumeHit(computeLayout(layout, settings())[VOLUME_ID], Number(e.x)) : actionForClick(String(e.item));
       if (action) await run(action);
     })
   );

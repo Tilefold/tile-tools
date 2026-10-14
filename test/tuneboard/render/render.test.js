@@ -14,8 +14,11 @@ import { describe, expect, it } from "vitest";
 import {
   BUTTON,
   BUTTONS,
+  VOLUME_W,
   iconFor,
   renderButton,
+  renderVolume,
+  volumeHit,
 } from "../../../examples/tuneboard/src/render/buttons.js";
 import {
   CARD_H,
@@ -208,21 +211,61 @@ describe("card", () => {
   });
 });
 
+describe("card volume", () => {
+  const track = (detail, volume) =>
+    svgOf(
+      renderCard({
+        mode: "track",
+        title: "Song",
+        artists: "Someone",
+        detail,
+        volume,
+        progress: 0.5,
+        playing: true,
+      }),
+    );
+
+  it("always shows the whole volume, shortening a long device name instead", () => {
+    for (const volume of ["0%", "90%", "100%", "Muted"]) {
+      const svg = track("On A Very Long Device Name Indeed", volume);
+      expect(svg).toContain(`>${volume}<`);
+      expect(svg).toContain("…");
+    }
+    expect(track("On Tilefold", "100%")).toContain(">On Tilefold<");
+    expect(track("On Tilefold", "")).not.toContain('text-anchor="end"');
+  });
+});
+
 describe("buttons", () => {
-  it("has six buttons with unique ids and actions", () => {
-    expect(BUTTONS.map((b) => b.id)).toEqual([
-      "previous",
-      "play",
-      "next",
-      "volume-down",
-      "volume-up",
-      "playlists",
-    ]);
-    expect(new Set(BUTTONS.map((b) => b.action)).size).toBe(6);
+  it("has five buttons with unique ids, and the volume control's action by place", () => {
+    expect(BUTTONS.map((b) => b.id)).toEqual(["previous", "play", "next", "volume", "playlists"]);
+    expect(new Set(BUTTONS.map((b) => b.action)).size).toBe(5);
+    expect(BUTTONS.find((b) => b.id === "volume")).toMatchObject({ action: null, w: VOLUME_W });
+  });
+
+  it("splits the volume control into lower, mute and raise", () => {
+    const rect = { x: 100, y: 0, w: VOLUME_W, h: BUTTON };
+    expect(volumeHit(rect, 105)).toBe("volumeDown");
+    expect(volumeHit(rect, 100 + VOLUME_W / 2)).toBe("mute");
+    expect(volumeHit(rect, 100 + VOLUME_W - 3)).toBe("volumeUp");
+    expect(volumeHit(rect, 90)).toBeNull();
+    expect(volumeHit(rect, 100 + VOLUME_W + 1)).toBeNull();
+    // At the small size too.
+    expect(volumeHit({ x: 0, y: 0, w: 61, h: 22 }, 30)).toBe("mute");
+  });
+
+  it("draws the volume control, crossed out and outlined while muted", () => {
+    const loud = svgOf(renderVolume());
+    const muted = svgOf(renderVolume({ muted: true }));
+    expect(loud).toContain(`viewBox="0 0 ${VOLUME_W} ${BUTTON}"`);
+    expect(loud).not.toContain(THEME.error);
+    expect(muted).toContain(THEME.error);
+    expect(svgOf(renderVolume({ dim: true }))).toContain('opacity="0.35"');
+    expect(svgOf(renderVolume({ displayW: 61, displayH: 22 }))).toContain('width="61" height="22"');
   });
 
   it("draws every icon", () => {
-    for (const icon of ["previous", "next", "play", "pause", "volume-down", "volume-up"]) {
+    for (const icon of ["previous", "next", "play", "pause", "playlists"]) {
       const doc = svgOf(renderButton(icon));
       expect(doc).toContain(`viewBox="0 0 ${BUTTON} ${BUTTON}"`);
       expect(doc).toMatch(/<path|<rect x="9.5"/);
