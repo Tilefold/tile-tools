@@ -1,0 +1,17 @@
+tile-name = Folder Tree (サンプル)
+tile-description = ペインがあるフォルダーを、ペインの横のパネルにツリーで表示します。ファイルをクリックするとドキュメントビューアーで読めます。
+cmd-toggle = Folder Tree: 表示/非表示
+cmd-refresh = Folder Tree: 更新
+setting-show-hidden = 隠しファイルとフォルダーを表示 (ドットで始まる名前)
+setting-skip-folders = 表示しないフォルダー (名前をカンマ区切りで)
+needs-newer-tilefold = Folder Tree には Tilefold 0.1.9 以降が必要です。
+title-no-folder = フォルダーなし
+row-loading = 読み込み中…
+row-empty = 空のフォルダー
+row-truncated = 最初の 2,000 項目だけを表示しています
+row-no-folder = Tilefold はこのペインのフォルダーをまだ知りません。ペインでコマンドを実行するか、新しいペインを開いてください。
+error-not-allowed = ペインのフォルダーの中ではありません
+error-not-found = もうありません: 更新すると今のフォルダーが表示されます
+error-unreadable = このフォルダーは読み取れません
+error-busy = 一度に開くフォルダーが多すぎます: 少ししてからもう一度お試しください
+error-other = 問題が発生しました (タイルのログを参照)

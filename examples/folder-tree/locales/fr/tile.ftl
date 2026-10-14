@@ -1,0 +1,17 @@
+tile-name = Folder Tree (exemple)
+tile-description = Le dossier de votre volet, en arborescence dans un panneau à côté de vos volets. Cliquez sur un fichier pour le lire dans le lecteur de documents.
+cmd-toggle = Folder Tree : Afficher ou masquer
+cmd-refresh = Folder Tree : Actualiser
+setting-show-hidden = Afficher les fichiers et dossiers masqués (noms commençant par un point)
+setting-skip-folders = Dossiers à ignorer (noms séparés par des virgules)
+needs-newer-tilefold = Folder Tree nécessite Tilefold 0.1.9 ou une version ultérieure.
+title-no-folder = Aucun dossier
+row-loading = Chargement…
+row-empty = Dossier vide
+row-truncated = Seules les 2 000 premières entrées sont affichées
+row-no-folder = Tilefold ne sait pas encore dans quel dossier se trouve ce volet. Lancez-y une commande ou ouvrez un nouveau volet.
+error-not-allowed = Pas dans un dossier de vos volets
+error-not-found = Il n'existe plus : actualisez pour voir le dossier tel qu'il est
+error-unreadable = Ce dossier ne peut pas être lu
+error-busy = Trop de dossiers à la fois : réessayez dans un instant
+error-other = Une erreur s'est produite (voir le journal de la tuile)
