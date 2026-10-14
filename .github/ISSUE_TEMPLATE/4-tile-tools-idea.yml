@@ -1,0 +1,48 @@
+# Copyright (c) 2026 Tilefold
+# Author: Tilefold
+# Released under the MIT License.
+#
+# Issue form: an idea for Tile Tools, the tf API or a new example tile.
+
+name: "Tile Tools or tiles: idea"
+description: Suggest something for Tile Tools, the tile API, the docs or a new example tile.
+title: "[Tiles idea] "
+labels: ["area: tile-tools", "type: idea", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. Please search the open issues first, and add a 👍 to an existing idea rather than opening a new one.
+        Write in whichever language you are most comfortable with.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of idea?
+      options:
+        - "A tilefold-tile command or option"
+        - "Something tiles should be able to do (the tf API)"
+        - "A new example tile"
+        - "Documentation"
+        - "Something else"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What you would like to do, and how you picture it working.
+    validations:
+      required: true
+  - type: textarea
+    id: use
+    attributes:
+      label: What would you build with it?
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this is not one of them.
+          required: true

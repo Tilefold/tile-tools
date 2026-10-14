@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and fourteen example tiles, from a few lines to four arcade games, a Spotify player, a GitLab pipeline board and a weather card that asks Claude.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1030%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-14-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1064%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-14-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -18,6 +18,7 @@ Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types 
 - TypeScript
 - Using it from a script
 - Developing it
+- Reporting issues
 - License
 - Test cases (TCs)
 - Known blockers
@@ -110,6 +111,7 @@ The rules that matter most: register commands, settings and listeners at the top
 | [Tile pages](docs/tile-pages.md) | A tile's own web page (Tilefold 0.1.7): the `page` and `script:` permissions, the `page/` folder, `tf.page`, messages with `window.tilefold`, keeping it running when its window closes, and giving it a sign-in |
 | [Asking Claude](docs/ai.md) | `tf.ai.ask`, the user's confirmation, models, masking, the daily allowance, errors |
 | [Limits and errors](docs/limits-and-errors.md) | Every limit and every error name in one place |
+| [Reporting issues and ideas](docs/reporting-issues.md) | Where to report Tilefold and Tile Tools bugs and ideas, the four issue forms, what the labels mean |
 
 ## Why one file
 
@@ -251,6 +253,12 @@ node bin/tilefold-tile.mjs build path/to/a/tile
 
 CI runs the tests on Node.js 22, 24 and 26 on Linux, macOS and Windows. The rules in `lib/rules.mjs` mirror the checks Tilefold makes when it loads a tile; the Tilefold app's own test suite checks the two still agree. `test/fake-host.mjs` runs a built tile against a fake Tilefold (settings, strings, notices, storage, overlays, sounds, network, keys and AI); copy it to test your own tiles.
 
+## Reporting issues
+
+This repository's Issues tab is the tracker for the Tilefold app as well as for Tile Tools and the example tiles. Every issue starts from one of four forms: a bug or an idea, for the app or for Tile Tools and the examples. The form sets the area, type and `status: triage` labels. Blank issues are turned off, and security problems go to the private **Report a vulnerability** form on the Security tab. Write in any language you're comfortable with, and remove tokens and private paths first. [Reporting issues and ideas](docs/reporting-issues.md) explains the forms and every label.
+
+The labels live in `.github/labels.json`, and the `labels` workflow creates or corrects them on GitHub whenever that file changes on `main`. It never deletes one.
+
 ## License
 
 MIT. Tile Tools, its documentation and its examples are open source so tile authors can use them in their own projects and CI. Copy an example and make it your own.
@@ -261,7 +269,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1030 tests in 48 files, all passing on 2026-10-13).
+Run with `npm test` (1064 tests in 49 files, all passing on 2026-10-14).
 
 | Area | Covers |
 |---|---|
@@ -287,6 +295,7 @@ Run with `npm test` (1030 tests in 48 files, all passing on 2026-10-13).
 | Pipeline Board | Project paths and pasted addresses (no ".."), branches, the encoded pipelines request, reading the answer, failures by name and status, status groups, finished-since and ages, the board and message pictures. The tile: registration, an older Tilefold, no project, signed out then signed in within seconds, every request naming the sign-in with no token of its own, the rows, 30 s / 2 min checks and none while hidden, refresh by command and click, a new project, a restart, finished-pipeline notices (result only in the activity log) and silence when off or for pipelines never seen running, a refused token, an unknown project, a refusal, GitLab's rate limit, an error and recovery |
 | Fake host | `tf.net.fetch` answers and records requests with their credential, refuses a credential that isn't set up, `tf.auth.has`, `tf.ai.ask` records questions, fails without AI and can hold an answer back, notices and warnings recorded |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every `tf` member, every event and every error name the documentation lists |
+| Issue tracker | Four issue forms parse, set exactly one area, one type and `status: triage`, use only labels from `labels.json`, ask for a search and for private details to be removed, and list every example tile; blank issues off, docs and private security links; labels.json valid (unique ignoring case, hex colours, short descriptions); label sync creates, corrects (colour, description, spelling) and reports unknown labels without deleting, pages through the API, names a refused request, dry run changes nothing, one JSON log line per change |
 | Package | Public and MIT-licensed, LICENSE shipped, bin/exports/types (including `./tf`) exist, only built files packed, MIT line in every shipped file |
 
 ## Known blockers
@@ -298,6 +307,7 @@ Run with `npm test` (1030 tests in 48 files, all passing on 2026-10-13).
 - Tile Tools 0.2.0 (the `tf` types, the docs and the new examples) is prepared in this repository but not published; npm still has 0.1.0.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`); a CI workflow with trusted publishing and provenance is planned.
+- The issue labels appear on GitHub only after the `labels` workflow first runs on `main`. Until then the forms open issues without labels. Two things still have to be done by hand in GitHub's settings: create the Tilefold project board, and turn on private vulnerability reporting, which the issue chooser's security link needs.
 - No `new` (scaffold a tile) command yet.
 - The command-line messages are English only.
 

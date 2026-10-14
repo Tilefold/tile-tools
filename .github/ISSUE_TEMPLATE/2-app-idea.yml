@@ -1,0 +1,51 @@
+# Copyright (c) 2026 Tilefold
+# Author: Tilefold
+# Released under the MIT License.
+#
+# Issue form: an idea or improvement for the Tilefold app.
+
+name: "Tilefold app: idea"
+description: Suggest a feature or an improvement for the Tilefold app.
+title: "[App idea] "
+labels: ["area: tilefold app", "type: idea", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. Please search the open issues first, and add a 👍 to an existing idea rather than opening a new one.
+        Write in whichever language you are most comfortable with.
+        If the idea could be a tile instead of a change to the app, say so: tiles can be built and shared without waiting for a release.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The problem or the workflow, in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: How you picture it working.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Tilefold version you use
+      placeholder: "0.1.7"
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this is not one of them.
+          required: true
