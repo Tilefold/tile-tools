@@ -1,0 +1,17 @@
+tile-name = Folder Tree (exemplo)
+tile-description = A pasta em que seu painel está, como uma árvore em um painel ao lado dos seus painéis. Clique em um arquivo para lê-lo no visualizador de documentos.
+cmd-toggle = Folder Tree: Mostrar ou ocultar
+cmd-refresh = Folder Tree: Atualizar
+setting-show-hidden = Mostrar arquivos e pastas ocultos (nomes que começam com ponto)
+setting-skip-folders = Pastas a omitir (nomes separados por vírgulas)
+needs-newer-tilefold = Folder Tree precisa do Tilefold 0.1.9 ou posterior.
+title-no-folder = Nenhuma pasta
+row-loading = Carregando…
+row-empty = Pasta vazia
+row-truncated = Somente as primeiras 2.000 entradas são mostradas
+row-no-folder = O Tilefold ainda não sabe em qual pasta este painel está. Execute um comando nele ou abra um novo painel.
+error-not-allowed = Não está em uma pasta dos seus painéis
+error-not-found = Não existe mais: atualize para ver a pasta como está agora
+error-unreadable = Esta pasta não pode ser lida
+error-busy = Pastas demais de uma vez: tente de novo em instantes
+error-other = Algo deu errado (veja o registro do tile)

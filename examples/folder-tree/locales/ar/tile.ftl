@@ -1,0 +1,17 @@
+tile-name = Folder Tree (مثال)
+tile-description = المجلد الذي يوجد فيه جزؤك على شكل شجرة في لوحة بجانب أجزائك. انقر ملفًا لقراءته في عارض المستندات.
+cmd-toggle = Folder Tree: إظهار أو إخفاء
+cmd-refresh = Folder Tree: تحديث
+setting-show-hidden = إظهار الملفات والمجلدات المخفية (الأسماء التي تبدأ بنقطة)
+setting-skip-folders = مجلدات يتم تجاهلها (أسماء مفصولة بفواصل)
+needs-newer-tilefold = يحتاج Folder Tree إلى Tilefold 0.1.9 أو أحدث.
+title-no-folder = لا يوجد مجلد
+row-loading = جارٍ التحميل…
+row-empty = مجلد فارغ
+row-truncated = تُعرض أول 2,000 عنصر فقط
+row-no-folder = لا يعرف Tilefold بعد المجلد الذي يوجد فيه هذا الجزء. شغّل أمرًا فيه أو افتح جزءًا جديدًا.
+error-not-allowed = ليس داخل مجلد أحد أجزائك
+error-not-found = لم يعد موجودًا: حدّث لترى المجلد كما هو الآن
+error-unreadable = لا يمكن قراءة هذا المجلد
+error-busy = مجلدات كثيرة جدًا دفعة واحدة: حاول مرة أخرى بعد قليل
+error-other = حدث خطأ ما (راجع سجل البلاطة)

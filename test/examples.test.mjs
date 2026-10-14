@@ -78,6 +78,7 @@ describe("examples", () => {
     expect(folders).toEqual([
       "break-timer",
       "brickfold",
+      "folder-tree",
       "girder-jump",
       "github-inbox",
       "hello",

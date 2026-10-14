@@ -1,0 +1,17 @@
+tile-name = Folder Tree（示例）
+tile-description = 以树形结构在窗格旁的面板中显示你的窗格所在的文件夹。点击文件即可在文档查看器中阅读。
+cmd-toggle = Folder Tree：显示或隐藏
+cmd-refresh = Folder Tree：刷新
+setting-show-hidden = 显示隐藏的文件和文件夹（以点开头的名称）
+setting-skip-folders = 要跳过的文件夹（名称，用逗号分隔）
+needs-newer-tilefold = Folder Tree 需要 Tilefold 0.1.9 或更高版本。
+title-no-folder = 没有文件夹
+row-loading = 正在加载…
+row-empty = 空文件夹
+row-truncated = 仅显示前 2,000 项
+row-no-folder = Tilefold 还不知道此窗格所在的文件夹。请在其中运行一个命令，或打开一个新窗格。
+error-not-allowed = 不在你的窗格所在的文件夹内
+error-not-found = 已不存在：刷新以查看文件夹的当前状态
+error-unreadable = 无法读取此文件夹
+error-busy = 同时打开的文件夹太多：请稍后再试
+error-other = 出现问题（请查看该磁贴的日志）

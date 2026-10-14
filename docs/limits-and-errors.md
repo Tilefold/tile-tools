@@ -42,6 +42,8 @@ Every limit Tilefold puts on a tile, and every error name a `tf` call can fail w
 | `tf.sound.play` | 400,000 characters of data URL (about 300 KB); 2 a second and 30 a minute |
 | `tf.net.fetch` | `https` on port 443 only; URL 8 KB; 64 headers, each value 8 KB; body 1 MB; answer 4 MB; 30 seconds; 5 redirects; 4 at once and 60 a minute |
 | `tf.ai.ask` | 1–50 messages; 200,000 characters; `maxTokens` 1–16,000 (default 4,096); 50,000 tokens per tile per day (UTC); a question waits at most 5 minutes for the user; an answer at most 2 minutes |
+| `tf.panel.show` | 5,000 rows; title 120 characters, subtitle 512, labels 256, row ids 1,024 (unique), hints 512; 30 a second |
+| `tf.fs.list`, `tf.viewer.open` | Paths inside a folder one of the user's panes is in; path 4,096 characters; 2,000 entries a listing; 60 calls (both together) in any 10 seconds |
 | Sign-in (`oauth2-pkce`) | 5 minutes in the browser |
 
 ## Errors
@@ -51,9 +53,9 @@ A failed call rejects (or throws) an `Error`. Tell errors apart by **`err.name`*
 | `name` | Thrown by | Means |
 |---|---|---|
 | `PermissionDeniedError` | Any call that needs a permission | The user hasn't allowed it, or the tile was turned off. Also recorded in the activity log |
-| `RateLimitError` | `tf.toast`, `tf.overlay`, `tf.sound.play`, `tf.net.fetch`, `tf.ai.ask` | Too many calls; slow down |
+| `RateLimitError` | `tf.toast`, `tf.overlay`, `tf.sound.play`, `tf.net.fetch`, `tf.ai.ask`, `tf.panel.show`, `tf.fs.list`, `tf.viewer.open` | Too many calls; slow down |
 | `TypeError` | Any call | Bad arguments: a non-JSON store value, a malformed scene or clip, a body that isn't a string, a malformed or expired question |
-| `NotSupportedError` | `tf.overlay`, `tf.sound`, `tf.curtain` (lock), `tf.ai.ask` | This Tilefold, or this platform, can't do it |
+| `NotSupportedError` | `tf.overlay`, `tf.sound`, `tf.curtain` (lock), `tf.ai.ask`, `tf.pane.cwd`, `tf.viewer.open`, `tf.panel` | This Tilefold, or this platform, can't do it |
 | `LockNotSetUpError` | `tf.curtain.show({ lock: true })` | The user has no unlock method set up |
 | `NetworkPolicyError` | `tf.net.fetch` | The request breaks a rule: `http:`, a port, an IP or local address, a forbidden header, a credential for a host it isn't bound to |
 | `CredentialMissingError` | `tf.net.fetch` | The named key isn't set up, or the sign-in ended |
@@ -65,6 +67,11 @@ A failed call rejects (or throws) an `Error`. Tell errors apart by **`err.name`*
 | `AiDeclinedError` | `tf.ai.ask` | The user chose **Don't send** |
 | `BudgetExceededError` | `tf.ai.ask` | The tile used today's allowance |
 | `RefusedError` | `tf.ai.ask` | The model declined to answer |
+| `PathNotAllowedError` | `tf.fs.list`, `tf.viewer.open` | The path isn't inside a folder one of the user's panes is in (links are followed first), or isn't absolute |
+| `NotFoundError` | `tf.fs.list`, `tf.viewer.open` | Nothing is at that path |
+| `NotADirectoryError` | `tf.fs.list` | The path is a file, not a folder |
+| `NotAFileError` | `tf.viewer.open` | The path is a folder, not a file |
+| `UnreadableError` | `tf.fs.list` | The folder exists but can't be read |
 
 `tf.guard` and `tf.rewrite` throw a plain `Error` in this version: they are not available yet.
 

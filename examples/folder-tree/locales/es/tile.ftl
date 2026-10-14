@@ -1,0 +1,17 @@
+tile-name = Folder Tree (ejemplo)
+tile-description = La carpeta en la que está tu panel, como un árbol en un panel junto a tus paneles. Haz clic en un archivo para leerlo en el visor de documentos.
+cmd-toggle = Folder Tree: Mostrar u ocultar
+cmd-refresh = Folder Tree: Actualizar
+setting-show-hidden = Mostrar archivos y carpetas ocultos (nombres que empiezan por un punto)
+setting-skip-folders = Carpetas que omitir (nombres, separados por comas)
+needs-newer-tilefold = Folder Tree necesita Tilefold 0.1.9 o posterior.
+title-no-folder = Sin carpeta
+row-loading = Cargando…
+row-empty = Carpeta vacía
+row-truncated = Solo se muestran las primeras 2.000 entradas
+row-no-folder = Tilefold aún no sabe en qué carpeta está este panel. Ejecuta un comando en él o abre un panel nuevo.
+error-not-allowed = No está dentro de una carpeta de tus paneles
+error-not-found = Ya no existe: actualiza para ver la carpeta tal como está ahora
+error-unreadable = Esta carpeta no se puede leer
+error-busy = Demasiadas carpetas a la vez: inténtalo de nuevo en un momento
+error-other = Algo salió mal (consulta el registro del tile)
