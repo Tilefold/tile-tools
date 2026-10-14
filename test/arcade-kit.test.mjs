@@ -14,7 +14,7 @@
  * limits; frames send only what changed; a board click does the right
  * thing for each status; and every example's default shortcuts are its own.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { boardAction, diffItems } from "../examples/orbit-guard/src/tile/arcade.js";
 import { BUTTON, computeLayout } from "../examples/orbit-guard/src/tile/layout.js";
@@ -181,7 +181,7 @@ describe("arcade kit", () => {
     expect(boardAction("paused")).toBe("pause");
   });
 
-  it("gives every example its own default shortcuts, Tilefall and Tuneboard included", () => {
+  it("gives every example its own default shortcuts", () => {
     const chords = new Map();
     const add = (owner, key) => {
       for (const k of new Set([key.mac, key.other])) {
@@ -200,10 +200,20 @@ describe("arcade kit", () => {
       );
       add(game, { mac: toggle[1], other: toggle[2] });
     }
-    for (const other of ["tilefall", "tuneboard"]) {
+    // Every other example: the chords in its built main.js, each counted once.
+    const examples = readdirSync(new URL("../examples/", import.meta.url), { withFileTypes: true })
+      .filter(
+        (d) => d.isDirectory() && !["orbit-guard", "brickfold", "girder-jump"].includes(d.name),
+      )
+      .map((d) => d.name);
+    for (const other of examples) {
       const src = readFileSync(new URL(`../examples/${other}/main.js`, import.meta.url), "utf8");
-      for (const m of src.matchAll(/"((?:Ctrl|Alt|Shift|Meta)\+[A-Za-z+]+)"/g)) {
-        expect(chords.has(m[1]) ? `${m[1]} (${chords.get(m[1])})` : null, other).toBeNull();
+      const own = new Set(
+        [...src.matchAll(/"((?:Ctrl|Alt|Shift|Meta)\+[A-Za-z+]+)"/g)].map((m) => m[1]),
+      );
+      for (const chord of own) {
+        expect(chords.has(chord) ? `${chord} (${chords.get(chord)})` : null, other).toBeNull();
+        chords.set(chord, other);
       }
     }
   });

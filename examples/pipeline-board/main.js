@@ -409,7 +409,7 @@ var SIGN_IN_MS = 5e3;
 var RATE_MS = 3e5;
 var KEYS = { visible: "visible" };
 var COMMANDS = [
-  { id: "toggle", title: "cmd-toggle", key: { mac: "Ctrl+Alt+G", other: "Ctrl+Alt+G" } },
+  { id: "toggle", title: "cmd-toggle", key: { mac: "Ctrl+Alt+L", other: "Ctrl+Alt+L" } },
   { id: "refresh", title: "cmd-refresh" }
 ];
 var NOTICE = {

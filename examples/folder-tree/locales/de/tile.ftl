@@ -1,0 +1,17 @@
+tile-name = Folder Tree (Beispiel)
+tile-description = Der Ordner Ihres Bereichs als Baum in einem Seitenfeld neben Ihren Bereichen. Klicken Sie auf eine Datei, um sie im Dokumentbetrachter zu lesen.
+cmd-toggle = Folder Tree: Anzeigen oder ausblenden
+cmd-refresh = Folder Tree: Aktualisieren
+setting-show-hidden = Versteckte Dateien und Ordner anzeigen (Namen, die mit einem Punkt beginnen)
+setting-skip-folders = Auszulassende Ordner (Namen, durch Kommas getrennt)
+needs-newer-tilefold = Folder Tree benötigt Tilefold 0.1.9 oder neuer.
+title-no-folder = Kein Ordner
+row-loading = Wird geladen…
+row-empty = Leerer Ordner
+row-truncated = Nur die ersten 2.000 Einträge werden angezeigt
+row-no-folder = Tilefold weiß noch nicht, in welchem Ordner dieser Bereich ist. Führen Sie dort einen Befehl aus oder öffnen Sie einen neuen Bereich.
+error-not-allowed = Nicht in einem Ordner Ihrer Bereiche
+error-not-found = Nicht mehr vorhanden: aktualisieren, um den Ordner so zu sehen, wie er jetzt ist
+error-unreadable = Dieser Ordner kann nicht gelesen werden
+error-busy = Zu viele Ordner auf einmal: gleich noch einmal versuchen
+error-other = Etwas ist schiefgegangen (siehe das Protokoll der Kachel)

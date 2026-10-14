@@ -44,7 +44,28 @@ export declare function bundleTile(
   options?: { entry?: string; minify?: boolean },
 ): Promise<{ code: string; entry: string; warnings: string[] }>;
 
-/** `build`: writes `main.js` (or, with `check`, compares). Resolves to an exit code. */
+/** Page entry files looked for, in order (`page-src/main.ts`, `page-src/main.js`). */
+export declare const PAGE_ENTRY_CANDIDATES: readonly string[];
+
+/** The page script a build writes: `page/main.js`. */
+export declare const PAGE_OUTPUT: string;
+
+/** The absolute path of the tile's page entry, or null when it has no `page-src/`. */
+export declare function findPageEntry(folder: string): string | null;
+
+/**
+ * Bundles the tile's page script (`page-src/` into one `page/main.js`) in
+ * memory; null when the tile has no `page-src/`. Rejects with TileBuildError.
+ */
+export declare function bundlePage(
+  folder: string,
+  options?: { minify?: boolean },
+): Promise<{ code: string; entry: string; warnings: string[] } | null>;
+
+/**
+ * `build`: writes `main.js`, and `page/main.js` for a tile with `page-src/`
+ * (or, with `check`, compares both). Resolves to an exit code.
+ */
 export declare function build(options?: {
   folder?: string;
   entry?: string;

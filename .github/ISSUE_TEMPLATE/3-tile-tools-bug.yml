@@ -27,6 +27,7 @@ body:
         - "Documentation"
         - "Example: break-timer"
         - "Example: brickfold"
+        - "Example: folder-tree"
         - "Example: girder-jump"
         - "Example: github-inbox"
         - "Example: hello"
@@ -37,6 +38,7 @@ body:
         - "Example: tilefall"
         - "Example: tilefold-pet"
         - "Example: tuneboard"
+        - "Example: watchpane"
         - "Example: weather-card"
         - "Example: with-npm-package"
         - "Something else"
@@ -55,7 +57,7 @@ body:
     attributes:
       label: Tilefold version
       description: Needed when a tile misbehaves inside Tilefold.
-      placeholder: "0.1.7"
+      placeholder: "0.1.8"
     validations:
       required: false
   - type: input

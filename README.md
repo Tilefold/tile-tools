@@ -1,16 +1,16 @@
 # @tilefold/tile-tools
 
-Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and fourteen example tiles, from a few lines to four arcade games, a Spotify player, a GitLab pipeline board and a weather card that asks Claude.
+Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1064%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-14-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1228%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-16-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
 - Identifiers
 - Consuming it
+- Tilefold and tiles
 - Writing a tile
 - Documentation
-- Why one file
 - Commands
 - Tile layout
 - Examples
@@ -33,7 +33,7 @@ Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types 
 | Source | github.com/Tilefold/tile-tools |
 | Bundler | esbuild 0.28 |
 | Node.js | 22 or later |
-| Tile API described | Tilefold 0.1.7 (tile networking, keys, sign-ins, AI and tile pages) |
+| Tile API described | Tilefold 0.1.9 |
 
 ## Consuming it
 
@@ -52,9 +52,17 @@ npx tilefold-tile build
 
 npm 11 may warn that esbuild's install script was not run. Tile Tools works without it, so you can ignore the warning or approve the script with `npm install-scripts approve esbuild`.
 
+## Tilefold and tiles
+
+**Tilefold** is a terminal app built around panes, folds of AI agents working side by side, and a document viewer. **Tiles** are its extensions: small pieces of JavaScript that add commands, settings, notices, pictures above the panes, panels beside them, web pages of their own, or calls to web services and to Claude.
+
+A tile runs in a sandboxed worker and reaches Tilefold only through the `tf` object it is given. Anything that goes beyond the tile itself needs a permission the user agrees to, with the reason you give, and Tilefold records what tiles do in its activity log. Users manage tiles in **Settings → Tiles**: turn them on and off, change their settings and shortcuts, revoke permissions, read their log.
+
+A tile ships as one file, `main.js`, because the worker can't load other files: whatever the user approves is exactly what runs. Tile Tools lets you keep the sources split up however you like and bundles them into that one file.
+
 ## Writing a tile
 
-A tile is a folder with a `tile.json` and one JavaScript function. Tilefold runs the function in a sandboxed worker and hands it `tf`, the tile's only way to reach the app. Each thing that reaches beyond the tile itself needs a permission the user agrees to, with the reason you give:
+A tile is a folder with a `tile.json` and one JavaScript function:
 
 ```json
 {
@@ -78,7 +86,7 @@ export default (tf) => {
 };
 ```
 
-What a tile can do in Tilefold 0.1.7:
+What a tile can do:
 
 | To | Call | Permission |
 |---|---|---|
@@ -91,31 +99,31 @@ What a tile can do in Tilefold 0.1.7:
 | Cover or lock the window | `tf.curtain` | `window.curtain`, `window.lock` |
 | Hide the window from screen sharing | `tf.window.protect` | `window.protect` |
 | Draw and animate pictures above the panes | `tf.overlay` | `window.overlay` |
+| Show a panel docked beside the panes | `tf.panel` | `window.panel` |
 | Play short sounds | `tf.sound.play` | `sound.play` |
 | Call web APIs | `tf.net.fetch` | `net:<host>` |
 | Use an API key or a sign-in, without ever seeing it | `auth` in tile.json, `tf.net.fetch(url, { auth })`, `tf.auth.has` | `net:<host>` |
 | Ask Claude with the user's own key | `tf.ai.ask` | `ai.ask` |
-| Show a web page of its own, in a window or hidden, and talk to it | `tf.page`, `window.tilefold` in the page | `page`, `script:<host>` |
+| Show a web page of its own and talk to it | `tf.page`, `window.tilefold` in the page | `page`, `script:<host>` |
+| Follow the pane's folder, list file names, open files in the viewer | `tf.pane.cwd`, `tf.fs.list`, `tf.viewer.open` | `pane.cwd`, `fs.list`, `viewer.open` |
 
-The rules that matter most: register commands, settings and listeners at the top of the function, before any `await`; return from handlers quickly (half a second for events, ten seconds for commands); tell errors apart by `err.name`; translate everything the user reads; and never put a key or token in your code.
+The rules that matter most: register commands, settings and listeners at the top of the function, before any `await`; return from handlers quickly (half a second for events, ten seconds for commands); tell errors apart by `err.name`; check that a feature exists before using it, since older Tilefolds lack the newer ones; translate everything the user reads; and never put a key or token in your code.
 
 ## Documentation
 
 | Guide | What it covers |
 |---|---|
-| [Your first tile](docs/getting-started.md) | From an empty folder to a tile that calls a web API: layout, strings, building, loading, testing, sharing |
-| [tile.json reference](docs/tile-json.md) | Every field, every permission, `auth` for keys and sign-ins, and when users are asked again |
-| [The tf API](docs/tf-api.md) | How a tile runs, and every call: commands, settings, events, strings, notices, log, activity, storage, curtain, lock, screen-sharing protection |
-| [Overlays and sounds](docs/overlays-and-sounds.md) | Scenes, items, sprite sheets, animations, layout and pointer events; sound clips and their limits |
-| [Network, keys and sign-ins](docs/network.md) | `tf.net.fetch`, what Tilefold enforces, API keys, signing in to a service (the callback address, the user's own app, services that set Tilefold up by themselves), errors |
-| [Tile pages](docs/tile-pages.md) | A tile's own web page (Tilefold 0.1.7): the `page` and `script:` permissions, the `page/` folder, `tf.page`, messages with `window.tilefold`, keeping it running when its window closes, and giving it a sign-in |
-| [Asking Claude](docs/ai.md) | `tf.ai.ask`, the user's confirmation, models, masking, the daily allowance, errors |
+| [Your first tile](docs/getting-started.md) | From an empty folder to a working tile: layout, strings, building, loading, testing, sharing |
+| [tile.json reference](docs/tile-json.md) | Every field and permission, keys and sign-ins, and when users are asked again |
+| [The tf API](docs/tf-api.md) | How a tile runs, and every call and event |
+| [Overlays and sounds](docs/overlays-and-sounds.md) | Pictures and animations above the panes, and short sounds |
+| [Panels](docs/panels.md) | A panel docked beside the panes, drawn by Tilefold from your rows |
+| [Network, keys and sign-ins](docs/network.md) | Calling web APIs, API keys and signing in to a service |
+| [Tile pages](docs/tile-pages.md) | A tile's own web page, in a window or hidden, and talking to it |
+| [Folders](docs/folders.md) | Following the user's folder, listing it and opening files in the viewer |
+| [Asking Claude](docs/ai.md) | Questions to Claude with the user's key and confirmation |
 | [Limits and errors](docs/limits-and-errors.md) | Every limit and every error name in one place |
-| [Reporting issues and ideas](docs/reporting-issues.md) | Where to report Tilefold and Tile Tools bugs and ideas, the four issue forms, what the labels mean |
-
-## Why one file
-
-Tilefold runs a tile in a sandboxed Web Worker that can't load files. Whatever you approve in Settings → Tiles is exactly what runs. So a tile ships as one bundled file, while you keep its sources split up however you like.
+| [Reporting issues and ideas](docs/reporting-issues.md) | Where to report Tilefold and Tile Tools bugs and ideas, the issue forms and the labels |
 
 ## Commands
 
@@ -123,7 +131,7 @@ Tilefold runs a tile in a sandboxed Web Worker that can't load files. Whatever y
 |---|---|
 | `tilefold-tile build [folder]` | Bundles the entry and everything it imports into `folder/main.js` (default: the current folder, which must contain `tile.json`) |
 | `build --watch` | Rebuilds on every save until Ctrl+C; a failed rebuild keeps the last good `main.js`. Then click **Reload tiles** in Tilefold |
-| `build --check` | Writes nothing; exits 1 if `main.js` is not a fresh build of its sources. Meant for CI |
+| `build --check` | Writes nothing; exits 1 if `main.js` (or `page/main.js`) is not a fresh build of its sources. Meant for CI |
 | `build --minify` | Smaller output. Readable output is the default, so people reviewing a tile can follow it |
 | `build --entry lib/start.ts` | A different entry file, relative to the tile folder |
 | `tilefold-tile validate [folder]` | Checks an existing `main.js` (hand-written or built) against Tilefold's rules |
@@ -131,15 +139,7 @@ Tilefold runs a tile in a sandboxed Web Worker that can't load files. Whatever y
 
 Exit codes: 0 success, 1 a build or check failed, 2 bad arguments.
 
-The build:
-
-1. picks the entry: the first of `src/main.ts`, `src/main.js`, `src/main.mjs`, `src/index.ts`, `src/index.js`, `src/index.mjs`, unless `--entry` names one;
-2. bundles it with esbuild as one ES module for the browser (ES2022), with non-ASCII characters escaped so no invisible character reaches the file;
-3. puts the entry's opening comment (your copyright notice) on top, followed by a "Built by @tilefold/tile-tools" line;
-4. turns esbuild's `export { x as default };` into `export default x;`, which every Tilefold version accepts;
-5. checks the result the way Tilefold does: at most 2 MiB, exactly one `export default`, no other `import` or `export`.
-
-Errors name the file, line and column, for example `src/main.js:12:5: Could not resolve "./tmer.js"`.
+The build picks the entry (the first of `src/main.ts`, `src/main.js`, `src/main.mjs`, `src/index.ts`, `src/index.js`, `src/index.mjs`, unless `--entry` names one), bundles it as one ES module for the browser, keeps the entry's opening comment (your copyright notice) on top, and checks the result the way Tilefold does: at most 2 MiB, exactly one `export default`, no other `import` or `export`. Errors name the file, line and column. A tile with a `page-src/` folder also gets its page's code bundled into one script, `page/main.js`.
 
 ## Tile layout
 
@@ -152,72 +152,24 @@ my-tile/
     main.js        export default (tf) => { ... }
     timer.js
   main.js          written by the build; commit it, don't edit it
+  page-src/        optional: a tile page's code, as several files
+    main.js
+  page/            optional: the tile page Tilefold serves
+    index.html
+    main.js        written by the build from page-src/
 ```
 
 The entry exports only its default function; exporting other names is an error, because Tilefold would refuse them.
 
 ## Examples
 
-Fourteen tiles in `examples/` show the common cases, from a few lines to full tiles with their own test suites. Each has its sources in `src/`, its strings in `locales/`, and the built `main.js` checked in, so you can try one without building it: copy its folder into your tiles folder (Settings → Tiles → Open tiles folder, usually `~/.tilefold/tiles/`), then click **Reload tiles** and **Allow**.
-
-| Example | What it shows | Needs | Try |
-|---|---|---|---|
-| `examples/hello` | The basics in plain JavaScript: an entry that imports a helper module, a setting, a command with an id, translated messages with a variable | any | Set your name in its settings, then run **Hello: Say hello** |
-| `examples/break-timer` | TypeScript across three files, timers, `tf.store` so a reminder survives a restart, an `app.ready` listener | any | Set the minutes, run **Break Timer: Start** |
-| `examples/with-npm-package` | An npm package (`nanoid`) bundled into `main.js`, with the example's own `build`, `watch` and `check` scripts | any | Run **ID Maker: New ID** |
-| `examples/tilefold-pet` | A pet that roams over your panes, naps, loves a pat and barks: overlays and sounds with the permissions they need, drop-down settings, handlers that return at once and work in the background, SVG drawn in code, twelve languages | 0.1.4 | Pat it, double-click it, drag it; pick **Tessa**, **Coco** or **Biscuit** |
-| `examples/tilefall` | A game split the way a larger tile should be: a pure engine, SVG rendering and a thin tile layer; every move a command with a ⌃⌥ / Ctrl+Alt shortcut, on-screen buttons via overlay hit areas, a saved game, sounds | 0.1.4 | **Tilefall: New game** (⌃⌥N), then ⌃⌥← / ⌃⌥→, ⌃⌥↑ to rotate, ⌃⌥Enter to drop |
-| `examples/service-status` | **The internet, no key.** `net:www.githubstatus.com` and `tf.net.fetch` against a public API; a command that starts the request and returns; errors by name; an interval setting that checks quietly and speaks only on a change; `tf.audit` of each change; twelve languages | 0.1.6 | Run **Service Status: Check GitHub now**, or pick an interval in its settings |
-| `examples/github-inbox` | **An API key it never sees.** `auth` with `apiKey` (header, scheme, the one host it may go to); `tf.auth.has` before asking; `{ auth: "github" }` on the request; telling a missing token (`CredentialMissingError`) from a refused one (401/403); a count in the activity log, never titles; twelve languages | 0.1.6 | Add a GitHub token (classic, `notifications` scope) under **Keys** on its card, then run **GitHub Inbox: Check notifications** |
-| `examples/shell-tips` | **Asking Claude.** `ai.ask` and `tf.ai.ask` with a system prompt, a conversation that continues the last tip, `maxTokens` and `model: "fast"`; the user's language named in the tile's own strings; "Don't send" treated as a choice, not a failure; one question at a time; the last tip kept in `tf.store`; twelve languages | 0.1.6 | Save your Anthropic key in Settings → AI, pick a topic, run **Shell Tips: New tip** |
-| `examples/tuneboard` | **Signing in to a service.** A Spotify now-playing card with previous, play/pause, next, volume and mute buttons and shortcuts. Its `tile.json` declares a Spotify sign-in that uses the user's own Spotify app; Tilefold runs the sign-in in the browser, keeps it in the keychain and adds it to the tile's requests, so the tile never holds a token. It checks Spotify only while the card is shown. From 0.3.0, when no Spotify app is open, ▶ plays inside Tilefold through Spotify's player in a hidden tile page; from 0.4.0, **Tuneboard: Show playlists** opens the same page as a window listing your playlists as thumbnails or a list, and a click plays one; the card's ☰ button opens a playlist panel right next to it; twelve languages | 0.1.7 | Run **Tuneboard: Show or hide**; the sign-in steps are below |
-| `examples/weather-card` | **The internet and Claude together, on a card.** Today's weather in a corner of the pane from Open-Meteo, a free service with no key: two `net:` hosts (place lookup, then forecast) and no credential. With its summary turned on, each new forecast is followed by one `tf.ai.ask` with the fast model, a small `maxTokens` and the user's language; "Don't send" holds until the user refreshes by hand. It checks only while the card is shown, remembers the place and the last forecast across restarts, and tells Tilefold's refusals from the service failing; twelve languages | 0.1.6 | Set a city under **Place** in its settings, then run **Weather Card: Show or hide** (⌃⌥W) |
-| `examples/pipeline-board` | **A second sign-in, with notices.** The latest CI pipelines of a GitLab project on a card: status, branch, number and age, a ring while running. Its `tile.json` declares a GitLab sign-in with the user's own GitLab application (`read_api` only); requests name the sign-in and never carry a token. It checks every 30 seconds while a pipeline runs and every 2 minutes otherwise, notices a new sign-in within seconds, says when a pipeline it saw running finishes (recording the result, never the project), and backs off on GitLab's rate limit; twelve languages | 0.1.6 | Sign in (steps below), set **GitLab project**, run **Pipeline Board: Show or hide** (⌃⌥G) |
-| `examples/orbit-guard` | **An arcade shooter.** Rows of drones march and drop bombs while you fire from behind shields that wear away; a courier ship crosses for bonus points. Built on the shared arcade kit (below): a pure, seeded engine, the board drawn as one SVG with `<use>` symbols, a button row under it, sounds made in code, the best score in `tf.store`; twelve languages | 0.1.4 | **Orbit Guard: Show or hide** (⌃⌥I), click the board, then ⌃⌥, / ⌃⌥. to move and ⌃⌥/ to fire |
-| `examples/brickfold` | **A brick breaker.** Where the ball meets the paddle sets its angle; tough bricks take two hits; four wall patterns, then faster. Same arcade kit; ball movement in small sub-steps so it never passes through a brick; twelve languages | 0.1.4 | **Brickfold: Show or hide** (⌃⌥F), click the board, then ⌃⌥[ / ⌃⌥] to move and ⌃⌥\ to launch |
-| `examples/girder-jump` | **A climb-and-dodge platformer.** A robot rolls crates down six girders; climb the ladders, jump the crates for points and reach the beacon before the bonus runs out. Same arcade kit; a level layout kept apart from the rules, crates that sometimes take a ladder, a jump tested to be clearable from a range of distances at every level; twelve languages | 0.1.4 | **Girder Jump: Show or hide** (⌃⌥J), click the board, then ⌃⌥⇧ + arrows to walk and climb, ⌃⌥⇧Enter to jump |
-
-To build one yourself:
-
-```sh
-cd examples/hello
-npx @tilefold/tile-tools build          # or: node ../../bin/tilefold-tile.mjs build
-```
-
-For `with-npm-package`, run `npm install` in its folder first, then `npm run build`.
-
-**Make the pet your own.** Each character is one file in `examples/tilefold-pet/src/characters/`: its name, walking pace, optional bark, and its poses drawn as small SVG pictures. Copy one, change the drawing, add it to the list in `characters/index.js` with a `setting-character-<id>` message in each `locales/<lang>/tile.ftl`, change the tile's `id` in `tile.json` to your own (`you.my-pet`), and build.
-
-**A GitHub token for GitHub Inbox.** Create a classic personal access token at github.com → Settings → Developer settings → Personal access tokens, with only the `notifications` scope. In Tilefold, paste it under **Keys** on GitHub Inbox's card in Settings → Tiles and click **Save**. Tilefold keeps it in your keychain; the tile only learns that a token is there.
-
-**Signing Tuneboard in to Spotify.** In Tilefold, open Settings → Tiles and find **Set up your own app** under **Keys** on Tuneboard's card. Click **Open setup page**, create an app at the Spotify developer dashboard, and paste the callback address Tilefold shows (use its **Copy** button) as the app's redirect URI. Paste the app's Client ID back into Tilefold and click **Sign in…**. Your browser opens Spotify's own sign-in page, and the card starts showing what is playing a few seconds after you agree. Controlling playback needs Spotify Premium. From Tilefold 0.1.7, Tuneboard can also play by itself: run **Tuneboard: Play in Tilefold**, or press ▶ when no Spotify app is open, and a device named "Tilefold" appears in Spotify. Earlier Tilefold versions only remote-control a Spotify app already running somewhere. **Tuneboard: Show playlists** opens a window with your playlists (yours and the ones you follow); click one to play it where music is already playing, or inside Tilefold when nothing is. Closing that window doesn't stop the music. The ☰ button on the card (or **Tuneboard: Show or hide playlists on the card**) opens a smaller panel attached to the card: room for five playlists that you scroll by dragging (or a page at a time with ▲ ▼), a click to play, and **Show all** for the window. Tuneboard 0.4.0 asks to read your playlists, so sign in once more after updating. Playlists Spotify makes for you (such as Discover Weekly) may be listed but can fail to play, because Spotify limits them for apps like yours.
-
-**Weather Card's place and summary.** Type a city under **Place** in Weather Card's settings (Settings → Tiles); the card looks it up once and remembers it. The one-line summary is off until you turn it on, needs your Anthropic key in Settings → AI, and Tilefold shows you the question and asks before anything is sent.
-
-**Signing Pipeline Board in to GitLab.** In Tilefold, open Settings → Tiles and find **Set up your own app** under **Keys** on Pipeline Board's card. Click **Open setup page** to reach your GitLab applications, add a new application, paste the callback address Tilefold shows (use its **Copy** button) as the redirect URI, untick **Confidential**, tick only the `read_api` scope and save. Paste the **Application ID** back into Tilefold and click **Sign in…**; GitLab's own page asks you to authorize it in your browser. The board works with projects on gitlab.com that your account can see.
-
-**The arcade kit.** Orbit Guard, Brickfold and Girder Jump share six files: `tile/arcade.js` (commands, overlay, game clock, clicks, pausing, best score, activity records), `tile/layout.js`, `tile/settings.js`, `tile/sound.js`, `render/svg.js` and `engine/rng.js`. They are copied into each game rather than shared, so every folder still works on its own, and a test keeps the copies identical. A game brings only three things: a pure engine (`create(seed)` returning `{ state, act(action), step(ms) }`, where `state` holds `score`, `lives`, `level` and `over`), a renderer that draws `state` as one SVG picture, and its moves with their keys, buttons and sounds. To make your own, copy one of the three, replace `engine/` and `render/board.js`, list your moves, and give the tile its own `id`.
-
-**Shortcuts that don't collide.** When two commands claim the same keys, the one loaded first wins, so every example has its own: Tilefall uses ⌃⌥ with the arrows, Girder Jump ⌃⌥⇧ with the arrows, Orbit Guard ⌃⌥ with , . / and Brickfold ⌃⌥ with [ ] \. A test checks that no two examples share a default. Users can change any of them in Settings → Keyboard. New game and Pause need no keys: click the board.
-
-Things the examples do on purpose, worth copying:
-
-- **Register first.** Settings, commands and listeners are registered at the top of the tile's function, before any `await`. Tilefold checks what a tile adds once, before it runs, and ignores later registrations.
-- **Give commands an id.** The title is translated; the id keeps the command and its shortcut stable across languages.
-- **Return from handlers at once.** A handler has half a second, a command ten seconds, and a request or a question to Claude can take longer: start it with `void work()` and return.
-- **Quiet while hidden.** Weather Card, Pipeline Board and Tuneboard ask their service only while their card is shown, and Pipeline Board checks more often only while a pipeline is running.
-- **One at a time.** A `busy` flag stops a second request or question from starting while one is under way.
-- **Errors by name.** `err.name` (`CredentialMissingError`, `AiDeclinedError`…) decides what to tell the user; messages are never parsed.
-- **Check for the feature.** `tf.net`, `tf.auth` and `tf.ai` are missing on older Tilefolds; the examples say "update Tilefold" instead of failing.
-- **Keep Tilefold out of your logic.** `status.js`, `notifications.js`, `tips.js` and `timer.ts` know nothing about `tf`, so they are easy to read and test.
+`examples/` holds sixteen tiles, from a few lines to full tiles with their own test suites: games, cards that call web services, sign-ins, Claude, tile pages, a docked folder tree. Each one ships its built `main.js`, so you can copy its folder into your tiles folder and try it at once. [examples/README.md](examples/README.md) lists them, with what each one shows, the Tilefold it needs and how to set up the ones that use an account.
 
 ## What can be bundled
 
 Anything that runs in a Web Worker: plain JavaScript, TypeScript, JSON, and npm packages written for the browser. Packages that need Node.js built-ins or the DOM fail to build or fail when the tile runs. Packages that use `fetch`, `XMLHttpRequest` or `WebSocket` fail too, because the sandbox removes them: reach the internet with `tf.net.fetch` instead, which needs a `net:` permission.
 
 ## TypeScript
-
-Type your tile's `tf` from Tile Tools 0.2.0 on:
 
 ```ts
 import type { Tf } from "@tilefold/tile-tools/tf";
@@ -229,7 +181,7 @@ export default (tf: Tf) => {
 };
 ```
 
-The types cover every call, event payload, overlay item, request and answer, and list the error names. `tf.net`, `tf.auth` and `tf.ai` are optional, so TypeScript reminds you to check that they exist. The import is type-only, and the build strips it.
+The types cover every call, event payload, request and answer, and list the error names. Features newer Tilefolds add are optional in the types, so TypeScript reminds you to check that they exist. The import is type-only, and the build strips it.
 
 ## Using it from a script
 
@@ -251,65 +203,43 @@ npm pack --dry-run       # what would be published
 node bin/tilefold-tile.mjs build path/to/a/tile
 ```
 
-CI runs the tests on Node.js 22, 24 and 26 on Linux, macOS and Windows. The rules in `lib/rules.mjs` mirror the checks Tilefold makes when it loads a tile; the Tilefold app's own test suite checks the two still agree. `test/fake-host.mjs` runs a built tile against a fake Tilefold (settings, strings, notices, storage, overlays, sounds, network, keys and AI); copy it to test your own tiles.
+CI runs the tests on Node.js 22, 24 and 26 on Linux, macOS and Windows. The rules in `lib/rules.mjs` mirror the checks Tilefold makes when it loads a tile. `test/fake-host.mjs` runs a built tile against a fake Tilefold; copy it to test your own tiles.
 
 ## Reporting issues
 
-This repository's Issues tab is the tracker for the Tilefold app as well as for Tile Tools and the example tiles. Every issue starts from one of four forms: a bug or an idea, for the app or for Tile Tools and the examples. The form sets the area, type and `status: triage` labels. Blank issues are turned off, and security problems go to the private **Report a vulnerability** form on the Security tab. Write in any language you're comfortable with, and remove tokens and private paths first. [Reporting issues and ideas](docs/reporting-issues.md) explains the forms and every label.
-
-The labels live in `.github/labels.json`, and the `labels` workflow creates or corrects them on GitHub whenever that file changes on `main`. It never deletes one.
+This repository's Issues tab is the tracker for the Tilefold app as well as for Tile Tools and the example tiles. Each issue starts from a form (a bug or an idea, for the app or for Tile Tools and the examples), and the form sets its labels. Security problems go to the private **Report a vulnerability** form on the Security tab. You can write in any language. [Reporting issues and ideas](docs/reporting-issues.md) explains the forms and the labels.
 
 ## License
 
 MIT. Tile Tools, its documentation and its examples are open source so tile authors can use them in their own projects and CI. Copy an example and make it your own.
 
-**Your tiles are yours.** License a tile you write however you like, and put your copyright notice in the entry's opening comment: the build keeps it at the top of `main.js`. A `LICENSE` file in the tile's folder tells people what they may do with it.
+**Your tiles are yours.** License a tile you write however you like, and put your copyright notice in the entry's opening comment: the build keeps it at the top of `main.js`.
 
-**Tilefold itself** is licensed separately, under its End User License Agreement. From Tilefold 0.1.6 the app asks every user to accept it on first launch, and anyone can read it again under **Tilefold → License Agreement**. The agreement covers the app only. It says that tiles, including tiles written by other people, are governed by their own licenses, and that Tile Tools stays under MIT, so nothing in it limits what you do with your tiles or with this package.
+**Tilefold itself** is licensed separately, under its End User License Agreement, which covers the app only: tiles are governed by their own licenses, and Tile Tools stays under MIT.
 
 ## Test cases (TCs)
 
-Run with `npm test` (1064 tests in 49 files, all passing on 2026-10-14).
+Run with `npm test` (1228 tests in 55 files, all passing on 2026-10-14).
 
 | Area | Covers |
 |---|---|
 | Rules | One default export, named exports and imports refused, size limit |
-| Entry | Conventional order, named entry, missing entry, entry outside the folder |
-| Finishing | Header and built-from line, export rewrite (multi-line and minified), legal comment kept once, named exports refused |
-| Bundling | Local imports, npm packages, TypeScript, tree-shaking, syntax and resolve errors with location, minify |
-| Commands | build writes and logs, `--check` fresh/stale/missing, folder without `tile.json`, validate, watch rebuilds and keeps the last good build |
-| CLI | help, version, unknown command and option, extra argument, `--watch` with `--check`, named entry, stop function for a watch |
-| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, credentials only for hosts it asks for and never with a secret), uses exactly the messages it defines, registers up front with command ids; hello greets by name, break-timer rings, stops and resumes after a restart, with-npm-package makes IDs with the bundled nanoid |
-| Example translations | Service Status, GitHub Inbox, Shell Tips, Weather Card, Pipeline Board, Orbit Guard, Brickfold and Girder Jump in all twelve languages: the English keys exactly, the same variables, simple lines, and GitHub, GitLab, Open-Meteo, Claude, Tilefold, game names, host names and `tf.` calls kept as they are |
-| Arcade kit | The kit's six files identical in every arcade game; layout in each corner and size with a centred button row above the Composer, and without panes; settings fall back to defaults; WAV clips valid and short; sounds spaced out, capped per minute and silent when off; frames send only what changed; board clicks by status; no two examples share a default shortcut |
-| Orbit Guard | Engine: the cannon moves within the field and fires one shot at a time; shots score by row, chip shields and down the courier; bombs chip shields and cost a cannon that comes back; the grid marches, steps down and speeds up; a cleared wave comes back lower; the game ends at the ground or with the last cannon; seeds replay. Tile: commands and settings, the board and buttons in the corner (and small, top-left), hide and come back after a restart, click to start, pause and resume, moves only during a game, pausing on blur (unless turned off) and when overlays are hidden, game over with the best score, records and sounds, quiet with sounds off, Japanese |
-| Brickfold | Engine: the paddle stays in the field and carries the waiting ball; launch speed; walls, ceiling and paddle bounces (steeper from the edge); bricks break and score by row, tough ones take two hits; a missed ball waits again; the last miss ends the game; the next pattern and a faster ball; patterns repeat; seeds replay. Tile: commands and buttons, waiting for a launch, game over with records, German |
-| Girder Jump | The site: ladders join girders inside both, gaps drop onto the girder below, crates roll towards the gaps. Engine: walking, climbing up and down a step at a time, the jump arc; crates thrown, dropping through gaps, sometimes taking a ladder, leaving at the bottom, faster with levels; leaps score, a jump clears a crate from a range of distances at every level; hits cost a life and freeze the field; the last life ends the game; the beacon brings the bonus and the next level; seeds replay. Tile: commands and six buttons under the board, walking and jumping, game over with records, Korean |
-| Service Status | The status page read and checked, indicators and errors mapped by name; the tile asks through `tf.net.fetch` without a credential, reports each status and each failure, says so without tile networking, returns from the command at once and never overlaps checks, checks on an interval quietly and speaks on a change, stops when the interval is turned off, logs timed failures, speaks Japanese |
-| GitHub Inbox | The request address, no Authorization header of its own, the page summary and messages, errors by name; the credential declared for api.github.com only; nothing sent without a token; the credential named on the request; the participating setting; a full page; refused, missing and lost tokens and Tilefold's other errors; no tile networking; no overlapping checks; German |
-| Shell Tips | The question (system prompt, language, token limit, model), a conversation that continues the last tip, the topic fallback, tip clean-up, AI errors by name with "Don't send" kept quiet; the tile asks, shows, keeps and records a tip (count, not text), each AI error's notice, an empty answer, one question at a time while the user decides, the last tip shown again, no AI in this Tilefold, Japanese |
-| Tilefold Pet | Run against the fake Tilefold with fake timers: appears on the focused pane's floor or stays hidden, roams, wanders to another pane, pat / play / drag / drop, naps and greets, commands, comes back after a restart, Korean and Japanese; characters, switching, barks by character and setting |
-| Tilefall | Engine: every piece and rotation with wall kicks, seeded randomiser, board, line clears and scoring, levels and speed. Rendering of board, panel and buttons. Tile: settings and commands, the game loop, pause on blur, hide and resume, save and restore, sounds, buttons, every language's messages, a fresh build and source hygiene |
-| Tuneboard | tile.json asks for Spotify's API host and declares the sign-in (the user's own app, no secret); every request goes through the `spotify` sign-in with no token of its own; Spotify's and Tilefold's errors mapped; sign-in noticed within seconds, a refused sign-in retried slowly, an old stored token cleared; requests Tilefold refuses (host not allowed) say where to allow it and are retried only now and then, through the real client; every card state, commands and shortcuts, volume (one control for lower, mute and raise, stopping at 0 and 100, shown whole on the card, quick clicks sent as one, the chosen volume kept over Spotify's late reports, straight to the player inside Tilefold), polling, playing in a hidden tile page (ready, timeouts, errors, stopping), the playlist panel on the card (one picture within the overlay's item limit, clicks mapped to rows and arrows at both sizes, drag scrolling that settles on a row, paging that loads more, names that can't break the picture, small covers fetched once, removal when closed), the Library (opening a window that keeps running, its language, playlists a page at a time with safe covers, playing on the active device or inside Tilefold, errors in the user's words, untrusted page requests ignored, the page's own state), every language's messages, a fresh build and source hygiene |
-| Weather Card | Weather codes (a missing code is never "clear"), the place lookup and forecast requests and answers, Tilefold's refusals told from failures, the summary question and its clean-up, the card and message pictures (escaped text, width-based wrapping, sizes). The tile: registration, an older Tilefold, no place, an unknown place, a refusal, an error and recovery, lookup then forecast with no credential, refresh by command and click, the interval only while shown, new place and units, the last forecast after a restart without asking, German; the summary never asked while off, asked with the fast model in the user's language, "Don't send" held until a manual refresh, a missing key explained, turned on and off |
-| Pipeline Board | Project paths and pasted addresses (no ".."), branches, the encoded pipelines request, reading the answer, failures by name and status, status groups, finished-since and ages, the board and message pictures. The tile: registration, an older Tilefold, no project, signed out then signed in within seconds, every request naming the sign-in with no token of its own, the rows, 30 s / 2 min checks and none while hidden, refresh by command and click, a new project, a restart, finished-pipeline notices (result only in the activity log) and silence when off or for pipelines never seen running, a refused token, an unknown project, a refusal, GitLab's rate limit, an error and recovery |
-| Fake host | `tf.net.fetch` answers and records requests with their credential, refuses a credential that isn't set up, `tf.auth.has`, `tf.ai.ask` records questions, fails without AI and can hold an answer back, notices and warnings recorded |
-| tf types | `lib/tf.d.ts` parses as TypeScript and declares every `tf` member, every event and every error name the documentation lists |
-| Issue tracker | Four issue forms parse, set exactly one area, one type and `status: triage`, use only labels from `labels.json`, ask for a search and for private details to be removed, and list every example tile; blank issues off, docs and private security links; labels.json valid (unique ignoring case, hex colours, short descriptions); label sync creates, corrects (colour, description, spelling) and reports unknown labels without deleting, pages through the API, names a refused request, dry run changes nothing, one JSON log line per change |
-| Package | Public and MIT-licensed, LICENSE shipped, bin/exports/types (including `./tf`) exist, only built files packed, MIT line in every shipped file |
+| Bundling | Entry choice, local imports, npm packages, TypeScript, tree-shaking, the notice on top, export rewriting, errors with their place, minify, page scripts |
+| Commands and CLI | build, `--watch`, `--check`, validate, help, version, bad arguments and exit codes |
+| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises against the fake host |
+| Fake host | The fake Tilefold behaves like the real one for settings, strings, storage, overlays, panels, pages, sounds, network, keys, AI and folders |
+| tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
+| Issue tracker | The issue forms parse, set one area, one type and `status: triage` from `labels.json`, and list every example tile; blank issues off; the label sync creates and corrects labels without deleting any, and a dry run changes nothing |
+| Package | Public and MIT-licensed, the right files exported and packed, the MIT line in every shipped file |
 
 ## Known blockers
 
-- Tilefold 0.1.7 is on the update server (2026-10-14). Service Status, GitHub Inbox, Shell Tips, Weather Card and Pipeline Board need 0.1.6 or later (tile networking, keys, sign-ins and AI), and Tuneboard 0.3.0 and later need 0.1.7 (tile pages). All of them load and start in Tilefold's own tile loader, but only Tuneboard has talked to its real service from a running Tilefold (its sign-in, playing in a tile page, the Library and the playlist panel, against a real Spotify account in a Tilefold development build on 2026-10-13): the others' behaviour tests use the fake host. The limits, error names and permissions in these docs were checked against the 0.1.6 source on 2026-10-13, and tile pages against the 0.1.7 source on 2026-10-14. Pipeline Board's sign-in has not been tried against a real GitLab account, and Shell Tips and Weather Card have not asked the real Claude.
-- On Tilefold 0.1.6, Tuneboard 0.3.0 and later don't load: 0.1.6 refuses their `page` sign-in field. Update Tilefold, or use Tuneboard 0.2.1 from this repository's history (commit `9ddcd9d`).
-- Pipeline Board reads gitlab.com only. For a self-managed GitLab, copy the tile and change the addresses in its `tile.json` (`auth.gitlab` and the `net:` permission).
-- Orbit Guard, Brickfold and Girder Jump have been played only against the fake host and checked as rendered pictures; how they feel in a real Tilefold (speeds, jump timing, how shortcut auto-repeat moves the paddle and cannon) is still to be tried and tuned.
-- Tile Tools 0.2.0 (the `tf` types, the docs and the new examples) is prepared in this repository but not published; npm still has 0.1.0.
+- Tile Tools 0.2.0 (the `tf` types, the docs and the examples) is prepared in this repository but not published; npm still has 0.1.0.
+- The docs describe Tilefold 0.1.9, which isn't released yet; its panels and folder access, and the examples that need them, wait for it. Tilefold 0.1.8 is the current release.
+- Most examples have been tried only against the fake host, not against their real service in a running Tilefold; [examples/README.md](examples/README.md) says which.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
-- Publishing is manual for now (`npm publish` from the npm account `tilefold`); a CI workflow with trusted publishing and provenance is planned.
-- The issue labels appear on GitHub only after the `labels` workflow first runs on `main`. Until then the forms open issues without labels. Two things still have to be done by hand in GitHub's settings: create the Tilefold project board, and turn on private vulnerability reporting, which the issue chooser's security link needs.
-- No `new` (scaffold a tile) command yet.
-- The command-line messages are English only.
+- Publishing is manual for now (`npm publish` from the npm account `tilefold`).
+- No `new` (scaffold a tile) command yet, and the command-line messages are English only.
 
 Copyright (c) 2026 Tilefold
 All rights reserved.

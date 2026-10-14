@@ -9,8 +9,8 @@
  *   export default (tf: Tf) => { ... };
  *
  * Types only: nothing here runs, and the build strips it away. `net`,
- * `auth` and `ai` are optional because a Tilefold without tile networking
- * and AI doesn't have them; check before use.
+ * `auth`, `ai`, `page`, `panel`, `pane`, `fs` and `viewer` are optional because an
+ * older Tilefold doesn't have them; check before use.
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -32,7 +32,10 @@ export type TileEvent =
   | "overlay.layout"
   | "overlay.hidden"
   | "page.closed"
-  | "page.message";
+  | "page.message"
+  | "pane.cwd"
+  | "panel.click"
+  | "panel.closed";
 
 /** A rectangle in the window's content area, in CSS pixels. */
 export interface Rect {
@@ -68,6 +71,58 @@ export interface TileEventPayloads {
   "page.closed": Record<string, never>;
   /** Plain JSON the tile's page sent with `window.tilefold.post`. */
   "page.message": { message: unknown };
+  /** The focused pane's folder changed (needs pane.cwd); null when none is known. */
+  "pane.cwd": { path: string | null };
+  /** A row of the tile's docked panel was clicked (needs window.panel). */
+  "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
+  /** The tile's panel was closed by the user, or replaced by another tile's. */
+  "panel.closed": { by: "user" | "replaced" };
+}
+
+/** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
+export type PanelIcon = "folder" | "file" | "link" | "loading" | "error" | "info" | "none";
+
+/** One line of a docked panel. */
+export interface PanelRow {
+  /** Unique in the panel, 1–1,024 characters; `panel.click` sends it back. */
+  id: string;
+  /** Shown as plain text, 1–256 characters. */
+  label: string;
+  /** Indent, from 0 (drawn at most 32 deep). */
+  depth?: number;
+  icon?: PanelIcon;
+  /** The row opens and closes (a folder); `expanded` draws it open. */
+  expandable?: boolean;
+  expanded?: boolean;
+  /** A quiet note, such as "Loading…". */
+  muted?: boolean;
+  /** A tooltip, at most 512 characters. */
+  hint?: string;
+}
+
+/** What `tf.panel.show` takes. */
+export interface PanelContent {
+  title: string;
+  subtitle?: string;
+  /** At most 5,000. */
+  rows: PanelRow[];
+}
+
+/** One name in a folder listing. */
+export interface FolderEntry {
+  name: string;
+  /** A link may lead to a folder or a file; list or open it to find out. */
+  kind: "dir" | "file" | "link" | "other";
+}
+
+/** One level of a folder, from `tf.fs.list`. */
+export interface FolderListing {
+  /** The folder with links resolved: build child paths from it. */
+  path: string;
+  /** Folders first, then by name; at most 2,000. */
+  entries: FolderEntry[];
+  /** True when the folder had more entries than were returned. */
+  truncated: boolean;
 }
 
 /** One entry of a setting's drop-down. */
@@ -169,7 +224,12 @@ export type TileErrorName =
   | "AiNotSetUpError"
   | "AiDeclinedError"
   | "BudgetExceededError"
-  | "RefusedError";
+  | "RefusedError"
+  | "PathNotAllowedError"
+  | "NotFoundError"
+  | "NotADirectoryError"
+  | "NotAFileError"
+  | "UnreadableError";
 
 /** The object a tile's default export receives. */
 export interface Tf {
@@ -241,14 +301,41 @@ export interface Tf {
    * Needs page. The tile's own web page (its page/ folder) in a window of
    * its own, or hidden ({ visible: false }) for one that only plays sound;
    * with `keepRunning: true` closing its window only hides it, and an open
-   * that leaves `keepRunning` out keeps the current choice. `post` sends
-   * plain JSON to the open page. Missing on a Tilefold without tile pages.
+   * that leaves `keepRunning` out keeps the current choice. `origin: "https"`
+   * (Tilefold 0.1.9, macOS) gives the page a web address of its own, which
+   * some embedded players (YouTube's) require; the page is then one
+   * self-contained document. `post` sends plain JSON to the open page.
+   * Missing on a Tilefold without tile pages.
    */
   readonly page?: {
-    open(options?: { visible?: boolean; keepRunning?: boolean }): Promise<null>;
+    open(options?: { visible?: boolean; keepRunning?: boolean; origin?: "https" }): Promise<null>;
     close(): Promise<null>;
     post(message: unknown): Promise<null>;
   };
+  /**
+   * Needs window.panel. A panel docked beside the panes, drawn by Tilefold
+   * from your rows; each `show` replaces it. Missing before Tilefold 0.1.9.
+   */
+  readonly panel?: {
+    show(content: PanelContent): Promise<boolean>;
+    hide(): Promise<null>;
+  };
+  /**
+   * Needs pane.cwd. The folder the focused pane is in, or null; the
+   * "pane.cwd" event says when it changes. Missing before Tilefold 0.1.9.
+   */
+  readonly pane?: { cwd(): Promise<string | null> };
+  /**
+   * Needs fs.list. One level of a folder inside a folder one of the user's
+   * panes is in: names and kinds only, never file contents. Missing before
+   * Tilefold 0.1.9.
+   */
+  readonly fs?: { list(path: string): Promise<FolderListing> };
+  /**
+   * Needs viewer.open. Shows a file from inside a pane's folder in
+   * Tilefold's document viewer. Missing before Tilefold 0.1.9.
+   */
+  readonly viewer?: { open(path: string): Promise<null> };
 }
 
 /**

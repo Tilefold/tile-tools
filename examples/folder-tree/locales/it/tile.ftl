@@ -1,0 +1,17 @@
+tile-name = Folder Tree (esempio)
+tile-description = La cartella del tuo riquadro, come albero in un pannello accanto ai tuoi riquadri. Fai clic su un file per leggerlo nel visualizzatore di documenti.
+cmd-toggle = Folder Tree: Mostra o nascondi
+cmd-refresh = Folder Tree: Aggiorna
+setting-show-hidden = Mostra file e cartelle nascosti (nomi che iniziano con un punto)
+setting-skip-folders = Cartelle da escludere (nomi separati da virgole)
+needs-newer-tilefold = Folder Tree richiede Tilefold 0.1.9 o successivo.
+title-no-folder = Nessuna cartella
+row-loading = Caricamento…
+row-empty = Cartella vuota
+row-truncated = Sono mostrate solo le prime 2.000 voci
+row-no-folder = Tilefold non sa ancora in quale cartella si trova questo riquadro. Esegui un comando o apri un nuovo riquadro.
+error-not-allowed = Non è in una cartella dei tuoi riquadri
+error-not-found = Non esiste più: aggiorna per vedere la cartella com'è ora
+error-unreadable = Questa cartella non può essere letta
+error-busy = Troppe cartelle insieme: riprova tra un momento
+error-other = Qualcosa è andato storto (vedi il registro del tile)

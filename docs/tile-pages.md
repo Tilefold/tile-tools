@@ -4,6 +4,8 @@ From **Tilefold 0.1.7**, a tile with the `page` permission can show **a web page
 
 The **Tuneboard** example (`examples/tuneboard`) is a complete tile with a page. A hidden page runs Spotify's player, and the same page shown as a window lists the user's playlists.
 
+The **Watchpane** example (`examples/watchpane`) hosts another website's player instead: YouTube's IFrame Player API, loaded with `script:www.youtube.com`, in a window of its own. It needs no key or sign-in, and the tile never talks to YouTube itself; the page checks every link the user pastes before the player sees it.
+
 ## 1. Ask for the permissions
 
 ```json
@@ -97,6 +99,25 @@ const token = await window.tilefold.token("spotify");
 The user sees **also given to code in this tile's page** when they allow the tile, and a tile that starts doing this in a new version is asked again, and signed in again. Every handover is recorded as `tile.credential.page`, with the credential's name, never its value.
 
 Prefer keeping requests in the tile where you can. Tuneboard's page uses the token only for Spotify's player; the playlists are fetched by the tile with `tf.net.fetch` and posted to the page.
+
+## 6. Give the page a web address (only if a player needs one)
+
+Some embedded players play only in a page that has an https web address. YouTube's stops with **error 153** in an ordinary tile page. From **Tilefold 0.1.9** on macOS, open the page with one:
+
+```js
+tf.command("Open", () => void tf.page.open({ origin: "https" }), { id: "open" });
+```
+
+Tilefold then shows the page at `https://<name>.<publisher>.tilepage.tilefold.com/`, an address of the tile's own (`example.watchpane` gets `https://watchpane.example.tilepage.tilefold.com/`). Tilefold owns that domain and never fetches anything from it; the address only tells the player which app it plays in.
+
+Such a page is **one self-contained document**. Tilefold puts the files that `page/index.html` names with `<script src>` and `<link rel="stylesheet">` inside it, and nothing else from `page/` can be loaded: no pictures, fonts or JSON from the folder, and a script can't import its neighbours. Write the page's code in `page-src/` and let `tilefold-tile build` bundle it into one `page/main.js`, then name only that script:
+
+```html
+<link rel="stylesheet" href="page.css" />
+<script type="module" src="main.js"></script>
+```
+
+Use `type="module"` (or put the script at the end of `<body>`): an inlined classic script runs where it stands, before the rest of the page exists. `window.tilefold` works as before, and only the page itself can use it, never a player's frame inside it. A page already open keeps the kind of address it was opened with. Other systems refuse `origin: "https"` for now. The **Watchpane** example plays YouTube videos this way.
 
 ## What a page can't do
 
