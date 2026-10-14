@@ -7,7 +7,7 @@
  *
  * Wires everything to Tilefold:
  *
- * - Commands: **Show or hide** (⌃⌥G) and **Refresh**; clicking the board
+ * - Commands: **Show or hide** (⌃⌥L) and **Refresh**; clicking the board
  *   refreshes too.
  * - While shown, it asks GitLab every 30 seconds while a pipeline is
  *   running or waiting, and every 2 minutes otherwise; while hidden it
@@ -41,7 +41,7 @@ export const KEYS = { visible: "visible" };
 
 /** Commands: stable ids, message keys of their titles, default shortcuts. */
 export const COMMANDS = [
-  { id: "toggle", title: "cmd-toggle", key: { mac: "Ctrl+Alt+G", other: "Ctrl+Alt+G" } },
+  { id: "toggle", title: "cmd-toggle", key: { mac: "Ctrl+Alt+L", other: "Ctrl+Alt+L" } },
   { id: "refresh", title: "cmd-refresh" },
 ];
 
