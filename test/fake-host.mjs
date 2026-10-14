@@ -21,6 +21,13 @@
  * the user has set up, for `tf.auth.has`; `ai` answers `tf.ai.ask` (every
  * question is recorded; without it, asking fails with `AiNotSetUpError`).
  *
+ * For tiles that use folders: `folders: { cwd, roots, files }` adds
+ * `tf.pane`, `tf.fs` and `tf.viewer` with Tilefold's rules (only paths
+ * inside a `roots` folder; `files` are absolute file paths and their
+ * folders exist implicitly; opened files are kept in `host.opened`;
+ * `host.cwd` is the focused pane's folder). `page: true` adds `tf.page`
+ * (opens, closes and posted messages are kept in `host.page`).
+ *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
  */
@@ -226,10 +233,89 @@ export async function startTile(dir, opts = {}) {
     },
   };
 
+  if (opts.folders) addFolders(tf, host, opts.folders, named);
+  if (opts.page) addPage(tf, host);
+
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;
   const mod = await import(`${url}?start=${starts}`);
   mod.default(tf);
   await drain();
   return host;
+}
+
+/** The parent folder of an absolute path ("/" stays "/"). */
+const parentOf = (path) => {
+  const cut = path.replace(/\/+$/, "").lastIndexOf("/");
+  return cut <= 0 ? "/" : path.slice(0, cut);
+};
+
+/** `tf.pane`, `tf.fs` and `tf.viewer` over a list of files, with Tilefold's rules. */
+function addFolders(tf, host, { cwd = null, roots = [], files = [] }, named) {
+  host.cwd = cwd;
+  host.roots = roots;
+  host.files = files;
+  host.opened = [];
+  const dirs = () => {
+    const out = new Set();
+    for (const f of host.files) {
+      for (let d = parentOf(f); ; d = parentOf(d)) {
+        out.add(d);
+        if (d === "/") break;
+      }
+    }
+    return out;
+  };
+  const check = (path) => {
+    const inside = host.roots.some((r) => path === r || path.startsWith(`${r}/`));
+    if (!inside) throw named("PathNotAllowedError", "not inside a pane's folder");
+    if (!dirs().has(path) && !host.files.includes(path)) throw named("NotFoundError", "missing");
+  };
+  tf.pane = { cwd: async () => host.cwd };
+  tf.fs = {
+    async list(path) {
+      check(path);
+      if (!dirs().has(path)) throw named("NotADirectoryError", "not a folder");
+      const names = new Map();
+      for (const d of dirs()) if (d !== path && parentOf(d) === path) names.set(d, "dir");
+      for (const f of host.files) if (parentOf(f) === path) names.set(f, "file");
+      const entries = [...names]
+        .map(([p, kind]) => ({ name: p.slice(p.lastIndexOf("/") + 1), kind }))
+        .sort((a, b) =>
+          a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "dir" ? -1 : 1,
+        );
+      return { path, entries, truncated: false };
+    },
+  };
+  tf.viewer = {
+    async open(path) {
+      check(path);
+      if (!host.files.includes(path)) throw named("NotAFileError", "not a file");
+      host.opened.push(path);
+      return null;
+    },
+  };
+}
+
+/** `tf.page`, recording what the tile does with its page. */
+function addPage(tf, host) {
+  host.page = { open: false, opens: [], closes: 0, posted: [] };
+  tf.page = {
+    async open(options = {}) {
+      host.page.open = true;
+      host.page.opens.push(options);
+      return null;
+    },
+    async close() {
+      host.page.open = false;
+      host.page.closes += 1;
+      return null;
+    },
+    async post(message) {
+      if (!host.page.open)
+        throw Object.assign(new Error("the page is not open"), { name: "PageError" });
+      host.page.posted.push(structuredClone(message));
+      return null;
+    },
+  };
 }

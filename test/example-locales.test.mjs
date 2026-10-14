@@ -21,6 +21,7 @@ const LOCALES = ["ar", "de", "en", "es", "fr", "hi", "it", "ja", "ko", "pt-BR", 
 /** The examples checked here. */
 const EXAMPLES = [
   "brickfold",
+  "folder-tree",
   "girder-jump",
   "github-inbox",
   "orbit-guard",
@@ -45,6 +46,7 @@ const KEPT = [
   "Orbit Guard",
   "Brickfold",
   "Girder Jump",
+  "Folder Tree",
 ];
 
 /** The messages of one locale, checking every line on the way. */

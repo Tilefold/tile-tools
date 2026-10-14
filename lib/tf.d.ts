@@ -9,8 +9,8 @@
  *   export default (tf: Tf) => { ... };
  *
  * Types only: nothing here runs, and the build strips it away. `net`,
- * `auth` and `ai` are optional because a Tilefold without tile networking
- * and AI doesn't have them; check before use.
+ * `auth`, `ai`, `page`, `pane`, `fs` and `viewer` are optional because an
+ * older Tilefold doesn't have them; check before use.
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -32,7 +32,8 @@ export type TileEvent =
   | "overlay.layout"
   | "overlay.hidden"
   | "page.closed"
-  | "page.message";
+  | "page.message"
+  | "pane.cwd";
 
 /** A rectangle in the window's content area, in CSS pixels. */
 export interface Rect {
@@ -68,6 +69,25 @@ export interface TileEventPayloads {
   "page.closed": Record<string, never>;
   /** Plain JSON the tile's page sent with `window.tilefold.post`. */
   "page.message": { message: unknown };
+  /** The focused pane's folder changed (needs pane.cwd); null when none is known. */
+  "pane.cwd": { path: string | null };
+}
+
+/** One name in a folder listing. */
+export interface FolderEntry {
+  name: string;
+  /** A link may lead to a folder or a file; list or open it to find out. */
+  kind: "dir" | "file" | "link" | "other";
+}
+
+/** One level of a folder, from `tf.fs.list`. */
+export interface FolderListing {
+  /** The folder with links resolved: build child paths from it. */
+  path: string;
+  /** Folders first, then by name; at most 2,000. */
+  entries: FolderEntry[];
+  /** True when the folder had more entries than were returned. */
+  truncated: boolean;
 }
 
 /** One entry of a setting's drop-down. */
@@ -169,7 +189,12 @@ export type TileErrorName =
   | "AiNotSetUpError"
   | "AiDeclinedError"
   | "BudgetExceededError"
-  | "RefusedError";
+  | "RefusedError"
+  | "PathNotAllowedError"
+  | "NotFoundError"
+  | "NotADirectoryError"
+  | "NotAFileError"
+  | "UnreadableError";
 
 /** The object a tile's default export receives. */
 export interface Tf {
@@ -249,6 +274,22 @@ export interface Tf {
     close(): Promise<null>;
     post(message: unknown): Promise<null>;
   };
+  /**
+   * Needs pane.cwd. The folder the focused pane is in, or null; the
+   * "pane.cwd" event says when it changes. Missing before Tilefold 0.1.9.
+   */
+  readonly pane?: { cwd(): Promise<string | null> };
+  /**
+   * Needs fs.list. One level of a folder inside a folder one of the user's
+   * panes is in: names and kinds only, never file contents. Missing before
+   * Tilefold 0.1.9.
+   */
+  readonly fs?: { list(path: string): Promise<FolderListing> };
+  /**
+   * Needs viewer.open. Shows a file from inside a pane's folder in
+   * Tilefold's document viewer. Missing before Tilefold 0.1.9.
+   */
+  readonly viewer?: { open(path: string): Promise<null> };
 }
 
 /**

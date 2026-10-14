@@ -44,6 +44,9 @@ describe("lib/tf.d.ts", () => {
       "readonly auth?:",
       "readonly ai?:",
       "readonly page?:",
+      "readonly pane?:",
+      "readonly fs?:",
+      "readonly viewer?:",
       "interface TilePageBridge",
     ];
     for (const m of members) expect(TYPES, m).toContain(m);
@@ -63,6 +66,7 @@ describe("lib/tf.d.ts", () => {
       "page.closed",
       "page.message",
       "overlay.hidden",
+      "pane.cwd",
     ];
     for (const e of events) expect(TYPES, e).toContain(`| "${e}"`);
     const docs = readFileSync(new URL("../docs/limits-and-errors.md", import.meta.url), "utf8");

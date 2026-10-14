@@ -93,6 +93,7 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `overlay.hidden` | The user hid this tile's overlay | `{ by: "user" }` |
 | `page.message` | The tile's page sent a message (`window.tilefold.post`) | `{ message }` |
 | `page.closed` | The tile's page closed, whatever closed it | `{}` |
+| `pane.cwd` | The focused pane's folder changed: another pane or tab, or a `cd` (needs `pane.cwd`; Tilefold 0.1.9) | `{ path }`, `null` when none is known |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 
@@ -177,6 +178,10 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 ## A web page of its own
 
 `tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7). See [Tile pages](tile-pages.md).
+
+## Your folders
+
+`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). See [Folders](folders.md).
 
 ## Asking Claude
 

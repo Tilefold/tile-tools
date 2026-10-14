@@ -1,0 +1,158 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Folder Tree page — styles. Follows the system's light or dark look;
+ * indentation comes from each line's --depth.
+ */
+
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1d1d1f;
+  --muted: #6e6e73;
+  --hover: rgba(0, 0, 0, 0.06);
+  --accent: #2f6fde;
+  --error: #c62828;
+  font:
+    13px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --fg: #f2f2f7;
+    --muted: #98989f;
+    --hover: rgba(255, 255, 255, 0.08);
+    --accent: #6ea0ff;
+    --error: #ff6b6b;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--hover);
+}
+
+.where {
+  flex: 1;
+  min-width: 0;
+}
+
+h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#path {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#status:empty {
+  display: none;
+}
+
+#status {
+  margin: 12px;
+  color: var(--muted);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+#refresh {
+  padding: 4px 10px;
+  border: 1px solid var(--hover);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+#list {
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+}
+
+#list li {
+  padding-inline-start: calc(8px + var(--depth, 0) * 16px);
+}
+
+.entry {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+}
+
+.entry:hover,
+.entry:focus-visible {
+  background: var(--hover);
+  outline: none;
+}
+
+.entry[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+.icon {
+  width: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.entry-dir .name {
+  font-weight: 500;
+}
+
+.entry-link .name {
+  font-style: italic;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  padding-block: 2px;
+  padding-inline-end: 8px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.note-error {
+  color: var(--error);
+}
