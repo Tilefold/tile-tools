@@ -91,6 +91,8 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `overlay.pointer` | The user clicked or dragged one of this tile's overlay items | `{ item, type, x, y }` |
 | `overlay.layout` | The panes moved, opened, closed or changed focus | the layout |
 | `overlay.hidden` | The user hid this tile's overlay | `{ by: "user" }` |
+| `page.message` | The tile's page sent a message (`window.tilefold.post`) | `{ message }` |
+| `page.closed` | The tile's page closed, whatever closed it | `{}` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 
@@ -172,6 +174,10 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 `tf.net.fetch(url, init?)` sends a request through Tilefold to a host the tile asked for with `net:<host>`. `tf.auth.has(name)` says whether the user has entered a key or signed in for a credential declared in `tile.json`. Both are in [Network, keys and sign-ins](network.md).
 
+## A web page of its own
+
+`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7). See [Tile pages](tile-pages.md).
+
 ## Asking Claude
 
 `tf.ai.ask(prompt | { system, messages, maxTokens, model })` asks Claude with the user's own Anthropic key, after showing the user the question. See [Asking Claude](ai.md).
@@ -193,7 +199,7 @@ A call the user hasn't allowed fails with `PermissionDeniedError`, which is also
 
 ## Checking for features
 
-A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, so check before using them and tell the user to update:
+A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, and `tf.page` before Tilefold 0.1.7, so check before using them and tell the user to update:
 
 ```js
 if (!tf.net) return tf.toast(tf.t("update-tilefold"));

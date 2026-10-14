@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation, and fourteen example tiles, from a few lines to four arcade games, a Spotify player, a GitLab pipeline board and a weather card that asks Claude.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-804%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-14-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1030%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-14-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -106,6 +106,7 @@ The rules that matter most: register commands, settings and listeners at the top
 | [The tf API](docs/tf-api.md) | How a tile runs, and every call: commands, settings, events, strings, notices, log, activity, storage, curtain, lock, screen-sharing protection |
 | [Overlays and sounds](docs/overlays-and-sounds.md) | Scenes, items, sprite sheets, animations, layout and pointer events; sound clips and their limits |
 | [Network, keys and sign-ins](docs/network.md) | `tf.net.fetch`, what Tilefold enforces, API keys, signing in to a service (the callback address, the user's own app, services that set Tilefold up by themselves), errors |
+| [Tile pages](docs/tile-pages.md) | A tile's own web page (Tilefold 0.1.7): the `page` and `script:` permissions, the `page/` folder, `tf.page`, messages with `window.tilefold`, keeping it running when its window closes, and giving it a sign-in |
 | [Asking Claude](docs/ai.md) | `tf.ai.ask`, the user's confirmation, models, masking, the daily allowance, errors |
 | [Limits and errors](docs/limits-and-errors.md) | Every limit and every error name in one place |
 
@@ -259,7 +260,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (804 tests in 34 files, all passing on 2026-10-13).
+Run with `npm test` (1030 tests in 48 files, all passing on 2026-10-13).
 
 | Area | Covers |
 |---|---|

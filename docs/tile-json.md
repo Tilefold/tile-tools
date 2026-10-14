@@ -55,6 +55,8 @@ Each entry is either a plain string, `"window.curtain"`, or a one-key object wit
 | `sound.play` | Play short sounds (`tf.sound.play`) | low |
 | `net:<host>` | Send requests to that host with `tf.net.fetch` | shown per host |
 | `ai.ask` | Ask Claude with the user's own Anthropic key (`tf.ai.ask`) | medium |
+| `page` | Show a web page of its own from `page/`, in a window or hidden (`tf.page`; Tilefold 0.1.7) | medium |
+| `script:<host>` | Let that page run scripts from that host (Tilefold 0.1.7) | shown per host |
 
 **Network permissions.** `net:api.example.com` allows exactly that host. `net:*.example.com` allows every subdomain of `example.com`, but not `example.com` itself; ask for both if you need both. Hosts are lowercase domain names with at least two labels (use punycode for international names). These are refused, and Tilefold shows them as **not allowed**:
 
@@ -96,6 +98,7 @@ Every credential lists the `hosts` it may be sent to (1 to 8). Each host must al
 | `revokeUrl` | no | Where Tilefold revokes the token when the user signs out |
 | `hosts` | yes | Where the token may be sent |
 | `label` | no | What Settings calls the sign-in, such as `"Spotify"` |
+| `page` | no | `true` gives the key or sign-in to the tile's page too (`window.tilefold.token`); needs the `page` permission. See [Tile pages](tile-pages.md) |
 
 A `clientSecret` is always refused: a tile is a public client, and anything in a tile can be read by anyone who has it. [The network guide](network.md) covers the callback address and the three client-id modes.
 
