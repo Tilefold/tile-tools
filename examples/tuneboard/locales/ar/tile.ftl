@@ -68,3 +68,7 @@ library-error-network = تعذّر الوصول إلى Spotify. حاول مرة 
 library-error-other = حدث خطأ ما. حاول مرة أخرى.
 library-view-grid = صور مصغّرة
 library-view-list = قائمة
+cmd-playlists = Tuneboard: إظهار قوائم التشغيل على البطاقة أو إخفاؤها
+button-playlists = قوائم التشغيل
+panel-range = { $from }–{ $to } من { $total }
+panel-show-all = عرض الكل

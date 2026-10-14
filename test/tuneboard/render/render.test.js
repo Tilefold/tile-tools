@@ -209,15 +209,16 @@ describe("card", () => {
 });
 
 describe("buttons", () => {
-  it("has five buttons with unique ids and actions", () => {
+  it("has six buttons with unique ids and actions", () => {
     expect(BUTTONS.map((b) => b.id)).toEqual([
       "previous",
       "play",
       "next",
       "volume-down",
       "volume-up",
+      "playlists",
     ]);
-    expect(new Set(BUTTONS.map((b) => b.action)).size).toBe(5);
+    expect(new Set(BUTTONS.map((b) => b.action)).size).toBe(6);
   });
 
   it("draws every icon", () => {

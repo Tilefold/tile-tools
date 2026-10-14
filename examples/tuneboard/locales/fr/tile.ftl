@@ -68,3 +68,7 @@ library-error-network = Impossible de joindre Spotify. Réessayez dans un instan
 library-error-other = Un problème est survenu. Réessayez.
 library-view-grid = Vignettes
 library-view-list = Liste
+cmd-playlists = Tuneboard : Afficher ou masquer les playlists sur la carte
+button-playlists = Playlists
+panel-range = { $from }–{ $to } sur { $total }
+panel-show-all = Tout afficher

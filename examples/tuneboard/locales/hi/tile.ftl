@@ -68,3 +68,7 @@ library-error-network = Spotify तक नहीं पहुँच पा र�
 library-error-other = कुछ गलत हो गया। फिर कोशिश करें।
 library-view-grid = थंबनेल
 library-view-list = सूची
+cmd-playlists = Tuneboard: कार्ड पर प्लेलिस्ट दिखाएँ या छिपाएँ
+button-playlists = प्लेलिस्ट
+panel-range = { $total } में से { $from }–{ $to }
+panel-show-all = सभी दिखाएँ

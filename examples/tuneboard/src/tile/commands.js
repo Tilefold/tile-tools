@@ -11,8 +11,9 @@
  * Tilefold's own Ctrl+Alt shortcuts (F, H, L, O, W) and of the Tilefall
  * tile's (N, P, G, Z, C, the arrows and Enter), so both tiles can be
  * installed together. Users can change any of them in Settings → Keyboard.
- * Playing in Tilefold itself (Tuneboard's own player page), stopping it and
- * showing the playlists have no default keys; users can give them one.
+ * Playing in Tilefold itself (Tuneboard's own player page), stopping it,
+ * the Library window and the card's playlist panel have no default keys;
+ * users can give them one.
  */
 
 /**
@@ -68,6 +69,7 @@ export const COMMANDS = [
   { id: "play-here", title: "cmd-play-here", action: "playHere" },
   { id: "stop-here", title: "cmd-stop-here", action: "stopHere" },
   { id: "library", title: "cmd-library", action: "library" },
+  { id: "playlists", title: "cmd-playlists", action: "panel" },
 ];
 
 /**

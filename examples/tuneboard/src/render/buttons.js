@@ -5,9 +5,9 @@
  *
  * Tuneboard — on-screen buttons
  *
- * The five clickable buttons in a row under the card:
+ * The six clickable buttons in a row under the card:
  *
- *     ⏮ previous   ⏯ play/pause   ⏭ next   − volume   + volume
+ *     ⏮ previous   ⏯ play/pause   ⏭ next   − volume   + volume   ☰ playlists
  *
  * Each is its own overlay item (Tilefold reports clicks per item). Icons
  * are drawn as SVG paths, not glyphs, so they look the same on every system
@@ -29,6 +29,7 @@ export const BUTTONS = [
   { id: "next", action: "next", label: "button-next" },
   { id: "volume-down", action: "volumeDown", label: "button-volume-down" },
   { id: "volume-up", action: "volumeUp", label: "button-volume-up" },
+  { id: "playlists", action: "panel", label: "button-playlists" },
 ];
 
 /** Icon artwork in a 28×28 box. */
@@ -49,21 +50,28 @@ const ICONS = {
   "volume-up":
     `<path d="M6 11.5 H9 L13 8.5 V19.5 L9 16.5 H6 Z" fill="${THEME.text}"/>` +
     `<path d="M16 14 H22 M19 11 V17" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`,
+  // Three lines with a note: a list of music.
+  playlists:
+    `<path d="M7 10 H16 M7 14 H16 M7 18 H12" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>` +
+    `<path d="M20.5 18.5 V9.5 L23.5 9" stroke="${THEME.accent}" stroke-width="1.6" fill="none" stroke-linecap="round"/>` +
+    `<circle cx="18.8" cy="18.6" r="2" fill="${THEME.accent}"/>`,
 };
 
 /**
  * Draws one button.
  *
- * @param {string} icon One of previous, next, play, pause, volume-down, volume-up.
- * @param {{ displaySize?: number, dim?: boolean }} [opts] `dim` greys it
- *   out (for example while no device is playing).
+ * @param {string} icon One of previous, next, play, pause, volume-down, volume-up, playlists.
+ * @param {{ displaySize?: number, dim?: boolean, on?: boolean }} [opts] `dim`
+ *   greys it out (for example while no device is playing); `on` marks a
+ *   button whose panel is open.
  * @returns {string} A `data:image/svg+xml` URL.
  */
 export function renderButton(icon, opts = {}) {
   const art = ICONS[icon] ?? "";
   const body =
     `<rect x="0.5" y="0.5" width="${BUTTON - 1}" height="${BUTTON - 1}" rx="7" ` +
-    `fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/>` +
+    `fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" ` +
+    `stroke="${opts.on ? THEME.accent : THEME.border}"/>` +
     `<g opacity="${opts.dim ? 0.35 : 1}">${art}</g>`;
   const size = opts.displaySize ?? BUTTON;
   return svgUrl(BUTTON, BUTTON, body, size, size);

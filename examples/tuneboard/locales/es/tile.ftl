@@ -68,3 +68,7 @@ library-error-network = No se puede conectar con Spotify. Inténtalo de nuevo en
 library-error-other = Algo salió mal. Inténtalo de nuevo.
 library-view-grid = Miniaturas
 library-view-list = Lista
+cmd-playlists = Tuneboard: Mostrar u ocultar listas en la tarjeta
+button-playlists = Listas
+panel-range = { $from }–{ $to } de { $total }
+panel-show-all = Ver todas

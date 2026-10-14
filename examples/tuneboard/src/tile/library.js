@@ -21,8 +21,8 @@
  *   the user's language and the view they chose last), `playlists {offset, items, total, nextOffset}`,
  *   `library-error {message}`, `playing {uri, message}`.
  *
- * A pick plays on the device Spotify is already using; when there is none,
- * it starts the player inside Tilefold and plays there. Handlers return at
+ * A pick plays as the picker decides (pick.js): on the device Spotify is
+ * already using, or inside Tilefold when there is none. Handlers return at
  * once and work in the background (Tilefold gives them half a second).
  * Each step is recorded without names or URIs: only whether it worked, the
  * error code and where it played.
@@ -31,6 +31,7 @@
  * of the tile's function, before any `await`.
  */
 import { isPlaylistUri } from "../spotify/playlists.js";
+import { codeOf, messageFor } from "./pick.js";
 import { LIBRARY_VIEWS } from "./store.js";
 
 /** The page's text, by the key the page uses, from the tile's messages. */
@@ -44,37 +45,19 @@ const STRINGS = {
   viewList: "library-view-list",
 };
 
-/** The message shown for a failed Library request, by error code. */
-const ERROR_MESSAGE = {
-  auth: "player-error-sign-in",
-  scope: "library-error-scope",
-  premium: "player-error-premium",
-  denied: "state-denied-hint",
-  network: "library-error-network",
-  "rate-limit": "library-error-network",
-  timeout: "player-error-other",
-  account_error: "player-error-premium",
-  authentication_error: "player-error-sign-in",
-  token: "player-error-sign-in",
-  initialization_error: "player-error-unsupported",
-};
-
-/** A short, known error code for the trail. */
-const codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
-
 /**
  * Creates the Library.
  *
  * @param {any} tf The tile API.
  * @param {{ trail: { record: Function, error: Function },
  *           store: { libraryView: () => Promise<string>, setLibraryView: (v: string) => Promise<boolean> },
- *           player: { available: () => boolean, start: () => Promise<string> },
+ *           picker: { play: (uri: string, from: string) => Promise<void> },
  *           client: () => Promise<any>,
  *           afterPlay?: () => void }} deps
  *   `client` resolves to the connected Spotify client (or null when the user
  *   isn't signed in); `afterPlay` lets the card catch up after a pick.
  */
-export function createLibrary(tf, { trail, store, player, client, afterPlay = () => {} }) {
+export function createLibrary(tf, { trail, store, picker, client, afterPlay = () => {} }) {
   /** Whether the user asked for the Library since the page last opened. */
   let wanted = false;
 
@@ -104,7 +87,7 @@ export function createLibrary(tf, { trail, store, player, client, afterPlay = ()
   const fail = (err) =>
     post({
       do: "library-error",
-      message: tf.t(ERROR_MESSAGE[codeOf(err)] ?? "library-error-other"),
+      message: tf.t(messageFor(err)),
     });
 
   /** Sends one page of playlists. */
@@ -131,22 +114,11 @@ export function createLibrary(tf, { trail, store, player, client, afterPlay = ()
 
   /** Plays a playlist where music already plays, or inside Tilefold. */
   const play = async (uri) => {
-    const spotify = await client();
-    if (!spotify) return fail({ code: "auth" });
-    let via = "device";
     try {
-      try {
-        await spotify.playContext(uri);
-      } catch (err) {
-        if (err?.code !== "no-device" || !player.available()) throw err;
-        via = "tilefold";
-        await spotify.playContext(uri, await player.start());
-      }
-      trail.record("library.play", { ok: true, via });
+      await picker.play(uri, "window");
       await post({ do: "playing", uri, message: tf.t("library-playing") });
       afterPlay();
     } catch (err) {
-      trail.record("library.play", { ok: false, code: codeOf(err), via });
       await fail(err);
     }
   };

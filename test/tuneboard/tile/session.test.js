@@ -416,9 +416,9 @@ describe("view", () => {
     });
   }
 
-  it("builds six items within Tilefold's limits", () => {
+  it("builds seven items within Tilefold's limits", () => {
     const items = sceneItems({ ...base, status: "playing" });
-    expect(items).toHaveLength(6);
+    expect(items).toHaveLength(7);
     expect(items.map((i) => i.id)).toEqual([
       CARD_ID,
       "btn-previous",
@@ -426,6 +426,7 @@ describe("view", () => {
       "btn-next",
       "btn-volume-down",
       "btn-volume-up",
+      "btn-playlists",
     ]);
     for (const i of items) {
       expect(i.w).toBeLessThanOrEqual(256);
@@ -442,7 +443,7 @@ describe("view", () => {
     expect(sceneItems({ ...base, status: "paused" })[2].label).toBe("Play");
   });
 
-  it("dims every button when the controls can't work, and volume without a volume", () => {
+  it("dims every control when it can't work, and volume without a volume; never playlists", () => {
     const dimmed = (items) => items.slice(1).map((i) => svgOf(i.image).includes(`opacity="0.35"`));
     expect(dimmed(sceneItems({ ...base, status: "signed-out", playback: null }))).toEqual([
       true,
@@ -450,8 +451,10 @@ describe("view", () => {
       true,
       true,
       true,
+      false,
     ]);
     expect(dimmed(sceneItems({ ...base, status: "playing" }))).toEqual([
+      false,
       false,
       false,
       false,
@@ -464,6 +467,7 @@ describe("view", () => {
       false,
       true,
       true,
+      false,
     ]);
   });
 

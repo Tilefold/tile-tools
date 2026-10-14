@@ -10,7 +10,7 @@
  * changed (firing `setting.changed`), messages come from the tile's own
  * locales/<lang>/tile.ftl with `{ $var }` placeholders filled in (a
  * missing message throws, so a typo fails the test), overlay updates merge
- * into the scene item by item, and audits, store writes, log lines and
+ * into the scene item by item (and drop the items they remove), and audits, store writes, log lines and
  * registrations are all recorded for assertions. `net: true` adds
  * `tf.net.fetch` (a recording stub) and `tf.auth.has`, as a Tilefold that
  * grants network access and runs sign-ins does; `host.signedIn` says
@@ -128,9 +128,9 @@ export function createHost(opts = {}) {
       await run();
       await drain();
     },
-    /** Clicks an overlay item. */
-    async click(item) {
-      await host.emit("overlay.pointer", { type: "click", item, x: 0, y: 0 });
+    /** Clicks an overlay item, at a point in the window when it matters. */
+    async click(item, x = 0, y = 0) {
+      await host.emit("overlay.pointer", { type: "click", item, x, y });
     },
     async setSetting(key, value) {
       values.set(key, value);
@@ -199,6 +199,8 @@ export function createHost(opts = {}) {
           if (current) Object.assign(current, change);
           else host.overlay.items.push({ ...change });
         }
+        const gone = new Set(patch.remove ?? []);
+        host.overlay.items = host.overlay.items.filter((i) => !gone.has(i.id));
         host.updates.push(patch);
         return true;
       },

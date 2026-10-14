@@ -7,7 +7,8 @@
  *
  * Turns Spotify's answer to "my playlists" into the small, safe shape the
  * Library page shows: the playlist's URI (to play it), its name, its
- * owner's name, how many tracks it has and one cover image. Covers are kept
+ * owner's name, how many tracks it has, one cover image and, when Spotify
+ * offers one, a small thumbnail for the card's panel. Covers are kept
  * only when they come over https from Spotify's image hosts, the ones the
  * tile is allowed (`net:*.scdn.co`, `net:*.spotifycdn.com`); the page could
  * not load any other. Entries Spotify leaves empty are skipped, and text is
@@ -22,6 +23,9 @@ export const MAX_TEXT = 200;
 
 /** The width a cover should have at least, in pixels, when there is a choice. */
 export const COVER_WIDTH = 160;
+
+/** The widest picture used as a panel thumbnail, in pixels. */
+export const THUMB_WIDTH = 160;
 
 /** Spotify's image hosts (and their subdomains) the page may load covers from. */
 const IMAGE_DOMAINS = ["scdn.co", "spotifycdn.com"];
@@ -64,6 +68,23 @@ export function pickCover(images) {
   return best.url;
 }
 
+/**
+ * The smallest cover whose width Spotify gives and is at most THUMB_WIDTH,
+ * for the card's panel (a large one would be too heavy to draw there);
+ * null when there is none.
+ *
+ * @param {unknown} images
+ * @returns {string|null}
+ */
+export function pickThumb(images) {
+  if (!Array.isArray(images)) return null;
+  const small = images.filter(
+    (i) => i && isCoverUrl(i.url) && Number.isFinite(i.width) && i.width <= THUMB_WIDTH,
+  );
+  if (small.length === 0) return null;
+  return small.reduce((a, b) => (b.width < a.width ? b : a)).url;
+}
+
 /** Plain text, trimmed to MAX_TEXT characters ("" when not text). */
 const text = (value) => (typeof value === "string" ? value.trim().slice(0, MAX_TEXT) : "");
 
@@ -71,7 +92,8 @@ const text = (value) => (typeof value === "string" ? value.trim().slice(0, MAX_T
  * One playlist for the page, or null when Spotify's entry is unusable.
  *
  * @param {any} p A playlist object from Spotify.
- * @returns {{ uri: string, name: string, owner: string, tracks: number|null, cover: string|null }|null}
+ * @returns {{ uri: string, name: string, owner: string, tracks: number|null,
+ *            cover: string|null, thumb: string|null }|null}
  */
 export function playlistModel(p) {
   if (!p || typeof p !== "object" || !isPlaylistUri(p.uri)) return null;
@@ -83,6 +105,7 @@ export function playlistModel(p) {
     owner: text(p.owner?.display_name ?? p.owner?.id),
     tracks: Number.isSafeInteger(total) && total >= 0 ? total : null,
     cover: pickCover(p.images),
+    thumb: pickThumb(p.images),
   };
 }
 

@@ -39,7 +39,12 @@ import { LAYOUT_KEYS, readSettings } from "./settings.js";
 import { createSession } from "./session.js";
 import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
-import { actionForClick, diffItems, sceneItems } from "./view.js";
+import { panelHit } from "../render/panel.js";
+import { createCovers } from "../spotify/covers.js";
+import { createPanel } from "./panel.js";
+import { createPicker } from "./pick.js";
+import { PANEL_ID, actionForClick, diffItems, removedIds, sceneItems } from "./view.js";
+import { computeLayout } from "./scene.js";
 
 /** How often the progress bar moves while a track plays, in ms. */
 export const CLOCK_MS = 1000;
@@ -105,16 +110,23 @@ export function runTuneboard(tf, deps = {}) {
   const settings = () => readSettings(tf.settings);
   // Registers its page listeners now, before any await.
   const player = createPagePlayer(tf, { trail });
-  const library = createLibrary(tf, {
+  /** The connected Spotify client, connecting first when needed (null: signed out). */
+  const client = async () => {
+    await ensureConnected();
+    if (!spotify) await connect();
+    return spotify;
+  };
+  const picker = createPicker({ trail, player, client });
+  const afterPlay = () => confirmSoon();
+  const library = createLibrary(tf, { trail, store, picker, client, afterPlay });
+  const panel = createPanel(tf, {
     trail,
-    store,
-    player,
-    client: async () => {
-      await ensureConnected();
-      if (!spotify) await connect();
-      return spotify;
-    },
-    afterPlay: () => confirmSoon(),
+    client,
+    picker,
+    library,
+    afterPlay,
+    covers: createCovers({ fetchFn: findTransport(tf) }),
+    onChange: () => void draw(),
   });
   /** The Spotify client, once connected. */
   let spotify = null;
@@ -142,6 +154,7 @@ export function runTuneboard(tf, deps = {}) {
       settings: settings(),
       layout,
       t: (key, args) => tf.t(key, args),
+      panel: panel.view(),
     });
     if (!shown) {
       const ok = await tf.overlay.show({ items });
@@ -150,8 +163,11 @@ export function runTuneboard(tf, deps = {}) {
       return;
     }
     const changes = diffItems(shown, items);
+    const remove = removedIds(shown, items);
     shown = items;
-    if (changes.length) await tf.overlay.update({ items: changes });
+    if (changes.length || remove.length) {
+      await tf.overlay.update({ items: changes, ...(remove.length ? { remove } : {}) });
+    }
   };
 
   /** Asks for a redraw; resolves when the window is up to date. */
@@ -364,6 +380,10 @@ export function runTuneboard(tf, deps = {}) {
       return visible ? draw() : undefined;
     }
     if (action === "playHere") return playHere();
+    if (action === "panel") {
+      if (!visible) await show();
+      return panel.toggle();
+    }
     if (action === "library") {
       return library.available() ? library.show() : tell("player-unavailable");
     }
@@ -412,6 +432,10 @@ export function runTuneboard(tf, deps = {}) {
     "overlay.pointer",
     background(async (e) => {
       if (!e || e.type !== "click" || !visible) return;
+      if (e.item === PANEL_ID) {
+        const rect = computeLayout(layout, settings(), { panel: true })[PANEL_ID];
+        return panel.click(panelHit(rect, Number(e.x), Number(e.y)));
+      }
       const action = actionForClick(String(e.item));
       if (action) await run(action);
     }),

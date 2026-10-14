@@ -68,3 +68,7 @@ library-error-network = Spotify ist nicht erreichbar. Versuch es gleich noch ein
 library-error-other = Etwas ist schiefgelaufen. Versuch es noch einmal.
 library-view-grid = Miniaturansichten
 library-view-list = Liste
+cmd-playlists = Tuneboard: Playlists an der Karte ein- oder ausblenden
+button-playlists = Playlists
+panel-range = { $from }–{ $to } von { $total }
+panel-show-all = Alle anzeigen

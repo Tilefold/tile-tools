@@ -92,6 +92,7 @@ async function responseError(response, { now = Date.now } = {}) {
 var PAGE_SIZE = 50;
 var MAX_TEXT = 200;
 var COVER_WIDTH = 160;
+var THUMB_WIDTH = 160;
 var IMAGE_DOMAINS = ["scdn.co", "spotifycdn.com"];
 function isPlaylistUri(uri) {
   return typeof uri === "string" && /^spotify:playlist:[A-Za-z0-9]{1,64}$/.test(uri);
@@ -119,6 +120,14 @@ function pickCover(images) {
   );
   return best.url;
 }
+function pickThumb(images) {
+  if (!Array.isArray(images)) return null;
+  const small = images.filter(
+    (i) => i && isCoverUrl(i.url) && Number.isFinite(i.width) && i.width <= THUMB_WIDTH
+  );
+  if (small.length === 0) return null;
+  return small.reduce((a, b) => b.width < a.width ? b : a).url;
+}
 var text = (value) => typeof value === "string" ? value.trim().slice(0, MAX_TEXT) : "";
 function playlistModel(p) {
   if (!p || typeof p !== "object" || !isPlaylistUri(p.uri)) return null;
@@ -128,7 +137,8 @@ function playlistModel(p) {
     name: text(p.name),
     owner: text(p.owner?.display_name ?? p.owner?.id),
     tracks: Number.isSafeInteger(total) && total >= 0 ? total : null,
-    cover: pickCover(p.images)
+    cover: pickCover(p.images),
+    thumb: pickThumb(p.images)
   };
 }
 function playlistPage(data, offset) {
@@ -302,7 +312,8 @@ var BUTTONS = [
   { id: "play", action: "playPause", label: "button-play" },
   { id: "next", action: "next", label: "button-next" },
   { id: "volume-down", action: "volumeDown", label: "button-volume-down" },
-  { id: "volume-up", action: "volumeUp", label: "button-volume-up" }
+  { id: "volume-up", action: "volumeUp", label: "button-volume-up" },
+  { id: "playlists", action: "panel", label: "button-playlists" }
 ];
 var ICONS = {
   previous: `<rect x="8" y="9" width="2.4" height="10" rx="1" fill="${THEME.text}"/><path d="M20 9 L11.5 14 L20 19 Z" fill="${THEME.text}"/>`,
@@ -310,11 +321,13 @@ var ICONS = {
   play: `<path d="M11 8 L20 14 L11 20 Z" fill="${THEME.accent}"/>`,
   pause: `<rect x="9.5" y="8.5" width="3.2" height="11" rx="1" fill="${THEME.text}"/><rect x="15.3" y="8.5" width="3.2" height="11" rx="1" fill="${THEME.text}"/>`,
   "volume-down": `<path d="M7 11.5 H10 L14 8.5 V19.5 L10 16.5 H7 Z" fill="${THEME.text}"/><path d="M17 14 H22" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`,
-  "volume-up": `<path d="M6 11.5 H9 L13 8.5 V19.5 L9 16.5 H6 Z" fill="${THEME.text}"/><path d="M16 14 H22 M19 11 V17" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`
+  "volume-up": `<path d="M6 11.5 H9 L13 8.5 V19.5 L9 16.5 H6 Z" fill="${THEME.text}"/><path d="M16 14 H22 M19 11 V17" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/>`,
+  // Three lines with a note: a list of music.
+  playlists: `<path d="M7 10 H16 M7 14 H16 M7 18 H12" stroke="${THEME.text}" stroke-width="2" stroke-linecap="round"/><path d="M20.5 18.5 V9.5 L23.5 9" stroke="${THEME.accent}" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="18.8" cy="18.6" r="2" fill="${THEME.accent}"/>`
 };
 function renderButton(icon, opts = {}) {
   const art = ICONS[icon] ?? "";
-  const body = `<rect x="0.5" y="0.5" width="${BUTTON - 1}" height="${BUTTON - 1}" rx="7" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/><g opacity="${opts.dim ? 0.35 : 1}">${art}</g>`;
+  const body = `<rect x="0.5" y="0.5" width="${BUTTON - 1}" height="${BUTTON - 1}" rx="7" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${opts.on ? THEME.accent : THEME.border}"/><g opacity="${opts.dim ? 0.35 : 1}">${art}</g>`;
   const size = opts.displaySize ?? BUTTON;
   return svgUrl(BUTTON, BUTTON, body, size, size);
 }
@@ -413,6 +426,113 @@ function renderCard(view, opts = {}) {
   return svgUrl(CARD_W, CARD_H, body, opts.displayW ?? CARD_W, opts.displayH ?? CARD_H);
 }
 
+// src/render/panel.js
+var ROWS = 5;
+var PANEL_W = CARD_W;
+var PAD = 6;
+var ROW_H = 34;
+var FOOT_H = 26;
+var PANEL_H = PAD + ROWS * ROW_H + FOOT_H + PAD;
+var FOOT_Y = PAD + ROWS * ROW_H;
+var PREV_X = 8;
+var NEXT_X = 38;
+var FOOT_BTN = 26;
+var ALL_X = 128;
+var TEXT_X2 = 44;
+function rowSvg(row, i) {
+  const y = PAD + i * ROW_H;
+  const parts = [];
+  if (row.picked) {
+    parts.push(
+      `<rect x="4" y="${y + 1}" width="${PANEL_W - 8}" height="${ROW_H - 2}" rx="6" fill="${THEME.accent}" fill-opacity="0.18"/>`
+    );
+  }
+  if (row.cover) {
+    parts.push(
+      `<clipPath id="c${i}"><rect x="10" y="${y + 4}" width="26" height="26" rx="4"/></clipPath><image href="${escapeXml(row.cover)}" x="10" y="${y + 4}" width="26" height="26" preserveAspectRatio="xMidYMid slice" clip-path="url(#c${i})"/>`
+    );
+  } else {
+    parts.push(
+      `<rect x="10" y="${y + 4}" width="26" height="26" rx="4" fill="${THEME.track}"/><path d="M21 ${y + 23} V${y + 11} L28 ${y + 9.5} V${y + 21}" stroke="${THEME.muted}" stroke-width="1.6" fill="none"/><circle cx="19.5" cy="${y + 23}" r="2.2" fill="${THEME.muted}"/><circle cx="26.5" cy="${y + 21}" r="2.2" fill="${THEME.muted}"/>`
+    );
+  }
+  const width = PANEL_W - TEXT_X2 - 10;
+  parts.push(
+    textEl({ x: TEXT_X2, y: y + 15, text: row.name, size: 12, weight: 600, maxWidth: width }),
+    textEl({ x: TEXT_X2, y: y + 28, text: row.meta, size: 10, fill: THEME.muted, maxWidth: width })
+  );
+  return parts.join("");
+}
+function arrowSvg(x, up, enabled) {
+  const y = FOOT_Y + 1;
+  const tip = up ? `M${x + 8} ${y + 15} L${x + 13} ${y + 9} L${x + 18} ${y + 15}` : `M${x + 8} ${y + 9} L${x + 13} ${y + 15} L${x + 18} ${y + 9}`;
+  return `<g opacity="${enabled ? 1 : 0.35}"><rect x="${x + 0.5}" y="${y + 0.5}" width="${FOOT_BTN - 1}" height="${FOOT_BTN - 4}" rx="5" fill="none" stroke="${THEME.border}"/><path d="${tip}" stroke="${THEME.text}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+}
+function renderPanel(view, opts = {}) {
+  const parts = [
+    `<rect x="0.5" y="0.5" width="${PANEL_W - 1}" height="${PANEL_H - 1}" rx="10" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/>`
+  ];
+  if (view.status) {
+    const lines = wrapLines(view.status.text, 12, PANEL_W - 28, 4);
+    const top = PAD + ROWS * ROW_H / 2 - lines.length * 16 / 2 + 12;
+    lines.forEach(
+      (line, i) => parts.push(
+        textEl({
+          x: PANEL_W / 2,
+          y: round2(top + i * 16),
+          text: line,
+          size: 12,
+          anchor: "middle",
+          fill: view.status.error ? THEME.error : THEME.muted
+        })
+      )
+    );
+  } else {
+    view.rows.slice(0, ROWS).forEach((row, i) => parts.push(rowSvg(row, i)));
+  }
+  parts.push(
+    `<path d="M8 ${FOOT_Y + 0.5} H${PANEL_W - 8}" stroke="${THEME.border}"/>`,
+    arrowSvg(PREV_X, true, view.canPrev),
+    arrowSvg(NEXT_X, false, view.canNext),
+    textEl({
+      x: NEXT_X + FOOT_BTN + 6,
+      y: FOOT_Y + 17,
+      text: ellipsize(view.range, 10, ALL_X - NEXT_X - FOOT_BTN - 10),
+      size: 10,
+      fill: THEME.muted
+    })
+  );
+  if (view.allLabel) {
+    parts.push(
+      textEl({
+        x: PANEL_W - 10,
+        y: FOOT_Y + 17,
+        text: view.allLabel,
+        size: 11,
+        weight: 600,
+        anchor: "end",
+        fill: THEME.accent,
+        maxWidth: PANEL_W - ALL_X - 12,
+        squeeze: true
+      })
+    );
+  }
+  return svgUrl(PANEL_W, PANEL_H, parts.join(""), opts.displayW, opts.displayH);
+}
+function panelHit(rect, x, y) {
+  if (!rect || rect.w <= 0 || rect.h <= 0) return null;
+  const lx = (x - rect.x) * PANEL_W / rect.w;
+  const ly = (y - rect.y) * PANEL_H / rect.h;
+  if (lx < 0 || lx > PANEL_W || ly < 0 || ly > PANEL_H) return null;
+  if (ly >= PAD && ly < FOOT_Y) return { kind: "row", index: Math.floor((ly - PAD) / ROW_H) };
+  if (ly >= FOOT_Y && ly < FOOT_Y + FOOT_H) {
+    if (lx >= PREV_X && lx < PREV_X + FOOT_BTN) return { kind: "prev" };
+    if (lx >= NEXT_X && lx < NEXT_X + FOOT_BTN) return { kind: "next" };
+    if (lx >= ALL_X) return { kind: "all" };
+  }
+  return null;
+}
+
 // src/tile/scene.js
 var SIZES = { small: 0.8, medium: 1 };
 var CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"];
@@ -448,7 +568,7 @@ function areaOf(layout) {
   const content = layout && layout.content || { w: 800, h: 600 };
   return { x: 0, y: 0, w: content.w, h: content.h };
 }
-function computeLayout(layout, settings = {}) {
+function computeLayout(layout, settings = {}, options = {}) {
   const scale = scaleOf(settings.size);
   const corner = cornerOf(settings.corner);
   const area = areaOf(layout);
@@ -465,6 +585,12 @@ function computeLayout(layout, settings = {}) {
   BUTTONS.forEach((b, i) => {
     rects[`btn-${b.id}`] = { x: Math.round(gx + i * step), y: rowY, w: btn, h: btn };
   });
+  if (options.panel) {
+    const pw = Math.round(PANEL_W * scale);
+    const ph = Math.round(PANEL_H * scale);
+    const py = bottom ? gy - Math.round(GAP * scale) - ph : gy + h + Math.round(GAP * scale);
+    rects.panel = { x: gx, y: Math.max(0, py), w: pw, h: ph };
+  }
   return rects;
 }
 
@@ -547,7 +673,9 @@ var ACTIONS = Object.freeze([
   "library.show",
   "library.load",
   "library.play",
-  "library.view"
+  "library.view",
+  "panel.show",
+  "panel.hide"
 ]);
 var DETAIL_KEYS = Object.freeze(["from", "to", "volume", "ok", "code", "via"]);
 function cleanDetails(details) {
@@ -635,12 +763,65 @@ var COMMANDS = [
   },
   { id: "play-here", title: "cmd-play-here", action: "playHere" },
   { id: "stop-here", title: "cmd-stop-here", action: "stopHere" },
-  { id: "library", title: "cmd-library", action: "library" }
+  { id: "library", title: "cmd-library", action: "library" },
+  { id: "playlists", title: "cmd-playlists", action: "panel" }
 ];
 function registerCommands(tf, run) {
   for (const c of COMMANDS) {
     tf.command(tf.t(c.title), () => run(c.action), { id: c.id, ...c.key ? { key: c.key } : {} });
   }
+}
+
+// src/tile/pick.js
+var ERROR_MESSAGE = {
+  auth: "player-error-sign-in",
+  scope: "library-error-scope",
+  premium: "player-error-premium",
+  denied: "state-denied-hint",
+  network: "library-error-network",
+  "rate-limit": "library-error-network",
+  "no-device": "state-no-device-hint",
+  timeout: "player-error-other",
+  account_error: "player-error-premium",
+  authentication_error: "player-error-sign-in",
+  token: "player-error-sign-in",
+  initialization_error: "player-error-unsupported"
+};
+var codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
+function messageFor(err) {
+  return ERROR_MESSAGE[codeOf(err)] ?? "library-error-other";
+}
+function createPicker({ trail, player, client }) {
+  return {
+    /**
+     * Plays a playlist; resolves when Spotify took it, rejects with a coded
+     * error otherwise.
+     *
+     * @param {string} uri A playlist URI the caller has checked.
+     * @param {string} from Where the pick came from: "window" or "panel".
+     */
+    async play(uri, from) {
+      const spotify = await client();
+      if (!spotify) {
+        trail.record("library.play", { ok: false, code: "auth", from });
+        throw Object.assign(new Error("not signed in"), { code: "auth" });
+      }
+      let via = "device";
+      try {
+        try {
+          await spotify.playContext(uri);
+        } catch (err) {
+          if (err?.code !== "no-device" || !player.available()) throw err;
+          via = "tilefold";
+          await spotify.playContext(uri, await player.start());
+        }
+        trail.record("library.play", { ok: true, via, from });
+      } catch (err) {
+        trail.record("library.play", { ok: false, code: codeOf(err), via, from });
+        throw err;
+      }
+    }
+  };
 }
 
 // src/tile/store.js
@@ -711,21 +892,7 @@ var STRINGS = {
   viewGrid: "library-view-grid",
   viewList: "library-view-list"
 };
-var ERROR_MESSAGE = {
-  auth: "player-error-sign-in",
-  scope: "library-error-scope",
-  premium: "player-error-premium",
-  denied: "state-denied-hint",
-  network: "library-error-network",
-  "rate-limit": "library-error-network",
-  timeout: "player-error-other",
-  account_error: "player-error-premium",
-  authentication_error: "player-error-sign-in",
-  token: "player-error-sign-in",
-  initialization_error: "player-error-unsupported"
-};
-var codeOf = (err) => String(err?.code ?? "unknown").slice(0, 24);
-function createLibrary(tf, { trail, store, player, client, afterPlay = () => {
+function createLibrary(tf, { trail, store, picker, client, afterPlay = () => {
 } }) {
   let wanted = false;
   const post = async (message) => {
@@ -745,7 +912,7 @@ function createLibrary(tf, { trail, store, player, client, afterPlay = () => {
   };
   const fail = (err) => post({
     do: "library-error",
-    message: tf.t(ERROR_MESSAGE[codeOf(err)] ?? "library-error-other")
+    message: tf.t(messageFor(err))
   });
   const load = async (offset) => {
     const spotify = await client();
@@ -767,22 +934,11 @@ function createLibrary(tf, { trail, store, player, client, afterPlay = () => {
     }
   };
   const play = async (uri) => {
-    const spotify = await client();
-    if (!spotify) return fail({ code: "auth" });
-    let via = "device";
     try {
-      try {
-        await spotify.playContext(uri);
-      } catch (err) {
-        if (err?.code !== "no-device" || !player.available()) throw err;
-        via = "tilefold";
-        await spotify.playContext(uri, await player.start());
-      }
-      trail.record("library.play", { ok: true, via });
+      await picker.play(uri, "window");
       await post({ do: "playing", uri, message: tf.t("library-playing") });
       afterPlay();
     } catch (err) {
-      trail.record("library.play", { ok: false, code: codeOf(err), via });
       await fail(err);
     }
   };
@@ -1191,8 +1347,215 @@ function findTransport(tf) {
   return null;
 }
 
+// src/spotify/covers.js
+var MAX_COVER_BYTES = 24 * 1024;
+var MAX_REMEMBERED = 200;
+var TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+function base64Of(bytes) {
+  let binary = "";
+  const CHUNK = 32768;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+function createCovers({ fetchFn }) {
+  const pending = /* @__PURE__ */ new Map();
+  const known = /* @__PURE__ */ new Map();
+  const remember = (url, value) => {
+    known.set(url, value);
+    while (known.size > MAX_REMEMBERED) known.delete(known.keys().next().value);
+  };
+  const download = async (url) => {
+    try {
+      const response = await fetchFn(url, { method: "GET" });
+      if (!response || !response.ok) return null;
+      const type = String(response.headers?.["content-type"] ?? "").split(";")[0].trim().toLowerCase();
+      if (!TYPES.includes(type)) return null;
+      const bytes = await response.bytes();
+      if (!(bytes instanceof Uint8Array) || bytes.length === 0) return null;
+      if (bytes.length > MAX_COVER_BYTES) return null;
+      return `data:${type};base64,${base64Of(bytes)}`;
+    } catch {
+      return null;
+    }
+  };
+  return {
+    /** The cover as a data URL, fetching it the first time; null when there is none. */
+    get(url) {
+      if (!fetchFn || !isCoverUrl(url)) return Promise.resolve(null);
+      if (known.has(url)) return Promise.resolve(known.get(url) ?? null);
+      if (!pending.has(url)) {
+        pending.set(
+          url,
+          download(url).then((value) => {
+            pending.delete(url);
+            remember(url, value);
+            return value;
+          })
+        );
+      }
+      return (
+        /** @type {Promise<string|null>} */
+        pending.get(url)
+      );
+    },
+    /** The cover if it is already known (undefined while not fetched yet). */
+    peek(url) {
+      if (!url || !known.has(url)) return void 0;
+      return known.get(url);
+    }
+  };
+}
+
+// src/tile/panel.js
+function createPanel(tf, deps) {
+  const { trail, client, picker, covers, library, onChange } = deps;
+  const afterPlay = deps.afterPlay ?? (() => {
+  });
+  const state = {
+    open: false,
+    /** @type {any[]} */
+    items: [],
+    total: 0,
+    /** @type {number|null} */
+    nextOffset: null,
+    /** Index of the first row on screen. */
+    first: 0,
+    loading: false,
+    /** @type {string|null} An error message key, shown instead of the rows. */
+    error: null,
+    /** @type {string|null} The playlist picked last, highlighted. */
+    picked: null
+  };
+  const fetchCovers = () => {
+    for (const p of state.items.slice(state.first, state.first + ROWS)) {
+      if (p.thumb && covers.peek(p.thumb) === void 0) {
+        void covers.get(p.thumb).then((cover) => {
+          if (cover && state.open) onChange();
+        });
+      }
+    }
+  };
+  const MAX_REQUESTS = 3;
+  const load = async (offset, want = offset) => {
+    state.loading = true;
+    state.error = null;
+    onChange();
+    try {
+      const spotify = await client();
+      if (!spotify) throw Object.assign(new Error("not signed in"), { code: "auth" });
+      let from = offset;
+      for (let i = 0; i < MAX_REQUESTS && from !== null; i++) {
+        const page = await spotify.playlists(from);
+        const known = new Set(from === 0 ? [] : state.items.map((p) => p.uri));
+        const fresh = page.items.filter((p) => !known.has(p.uri));
+        state.items = from === 0 ? fresh : [...state.items, ...fresh];
+        state.total = page.total;
+        state.nextOffset = page.nextOffset;
+        from = state.items.length < want + ROWS ? page.nextOffset : null;
+      }
+      trail.record("library.load", { ok: true, from: "panel" });
+    } catch (err) {
+      state.error = messageFor(err);
+      trail.record("library.load", { ok: false, code: codeOf(err), from: "panel" });
+    } finally {
+      state.loading = false;
+    }
+    fetchCovers();
+    onChange();
+  };
+  const turn = async (step) => {
+    if (state.loading) return;
+    const first = state.first + step * ROWS;
+    if (first < 0) return;
+    if (first + ROWS > state.items.length && state.nextOffset !== null) {
+      await load(state.nextOffset, first);
+    }
+    if (first >= state.items.length) return;
+    state.first = first;
+    fetchCovers();
+    onChange();
+  };
+  const pick = async (index) => {
+    const p = state.items[state.first + index];
+    if (!p || state.loading) return;
+    state.picked = p.uri;
+    onChange();
+    try {
+      await picker.play(p.uri, "panel");
+      afterPlay();
+    } catch (err) {
+      tf.toast(tf.t(messageFor(err)));
+    }
+  };
+  return {
+    /** Whether the panel is open. */
+    get open() {
+      return state.open;
+    },
+    /** Opens or closes the panel; opening loads the list afresh. */
+    async toggle() {
+      state.open = !state.open;
+      trail.record(state.open ? "panel.show" : "panel.hide", {});
+      if (!state.open) return onChange();
+      state.first = 0;
+      await load(0);
+    },
+    /**
+     * Acts on a click the picture decoded (see `panelHit`).
+     *
+     * @param {{ kind: string, index?: number } | null} hit
+     */
+    async click(hit) {
+      if (!hit || !state.open) return;
+      if (hit.kind === "row") return pick(hit.index ?? -1);
+      if (hit.kind === "prev") return turn(-1);
+      if (hit.kind === "next") return turn(1);
+      if (hit.kind === "all" && library.available()) return library.show();
+    },
+    /**
+     * What the panel shows now, in the user's language, or null when closed.
+     *
+     * @returns {null | { rows: object[], status: { text: string, error?: boolean } | null,
+     *   range: string, canPrev: boolean, canNext: boolean, allLabel: string|null, label: string }}
+     */
+    view() {
+      if (!state.open) return null;
+      const shown = state.items.slice(state.first, state.first + ROWS);
+      let status = null;
+      if (state.error) status = { text: tf.t(state.error), error: true };
+      else if (state.loading && shown.length === 0) status = { text: tf.t("library-loading") };
+      else if (shown.length === 0) status = { text: tf.t("library-empty") };
+      const range = shown.length ? tf.t("panel-range", {
+        from: state.first + 1,
+        to: state.first + shown.length,
+        total: Math.max(state.total, state.items.length)
+      }) : "";
+      return {
+        rows: shown.map((p) => ({
+          name: p.name,
+          meta: [
+            p.owner ? tf.t("library-by", { owner: p.owner }) : "",
+            p.tracks === null ? "" : `\u266A ${p.tracks}`
+          ].filter(Boolean).join(" \xB7 "),
+          cover: covers.peek(p.thumb) ?? null,
+          picked: p.uri === state.picked
+        })),
+        status,
+        range,
+        canPrev: state.first > 0,
+        canNext: state.first + ROWS < state.items.length || state.nextOffset !== null,
+        allLabel: library.available() ? tf.t("panel-show-all") : null,
+        label: [tf.t("library-title"), range].filter(Boolean).join(", ")
+      };
+    }
+  };
+}
+
 // src/tile/view.js
 var CARD_ID = "card";
+var PANEL_ID = "panel";
 var STATE_TEXT = {
   "no-network": ["state-no-network", "state-no-network-hint"],
   denied: ["state-denied", "state-denied-hint"],
@@ -1246,7 +1609,8 @@ function cardLabel(view, t) {
 }
 function sceneItems(input) {
   const { status, playback, settings, t } = input;
-  const rects = computeLayout(input.layout, settings);
+  const panel = input.panel ?? null;
+  const rects = computeLayout(input.layout, settings, { panel: panel !== null });
   const view = cardView(input);
   const card = rects[CARD_ID];
   const playing = status === "playing";
@@ -1264,18 +1628,37 @@ function sceneItems(input) {
   for (const b of BUTTONS) {
     const r = rects[buttonId(b.id)];
     const isVolume = b.id.startsWith("volume");
-    const dim = !canControl || isVolume && !(playback && playback.volume !== null);
+    const dim = b.id !== "playlists" && (!canControl || isVolume && !(playback && playback.volume !== null));
     const label = b.id === "play" && playing ? t("button-pause") : t(b.label);
     items.push({
       id: buttonId(b.id),
-      image: renderButton(iconFor(b.id, playing), { displaySize: r.w, dim }),
+      image: renderButton(iconFor(b.id, playing), {
+        displaySize: r.w,
+        dim,
+        on: b.id === "playlists" && panel !== null
+      }),
       ...r,
       hit: true,
       cursor: "pointer",
       label: label.slice(0, MAX_LABEL)
     });
   }
+  if (panel) {
+    const r = rects[PANEL_ID];
+    items.push({
+      id: PANEL_ID,
+      image: renderPanel(panel, { displayW: r.w, displayH: r.h }),
+      ...r,
+      hit: true,
+      cursor: "pointer",
+      label: String(panel.label ?? "").slice(0, MAX_LABEL)
+    });
+  }
   return items;
+}
+function removedIds(prev, next) {
+  const kept = new Set(next.map((i) => i.id));
+  return (prev ?? []).map((i) => i.id).filter((id) => !kept.has(id));
 }
 function diffItems(prev, next) {
   const before = new Map((prev ?? []).map((i) => [i.id, i]));
@@ -1336,16 +1719,22 @@ function runTuneboard(tf, deps = {}) {
   const store = createStore(tf);
   const settings = () => readSettings(tf.settings);
   const player = createPagePlayer(tf, { trail });
-  const library = createLibrary(tf, {
+  const client = async () => {
+    await ensureConnected();
+    if (!spotify) await connect();
+    return spotify;
+  };
+  const picker = createPicker({ trail, player, client });
+  const afterPlay = () => confirmSoon();
+  const library = createLibrary(tf, { trail, store, picker, client, afterPlay });
+  const panel = createPanel(tf, {
     trail,
-    store,
-    player,
-    client: async () => {
-      await ensureConnected();
-      if (!spotify) await connect();
-      return spotify;
-    },
-    afterPlay: () => confirmSoon()
+    client,
+    picker,
+    library,
+    afterPlay,
+    covers: createCovers({ fetchFn: findTransport(tf) }),
+    onChange: () => void draw()
   });
   let spotify = null;
   let visible = false;
@@ -1362,7 +1751,8 @@ function runTuneboard(tf, deps = {}) {
       progressMs: session.progressMs(),
       settings: settings(),
       layout,
-      t: (key, args) => tf.t(key, args)
+      t: (key, args) => tf.t(key, args),
+      panel: panel.view()
     });
     if (!shown) {
       const ok = await tf.overlay.show({ items });
@@ -1370,8 +1760,11 @@ function runTuneboard(tf, deps = {}) {
       return;
     }
     const changes = diffItems(shown, items);
+    const remove = removedIds(shown, items);
     shown = items;
-    if (changes.length) await tf.overlay.update({ items: changes });
+    if (changes.length || remove.length) {
+      await tf.overlay.update({ items: changes, ...remove.length ? { remove } : {} });
+    }
   };
   const draw = () => {
     dirty = true;
@@ -1536,6 +1929,10 @@ function runTuneboard(tf, deps = {}) {
       return visible ? draw() : void 0;
     }
     if (action === "playHere") return playHere();
+    if (action === "panel") {
+      if (!visible) await show();
+      return panel.toggle();
+    }
     if (action === "library") {
       return library.available() ? library.show() : tell("player-unavailable");
     }
@@ -1577,6 +1974,10 @@ function runTuneboard(tf, deps = {}) {
     "overlay.pointer",
     background(async (e) => {
       if (!e || e.type !== "click" || !visible) return;
+      if (e.item === PANEL_ID) {
+        const rect = computeLayout(layout, settings(), { panel: true })[PANEL_ID];
+        return panel.click(panelHit(rect, Number(e.x), Number(e.y)));
+      }
       const action = actionForClick(String(e.item));
       if (action) await run(action);
     })

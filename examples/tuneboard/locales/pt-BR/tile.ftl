@@ -68,3 +68,7 @@ library-error-network = Não foi possível acessar o Spotify. Tente de novo em i
 library-error-other = Algo deu errado. Tente de novo.
 library-view-grid = Miniaturas
 library-view-list = Lista
+cmd-playlists = Tuneboard: Mostrar ou ocultar playlists no cartão
+button-playlists = Playlists
+panel-range = { $from }–{ $to } de { $total }
+panel-show-all = Ver todas

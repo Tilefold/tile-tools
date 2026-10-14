@@ -68,3 +68,7 @@ library-error-network = 无法连接 Spotify。请稍后再试。
 library-error-other = 出了点问题。请再试一次。
 library-view-grid = 缩略图
 library-view-list = 列表
+cmd-playlists = Tuneboard：在卡片上显示或隐藏歌单
+button-playlists = 歌单
+panel-range = 第 { $from }–{ $to } 个，共 { $total } 个
+panel-show-all = 全部显示

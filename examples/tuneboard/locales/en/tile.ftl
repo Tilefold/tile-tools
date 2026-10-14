@@ -68,3 +68,7 @@ library-error-network = Can't reach Spotify. Try again in a moment.
 library-error-other = Something went wrong. Try again.
 library-view-grid = Thumbnails
 library-view-list = List
+cmd-playlists = Tuneboard: Show or hide playlists on the card
+button-playlists = Playlists
+panel-range = { $from }–{ $to } of { $total }
+panel-show-all = Show all

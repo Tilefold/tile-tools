@@ -95,7 +95,7 @@ describe("scene layout", () => {
   it("lines the outer buttons up with the card's edges", () => {
     const r = computeLayout(ONE_PANE, {});
     expect(r["btn-previous"].x).toBe(r.card.x);
-    expect(r["btn-volume-up"].x + r["btn-volume-up"].w).toBe(r.card.x + r.card.w);
+    expect(r["btn-playlists"].x + r["btn-playlists"].w).toBe(r.card.x + r.card.w);
   });
 
   it("stays inside a pane too small for it", () => {
@@ -183,6 +183,7 @@ describe("commands", () => {
       "play-here",
       "stop-here",
       "library",
+      "playlists",
     ]);
   });
 

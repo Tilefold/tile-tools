@@ -106,6 +106,7 @@ describe("playlist model", () => {
       owner: "Ana",
       tracks: 7,
       cover: "https://mosaic.scdn.co/300/7",
+      thumb: "https://mosaic.scdn.co/60/7",
     });
     const long = playlistModel(raw(1, { name: "x".repeat(MAX_TEXT + 50), owner: { id: "bob" } }));
     expect(long.name).toHaveLength(MAX_TEXT);

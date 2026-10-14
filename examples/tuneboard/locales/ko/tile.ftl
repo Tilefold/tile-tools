@@ -68,3 +68,7 @@ library-error-network = Spotify에 연결할 수 없습니다. 잠시 후 다시
 library-error-other = 문제가 발생했습니다. 다시 시도하세요.
 library-view-grid = 썸네일
 library-view-list = 목록
+cmd-playlists = Tuneboard: 카드에 플레이리스트 표시/숨기기
+button-playlists = 플레이리스트
+panel-range = { $total }개 중 { $from }–{ $to }
+panel-show-all = 모두 보기

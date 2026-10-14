@@ -127,7 +127,7 @@ describe("the Library", () => {
     });
     const played = host.audits.find((a) => a.action === "library.play");
     // Where it played, never what.
-    expect(played.details).toEqual({ ok: true, via: "device" });
+    expect(played.details).toEqual({ ok: true, via: "device", from: "window" });
   });
 
   it("starts the player inside Tilefold when nothing plays anywhere", async () => {
@@ -146,6 +146,7 @@ describe("the Library", () => {
     expect(host.audits.find((a) => a.action === "library.play").details).toEqual({
       ok: true,
       via: "tilefold",
+      from: "window",
     });
   });
 

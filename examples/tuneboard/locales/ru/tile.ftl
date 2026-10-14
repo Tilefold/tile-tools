@@ -68,3 +68,7 @@ library-error-network = Не удаётся связаться со Spotify. П�
 library-error-other = Что-то пошло не так. Попробуйте ещё раз.
 library-view-grid = Миниатюры
 library-view-list = Список
+cmd-playlists = Tuneboard: Показать или скрыть плейлисты на карточке
+button-playlists = Плейлисты
+panel-range = { $from }–{ $to } из { $total }
+panel-show-all = Показать все
