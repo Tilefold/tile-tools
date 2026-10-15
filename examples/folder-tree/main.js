@@ -540,21 +540,29 @@ function joinChunks(names, expected) {
 
 // src/scan.js
 var SEARCH_UP = 6;
+var BELOW_MAX = 8;
+var PROBE_MAX = 12;
+var PROBE_MS = 3e4;
+var MISSING_MS = 3e4;
+var NOT_PROJECTS = /* @__PURE__ */ new Set(["node_modules", "target", "dist", "build", "vendor", "Pods"]);
 var CHUNK_CACHE = 1e3;
 var QUIET = /* @__PURE__ */ new Set(["NotFoundError", "PathNotAllowedError", "NotADirectoryError"]);
 function createScanner(tf) {
   const chunks = /* @__PURE__ */ new Map();
-  let denied = { root: null, dirs: /* @__PURE__ */ new Set() };
+  let known = fresh(null);
   const markersIn = async (projectRoot, now) => {
     const dir = join(projectRoot, MARKER_DIR);
     let listing;
     try {
       listing = await tf.fs.list(dir);
     } catch (err) {
-      if (err?.name === "PathNotAllowedError") denied.dirs.add(projectRoot);
+      if (err?.name === "PathNotAllowedError") known.denied.add(projectRoot);
+      else if (QUIET.has(err?.name)) known.missing.set(projectRoot, now + MISSING_MS);
       if (!QUIET.has(err?.name)) void tf.log.warn(`Folder Tree: ${err?.name}: ${err?.message}`);
+      known.below.delete(projectRoot);
       return [];
     }
+    known.missing.delete(projectRoot);
     const out = [];
     for (const entry of listing.entries) {
       const marker = decodeMarker(entry.name, now);
@@ -584,20 +592,55 @@ function createScanner(tf) {
     chunks.set(key, path);
     return path;
   };
+  const askable = (dir, now) => !known.denied.has(dir) && !(known.missing.get(dir) > now);
   return {
-    /** Every marker for the tree at `root` (its folder and those above). */
-    async scan(root, now = Date.now()) {
+    /**
+     * Every marker for the tree at `root`: its folder, those above, and
+     * those below it with markers. `folders` is the tree's listings
+     * (path → { entries }), for finding folders below.
+     */
+    async scan(root, now = Date.now(), folders = {}) {
       if (!root) return [];
-      if (denied.root !== root) denied = { root, dirs: /* @__PURE__ */ new Set() };
+      if (known.root !== root) known = fresh(root);
       const found = [];
-      for (const dir of [root, ...ancestors(root, SEARCH_UP)]) {
-        if (denied.dirs.has(dir)) continue;
+      found.push(...await markersIn(root, now));
+      for (const dir of ancestors(root, SEARCH_UP)) {
+        if (askable(dir, now)) found.push(...await markersIn(dir, now));
+      }
+      for (const [path, level] of Object.entries(folders)) {
+        if (path === root || !Array.isArray(level?.entries)) continue;
+        if (level.entries.some((e) => e.name === MARKER_DIR && e.kind === "dir")) {
+          known.below.add(path);
+        }
+      }
+      if (now - known.probed >= PROBE_MS && Array.isArray(folders[root]?.entries)) {
+        known.probed = now;
+        const subfolders = folders[root].entries.filter((e) => e.kind === "dir" && !e.name.startsWith(".") && !NOT_PROJECTS.has(e.name)).slice(0, PROBE_MAX).map((e) => join(root, e.name));
+        for (const dir of subfolders) {
+          if (known.below.has(dir) || !askable(dir, now)) continue;
+          const markers = await markersIn(dir, now);
+          if (!known.missing.has(dir) && !known.denied.has(dir)) known.below.add(dir);
+          found.push(...markers);
+        }
+      }
+      let read = 0;
+      for (const dir of known.below) {
+        if (read >= BELOW_MAX) break;
+        if (found.some((f) => f.root === dir) || !askable(dir, now)) continue;
+        read += 1;
         found.push(...await markersIn(dir, now));
       }
       return found;
     }
   };
 }
+var fresh = (root) => ({
+  root,
+  denied: /* @__PURE__ */ new Set(),
+  missing: /* @__PURE__ */ new Map(),
+  below: /* @__PURE__ */ new Set(),
+  probed: -Infinity
+});
 
 // src/session.js
 var POLL_MS = 2e3;
@@ -656,7 +699,7 @@ function createFolderTree(tf) {
   const poll = async () => {
     if (!shown && !pageOpen || !tree.root) return;
     if (options().showActivity) {
-      events = toEvents(await scanner.scan(tree.root));
+      events = toEvents(await scanner.scan(tree.root, Date.now(), tree.folders));
       const print = `${events.length}:${events[0]?.key ?? ""}`;
       if (print !== seen) {
         seen = print;
@@ -689,8 +732,17 @@ function createFolderTree(tf) {
     tree = emptyTree(root);
     events = root && options().showActivity ? toEvents(await scanner.scan(root)) : [];
     seen = `${events.length}:${events[0]?.key ?? ""}`;
-    if (root) await load(root);
-    else await draw();
+    if (!root) return draw();
+    await load(root);
+    if (options().showActivity) {
+      events = toEvents(await scanner.scan(root, Date.now(), tree.folders));
+      const print = `${events.length}:${events[0]?.key ?? ""}`;
+      if (print !== seen) {
+        seen = print;
+        await draw();
+      }
+    }
+    return void 0;
   };
   const toggle = async (path, open) => {
     if (!open) {

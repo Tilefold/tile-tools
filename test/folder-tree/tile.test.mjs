@@ -88,6 +88,20 @@ describe("Folder Tree with agent activity", () => {
     expect(ids(host).some((id) => id.includes(".foldertree"))).toBe(false);
   });
 
+  it("finds an agent working in a project inside the tree's folder", async () => {
+    // The pane is on a workspace holding the project; the agent's markers are the project's.
+    const host = await start({
+      folders: { cwd: "/work", roots: ["/work"], files: files() },
+    });
+    await host.command("toggle");
+    expect(ids(host)).toContain("now:/work/app/src/main.js");
+    expect(host.panel.content.subtitle).toBe("api is editing app/src/main.js");
+    // A new marker there shows at the next read.
+    host.files.push(marker("README.md", "e", 0, "docs"));
+    await host.advance(POLL_MS);
+    expect(host.panel.content.subtitle).toBe("docs is editing app/README.md (+1 more)");
+  });
+
   it("picks up a new marker at the next read, and opens recent files", async () => {
     const host = await start();
     await host.command("toggle");

@@ -112,7 +112,7 @@ export function createFolderTree(tf) {
   const poll = async () => {
     if ((!shown && !pageOpen) || !tree.root) return;
     if (options().showActivity) {
-      events = toEvents(await scanner.scan(tree.root));
+      events = toEvents(await scanner.scan(tree.root, Date.now(), tree.folders));
       const print = `${events.length}:${events[0]?.key ?? ""}`;
       if (print !== seen) {
         seen = print;
@@ -151,8 +151,18 @@ export function createFolderTree(tf) {
     tree = emptyTree(root);
     events = root && options().showActivity ? toEvents(await scanner.scan(root)) : [];
     seen = `${events.length}:${events[0]?.key ?? ""}`;
-    if (root) await load(root);
-    else await draw();
+    if (!root) return draw();
+    await load(root);
+    // With the folder listed, the projects inside it can be searched too.
+    if (options().showActivity) {
+      events = toEvents(await scanner.scan(root, Date.now(), tree.folders));
+      const print = `${events.length}:${events[0]?.key ?? ""}`;
+      if (print !== seen) {
+        seen = print;
+        await draw();
+      }
+    }
+    return undefined;
   };
 
   /** Opens or closes a folder, listing it the first time. */
