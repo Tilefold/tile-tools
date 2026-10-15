@@ -23,6 +23,8 @@
  * - a docked panel Tilefold draws from rows, with sections, colours,
  *   pulses and a pinned footer (`tf.panel`, `window.panel`);
  * - `tf.pane.cwd()` and the `pane.cwd` event (`pane.cwd`);
+ * - `tf.pane.list()` and the `pane.list` event (`pane.list`, Tilefold
+ *   0.1.11): every pane's folder and the name the user gave it;
  * - `tf.fs.list` for one level of names, never file contents (`fs.list`);
  * - `tf.viewer.open` to show a file (`viewer.open`);
  * - a page in a window of its own (`tf.page`, `page`).
@@ -59,6 +61,7 @@ export default (tf) => {
     id: "refresh",
   });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
+  tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
   tf.on("page.message", (e) => tree?.message(e));

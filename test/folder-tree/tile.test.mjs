@@ -102,6 +102,39 @@ describe("Folder Tree with agent activity", () => {
     expect(host.panel.content.subtitle).toBe("docs is editing app/README.md (+1 more)");
   });
 
+  it("shows agents in every pane, by the names the user gave the panes", async () => {
+    const hud = `/game/.foldertree/${
+      markerName({
+        ts: NOW - 1000,
+        nonce: "g001",
+        action: "e",
+        pane: "Claude Code",
+        session: "sess-game",
+        rel: "src/hud.js",
+      }).name
+    }`;
+    const panes = [
+      { session: "sess-app", name: null, folder: "/work/app", focused: true },
+      { session: "sess-game", name: "Winnie", folder: "/game", focused: false },
+    ];
+    const host = await start({
+      folders: {
+        cwd: "/work/app",
+        roots: ["/work/app", "/game"],
+        files: [...files(), "/game/src/hud.js", hud],
+        panes,
+      },
+    });
+    await host.command("toggle");
+    await host.advance(POLL_MS);
+    // The agent in the other pane, called by the pane's name, its path after the folder's.
+    expect(ids(host)).toContain("now:/game/src/hud.js");
+    expect(host.panel.content.subtitle).toBe("Winnie is editing game/src/hud.js (+1 more)");
+    // Renamed: the next list says so.
+    await host.emit("pane.list", { panes: [panes[0], { ...panes[1], name: "Pooh" }] });
+    expect(host.panel.content.subtitle).toBe("Pooh is editing game/src/hud.js (+1 more)");
+  });
+
   it("picks up a new marker at the next read, and opens recent files", async () => {
     const host = await start();
     await host.command("toggle");

@@ -25,7 +25,7 @@ export const PAGE_NOW = 8;
 
 /** An event as the page shows it: file name, its folder, and who did what when. */
 function pageEvent(e, root, prefix) {
-  const path = shownPath(e.abs, root);
+  const path = e.shown ?? shownPath(e.abs, root);
   const dir = path.includes("/") ? `${parent(path)}/` : "";
   return {
     id: `${prefix}${e.abs}`,

@@ -1,14 +1,15 @@
 # Folders
 
-From **Tilefold 0.1.9**, a tile can follow the folder the user is working in, list what is in it, and open files in Tilefold's document viewer. Three permissions cover this, and the user sees each one, with your reason, before the tile runs:
+From **Tilefold 0.1.9**, a tile can follow the folder the user is working in, list what is in it, and open files in Tilefold's document viewer. From **0.1.11** it can also see all the user's panes. Each permission is shown to the user, with your reason, before the tile runs:
 
 | Permission | Lets the tile | Call |
 |---|---|---|
 | `pane.cwd` | Know the folder the focused pane is in, and hear when it changes | `tf.pane.cwd()`, the `pane.cwd` event |
+| `pane.list` | See every pane: the name the user gave it, its folder, its session and which is focused (Tilefold 0.1.11) | `tf.pane.list()`, the `pane.list` event |
 | `fs.list` | See the names and kinds in a folder, one level at a time. Never what's in a file | `tf.fs.list(path)` |
 | `viewer.open` | Show a file in the document viewer. The tile never receives the file's contents | `tf.viewer.open(path)` |
 
-The **Folder Tree** example (`examples/folder-tree`) uses all three, and shows the tree in a [docked panel](panels.md).
+The **Folder Tree** example (`examples/folder-tree`) uses all of them, and shows the tree in a [docked panel](panels.md).
 
 ## 1. Ask for the permissions
 
@@ -32,6 +33,20 @@ tf.on("pane.cwd", (e) => {
 ```
 
 The folder comes from the shell's integration with Tilefold. For a pane without it, it is the folder the pane was opened in.
+
+## Every pane (Tilefold 0.1.11)
+
+```js
+// [{ session: "01a1…", name: "Winnie", folder: "/Users/ada/game", focused: true }, …]
+let panes = (await tf.pane.list?.()) ?? [];
+tf.on("pane.list", (e) => {
+  panes = e.panes; // a pane opened, closed, renamed, moved folder or took focus
+});
+```
+
+- `name` is the name the user gave the pane, or `null`. Show it where you name a pane: it is how the user knows it.
+- `session` is what programs in that pane see as `TILEFOLD_SESSION_ID` (null while no shell runs), so a tile can tell which pane a report from a program came from.
+- `tf.pane.list` is missing before Tilefold 0.1.11; check for it, as above.
 
 ## 3. List a folder
 

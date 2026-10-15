@@ -11,6 +11,9 @@
       "pane.cwd": "to show the folder the pane you're working in is in, and follow you when you switch panes or cd"
     },
     {
+      "pane.list": "to show what your agents are doing in every pane, not only the one you're in, by the names you gave your panes"
+    },
+    {
       "fs.list": "to show the names of the files and folders in it, and to read the names of the markers your agents' hooks leave in .foldertree folders (never what's in a file)"
     },
     {

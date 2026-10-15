@@ -13,7 +13,9 @@
  *
  * time in base 36 (9 characters), a 4-character nonce, the action letter
  * (r, e, a, d), and the pane's name and the file's project-relative path
- * in base64url. A path too long for one name becomes `~NN`: the marker is
+ * in base64url. Inside Tilefold the pane part also carries the pane's
+ * session, as `<name> ~<TILEFOLD_SESSION_ID>`, so the tile can call the
+ * pane by the name the user gave it. A path too long for one name becomes `~NN`: the marker is
  * then a folder of NN files `00.<part>`… holding it, written under a
  * temporary name first so the tile never sees half of it.
  *
@@ -53,6 +55,10 @@ const CHUNK = 200;
 const MAX_CHUNKS = 23;
 /** Longest pane name, in characters. */
 const PANE_CHARS = 32;
+/** Longest pane part, in bytes (88 base64url characters, as the tile reads). */
+const PANE_BYTES = 66;
+/** What a session id looks like (Tilefold's are UUIDs). */
+const SESSION_RE = /^[A-Za-z0-9_-]{4,40}$/;
 /** Action letters. */
 export const ACTIONS = new Set(["r", "e", "a", "d"]);
 
@@ -66,6 +72,20 @@ export function cleanPane(name) {
     .replace(/\s+/g, " ")
     .trim();
   return [...flat].slice(0, PANE_CHARS).join("").trim() || "agent";
+}
+
+/**
+ * The pane part of a marker's name: the pane's name, and ` ~<session>`
+ * when the session looks like one, the name shortened so the whole fits
+ * in PANE_BYTES.
+ */
+export function paneField(pane, session) {
+  const suffix = SESSION_RE.test(String(session ?? "")) ? ` ~${session}` : "";
+  let name = [...cleanPane(pane)];
+  while (name.length > 1 && Buffer.byteLength(`${name.join("")}${suffix}`) > PANE_BYTES) {
+    name = name.slice(0, -1);
+  }
+  return `${name.join("").trim() || "agent"}${suffix}`;
 }
 
 /**
@@ -99,8 +119,8 @@ export function relPath(root, file) {
  * name: { name, chunks } (chunks: [] for a plain marker). Null when the
  * path is too long even for parts.
  */
-export function markerName({ ts, nonce, action, pane, rel }) {
-  const head = `ft1.${ts.toString(36).padStart(9, "0")}.${nonce}.${action}.${b64url(cleanPane(pane)).slice(0, 88)}`;
+export function markerName({ ts, nonce, action, pane, session = null, rel }) {
+  const head = `ft1.${ts.toString(36).padStart(9, "0")}.${nonce}.${action}.${b64url(paneField(pane, session))}`;
   const code = b64url(rel);
   if (code.length <= INLINE_MAX) return { name: `${head}.${code}`, chunks: [] };
   const parts = [];
@@ -130,12 +150,15 @@ function markerDir(root) {
  * Returns the marker's name, or null when the file is outside the
  * project or the action unknown.
  */
-export function writeMarker(root, { action, pane, file, now = Date.now(), id = nonce() }) {
+export function writeMarker(
+  root,
+  { action, pane, session = null, file, now = Date.now(), id = nonce() },
+) {
   if (!ACTIONS.has(action)) return null;
   const rel = relPath(root, file);
   // Markers themselves (anywhere in the path, when a search lists them) are no activity.
   if (rel === null || rel.split("/").some((part) => MARKER_FOLDERS.has(part))) return null;
-  const marker = markerName({ ts: now, nonce: id, action, pane, rel });
+  const marker = markerName({ ts: now, nonce: id, action, pane, session, rel });
   if (!marker) return null;
   const dir = markerDir(root);
   if (!marker.chunks.length) {
@@ -156,12 +179,12 @@ export function writeMarker(root, { action, pane, file, now = Date.now(), id = n
  * the file, shows it once). Folders that can't be written to are skipped.
  * Returns the markers written, one per folder.
  */
-export function writeMarkers(roots, { action, pane, file, now = Date.now() }) {
+export function writeMarkers(roots, { action, pane, session = null, file, now = Date.now() }) {
   const id = nonce();
   const written = [];
   for (const root of new Set(roots.map((r) => resolve(r)))) {
     try {
-      const name = writeMarker(root, { action, pane, file, now, id });
+      const name = writeMarker(root, { action, pane, session, file, now, id });
       if (name) written.push(name);
     } catch {
       // A folder that can't be written to: the others still get the marker.

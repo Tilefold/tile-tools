@@ -21,13 +21,15 @@
  * the user has set up, for `tf.auth.has`; `ai` answers `tf.ai.ask` (every
  * question is recorded; without it, asking fails with `AiNotSetUpError`).
  *
- * For tiles that use folders: `folders: { cwd, roots, files, links }` adds
- * `tf.pane`, `tf.fs` and `tf.viewer` with Tilefold's rules (only paths
+ * For tiles that use folders: `folders: { cwd, roots, files, links, panes }`
+ * adds `tf.pane`, `tf.fs` and `tf.viewer` with Tilefold's rules (only paths
  * inside a `roots` folder; `files` are absolute file paths and their
  * folders exist implicitly; `links` maps a link's path to its target,
  * listed as kind "link" and followed when listed or opened; opened files
  * are kept in `host.opened`;
- * `host.cwd` is the focused pane's folder). `page: true` adds `tf.page`
+ * `host.cwd` is the focused pane's folder; `panes`, when given, is what
+ * `tf.pane.list()` answers (Tilefold 0.1.11: [{ session, name, folder,
+ * focused }]), kept in `host.panes`). `page: true` adds `tf.page`
  * (opens, closes and posted messages are kept in `host.page`). `panel: true`
  * adds `tf.panel` (`host.panel.content` is what is docked, or null; rows
  * and the footer's rows are checked the way Tilefold 0.1.11 checks them:
@@ -258,8 +260,9 @@ const parentOf = (path) => {
 };
 
 /** `tf.pane`, `tf.fs` and `tf.viewer` over a list of files, with Tilefold's rules. */
-function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {} }, named) {
+function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, panes }, named) {
   host.cwd = cwd;
+  host.panes = panes ? structuredClone(panes) : null;
   host.roots = roots;
   // Copies, so a test that changes the files never changes the next test's.
   host.files = [...files];
@@ -290,6 +293,8 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {} }
     return path;
   };
   tf.pane = { cwd: async () => host.cwd };
+  // tf.pane.list() exists only where Tilefold has it (0.1.11), as a tile sees it.
+  if (host.panes) tf.pane.list = async () => structuredClone(host.panes);
   tf.fs = {
     async list(raw) {
       const path = check(raw);

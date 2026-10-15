@@ -23,7 +23,9 @@
  * and the folders above it that a pane is in, so an agent started above
  * the project (a workspace of several repositories) or below its top
  * would otherwise go unseen. The pane's name is FOLDERTREE_PANE
- * when set, otherwise the agent's ("Claude Code", "Codex").
+ * when set, otherwise the agent's ("Claude Code", "Codex"); inside Tilefold
+ * the marker also carries TILEFOLD_SESSION_ID, and the tile shows the name
+ * the user gave that pane instead.
  *
  * It never stands in the agent's way: it prints nothing (an agent may
  * read a hook's output as context), always exits 0, and gives up on input
@@ -129,6 +131,8 @@ export function record(hook, agent, env = process.env, { stamps } = {}) {
     actions = shellActions(hook, actions, { cwd, since, home: env.HOME ?? "" });
   }
   const pane = env.FOLDERTREE_PANE || AGENTS[agent] || agent || "agent";
+  // Inside Tilefold: the pane's session, so the tile can use the pane's own name.
+  const session = env.TILEFOLD_SESSION_ID || null;
   const written = [];
   const agentDir = resolve(cwd);
   for (const { action, file } of actions) {
@@ -137,7 +141,7 @@ export function record(hook, agent, env = process.env, { stamps } = {}) {
     const roots = [projectRoot(resolve(abs, ".."))];
     if (relPath(agentDir, abs) !== null) roots.push(agentDir);
     try {
-      written.push(...writeMarkers(roots, { action, pane, file: abs }));
+      written.push(...writeMarkers(roots, { action, pane, session, file: abs }));
     } catch {
       // Never fail the agent.
     }

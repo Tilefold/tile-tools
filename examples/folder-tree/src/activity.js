@@ -11,7 +11,7 @@
  * active files (hot), and the recent files, newest first, each once.
  * Times are passed in, so it is tested directly.
  */
-import { ancestors, isInside, join } from "./paths.js";
+import { ancestors, isInside, join, placedPath } from "./paths.js";
 
 /** Each action's theme tone in the panel. */
 export const TONES = Object.freeze({ r: "info", e: "warning", a: "success", d: "error" });
@@ -32,11 +32,36 @@ export function toEvents(found) {
     const key = `${marker.ts}.${marker.nonce}.${abs}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    events.push({ ts: marker.ts, action: marker.action, pane: marker.pane, abs, key });
+    events.push({
+      ts: marker.ts,
+      action: marker.action,
+      pane: marker.pane,
+      session: marker.session ?? null,
+      abs,
+      key,
+    });
   }
   events.sort((a, b) => b.ts - a.ts || (a.key < b.key ? 1 : -1));
   return events.slice(0, MAX_EVENTS);
 }
+
+/**
+ * `events` with each pane called by the name the user gave it in Tilefold,
+ * found from the event's session in `panes` (tf.pane.list()); events from
+ * a pane without a name, or one no longer open, keep the agent's name.
+ */
+export function namedByPane(events, panes = []) {
+  const names = new Map();
+  for (const p of panes) if (p?.session && p.name) names.set(p.session, p.name);
+  if (!names.size) return events;
+  return events.map((e) =>
+    e.session && names.has(e.session) ? { ...e, pane: names.get(e.session) } : e,
+  );
+}
+
+/** `events` with the path each is shown by (`shown`; see placedPath). */
+export const withShownPaths = (events, root, places = []) =>
+  events.map((e) => ({ ...e, shown: placedPath(e.abs, root, places) }));
 
 /** The latest event per file, newest first. */
 export function latestPerFile(events) {

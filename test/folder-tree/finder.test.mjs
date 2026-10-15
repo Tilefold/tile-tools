@@ -9,17 +9,18 @@
  * subfolders (looked into now and then, never hidden or dependency
  * folders, at most PROBE_MAX) and in any listed folder holding a
  * .foldertree. It keeps within Tilefold's listing budget: folders without
- * markers wait MISSING_MS before being asked again, and at most BELOW_MAX
- * folders below are read each time. Moving the tree forgets it all.
+ * markers wait MISSING_MS before being asked again, and a scan lists at
+ * most SCAN_BUDGET folders. It watches every pane's folder it is given,
+ * and stops reading folders left behind when the tree and panes move.
  */
 import { describe, expect, it } from "vitest";
 import { markerName } from "../../examples/folder-tree/hooks/marker.mjs";
 import {
-  BELOW_MAX,
   createScanner,
   MISSING_MS,
   PROBE_MAX,
   PROBE_MS,
+  SCAN_BUDGET,
 } from "../../examples/folder-tree/src/scan.js";
 
 const NOW = Date.UTC(2026, 9, 15, 12);
@@ -37,8 +38,14 @@ function fakeTf(dirs) {
     fs: {
       async list(path) {
         calls.push(path);
-        if (!(path in dirs)) throw Object.assign(new Error("no"), { name: "NotFoundError" });
-        return { path, entries: dirs[path].map((n) => ({ name: n, kind: "file" })) };
+        if (path in dirs)
+          return { path, entries: dirs[path].map((n) => ({ name: n, kind: "file" })) };
+        // A folder holding a known one exists too, listing what is below it.
+        const below = Object.keys(dirs)
+          .filter((d) => d.startsWith(`${path}/`))
+          .map((d) => d.slice(path.length + 1).split("/")[0]);
+        if (!below.length) throw Object.assign(new Error("no"), { name: "NotFoundError" });
+        return { path, entries: [...new Set(below)].map((n) => ({ name: n, kind: "dir" })) };
       },
     },
   };
@@ -87,21 +94,40 @@ describe("markers below the tree's folder", () => {
     expect(found.map((f) => f.root)).toEqual(["/w/a/b"]);
   });
 
-  it("are looked for in at most PROBE_MAX subfolders, and read from at most BELOW_MAX", async () => {
+  it("are looked for in at most PROBE_MAX subfolders, never more than SCAN_BUDGET listings a scan", async () => {
     const many = Array.from({ length: PROBE_MAX + 5 }, (_, i) => `p${i}`);
     const dirs = Object.fromEntries(many.map((p, i) => [`/w/${p}/.foldertree`, [name("a.js", i)]]));
     const { tf, calls } = fakeTf(dirs);
     const scanner = createScanner(tf);
     const folders = listed("/w", many);
-    const first = await scanner.scan("/w", NOW, folders);
-    expect(new Set(first.map((f) => f.root)).size).toBe(PROBE_MAX);
-    calls.length = 0;
-    await scanner.scan("/w", NOW + 2000, folders);
-    const below = calls.filter((c) => /^\/w\/p\d+\//.test(c));
-    expect(below).toHaveLength(BELOW_MAX);
+    const roots = new Set();
+    for (let i = 0; i < 6; i++) {
+      calls.length = 0;
+      const found = await scanner.scan("/w", NOW + i * 2000, folders);
+      for (const f of found) roots.add(f.root);
+      expect(calls.length).toBeLessThanOrEqual(SCAN_BUDGET);
+    }
+    // Every subfolder looked into was found, and none past PROBE_MAX.
+    expect(roots.size).toBe(PROBE_MAX);
   });
 
-  it("are forgotten when the tree moves", async () => {
+  it("are found around every pane's folder, not only the tree's", async () => {
+    const { tf } = fakeTf({
+      "/game/.foldertree": [name("hud.js")],
+      "/work/app/.foldertree": [name("main.js")],
+    });
+    const scanner = createScanner(tf);
+    const roots = new Set();
+    for (let i = 0; i < 3; i++) {
+      const found = await scanner.scan("/work", NOW + i * 2000, listed("/work", ["app"]), [
+        "/game",
+      ]);
+      for (const f of found) roots.add(f.root);
+    }
+    expect([...roots].sort()).toEqual(["/game", "/work/app"]);
+  });
+
+  it("are no longer read once the tree and panes have moved away", async () => {
     const { tf, calls } = fakeTf({ "/w/app/.foldertree": [name("a.js")] });
     const scanner = createScanner(tf);
     await scanner.scan("/w", NOW, listed("/w", ["app"]));

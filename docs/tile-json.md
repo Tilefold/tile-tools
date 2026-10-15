@@ -58,6 +58,7 @@ Each entry is either a plain string, `"window.curtain"`, or a one-key object wit
 | `page` | Show a web page of its own from `page/`, in a window or hidden (`tf.page`; Tilefold 0.1.7) | medium |
 | `script:<host>` | Let that page run scripts from that host (Tilefold 0.1.7) | shown per host |
 | `pane.cwd` | Know the folder the focused pane is in (`tf.pane.cwd`, the `pane.cwd` event; Tilefold 0.1.9) | medium |
+| `pane.list` | See every pane: its name, folder and session (`tf.pane.list`, the `pane.list` event; Tilefold 0.1.11) | medium |
 | `fs.list` | See the names in folders inside the panes' folders, never file contents (`tf.fs.list`; Tilefold 0.1.9) | medium |
 | `viewer.open` | Open a file from the panes' folders in the document viewer (`tf.viewer.open`; Tilefold 0.1.9) | low |
 | `window.panel` | Show a panel docked beside the panes, drawn by Tilefold from rows (`tf.panel`; Tilefold 0.1.9) | low |

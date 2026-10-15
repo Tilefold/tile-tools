@@ -78,9 +78,18 @@ export function cleanRelPath(path) {
   return parts.length ? parts.join("/") : null;
 }
 
+/** A pane part's name and session: `<name> ~<session>`, or just a name. */
+const SESSION_PART = /^(.*) ~([A-Za-z0-9_-]{4,40})$/;
+
+/** Splits a pane part into { pane, session } (session null when there is none). */
+export function splitPane(text) {
+  const m = SESSION_PART.exec(String(text ?? ""));
+  return m ? { pane: cleanPane(m[1]), session: m[2] } : { pane: cleanPane(text), session: null };
+}
+
 /**
  * A marker's name read, or null when it isn't one (or is from the future):
- * { ts, nonce, action, pane, path, chunks }. `path` is null and `chunks`
+ * { ts, nonce, action, pane, session, path, chunks }. `path` is null and `chunks`
  * the count when the path is in a folder of parts (see joinChunks).
  */
 export function decodeMarker(name, now = Date.now()) {
@@ -92,15 +101,16 @@ export function decodeMarker(name, now = Date.now()) {
   // An action letter from a newer hook reads as an edit.
   const action = letter in ACTIONS ? letter : "e";
   let pane;
+  let session;
   try {
-    pane = cleanPane(fromB64url(paneCode));
+    ({ pane, session } = splitPane(fromB64url(paneCode)));
   } catch {
     return null;
   }
   if (target.startsWith("~")) {
     const chunks = Number(target.slice(1));
     if (chunks < 1 || chunks > MAX_CHUNKS) return null;
-    return { ts, nonce, action, pane, path: null, chunks };
+    return { ts, nonce, action, pane, session, path: null, chunks };
   }
   let path;
   try {
@@ -108,7 +118,7 @@ export function decodeMarker(name, now = Date.now()) {
   } catch {
     return null;
   }
-  return path === null ? null : { ts, nonce, action, pane, path, chunks: 0 };
+  return path === null ? null : { ts, nonce, action, pane, session, path, chunks: 0 };
 }
 
 /** The path from a marker folder's part names, or null when parts are missing. */

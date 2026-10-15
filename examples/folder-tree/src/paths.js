@@ -69,6 +69,21 @@ export function shownPath(path, root) {
   return rel === null || rel === "" ? normalize(path) : rel;
 }
 
+/**
+ * A path as shown beside activity: relative to the tree's folder `root`
+ * when inside it; otherwise inside the deepest of `places` (the other
+ * panes' folders) holding it, after that folder's name ("game/src/a.js");
+ * otherwise in full.
+ */
+export function placedPath(path, root, places = []) {
+  const rel = root ? relativeTo(path, root) : null;
+  if (rel) return rel;
+  const place = places
+    .filter((p) => p && relativeTo(path, p))
+    .sort((a, b) => b.length - a.length)[0];
+  return place ? `${basename(place)}/${relativeTo(path, place)}` : normalize(path);
+}
+
 /** The folders above `path`, nearest first, at most `limit`. */
 export function ancestors(path, limit = 8) {
   const out = [];

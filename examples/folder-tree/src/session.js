@@ -11,8 +11,10 @@
  * lists a folder the first time it is opened (`tf.fs.list`), opens a
  * clicked file in the document viewer (`tf.viewer.open`), and every two
  * seconds, while either is showing, reads the names of the markers the
- * agent hooks leave (scan.js) to show what agents are doing. Tilefold
- * lets it reach only folders the user's panes are in.
+ * agent hooks leave (scan.js) to show what agents are doing. From
+ * Tilefold 0.1.11 (`pane.list`) it watches every pane's folder, not only
+ * the focused one, and calls each agent by the name the user gave its
+ * pane. Tilefold lets it reach only folders the user's panes are in.
  *
  * Clicks arrive from the panel as `panel.click` ({ row, action }) and from
  * the window as `page.message` ({ type: "toggle" | "open", id }); both use
@@ -21,7 +23,7 @@
  * unexpected also goes to the tile's log. Showing, hiding, the window and
  * opened files are recorded in the activity log (never a path).
  */
-import { toEvents } from "./activity.js";
+import { namedByPane, toEvents, withShownPaths } from "./activity.js";
 import {
   closed,
   emptyTree,
@@ -57,6 +59,8 @@ const ERROR_KEYS = {
 export function createFolderTree(tf) {
   const scanner = createScanner(tf);
   let tree = emptyTree(null);
+  /** Every pane (tf.pane.list(), Tilefold 0.1.11 with pane.list), else none. */
+  let panes = [];
   /** Whether the panel is shown (the user may close it any time). */
   let shown = false;
   /** Whether the window is open. */
@@ -108,11 +112,32 @@ export function createFolderTree(tf) {
     targets = next;
   };
 
+  /** The other panes' folders, where agents are watched too. */
+  const places = () => [...new Set(panes.map((p) => p.folder).filter(Boolean))];
+
+  /** What agents are doing around the tree's folder and every pane's. */
+  const readActivity = async (root) => {
+    const found = await scanner.scan(root, Date.now(), tree.folders, places());
+    return withShownPaths(namedByPane(toEvents(found), panes), root, places());
+  };
+
+  /** Asks Tilefold for every pane, where it can tell (else: none). */
+  const loadPanes = async () => {
+    if (typeof tf.pane.list !== "function") return;
+    try {
+      panes = (await tf.pane.list()) ?? [];
+    } catch {
+      // Not granted, or this Tilefold can't: the focused pane's folder is enough.
+      panes = [];
+    }
+  };
+
   /** Reads the markers; draws again when they changed, or ages are due. */
   const poll = async () => {
-    if ((!shown && !pageOpen) || !tree.root) return;
+    if (!shown && !pageOpen) return;
+    if (!tree.root && !places().length) return;
     if (options().showActivity) {
-      events = toEvents(await scanner.scan(tree.root, Date.now(), tree.folders));
+      events = await readActivity(tree.root);
       const print = `${events.length}:${events[0]?.key ?? ""}`;
       if (print !== seen) {
         seen = print;
@@ -149,13 +174,13 @@ export function createFolderTree(tf) {
   /** Starts again from `root`, with its activity. */
   const start = async (root) => {
     tree = emptyTree(root);
-    events = root && options().showActivity ? toEvents(await scanner.scan(root)) : [];
+    events = options().showActivity ? await readActivity(root) : [];
     seen = `${events.length}:${events[0]?.key ?? ""}`;
     if (!root) return draw();
     await load(root);
     // With the folder listed, the projects inside it can be searched too.
     if (options().showActivity) {
-      events = toEvents(await scanner.scan(root, Date.now(), tree.folders));
+      events = await readActivity(root);
       const print = `${events.length}:${events[0]?.key ?? ""}`;
       if (print !== seen) {
         seen = print;
@@ -241,6 +266,7 @@ export function createFolderTree(tf) {
       }
       shown = true;
       pace();
+      await loadPanes();
       const root = await tf.pane.cwd();
       await tf.audit("shown", { hasFolder: root !== null, window: pageOpen });
       return ensureRoot(root);
@@ -252,6 +278,7 @@ export function createFolderTree(tf) {
       pageOpen = true;
       pace();
       await tf.audit("window-opened", { setup });
+      await loadPanes();
       await tf.page.post(pageStrings((k, a) => tf.t(k, a), HOOK_COMMAND));
       if (setup) await tf.page.post({ type: "setup" });
       return ensureRoot(await tf.pane.cwd());
@@ -281,6 +308,13 @@ export function createFolderTree(tf) {
       if (shown || pageOpen) return start(path);
       tree = emptyTree(path);
       return undefined;
+    },
+    /** The panes changed (opened, closed, renamed, moved, focused). */
+    async panesChanged(list) {
+      panes = Array.isArray(list) ? list : [];
+      // Names may have changed though the markers haven't: draw in any case.
+      seen = "";
+      return shown || pageOpen ? poll() : undefined;
     },
     /** A setting changed: draw again with it. */
     settingChanged: () => draw(),

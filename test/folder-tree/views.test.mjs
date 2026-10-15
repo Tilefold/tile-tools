@@ -19,8 +19,10 @@ import {
   activeFiles,
   age,
   hotFolders,
+  namedByPane,
   recentFiles,
   toEvents,
+  withShownPaths,
 } from "../../examples/folder-tree/src/activity.js";
 import { emptyTree, withListing } from "../../examples/folder-tree/src/model.js";
 import { pageStrings, pageView } from "../../examples/folder-tree/src/page-view.js";
@@ -242,5 +244,35 @@ describe("window", () => {
     expect(ago({}, NOW - 3 * 86_400_000, NOW)).toBe("3d");
     expect(shownRecent([1, 2, 3, 4, 5, 6], false)).toEqual([1, 2, 3, 4, 5]);
     expect(shownRecent([1, 2, 3, 4, 5, 6], true)).toHaveLength(6);
+  });
+});
+
+describe("agents across panes", () => {
+  const event = (abs, pane, session) => ({ ts: NOW, action: "e", pane, session, abs, key: abs });
+
+  it("are called by the name the user gave their pane, else the agent's", () => {
+    const panes = [
+      { session: "s1", name: "Winnie", folder: "/game", focused: false },
+      { session: "s2", name: null, folder: "/app", focused: true },
+    ];
+    const named = namedByPane(
+      [
+        event("/game/a.js", "Claude Code", "s1"),
+        event("/app/b.js", "Codex", "s2"),
+        event("/x", "agent", null),
+      ],
+      panes,
+    );
+    expect(named.map((e) => e.pane)).toEqual(["Winnie", "Codex", "agent"]);
+    expect(namedByPane([event("/a", "Claude Code", "s1")], [])[0].pane).toBe("Claude Code");
+  });
+
+  it("show paths inside the tree as they are, others after their pane folder's name", () => {
+    const shown = withShownPaths(
+      [event("/app/src/b.js"), event("/game/src/a.js"), event("/elsewhere/c.js")],
+      "/app",
+      ["/game", "/app"],
+    ).map((e) => e.shown);
+    expect(shown).toEqual(["src/b.js", "game/src/a.js", "/elsewhere/c.js"]);
   });
 });

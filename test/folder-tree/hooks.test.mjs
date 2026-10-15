@@ -52,6 +52,7 @@ import {
   MAX_AGE_MS,
   markerName,
   projectRoot,
+  paneField,
   prune,
   writeMarker,
   writeMarkers,
@@ -75,6 +76,40 @@ afterEach(() => {
 
 const NOW = Date.UTC(2026, 9, 14, 12);
 
+describe("the pane part of a marker", () => {
+  const SID = "01a13f0e-62d0-74b5-83a8-f091605b57ca";
+
+  it("carries the pane's session inside Tilefold, read back apart from the name", () => {
+    const { name } = markerName({
+      ts: NOW,
+      nonce: "aa00",
+      action: "e",
+      pane: "Claude Code",
+      session: SID,
+      rel: "a.js",
+    });
+    expect(decodeMarker(name, NOW)).toMatchObject({ pane: "Claude Code", session: SID });
+    expect(paneField("Claude Code", SID)).toBe(`Claude Code ~${SID}`);
+  });
+
+  it("leaves out a session that doesn't look like one, and fits a long name", () => {
+    expect(paneField("Codex", "not a session!")).toBe("Codex");
+    expect(paneField("Codex", null)).toBe("Codex");
+    const long = paneField("名".repeat(32), SID);
+    expect(Buffer.byteLength(long)).toBeLessThanOrEqual(66);
+    expect(long.endsWith(` ~${SID}`)).toBe(true);
+    const { name } = markerName({
+      ts: NOW,
+      nonce: "aa01",
+      action: "r",
+      pane: "名".repeat(32),
+      session: SID,
+      rel: "a.js",
+    });
+    expect(decodeMarker(name, NOW)).toMatchObject({ session: SID });
+  });
+});
+
 describe("markers", () => {
   it("read back in the tile as written, short paths and long", () => {
     const short = markerName({
@@ -90,6 +125,7 @@ describe("markers", () => {
       nonce: "ab12",
       action: "e",
       pane: "Claude Code",
+      session: null,
       path: "src/a.js",
       chunks: 0,
     });

@@ -69,7 +69,7 @@ function headline(t, active, root) {
   const top = active[0];
   const line = t(NOW_KEYS[top.action] ?? NOW_KEYS.e, {
     pane: top.pane,
-    path: shownPath(top.abs, root),
+    path: top.shown ?? shownPath(top.abs, root),
   });
   const text = active.length > 1 ? t("now-more", { line, count: active.length - 1 }) : line;
   return clamp(text, 512);
@@ -98,7 +98,7 @@ function recentFooter(t, events, root, now, { open, all }) {
       label: basename(e.abs),
       icon: "file",
       depth: 1,
-      ...marked(t, e, now, { pulse: false, path: shownPath(e.abs, root) }),
+      ...marked(t, e, now, { pulse: false, path: e.shown ?? shownPath(e.abs, root) }),
       badge: e.pane,
     });
     targets.set(id, { kind: "file", path: e.abs });
@@ -156,7 +156,7 @@ export function panelView({ tree, events, now, t, opts }) {
     rows.push({ id: "now", label: t("section-now"), section: true, badge: String(active.length) });
     for (const e of active.slice(0, NOW_MAX)) {
       const id = `now:${e.abs}`;
-      const path = shownPath(e.abs, root);
+      const path = e.shown ?? shownPath(e.abs, root);
       const label = clamp(path, 256);
       rows.push({ id, label, icon: "file", ...marked(t, e, now, { pulse: true, path }) });
       targets.set(id, { kind: "file", path: e.abs });

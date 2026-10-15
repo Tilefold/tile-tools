@@ -6,10 +6,11 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 
 - **Folder Tree: Show or hide** (⌃⌥T on macOS) docks the tree. Click a folder to open it, and a file to read it in the document viewer beside the tree. The tree follows you when you switch panes or `cd`.
 - **Now**, at the top, lists the files agents are on at this moment, each pulsing: blue for reading, amber for editing, green for adding, red for deleting.
+- **Every pane:** what agents do in all your panes shows together, not only in the pane you're in. A file outside the tree's folder shows after its pane's folder name (`game/src/hud.js`).
 - **Recent**, pinned to the bottom, shows the newest five. **Show all** lets it grow upward to half the panel, scrolling inside; **Show fewer** shrinks it back. Folder Tree remembers which you chose.
 - **Folder Tree: Open window** shows the same in a window of its own.
 
-The colours, pulses and pinned Recent list need Tilefold 0.1.11. On 0.1.9 and 0.1.10 the panel shows the tree only; the window has everything.
+The colours, pulses, pinned Recent list, every pane and pane names need Tilefold 0.1.11. On 0.1.9 and 0.1.10 the panel shows the tree only, and only the focused pane's agents; the window has the rest.
 
 ## Showing what your agents do
 
@@ -37,7 +38,7 @@ node hooks/install.mjs
 - Moved the tile? Run it again from the new folder: the hooks are replaced, not added twice.
 - **Other agents:** run `node hooks/watch.mjs --pane "name"` in the project, beside the agent. It marks files as they are added, changed and deleted (it can't see reads).
 
-The pane's name in the panel is the agent's ("Claude Code", "Codex"). To tell several apart, start each with its own name: `FOLDERTREE_PANE=api claude`.
+Each agent is called by the name you gave its pane in Tilefold (rename a pane to "Winnie" and its agent shows as Winnie). A pane without a name shows the agent's name ("Claude Code", "Codex"), or the one you start it with: `FOLDERTREE_PANE=api claude`.
 
 The **Folder Tree: Set up agent activity** command shows the same steps in the window, with a button to copy the command.
 

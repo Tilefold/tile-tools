@@ -23,6 +23,8 @@
  * - a docked panel Tilefold draws from rows, with sections, colours,
  *   pulses and a pinned footer (`tf.panel`, `window.panel`);
  * - `tf.pane.cwd()` and the `pane.cwd` event (`pane.cwd`);
+ * - `tf.pane.list()` and the `pane.list` event (`pane.list`, Tilefold
+ *   0.1.11): every pane's folder and the name the user gave it;
  * - `tf.fs.list` for one level of names, never file contents (`fs.list`);
  * - `tf.viewer.open` to show a file (`viewer.open`);
  * - a page in a window of its own (`tf.page`, `page`).
@@ -76,6 +78,12 @@ function shownPath(path, root) {
   const rel = root ? relativeTo(path, root) : null;
   return rel === null || rel === "" ? normalize(path) : rel;
 }
+function placedPath(path, root, places = []) {
+  const rel = root ? relativeTo(path, root) : null;
+  if (rel) return rel;
+  const place = places.filter((p) => p && relativeTo(path, p)).sort((a, b) => b.length - a.length)[0];
+  return place ? `${basename(place)}/${relativeTo(path, place)}` : normalize(path);
+}
 function ancestors(path, limit = 8) {
   const out = [];
   let p = normalize(path);
@@ -98,11 +106,27 @@ function toEvents(found) {
     const key = `${marker.ts}.${marker.nonce}.${abs}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    events.push({ ts: marker.ts, action: marker.action, pane: marker.pane, abs, key });
+    events.push({
+      ts: marker.ts,
+      action: marker.action,
+      pane: marker.pane,
+      session: marker.session ?? null,
+      abs,
+      key
+    });
   }
   events.sort((a, b) => b.ts - a.ts || (a.key < b.key ? 1 : -1));
   return events.slice(0, MAX_EVENTS);
 }
+function namedByPane(events, panes = []) {
+  const names = /* @__PURE__ */ new Map();
+  for (const p of panes) if (p?.session && p.name) names.set(p.session, p.name);
+  if (!names.size) return events;
+  return events.map(
+    (e) => e.session && names.has(e.session) ? { ...e, pane: names.get(e.session) } : e
+  );
+}
+var withShownPaths = (events, root, places = []) => events.map((e) => ({ ...e, shown: placedPath(e.abs, root, places) }));
 function latestPerFile(events) {
   const out = /* @__PURE__ */ new Map();
   for (const e of events) if (!out.has(e.abs)) out.set(e.abs, e);
@@ -225,7 +249,7 @@ function treeRows(tree, { strings, filters, decorate = null }) {
 var PAGE_RECENT = 100;
 var PAGE_NOW = 8;
 function pageEvent(e, root, prefix) {
-  const path = shownPath(e.abs, root);
+  const path = e.shown ?? shownPath(e.abs, root);
   const dir = path.includes("/") ? `${parent(path)}/` : "";
   return {
     id: `${prefix}${e.abs}`,
@@ -358,7 +382,7 @@ function headline(t, active, root) {
   const top = active[0];
   const line = t(NOW_KEYS[top.action] ?? NOW_KEYS.e, {
     pane: top.pane,
-    path: shownPath(top.abs, root)
+    path: top.shown ?? shownPath(top.abs, root)
   });
   const text = active.length > 1 ? t("now-more", { line, count: active.length - 1 }) : line;
   return clamp(text, 512);
@@ -385,7 +409,7 @@ function recentFooter(t, events, root, now, { open, all }) {
       label: basename(e.abs),
       icon: "file",
       depth: 1,
-      ...marked(t, e, now, { pulse: false, path: shownPath(e.abs, root) }),
+      ...marked(t, e, now, { pulse: false, path: e.shown ?? shownPath(e.abs, root) }),
       badge: e.pane
     });
     targets.set(id, { kind: "file", path: e.abs });
@@ -436,7 +460,7 @@ ${path}`, 512)
     rows.push({ id: "now", label: t("section-now"), section: true, badge: String(active.length) });
     for (const e of active.slice(0, NOW_MAX)) {
       const id = `now:${e.abs}`;
-      const path = shownPath(e.abs, root);
+      const path = e.shown ?? shownPath(e.abs, root);
       const label = clamp(path, 256);
       rows.push({ id, label, icon: "file", ...marked(t, e, now, { pulse: true, path }) });
       targets.set(id, { kind: "file", path: e.abs });
@@ -497,6 +521,11 @@ function cleanRelPath(path) {
   }
   return parts.length ? parts.join("/") : null;
 }
+var SESSION_PART = /^(.*) ~([A-Za-z0-9_-]{4,40})$/;
+function splitPane(text) {
+  const m = SESSION_PART.exec(String(text ?? ""));
+  return m ? { pane: cleanPane(m[1]), session: m[2] } : { pane: cleanPane(text), session: null };
+}
 function decodeMarker(name, now = Date.now()) {
   const m = MARKER_RE.exec(String(name ?? ""));
   if (!m) return null;
@@ -505,15 +534,16 @@ function decodeMarker(name, now = Date.now()) {
   if (!Number.isFinite(ts) || ts > now + MAX_FUTURE_MS) return null;
   const action = letter in ACTIONS ? letter : "e";
   let pane;
+  let session;
   try {
-    pane = cleanPane(fromB64url(paneCode));
+    ({ pane, session } = splitPane(fromB64url(paneCode)));
   } catch {
     return null;
   }
   if (target.startsWith("~")) {
     const chunks = Number(target.slice(1));
     if (chunks < 1 || chunks > MAX_CHUNKS) return null;
-    return { ts, nonce, action, pane, path: null, chunks };
+    return { ts, nonce, action, pane, session, path: null, chunks };
   }
   let path;
   try {
@@ -521,7 +551,7 @@ function decodeMarker(name, now = Date.now()) {
   } catch {
     return null;
   }
-  return path === null ? null : { ts, nonce, action, pane, path, chunks: 0 };
+  return path === null ? null : { ts, nonce, action, pane, session, path, chunks: 0 };
 }
 function joinChunks(names, expected) {
   const parts = [];
@@ -540,29 +570,36 @@ function joinChunks(names, expected) {
 
 // src/scan.js
 var SEARCH_UP = 6;
-var BELOW_MAX = 8;
+var SCAN_BUDGET = 8;
+var READ_MAX = 6;
+var DISCOVER_MIN = 2;
 var PROBE_MAX = 12;
 var PROBE_MS = 3e4;
 var MISSING_MS = 3e4;
 var NOT_PROJECTS = /* @__PURE__ */ new Set(["node_modules", "target", "dist", "build", "vendor", "Pods"]);
 var CHUNK_CACHE = 1e3;
 var QUIET = /* @__PURE__ */ new Set(["NotFoundError", "PathNotAllowedError", "NotADirectoryError"]);
+var subfoldersOf = (dir, entries) => entries.filter((e) => e.kind === "dir" && !e.name.startsWith(".") && !NOT_PROJECTS.has(e.name)).slice(0, PROBE_MAX).map((e) => join(dir, e.name));
 function createScanner(tf) {
   const chunks = /* @__PURE__ */ new Map();
-  let known = fresh(null);
+  const marked2 = /* @__PURE__ */ new Set();
+  const missing = /* @__PURE__ */ new Map();
+  const lastAsked = /* @__PURE__ */ new Map();
+  const probes = /* @__PURE__ */ new Map();
   const markersIn = async (projectRoot, now) => {
     const dir = join(projectRoot, MARKER_DIR);
+    lastAsked.set(projectRoot, now);
     let listing;
     try {
       listing = await tf.fs.list(dir);
     } catch (err) {
-      if (err?.name === "PathNotAllowedError") known.denied.add(projectRoot);
-      else if (QUIET.has(err?.name)) known.missing.set(projectRoot, now + MISSING_MS);
-      if (!QUIET.has(err?.name)) void tf.log.warn(`Folder Tree: ${err?.name}: ${err?.message}`);
-      known.below.delete(projectRoot);
+      if (QUIET.has(err?.name)) missing.set(projectRoot, now + MISSING_MS);
+      else void tf.log.warn(`Folder Tree: ${err?.name}: ${err?.message}`);
+      marked2.delete(projectRoot);
       return [];
     }
-    known.missing.delete(projectRoot);
+    missing.delete(projectRoot);
+    marked2.add(projectRoot);
     const out = [];
     for (const entry of listing.entries) {
       const marker = decodeMarker(entry.name, now);
@@ -592,55 +629,65 @@ function createScanner(tf) {
     chunks.set(key, path);
     return path;
   };
-  const askable = (dir, now) => !known.denied.has(dir) && !(known.missing.get(dir) > now);
+  const askable = (dir, now) => !(missing.get(dir) > now);
+  const byTurn = (a, b) => (lastAsked.get(a) ?? -Infinity) - (lastAsked.get(b) ?? -Infinity);
+  const dueSubfolders = async (dir, now, folders, spent, budget) => {
+    const last = probes.get(dir);
+    if (last && now - last.at < PROBE_MS) return null;
+    let entries = folders[dir]?.entries;
+    if (!Array.isArray(entries)) {
+      if (spent.n >= budget) return null;
+      spent.n += 1;
+      try {
+        entries = (await tf.fs.list(dir)).entries;
+      } catch {
+        probes.set(dir, { at: now, subfolders: [] });
+        return null;
+      }
+    }
+    const subfolders = subfoldersOf(dir, entries);
+    probes.set(dir, { at: now, subfolders });
+    return subfolders;
+  };
   return {
     /**
-     * Every marker for the tree at `root`: its folder, those above, and
-     * those below it with markers. `folders` is the tree's listings
-     * (path → { entries }), for finding folders below.
+     * Every marker found now around `root` (the tree's folder) and
+     * `others` (the other panes' folders). `folders` is the tree's
+     * listings (path → { entries }).
      */
-    async scan(root, now = Date.now(), folders = {}) {
-      if (!root) return [];
-      if (known.root !== root) known = fresh(root);
+    async scan(root, now = Date.now(), folders = {}, others = []) {
+      const places = [...new Set([root, ...others].filter(Boolean))];
+      if (!places.length) return [];
       const found = [];
-      found.push(...await markersIn(root, now));
-      for (const dir of ancestors(root, SEARCH_UP)) {
-        if (askable(dir, now)) found.push(...await markersIn(dir, now));
-      }
       for (const [path, level] of Object.entries(folders)) {
-        if (path === root || !Array.isArray(level?.entries)) continue;
-        if (level.entries.some((e) => e.name === MARKER_DIR && e.kind === "dir")) {
-          known.below.add(path);
+        if (Array.isArray(level?.entries) && level.entries.some((e) => e.name === MARKER_DIR)) {
+          marked2.add(path);
         }
       }
-      if (now - known.probed >= PROBE_MS && Array.isArray(folders[root]?.entries)) {
-        known.probed = now;
-        const subfolders = folders[root].entries.filter((e) => e.kind === "dir" && !e.name.startsWith(".") && !NOT_PROJECTS.has(e.name)).slice(0, PROBE_MAX).map((e) => join(root, e.name));
-        for (const dir of subfolders) {
-          if (known.below.has(dir) || !askable(dir, now)) continue;
-          const markers = await markersIn(dir, now);
-          if (!known.missing.has(dir) && !known.denied.has(dir)) known.below.add(dir);
-          found.push(...markers);
-        }
+      const near = (dir) => places.some((p) => isInside(dir, p) || isInside(p, dir));
+      const reads = [...marked2].filter(near).sort(byTurn).slice(0, READ_MAX);
+      for (const dir of reads) found.push(...await markersIn(dir, now));
+      const budget = Math.max(DISCOVER_MIN, SCAN_BUDGET - reads.length);
+      const spent = { n: 0 };
+      const candidates = new Set(places);
+      for (const place of places) {
+        const subfolders = await dueSubfolders(place, now, folders, spent, budget) ?? [];
+        for (const dir of subfolders) candidates.add(dir);
+        for (const dir of probes.get(place)?.subfolders ?? []) candidates.add(dir);
       }
-      let read = 0;
-      for (const dir of known.below) {
-        if (read >= BELOW_MAX) break;
-        if (found.some((f) => f.root === dir) || !askable(dir, now)) continue;
-        read += 1;
+      for (const place of places) {
+        for (const dir of ancestors(place, SEARCH_UP)) candidates.add(dir);
+      }
+      const due = [...candidates].filter((d) => !marked2.has(d) && askable(d, now)).sort(byTurn);
+      for (const dir of due) {
+        if (spent.n >= budget) break;
+        spent.n += 1;
         found.push(...await markersIn(dir, now));
       }
       return found;
     }
   };
 }
-var fresh = (root) => ({
-  root,
-  denied: /* @__PURE__ */ new Set(),
-  missing: /* @__PURE__ */ new Map(),
-  below: /* @__PURE__ */ new Set(),
-  probed: -Infinity
-});
 
 // src/session.js
 var POLL_MS = 2e3;
@@ -656,6 +703,7 @@ var ERROR_KEYS = {
 function createFolderTree(tf) {
   const scanner = createScanner(tf);
   let tree = emptyTree(null);
+  let panes = [];
   let shown = false;
   let pageOpen = false;
   let targets = /* @__PURE__ */ new Map();
@@ -696,10 +744,24 @@ function createFolderTree(tf) {
     }
     targets = next;
   };
+  const places = () => [...new Set(panes.map((p) => p.folder).filter(Boolean))];
+  const readActivity = async (root) => {
+    const found = await scanner.scan(root, Date.now(), tree.folders, places());
+    return withShownPaths(namedByPane(toEvents(found), panes), root, places());
+  };
+  const loadPanes = async () => {
+    if (typeof tf.pane.list !== "function") return;
+    try {
+      panes = await tf.pane.list() ?? [];
+    } catch {
+      panes = [];
+    }
+  };
   const poll = async () => {
-    if (!shown && !pageOpen || !tree.root) return;
+    if (!shown && !pageOpen) return;
+    if (!tree.root && !places().length) return;
     if (options().showActivity) {
-      events = toEvents(await scanner.scan(tree.root, Date.now(), tree.folders));
+      events = await readActivity(tree.root);
       const print = `${events.length}:${events[0]?.key ?? ""}`;
       if (print !== seen) {
         seen = print;
@@ -730,12 +792,12 @@ function createFolderTree(tf) {
   };
   const start = async (root) => {
     tree = emptyTree(root);
-    events = root && options().showActivity ? toEvents(await scanner.scan(root)) : [];
+    events = options().showActivity ? await readActivity(root) : [];
     seen = `${events.length}:${events[0]?.key ?? ""}`;
     if (!root) return draw();
     await load(root);
     if (options().showActivity) {
-      events = toEvents(await scanner.scan(root, Date.now(), tree.folders));
+      events = await readActivity(root);
       const print = `${events.length}:${events[0]?.key ?? ""}`;
       if (print !== seen) {
         seen = print;
@@ -808,6 +870,7 @@ function createFolderTree(tf) {
       }
       shown = true;
       pace();
+      await loadPanes();
       const root = await tf.pane.cwd();
       await tf.audit("shown", { hasFolder: root !== null, window: pageOpen });
       return ensureRoot(root);
@@ -819,6 +882,7 @@ function createFolderTree(tf) {
       pageOpen = true;
       pace();
       await tf.audit("window-opened", { setup });
+      await loadPanes();
       await tf.page.post(pageStrings((k, a) => tf.t(k, a), HOOK_COMMAND));
       if (setup) await tf.page.post({ type: "setup" });
       return ensureRoot(await tf.pane.cwd());
@@ -848,6 +912,12 @@ function createFolderTree(tf) {
       if (shown || pageOpen) return start(path);
       tree = emptyTree(path);
       return void 0;
+    },
+    /** The panes changed (opened, closed, renamed, moved, focused). */
+    async panesChanged(list) {
+      panes = Array.isArray(list) ? list : [];
+      seen = "";
+      return shown || pageOpen ? poll() : void 0;
     },
     /** A setting changed: draw again with it. */
     settingChanged: () => draw(),
@@ -890,6 +960,7 @@ var main_default = (tf) => {
     id: "refresh"
   });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
+  tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
   tf.on("page.message", (e) => tree?.message(e));

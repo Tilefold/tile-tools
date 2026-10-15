@@ -94,6 +94,7 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `page.message` | The tile's page sent a message (`window.tilefold.post`) | `{ message }` |
 | `page.closed` | The tile's page closed, whatever closed it | `{}` |
 | `pane.cwd` | The focused pane's folder changed: another pane or tab, or a `cd` (needs `pane.cwd`; Tilefold 0.1.9) | `{ path }`, `null` when none is known |
+| `pane.list` | A pane opened, closed, was renamed, moved folder or took focus (needs `pane.list`; Tilefold 0.1.11) | `{ panes }`: `[{ session, name, folder, focused }]` |
 | `panel.click` | A row of the tile's docked panel was clicked (needs `window.panel`; Tilefold 0.1.9) | `{ row, action }`, action `activate`, `expand` or `collapse` |
 | `panel.closed` | The user closed the tile's panel, or another tile's panel replaced it | `{ by }`, `user` or `replaced` |
 
@@ -187,7 +188,7 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 ## Your folders
 
-`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). See [Folders](folders.md).
+`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). See [Folders](folders.md).
 
 ## Asking Claude
 

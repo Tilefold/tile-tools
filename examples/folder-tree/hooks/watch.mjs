@@ -35,7 +35,11 @@ export const watched = (rel) =>
  * Watches `folder`, marking changes as `pane`. Returns a stop function.
  * `onMark(name)` hears each marker written (for the tests).
  */
-export function startWatching(folder, { pane, onMark = () => {} } = {}) {
+export function startWatching(
+  folder,
+  // No session by default: the watcher runs in a pane beside the agent, not the agent's own.
+  { pane, session = null, onMark = () => {} } = {},
+) {
   const dir = resolve(folder);
   const root = projectRoot(dir);
   const name = pane || basename(dir);
@@ -56,7 +60,7 @@ export function startWatching(folder, { pane, onMark = () => {} } = {}) {
     else known.delete(abs);
     // The project's top and the watched folder, as the agent hook does.
     try {
-      for (const written of writeMarkers([root, dir], { action, pane: name, file: abs })) {
+      for (const written of writeMarkers([root, dir], { action, pane: name, session, file: abs })) {
         onMark(written);
       }
     } catch {

@@ -34,8 +34,21 @@ export type TileEvent =
   | "page.closed"
   | "page.message"
   | "pane.cwd"
+  | "pane.list"
   | "panel.click"
   | "panel.closed";
+
+/** One of the user's panes, as tf.pane.list() and the "pane.list" event give it. */
+export interface PaneInfo {
+  /** The pane's session: what its programs see as TILEFOLD_SESSION_ID; null while no shell runs. */
+  session: string | null;
+  /** The name the user gave the pane, or null. */
+  name: string | null;
+  /** The folder the pane is in, or null when none is known. */
+  folder: string | null;
+  /** True for the focused pane. */
+  focused: boolean;
+}
 
 /** A rectangle in the window's content area, in CSS pixels. */
 export interface Rect {
@@ -73,6 +86,8 @@ export interface TileEventPayloads {
   "page.message": { message: unknown };
   /** The focused pane's folder changed (needs pane.cwd); null when none is known. */
   "pane.cwd": { path: string | null };
+  /** A pane opened, closed, was renamed, moved folder or took focus (needs pane.list). */
+  "pane.list": { panes: PaneInfo[] };
   /** A row of the tile's docked panel was clicked (needs window.panel). */
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
   /** The tile's panel was closed by the user, or replaced by another tile's. */
@@ -342,7 +357,14 @@ export interface Tf {
    * Needs pane.cwd. The folder the focused pane is in, or null; the
    * "pane.cwd" event says when it changes. Missing before Tilefold 0.1.9.
    */
-  readonly pane?: { cwd(): Promise<string | null> };
+  readonly pane?: {
+    cwd(): Promise<string | null>;
+    /**
+     * Needs pane.list. Every pane in every tab, in layout order. Missing
+     * before Tilefold 0.1.11.
+     */
+    list?(): Promise<PaneInfo[]>;
+  };
   /**
    * Needs fs.list. One level of a folder inside a folder one of the user's
    * panes is in: names and kinds only, never file contents. Missing before
