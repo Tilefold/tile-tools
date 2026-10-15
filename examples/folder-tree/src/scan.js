@@ -19,7 +19,9 @@
  *   that has a `.foldertree` in it counts too.
  *
  * Tilefold allows a tile 60 listings every 10 seconds, which opening
- * folders needs too, so each scan lists at most SCAN_BUDGET folders: up
+ * folders needs too, so scans together list at most WINDOW_BUDGET folders
+ * in any WINDOW_MS (the rest is the user's), back off for BACKOFF_MS when
+ * Tilefold refuses one anyway, and each scan lists at most SCAN_BUDGET: up
  * to READ_MAX folders known to have markers (the longest unread first),
  * and the rest (at least DISCOVER_MIN) looking for new ones, the longest
  * unasked first: each folder itself and its subfolders before the
@@ -34,11 +36,17 @@ import { ancestors, isInside, join } from "./paths.js";
 /** How many folders above each folder are searched. */
 export const SEARCH_UP = 6;
 /** Most listings in one scan (a scan runs every two seconds). */
-export const SCAN_BUDGET = 8;
+export const SCAN_BUDGET = 5;
+/** Most listings by scans in any WINDOW_MS (Tilefold allows 60 in 10 s, for everything). */
+export const WINDOW_BUDGET = 25;
+/** The window WINDOW_BUDGET counts over. */
+export const WINDOW_MS = 10_000;
+/** How long scans wait after Tilefold refused a listing for coming too fast. */
+export const BACKOFF_MS = 5000;
 /** Most reads of folders known to have markers in one scan. */
-export const READ_MAX = 6;
+export const READ_MAX = 4;
 /** Fewest looks for new marker folders in one scan. */
-export const DISCOVER_MIN = 2;
+export const DISCOVER_MIN = 1;
 /** Most subfolders of a folder looked into for markers. */
 export const PROBE_MAX = 12;
 /** How often a folder's subfolders are looked into. */
@@ -74,6 +82,26 @@ export function createScanner(tf) {
   const lastAsked = new Map();
   /** Each looked-around folder → { at, subfolders } from its last look. */
   const probes = new Map();
+  /** When each recent listing was made (for WINDOW_BUDGET), and the back-off. */
+  const listedAt = [];
+  let pausedUntil = -Infinity;
+
+  /** Whether a scan may list one more folder now; counts it when so. */
+  const take = (now) => {
+    while (listedAt.length && now - listedAt[0] >= WINDOW_MS) listedAt.shift();
+    if (now < pausedUntil || listedAt.length >= WINDOW_BUDGET) return false;
+    listedAt.push(now);
+    return true;
+  };
+  /** `tf.fs.list`, noting when Tilefold says the tile lists too fast. */
+  const list = async (path, now) => {
+    try {
+      return await tf.fs.list(path);
+    } catch (err) {
+      if (err?.name === "RateLimitError") pausedUntil = now + BACKOFF_MS;
+      throw err;
+    }
+  };
 
   /** One folder's markers, or none (and what that says about the folder). */
   const markersIn = async (projectRoot, now) => {
@@ -81,8 +109,10 @@ export function createScanner(tf) {
     lastAsked.set(projectRoot, now);
     let listing;
     try {
-      listing = await tf.fs.list(dir);
+      listing = await list(dir, now);
     } catch (err) {
+      // Refused for coming too fast says nothing about the folder: keep it.
+      if (err?.name === "RateLimitError") return [];
       if (QUIET.has(err?.name)) missing.set(projectRoot, now + MISSING_MS);
       else void tf.log.warn(`Folder Tree: ${err?.name}: ${err?.message}`);
       marked.delete(projectRoot);
@@ -95,7 +125,7 @@ export function createScanner(tf) {
       const marker = decodeMarker(entry.name, now);
       if (!marker) continue;
       if (marker.chunks && entry.kind === "dir") {
-        marker.path = await longPath(dir, entry.name, marker.chunks);
+        marker.path = await longPath(dir, entry.name, marker.chunks, now);
       }
       if (marker.path) out.push({ root: projectRoot, marker });
     }
@@ -103,12 +133,13 @@ export function createScanner(tf) {
   };
 
   /** A long path from its folder of parts (remembered). */
-  const longPath = async (dir, name, expected) => {
+  const longPath = async (dir, name, expected, now) => {
     const key = `${dir}/${name}`;
     if (chunks.has(key)) return chunks.get(key);
+    if (!take(now)) return null;
     let path = null;
     try {
-      const parts = await tf.fs.list(join(dir, name));
+      const parts = await list(join(dir, name), now);
       path = joinChunks(
         parts.entries.map((e) => e.name),
         expected,
@@ -138,10 +169,10 @@ export function createScanner(tf) {
     if (last && now - last.at < PROBE_MS) return null;
     let entries = folders[dir]?.entries;
     if (!Array.isArray(entries)) {
-      if (spent.n >= budget) return null;
+      if (spent.n >= budget || !take(now)) return null;
       spent.n += 1;
       try {
-        entries = (await tf.fs.list(dir)).entries;
+        entries = (await list(dir, now)).entries;
       } catch {
         // Can't list it now: look again later (its own markers are another matter).
         probes.set(dir, { at: now, subfolders: [] });
@@ -173,7 +204,10 @@ export function createScanner(tf) {
       // inside one of the places or above it (not ones left behind).
       const near = (dir) => places.some((p) => isInside(dir, p) || isInside(p, dir));
       const reads = [...marked].filter(near).sort(byTurn).slice(0, READ_MAX);
-      for (const dir of reads) found.push(...(await markersIn(dir, now)));
+      for (const dir of reads) {
+        if (!take(now)) return found;
+        found.push(...(await markersIn(dir, now)));
+      }
       // 2. Looking for new ones with what is left: each place and its
       // subfolders first, then the folders above it (the sort keeps this
       // order among folders never asked).
@@ -190,7 +224,7 @@ export function createScanner(tf) {
       }
       const due = [...candidates].filter((d) => !marked.has(d) && askable(d, now)).sort(byTurn);
       for (const dir of due) {
-        if (spent.n >= budget) break;
+        if (spent.n >= budget || !take(now)) break;
         spent.n += 1;
         found.push(...(await markersIn(dir, now)));
       }

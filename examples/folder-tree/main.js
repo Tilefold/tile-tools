@@ -570,9 +570,12 @@ function joinChunks(names, expected) {
 
 // src/scan.js
 var SEARCH_UP = 6;
-var SCAN_BUDGET = 8;
-var READ_MAX = 6;
-var DISCOVER_MIN = 2;
+var SCAN_BUDGET = 5;
+var WINDOW_BUDGET = 25;
+var WINDOW_MS = 1e4;
+var BACKOFF_MS = 5e3;
+var READ_MAX = 4;
+var DISCOVER_MIN = 1;
 var PROBE_MAX = 12;
 var PROBE_MS = 3e4;
 var MISSING_MS = 3e4;
@@ -586,13 +589,30 @@ function createScanner(tf) {
   const missing = /* @__PURE__ */ new Map();
   const lastAsked = /* @__PURE__ */ new Map();
   const probes = /* @__PURE__ */ new Map();
+  const listedAt = [];
+  let pausedUntil = -Infinity;
+  const take = (now) => {
+    while (listedAt.length && now - listedAt[0] >= WINDOW_MS) listedAt.shift();
+    if (now < pausedUntil || listedAt.length >= WINDOW_BUDGET) return false;
+    listedAt.push(now);
+    return true;
+  };
+  const list = async (path, now) => {
+    try {
+      return await tf.fs.list(path);
+    } catch (err) {
+      if (err?.name === "RateLimitError") pausedUntil = now + BACKOFF_MS;
+      throw err;
+    }
+  };
   const markersIn = async (projectRoot, now) => {
     const dir = join(projectRoot, MARKER_DIR);
     lastAsked.set(projectRoot, now);
     let listing;
     try {
-      listing = await tf.fs.list(dir);
+      listing = await list(dir, now);
     } catch (err) {
+      if (err?.name === "RateLimitError") return [];
       if (QUIET.has(err?.name)) missing.set(projectRoot, now + MISSING_MS);
       else void tf.log.warn(`Folder Tree: ${err?.name}: ${err?.message}`);
       marked2.delete(projectRoot);
@@ -605,18 +625,19 @@ function createScanner(tf) {
       const marker = decodeMarker(entry.name, now);
       if (!marker) continue;
       if (marker.chunks && entry.kind === "dir") {
-        marker.path = await longPath(dir, entry.name, marker.chunks);
+        marker.path = await longPath(dir, entry.name, marker.chunks, now);
       }
       if (marker.path) out.push({ root: projectRoot, marker });
     }
     return out;
   };
-  const longPath = async (dir, name, expected) => {
+  const longPath = async (dir, name, expected, now) => {
     const key = `${dir}/${name}`;
     if (chunks.has(key)) return chunks.get(key);
+    if (!take(now)) return null;
     let path = null;
     try {
-      const parts = await tf.fs.list(join(dir, name));
+      const parts = await list(join(dir, name), now);
       path = joinChunks(
         parts.entries.map((e) => e.name),
         expected
@@ -636,10 +657,10 @@ function createScanner(tf) {
     if (last && now - last.at < PROBE_MS) return null;
     let entries = folders[dir]?.entries;
     if (!Array.isArray(entries)) {
-      if (spent.n >= budget) return null;
+      if (spent.n >= budget || !take(now)) return null;
       spent.n += 1;
       try {
-        entries = (await tf.fs.list(dir)).entries;
+        entries = (await list(dir, now)).entries;
       } catch {
         probes.set(dir, { at: now, subfolders: [] });
         return null;
@@ -666,7 +687,10 @@ function createScanner(tf) {
       }
       const near = (dir) => places.some((p) => isInside(dir, p) || isInside(p, dir));
       const reads = [...marked2].filter(near).sort(byTurn).slice(0, READ_MAX);
-      for (const dir of reads) found.push(...await markersIn(dir, now));
+      for (const dir of reads) {
+        if (!take(now)) return found;
+        found.push(...await markersIn(dir, now));
+      }
       const budget = Math.max(DISCOVER_MIN, SCAN_BUDGET - reads.length);
       const spent = { n: 0 };
       const candidates = new Set(places);
@@ -680,7 +704,7 @@ function createScanner(tf) {
       }
       const due = [...candidates].filter((d) => !marked2.has(d) && askable(d, now)).sort(byTurn);
       for (const dir of due) {
-        if (spent.n >= budget) break;
+        if (spent.n >= budget || !take(now)) break;
         spent.n += 1;
         found.push(...await markersIn(dir, now));
       }
@@ -745,9 +769,18 @@ function createFolderTree(tf) {
     targets = next;
   };
   const places = () => [...new Set(panes.map((p) => p.folder).filter(Boolean))];
+  let found = [];
+  let reading = false;
+  const asEvents = (root) => withShownPaths(namedByPane(toEvents(found), panes), root, places());
   const readActivity = async (root) => {
-    const found = await scanner.scan(root, Date.now(), tree.folders, places());
-    return withShownPaths(namedByPane(toEvents(found), panes), root, places());
+    if (reading) return asEvents(root);
+    reading = true;
+    try {
+      found = await scanner.scan(root, Date.now(), tree.folders, places());
+    } finally {
+      reading = false;
+    }
+    return asEvents(root);
   };
   const loadPanes = async () => {
     if (typeof tf.pane.list !== "function") return;
@@ -792,9 +825,13 @@ function createFolderTree(tf) {
   };
   const start = async (root) => {
     tree = emptyTree(root);
-    events = options().showActivity ? await readActivity(root) : [];
-    seen = `${events.length}:${events[0]?.key ?? ""}`;
-    if (!root) return draw();
+    found = [];
+    events = [];
+    seen = "0:";
+    if (!root) {
+      if (options().showActivity && places().length) events = await readActivity(root);
+      return draw();
+    }
     await load(root);
     if (options().showActivity) {
       events = await readActivity(root);
@@ -916,8 +953,9 @@ function createFolderTree(tf) {
     /** The panes changed (opened, closed, renamed, moved, focused). */
     async panesChanged(list) {
       panes = Array.isArray(list) ? list : [];
-      seen = "";
-      return shown || pageOpen ? poll() : void 0;
+      if (!shown && !pageOpen) return void 0;
+      events = asEvents(tree.root);
+      return draw();
     },
     /** A setting changed: draw again with it. */
     settingChanged: () => draw(),

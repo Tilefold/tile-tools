@@ -115,10 +115,24 @@ export function createFolderTree(tf) {
   /** The other panes' folders, where agents are watched too. */
   const places = () => [...new Set(panes.map((p) => p.folder).filter(Boolean))];
 
+  /** The markers last read, before naming (so a rename needs no new read). */
+  let found = [];
+  /** True while a read is under way (reads never overlap). */
+  let reading = false;
+
+  /** `found` as events: named by pane, with the paths they are shown by. */
+  const asEvents = (root) => withShownPaths(namedByPane(toEvents(found), panes), root, places());
+
   /** What agents are doing around the tree's folder and every pane's. */
   const readActivity = async (root) => {
-    const found = await scanner.scan(root, Date.now(), tree.folders, places());
-    return withShownPaths(namedByPane(toEvents(found), panes), root, places());
+    if (reading) return asEvents(root);
+    reading = true;
+    try {
+      found = await scanner.scan(root, Date.now(), tree.folders, places());
+    } finally {
+      reading = false;
+    }
+    return asEvents(root);
   };
 
   /** Asks Tilefold for every pane, where it can tell (else: none). */
@@ -174,9 +188,13 @@ export function createFolderTree(tf) {
   /** Starts again from `root`, with its activity. */
   const start = async (root) => {
     tree = emptyTree(root);
-    events = options().showActivity ? await readActivity(root) : [];
-    seen = `${events.length}:${events[0]?.key ?? ""}`;
-    if (!root) return draw();
+    found = [];
+    events = [];
+    seen = "0:";
+    if (!root) {
+      if (options().showActivity && places().length) events = await readActivity(root);
+      return draw();
+    }
     await load(root);
     // With the folder listed, the projects inside it can be searched too.
     if (options().showActivity) {
@@ -312,9 +330,11 @@ export function createFolderTree(tf) {
     /** The panes changed (opened, closed, renamed, moved, focused). */
     async panesChanged(list) {
       panes = Array.isArray(list) ? list : [];
-      // Names may have changed though the markers haven't: draw in any case.
-      seen = "";
-      return shown || pageOpen ? poll() : undefined;
+      // Names may have changed: name what was read again (no new read; the
+      // next one, at most two seconds away, covers moved or new panes).
+      if (!shown && !pageOpen) return undefined;
+      events = asEvents(tree.root);
+      return draw();
     },
     /** A setting changed: draw again with it. */
     settingChanged: () => draw(),
