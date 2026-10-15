@@ -144,6 +144,9 @@ describe("markers", () => {
       writeMarker(root, { action: "e", pane: "x", file: join(root, "..", "other.js") }),
     ).toBeNull();
     expect(writeMarker(root, { action: "x", pane: "x", file: join(root, "a.js") })).toBeNull();
+    // A marker listed by a search, at any depth, is not marked.
+    const listed = join(root, "app", ".foldertree", "ft1.x");
+    expect(writeMarker(root, { action: "r", pane: "x", file: listed })).toBeNull();
     expect(writeMarker(root, { action: "e", pane: "x", file: join(dir, "loop") })).toBeNull();
   });
 

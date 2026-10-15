@@ -39,6 +39,8 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** The folder markers go in, at the top of a project. */
 export const MARKER_DIR = ".foldertree";
+/** Marker folders (Folder Tree's and other tiles'), never marked themselves. */
+const MARKER_FOLDERS = new Set([MARKER_DIR, ".trailtree"]);
 /** Most markers kept. */
 export const KEEP = 300;
 /** Markers older than this are removed. */
@@ -131,7 +133,8 @@ function markerDir(root) {
 export function writeMarker(root, { action, pane, file, now = Date.now(), id = nonce() }) {
   if (!ACTIONS.has(action)) return null;
   const rel = relPath(root, file);
-  if (rel === null || rel.split("/")[0] === MARKER_DIR) return null;
+  // Markers themselves (anywhere in the path, when a search lists them) are no activity.
+  if (rel === null || rel.split("/").some((part) => MARKER_FOLDERS.has(part))) return null;
   const marker = markerName({ ts: now, nonce: id, action, pane, rel });
   if (!marker) return null;
   const dir = markerDir(root);
