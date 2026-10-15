@@ -18,7 +18,7 @@
 import { statSync, watch } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { MARKER_DIR, projectRoot, writeMarker } from "./marker.mjs";
+import { MARKER_DIR, projectRoot, writeMarkers } from "./marker.mjs";
 
 /** Folders whose changes are never marked. */
 export const IGNORED = new Set([".git", "node_modules", MARKER_DIR]);
@@ -54,9 +54,11 @@ export function startWatching(folder, { pane, onMark = () => {} } = {}) {
     const action = !exists ? "d" : known.has(abs) ? "e" : "a";
     if (exists) known.add(abs);
     else known.delete(abs);
+    // The project's top and the watched folder, as the agent hook does.
     try {
-      const written = writeMarker(root, { action, pane: name, file: abs });
-      if (written) onMark(written);
+      for (const written of writeMarkers([root, dir], { action, pane: name, file: abs })) {
+        onMark(written);
+      }
     } catch {
       // A folder that can't be written to: keep watching.
     }

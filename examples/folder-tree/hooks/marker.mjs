@@ -17,6 +17,10 @@
  * then a folder of NN files `00.<part>`… holding it, written under a
  * temporary name first so the tile never sees half of it.
  *
+ * The same marker can be left in more than one folder (writeMarkers): the
+ * project's top and the agent's own folder, so a tree opened in either
+ * finds it. It has the same name in each, and the tile counts it once.
+ *
  * The folder keeps the newest KEEP markers from the last week; older ones
  * are removed when a new one is written. A `.gitignore` inside keeps them
  * out of the project's commits.
@@ -64,14 +68,19 @@ export function cleanPane(name) {
 
 /**
  * The project a file belongs to: the nearest folder above `start` holding
- * `.foldertree` or `.git`, or `start` itself when there is none.
+ * `.git`; outside a repository, the nearest holding `.foldertree`; or
+ * `start` itself when there is neither. A repository wins over a nearer
+ * `.foldertree`, because the hook also leaves markers in the agent's own
+ * folder, which may be inside the repository.
  */
 export function projectRoot(start) {
   let dir = resolve(start);
+  let marked = null;
   for (;;) {
-    if (existsSync(join(dir, MARKER_DIR)) || existsSync(join(dir, ".git"))) return dir;
+    if (existsSync(join(dir, ".git"))) return dir;
+    if (!marked && existsSync(join(dir, MARKER_DIR))) marked = dir;
     const up = dirname(dir);
-    if (up === dir) return resolve(start);
+    if (up === dir) return marked ?? resolve(start);
     dir = up;
   }
 }
@@ -119,11 +128,11 @@ function markerDir(root) {
  * Returns the marker's name, or null when the file is outside the
  * project or the action unknown.
  */
-export function writeMarker(root, { action, pane, file, now = Date.now() }) {
+export function writeMarker(root, { action, pane, file, now = Date.now(), id = nonce() }) {
   if (!ACTIONS.has(action)) return null;
   const rel = relPath(root, file);
   if (rel === null || rel.split("/")[0] === MARKER_DIR) return null;
-  const marker = markerName({ ts: now, nonce: nonce(), action, pane, rel });
+  const marker = markerName({ ts: now, nonce: id, action, pane, rel });
   if (!marker) return null;
   const dir = markerDir(root);
   if (!marker.chunks.length) {
@@ -136,6 +145,26 @@ export function writeMarker(root, { action, pane, file, now = Date.now() }) {
   }
   prune(dir, now);
   return marker.name;
+}
+
+/**
+ * Records one action in each of `roots` the file is inside, with the same
+ * time and nonce everywhere (so the tile, which keys events on both and
+ * the file, shows it once). Folders that can't be written to are skipped.
+ * Returns the markers written, one per folder.
+ */
+export function writeMarkers(roots, { action, pane, file, now = Date.now() }) {
+  const id = nonce();
+  const written = [];
+  for (const root of new Set(roots.map((r) => resolve(r)))) {
+    try {
+      const name = writeMarker(root, { action, pane, file, now, id });
+      if (name) written.push(name);
+    } catch {
+      // A folder that can't be written to: the others still get the marker.
+    }
+  }
+  return written;
 }
 
 /** A temporary folder this old was left by a hook that stopped half way. */

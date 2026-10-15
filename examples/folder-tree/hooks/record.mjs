@@ -12,7 +12,11 @@
  *
  * It reads the hook's JSON from stdin, finds the files the tool read or
  * changed (agents.mjs), and leaves a marker for each in the project's
- * `.foldertree` folder (marker.mjs). The pane's name is FOLDERTREE_PANE
+ * `.foldertree` folder (marker.mjs), and in the agent's own folder too when
+ * the file is inside it. The tile reads markers only in the tree's folder
+ * and the folders above it that a pane is in, so an agent started above
+ * the project (a workspace of several repositories) or below its top
+ * would otherwise go unseen. The pane's name is FOLDERTREE_PANE
  * when set, otherwise the agent's ("Claude Code", "Codex").
  *
  * It never stands in the agent's way: it prints nothing (an agent may
@@ -24,7 +28,7 @@ import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { actionsFrom } from "./agents.mjs";
-import { projectRoot, writeMarker } from "./marker.mjs";
+import { projectRoot, relPath, writeMarkers } from "./marker.mjs";
 
 /** Biggest hook input read. */
 const MAX_INPUT = 4 * 1024 * 1024;
@@ -69,14 +73,16 @@ export function record(hook, agent, env = process.env) {
   };
   const pane = env.FOLDERTREE_PANE || AGENTS[agent] || agent || "agent";
   const written = [];
+  const agentDir = resolve(cwd);
   for (const { action, file } of actionsFrom(hook, isFile)) {
     const abs = resolve(cwd, file);
     // The project is found from the file (it may be outside the agent's folder).
+    const roots = [projectRoot(resolve(abs, ".."))];
+    if (relPath(agentDir, abs) !== null) roots.push(agentDir);
     try {
-      const name = writeMarker(projectRoot(resolve(abs, "..")), { action, pane, file: abs });
-      if (name) written.push(name);
+      written.push(...writeMarkers(roots, { action, pane, file: abs }));
     } catch {
-      // A folder that can't be written to: skip it, never fail the agent.
+      // Never fail the agent.
     }
   }
   return written;

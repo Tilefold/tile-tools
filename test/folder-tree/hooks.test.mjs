@@ -14,7 +14,8 @@
  * patches and plain reads in shell commands). The installer adds the hook
  * once, keeps everything else, backs files up, takes the hook out again
  * and never touches a file it can't read. The hook command writes markers
- * at the project's top, prints nothing and always exits 0.
+ * at the project's top and in the agent's own folder (the same marker, so
+ * the tile counts it once), prints nothing and always exits 0.
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -43,11 +44,14 @@ import {
   KEEP,
   MAX_AGE_MS,
   markerName,
+  projectRoot,
   prune,
   writeMarker,
+  writeMarkers,
 } from "../../examples/folder-tree/hooks/marker.mjs";
 import { record } from "../../examples/folder-tree/hooks/record.mjs";
 import { watched } from "../../examples/folder-tree/hooks/watch.mjs";
+import { toEvents } from "../../examples/folder-tree/src/activity.js";
 import { decodeMarker, joinChunks } from "../../examples/folder-tree/src/marker.js";
 
 const HOOKS = fileURLToPath(new URL("../../examples/folder-tree/hooks/", import.meta.url));
@@ -312,7 +316,81 @@ describe("hook command", () => {
     const [second] = record(hook, "codex", { FOLDERTREE_PANE: "api" });
     expect(decodeMarker(second)).toMatchObject({ pane: "api" });
     expect(readdirSync(join(root, ".foldertree")).length).toBe(3);
-    expect(existsSync(join(cwd, ".foldertree"))).toBe(false);
+  });
+
+  it("finds the project: the repository first, then a .foldertree, then the folder", () => {
+    const top = scratch();
+    const deep = join(top, "a", "b");
+    mkdirSync(join(deep, ".foldertree"), { recursive: true });
+    expect(projectRoot(deep)).toBe(deep);
+    mkdirSync(join(top, ".git"));
+    expect(projectRoot(deep)).toBe(top);
+    const loose = scratch();
+    expect(projectRoot(loose)).toBe(loose);
+  });
+
+  it("also marks in the agent's folder when it is below the project's top", () => {
+    const root = scratch();
+    mkdirSync(join(root, ".git"));
+    mkdirSync(join(root, "src", "deep"), { recursive: true });
+    const cwd = join(root, "src");
+    const hook = { cwd, tool_name: "Edit", tool_input: { file_path: "deep/x.js" } };
+    const [atTop, atAgent] = record(hook, "claude", {});
+    expect(decodeMarker(atTop)).toMatchObject({ path: "src/deep/x.js" });
+    expect(decodeMarker(atAgent)).toMatchObject({ path: "deep/x.js" });
+    expect(readdirSync(join(cwd, ".foldertree"))).toContain(atAgent);
+  });
+
+  it("marks in the agent's folder when it was started above the repository", () => {
+    // A workspace of several repositories, with no .git of its own.
+    const workspace = scratch();
+    const repo = join(workspace, "app");
+    mkdirSync(join(repo, ".git"), { recursive: true });
+    mkdirSync(join(repo, "src"));
+    const hook = { cwd: workspace, tool_name: "Read", tool_input: { file_path: "app/src/a.js" } };
+    const written = record(hook, "claude", {});
+    expect(written).toHaveLength(2);
+    expect(readdirSync(join(repo, ".foldertree"))).toContain(written[0]);
+    expect(readdirSync(join(workspace, ".foldertree"))).toContain(written[1]);
+    expect(decodeMarker(written[1])).toMatchObject({ action: "r", path: "app/src/a.js" });
+  });
+
+  it("marks only at the file's project when the file is outside the agent's folder", () => {
+    const base = scratch();
+    const here = join(base, "here");
+    const there = join(base, "there");
+    mkdirSync(join(here, ".git"), { recursive: true });
+    mkdirSync(join(there, ".git"), { recursive: true });
+    const hook = { cwd: here, tool_name: "Edit", tool_input: { file_path: join(there, "b.js") } };
+    expect(record(hook, "claude", {})).toHaveLength(1);
+    expect(existsSync(join(here, ".foldertree"))).toBe(false);
+    expect(readdirSync(join(there, ".foldertree"))).toHaveLength(2);
+  });
+
+  it("writes one marker per folder that the tile counts once", () => {
+    const top = scratch();
+    const sub = join(top, "src");
+    mkdirSync(sub);
+    const file = join(sub, "a.js");
+    const names = writeMarkers([top, sub, `${sub}/`], { action: "e", pane: "x", file, now: NOW });
+    expect(names).toHaveLength(2);
+    const found = [
+      { root: top, marker: decodeMarker(names[0], NOW) },
+      { root: sub, marker: decodeMarker(names[1], NOW) },
+    ];
+    expect(toEvents(found)).toHaveLength(1);
+  });
+
+  it("still marks the other folders when one can't be written to", () => {
+    const top = scratch();
+    const blocked = join(top, "blocked");
+    // A file where the marker folder would go: that folder can't be made.
+    mkdirSync(blocked);
+    writeFileSync(join(blocked, ".foldertree"), "");
+    const file = join(blocked, "a.js");
+    const names = writeMarkers([blocked, top], { action: "a", pane: "x", file, now: NOW });
+    expect(names).toHaveLength(1);
+    expect(readdirSync(join(top, ".foldertree"))).toContain(names[0]);
   });
 
   it("prints nothing and exits 0, whatever it is given", () => {
