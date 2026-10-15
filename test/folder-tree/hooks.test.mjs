@@ -11,7 +11,7 @@
  * future is believed. Old markers and stale half-written ones are pruned,
  * fresh ones kept, and a .gitignore keeps them out of commits. The agents'
  * hook input becomes the right actions (Claude Code's tools, Codex's
- * patches and plain reads in shell commands). The installer adds the hook
+ * patches, and reads, edits and deletions in shell commands). The installer adds the hook
  * once, keeps everything else, backs files up, takes the hook out again
  * and never touches a file it can't read. The hook command writes markers
  * at the project's top and in the agent's own folder (the same marker, so
@@ -32,7 +32,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { actionsFrom, patchActions, shellReads } from "../../examples/folder-tree/hooks/agents.mjs";
+import {
+  actionsFrom,
+  CHANGED_MS,
+  commandDir,
+  patchActions,
+  shellChanges,
+  shellReads,
+} from "../../examples/folder-tree/hooks/agents.mjs";
 import {
   hookCommand,
   install,
@@ -231,9 +238,62 @@ describe("agent input", () => {
       { action: "r", file: "my file.md" },
     ]);
     expect(shellReads("sed -i 's/a/b/' a.js; rm a.js; cat *.js", exists)).toEqual([]);
-    expect(
-      actionsFrom({ tool_name: "Bash", tool_input: { command: "head -n 3 a.js" } }, exists),
-    ).toEqual([{ action: "r", file: "a.js" }]);
+  });
+
+  it("finds the folder a command works in from its plain cd", () => {
+    expect(commandDir("ls", "/w")).toBe("/w");
+    expect(commandDir("cd app && sed -i x a.js", "/w")).toBe("/w/app");
+    expect(commandDir("cd /abs; cd sub; ls", "/w")).toBe("/abs/sub");
+    expect(commandDir("cd $HOME; ls", "/w")).toBe("/w");
+  });
+
+  /** A fake disk: path -> { mtimeMs, birthtimeMs } (files only). */
+  const disk = (files) => (p) => (p in files ? { file: true, ...files[p] } : null);
+  const fresh = { mtimeMs: NOW - 1000, birthtimeMs: NOW - 86_400_000 };
+  const born = { mtimeMs: NOW - 1000, birthtimeMs: NOW - 1000 };
+  const old = { mtimeMs: NOW - CHANGED_MS - 1, birthtimeMs: NOW - 86_400_000 };
+
+  it("sees files a shell command just changed, made or removed", () => {
+    const info = disk({ "/w/a.js": fresh, "/w/src/new.ts": born, "/w/b.js": old });
+    const opts = { dir: "/w", now: NOW };
+    expect(shellChanges("sed -i 's/a/b/' a.js b.js", info, opts)).toEqual([
+      { action: "e", file: "/w/a.js" },
+    ]);
+    expect(shellChanges("cat > src/new.ts <<'EOF'\nx\nEOF", info, opts)).toEqual([
+      { action: "a", file: "/w/src/new.ts" },
+    ]);
+    // Names inside a script count too.
+    const script = "python3 - <<'EOF'\np='a.js'\nopen(p,'w').write(s)\nEOF";
+    expect(shellChanges(script, info, opts)).toEqual([{ action: "e", file: "/w/a.js" }]);
+    expect(shellChanges("rm -f gone.js b.js && git rm old.md", info, opts)).toEqual([
+      { action: "d", file: "/w/gone.js" },
+      { action: "d", file: "/w/old.md" },
+    ]);
+    expect(shellChanges("curl https://x.io/a.js; ls ~/a.js", info, opts)).toEqual([]);
+    // sed -i replaces the file: a fresh birth time is still an edit.
+    expect(shellChanges("sed -i '' s/a/b/ src/new.ts", info, opts)).toEqual([
+      { action: "e", file: "/w/src/new.ts" },
+    ]);
+    // Only read here, however recently it changed.
+    expect(shellChanges("cat a.js | head -3; sed -n 1p a.js", info, opts)).toEqual([]);
+  });
+
+  it("turns a shell command into reads and changes, never both for one file", () => {
+    const info = disk({ "/w/app/a.js": fresh, "/w/app/b.js": old });
+    const hook = (command) => ({ cwd: "/w", tool_name: "Bash", tool_input: { command } });
+    expect(actionsFrom(hook("cd app && head -n 3 b.js"), info, NOW)).toEqual([
+      { action: "r", file: "/w/app/b.js" },
+    ]);
+    expect(actionsFrom(hook("cd app && cat a.js && sed -i x a.js"), info, NOW)).toEqual([
+      { action: "e", file: "/w/app/a.js" },
+    ]);
+    expect(actionsFrom(hook("cd app && cat a.js"), info, NOW)).toEqual([
+      { action: "r", file: "/w/app/a.js" },
+    ]);
+    // A redirect writes: cat > is no read.
+    expect(actionsFrom(hook("cat > app/a.js <<'EOF'\nx\nEOF"), info, NOW)).toEqual([
+      { action: "e", file: "/w/app/a.js" },
+    ]);
   });
 
   it("guesses other tools from their names", () => {

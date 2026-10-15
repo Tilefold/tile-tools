@@ -35,7 +35,7 @@ export const AGENTS = {
     name: "Claude Code",
     dir: ".claude",
     file: "settings.json",
-    matcher: "Read|Edit|MultiEdit|Write|NotebookEdit",
+    matcher: "Read|Edit|MultiEdit|Write|NotebookEdit|Bash",
     extra: { timeout: 10 },
   },
   codex: {

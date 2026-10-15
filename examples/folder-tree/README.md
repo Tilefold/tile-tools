@@ -13,6 +13,8 @@ The colours, pulses and pinned Recent list need Tilefold 0.1.11. On 0.1.9 and 0.
 
 ## Showing what your agents do
 
+Agents read and change files with their own tools and with shell commands. Folder Tree sees both: a plain `cat`, `head`, `tail` or `sed -n` of a file is a read, a file a command names that changed in the last 30 seconds is an edit (or an addition when it is new), and a file removed with `rm` is a deletion.
+
 Folder Tree can't read your files, only their names. Agents tell it what they do through small hooks, which leave empty marker files whose names say who did what to which file. They are kept in a `.foldertree` folder at the top of the project (the repository), and also in the folder the agent was started in when that is somewhere else, so the tree finds them whether you open it on the project, on a folder above it holding several repositories, or on a folder inside it. Each `.foldertree` has its own `.gitignore` so markers never end up in a commit. The newest 300 from the last week are kept.
 
 In the folder you copied Folder Tree to (for example `~/.tilefold/tiles/folder-tree`), run:
@@ -21,7 +23,7 @@ In the folder you copied Folder Tree to (for example `~/.tilefold/tiles/folder-t
 node hooks/install.mjs
 ```
 
-- **Claude Code:** adds a hook to `~/.claude/settings.json`; it works from the next session. Agents already running when you install it don't show up until you restart them.
+- **Claude Code:** adds a hook to `~/.claude/settings.json` for its file tools and its shell commands; it works from the next session. Agents already running when you install it don't show up until you restart them. Installed an earlier Folder Tree? Run it again so shell commands are seen too.
 - **Codex:** adds a hook to `~/.codex/hooks.json`; Codex asks you to trust it once.
 - `--claude` or `--codex` sets up only one; `--dry-run` says what would change; `--remove` takes the hooks out again. Each settings file is copied to `<file>.foldertree-backup` first.
 - Moved the tile? Run it again from the new folder: the hook is replaced, not added twice.

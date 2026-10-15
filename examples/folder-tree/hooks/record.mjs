@@ -64,17 +64,18 @@ function readInput() {
 /** Records the actions in `hook` for `agent`; returns the markers written. */
 export function record(hook, agent, env = process.env) {
   const cwd = typeof hook?.cwd === "string" && hook.cwd ? hook.cwd : process.cwd();
-  const isFile = (f) => {
+  const info = (abs) => {
     try {
-      return statSync(resolve(cwd, f)).isFile();
+      const st = statSync(abs);
+      return { file: st.isFile(), mtimeMs: st.mtimeMs, birthtimeMs: st.birthtimeMs };
     } catch {
-      return false;
+      return null;
     }
   };
   const pane = env.FOLDERTREE_PANE || AGENTS[agent] || agent || "agent";
   const written = [];
   const agentDir = resolve(cwd);
-  for (const { action, file } of actionsFrom(hook, isFile)) {
+  for (const { action, file } of actionsFrom(hook, info)) {
     const abs = resolve(cwd, file);
     // The project is found from the file (it may be outside the agent's folder).
     const roots = [projectRoot(resolve(abs, ".."))];
