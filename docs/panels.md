@@ -38,6 +38,31 @@ Each `show` replaces the whole panel and brings it forward. `tf.panel.hide()` ta
 | `expandable`, `expanded` | The row opens and closes, like a folder; `expanded: true` draws it open |
 | `muted` | A quiet note, such as "Loading…" or "Empty folder" |
 | `hint` | A tooltip, at most 512 characters |
+| `section` | Drawn as a section heading, such as "Now" or "Recent" (Tilefold 0.1.11) |
+| `tone` | A theme colour for the row's icon, label and badge: `accent`, `info`, `success`, `warning` or `error` (Tilefold 0.1.11) |
+| `badge` | A short pill after the label, such as the pane an agent works in or a count, at most 32 characters (Tilefold 0.1.11) |
+| `trail` | A short muted text at the row's end, such as "2m", at most 32 characters (Tilefold 0.1.11) |
+| `pulse` | A pulsing dot: something is happening on this row now. It stays still for users who ask for less motion (Tilefold 0.1.11) |
+
+### A footer pinned to the bottom
+
+From **Tilefold 0.1.11**, `footer: { rows }` is a second list pinned under the rows: a "Recent" list, a status, a legend. It takes the room its rows need and grows upward to at most half the panel, then scrolls inside, while the rows above scroll on their own. The keyboard moves from the rows into it.
+
+```js
+await tf.panel.show({
+  title: "app",
+  rows: treeRows,
+  footer: {
+    rows: [
+      { id: "recent", label: "Recent", section: true, expandable: true, expanded: true, badge: "12" },
+      { id: "r:main.rs", label: "main.rs", icon: "file", depth: 1, tone: "warning", badge: "api", trail: "2m" },
+      { id: "recent-more", label: "Show all 12", depth: 1, tone: "accent" },
+    ],
+  },
+});
+```
+
+Ids are unique across the rows and the footer, and the 5,000-row limit counts both. Tilefold 0.1.9 and 0.1.10 ignore `footer`, `section`, `tone`, `badge`, `trail` and `pulse`: the panel still shows, plainer and without the footer, so keep anything essential in the rows or in a [tile page](tile-pages.md) too.
 
 ## 3. Listen to the user
 

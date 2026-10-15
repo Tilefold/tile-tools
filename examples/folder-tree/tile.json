@@ -1,20 +1,23 @@
 {
   "id": "example.folder-tree",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
     {
-      "window.panel": "to show the folder tree in a panel beside your panes"
+      "window.panel": "to show the folder tree, with what your agents are doing in it, in a panel beside your panes"
     },
     {
       "pane.cwd": "to show the folder the pane you're working in is in, and follow you when you switch panes or cd"
     },
     {
-      "fs.list": "to show the names of the files and folders in it, one folder at a time (never what's in them)"
+      "fs.list": "to show the names of the files and folders in it, and to read the names of the markers your agents' hooks leave in .foldertree folders (never what's in a file)"
     },
     {
       "viewer.open": "to open the file you click in Tilefold's document viewer"
+    },
+    {
+      "page": "to show the tree, what your agents are doing and the recent files in a window of its own"
     }
   ]
 }

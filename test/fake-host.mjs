@@ -30,8 +30,9 @@
  * `host.cwd` is the focused pane's folder). `page: true` adds `tf.page`
  * (opens, closes and posted messages are kept in `host.page`). `panel: true`
  * adds `tf.panel` (`host.panel.content` is what is docked, or null; rows
- * are checked the way Tilefold checks them: unique ids, labels, depth, a
- * known icon).
+ * and the footer's rows are checked the way Tilefold 0.1.11 checks them:
+ * unique ids, labels, depth, a known icon and tone, badge and trail
+ * lengths).
  *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
@@ -340,8 +341,38 @@ function addPage(tf, host) {
 
 /** Icons Tilefold draws in panel rows. */
 const PANEL_ICONS = ["folder", "file", "link", "loading", "error", "info", "none"];
+/** Theme tones a panel row may take (Tilefold 0.1.11). */
+const PANEL_TONES = ["accent", "info", "success", "warning", "error"];
 
-/** `tf.panel`, keeping the docked content and checking rows as Tilefold does. */
+/** Whether `v` is left out or a string of 1..max characters. */
+const optionalText = (v, max) =>
+  v === undefined ||
+  v === null ||
+  (typeof v === "string" && v.trim().length > 0 && v.length <= max);
+/** Whether `v` is left out or true/false. */
+const optionalFlag = (v) => v === undefined || typeof v === "boolean";
+
+/** Whether one panel row is as Tilefold accepts it (ids checked by the caller). */
+const panelRowOk = (r) =>
+  typeof r?.id === "string" &&
+  r.id.length > 0 &&
+  r.id.length <= 1024 &&
+  typeof r.label === "string" &&
+  r.label.length > 0 &&
+  r.label.length <= 256 &&
+  (r.depth === undefined || (Number.isInteger(r.depth) && r.depth >= 0)) &&
+  (r.icon === undefined || PANEL_ICONS.includes(r.icon)) &&
+  ["expandable", "expanded", "muted", "section", "pulse"].every((f) => optionalFlag(r[f])) &&
+  (r.tone === undefined || r.tone === null || PANEL_TONES.includes(r.tone)) &&
+  optionalText(r.hint, 512) &&
+  optionalText(r.badge, 32) &&
+  optionalText(r.trail, 32);
+
+/**
+ * `tf.panel`, keeping the docked content and checking rows as Tilefold
+ * 0.1.11 does: ids unique across the rows and the footer, at most 5,000
+ * rows in all.
+ */
 function addPanel(tf, host, named) {
   host.panel = { content: null, shows: 0 };
   tf.panel = {
@@ -350,19 +381,17 @@ function addPanel(tf, host, named) {
       if (typeof content?.title !== "string" || !content.title.trim()) {
         throw named("TypeError", "title");
       }
-      for (const [i, r] of (content.rows ?? []).entries()) {
-        const ok =
-          typeof r.id === "string" &&
-          r.id.length > 0 &&
-          r.id.length <= 1024 &&
-          !ids.has(r.id) &&
-          typeof r.label === "string" &&
-          r.label.length > 0 &&
-          r.label.length <= 256 &&
-          (r.depth === undefined || (Number.isInteger(r.depth) && r.depth >= 0)) &&
-          (r.icon === undefined || PANEL_ICONS.includes(r.icon));
-        if (!ok) throw named("TypeError", `rows[${i}]`);
-        ids.add(r.id);
+      const footer = content.footer?.rows ?? [];
+      const lists = [
+        ["rows", content.rows ?? []],
+        ["footer.rows", footer],
+      ];
+      if (content.rows.length + footer.length > 5000) throw named("TypeError", "at most 5000 rows");
+      for (const [where, list] of lists) {
+        for (const [i, r] of list.entries()) {
+          if (!panelRowOk(r) || ids.has(r.id)) throw named("TypeError", `${where}[${i}]`);
+          ids.add(r.id);
+        }
       }
       host.panel.content = structuredClone(content);
       host.panel.shows += 1;

@@ -1,0 +1,64 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Tilefold
+  Author: Tilefold
+  Released under the MIT License.
+
+  Folder Tree's window: the folder, what agents are on now, the tree, and
+  the recent files pinned at the bottom (it grows upward to half the
+  window when it shows them all). All text arrives from the tile in the
+  user's language; main.js is built from page-src/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Folder Tree</title>
+    <link rel="stylesheet" href="tree.css" />
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <header class="head">
+      <div class="titles">
+        <h1 id="title"></h1>
+        <p id="root" dir="auto"></p>
+      </div>
+      <span id="live" class="live" role="status"></span>
+      <button id="setup-open" class="ghost" type="button"></button>
+    </header>
+    <main class="body">
+      <section id="now-box" class="now" hidden>
+        <h2 id="now-title"></h2>
+        <ol id="now" class="cards"></ol>
+      </section>
+      <section class="tree-box">
+        <h2 id="files-title"></h2>
+        <ul id="tree" class="tree" role="tree"></ul>
+      </section>
+    </main>
+    <section id="recent-box" class="recent" hidden>
+      <div class="recent-head">
+        <h2 id="recent-title"></h2>
+        <span id="recent-count" class="count"></span>
+      </div>
+      <ol id="recent" class="list"></ol>
+      <button id="recent-more" class="more" type="button" hidden></button>
+    </section>
+    <dialog id="setup">
+      <h2 id="setup-title"></h2>
+      <p id="setup-intro"></p>
+      <ol class="steps">
+        <li id="setup-claude"></li>
+        <li id="setup-codex"></li>
+      </ol>
+      <div class="command">
+        <code id="setup-command"></code>
+        <button id="setup-copy" type="button"></button>
+      </div>
+      <p id="setup-other" class="muted"></p>
+      <form method="dialog">
+        <button id="setup-close" type="submit"></button>
+      </form>
+    </dialog>
+  </body>
+</html>

@@ -6,21 +6,130 @@
  * Folder Tree
  *
  * The folder the focused pane is in, as a tree in a panel docked beside
- * your panes: open folders one level at a time, click a file to read it in
- * Tilefold's document viewer, which opens right next to the tree. The tree
- * follows you when you switch panes or `cd` elsewhere.
+ * your panes, with what your coding agents are doing on it: the files
+ * they are reading, editing, adding and deleting pulse in the action's
+ * colour with the pane's name, busy folders say how many, and the recent
+ * files sit pinned at the bottom of the panel. Click a file to read it in
+ * Tilefold's document viewer, which opens right next to the tree. The
+ * tree follows you when you switch panes or `cd` elsewhere, and opens in a
+ * window of its own too.
  *
- * It shows what a tile can do from Tilefold 0.1.9 on, each with a
+ * Agents report through small hooks (Claude Code, Codex) or a folder
+ * watcher, in hooks/, which leave empty marker files whose names say what
+ * happened; the tile only ever reads names, never what is in a file.
+ *
+ * It shows what a tile can do from Tilefold 0.1.11 on, each with a
  * permission and a reason:
- * - a docked panel Tilefold draws from rows (`tf.panel`, `window.panel`);
+ * - a docked panel Tilefold draws from rows, with sections, colours,
+ *   pulses and a pinned footer (`tf.panel`, `window.panel`);
  * - `tf.pane.cwd()` and the `pane.cwd` event (`pane.cwd`);
  * - `tf.fs.list` for one level of names, never file contents (`fs.list`);
- * - `tf.viewer.open` to show a file (`viewer.open`).
- * Tilefold lets it reach only folders the user's panes are in.
+ * - `tf.viewer.open` to show a file (`viewer.open`);
+ * - a page in a window of its own (`tf.page`, `page`).
+ * On Tilefold 0.1.9 and 0.1.10 the panel shows the tree without the
+ * colours and the pinned Recent list; the window has everything.
  *
  * Built into main.js with `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
+// src/paths.js
+function normalize(path) {
+  const text = String(path ?? "");
+  const absolute = text.startsWith("/");
+  const parts = [];
+  for (const part of text.split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") {
+      if (parts.length && parts[parts.length - 1] !== "..") parts.pop();
+      else if (!absolute) parts.push("..");
+      continue;
+    }
+    parts.push(part);
+  }
+  const joined = parts.join("/");
+  return absolute ? `/${joined}` : joined || ".";
+}
+var join = (dir, rel) => normalize(`${dir}/${rel}`);
+function parent(path) {
+  const p = normalize(path);
+  const at = p.lastIndexOf("/");
+  return at <= 0 ? "/" : p.slice(0, at);
+}
+function basename(path) {
+  const p = normalize(path);
+  return p === "/" ? "/" : p.slice(p.lastIndexOf("/") + 1);
+}
+function isInside(path, dir) {
+  const p = normalize(path);
+  const d = normalize(dir);
+  if (d === "/") return p.startsWith("/");
+  return p === d || p.startsWith(`${d}/`);
+}
+function relativeTo(path, dir) {
+  if (!isInside(path, dir)) return null;
+  const p = normalize(path);
+  const d = normalize(dir);
+  if (p === d) return "";
+  return d === "/" ? p.slice(1) : p.slice(d.length + 1);
+}
+function shownPath(path, root) {
+  const rel = root ? relativeTo(path, root) : null;
+  return rel === null || rel === "" ? normalize(path) : rel;
+}
+function ancestors(path, limit = 8) {
+  const out = [];
+  let p = normalize(path);
+  while (p !== "/" && out.length < limit) {
+    p = parent(p);
+    out.push(p);
+  }
+  return out;
+}
+
+// src/activity.js
+var TONES = Object.freeze({ r: "info", e: "warning", a: "success", d: "error" });
+var MAX_EVENTS = 500;
+function toEvents(found) {
+  const seen = /* @__PURE__ */ new Set();
+  const events = [];
+  for (const { root, marker } of found) {
+    if (!marker?.path) continue;
+    const abs = join(root, marker.path);
+    const key = `${marker.ts}.${marker.nonce}.${abs}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    events.push({ ts: marker.ts, action: marker.action, pane: marker.pane, abs, key });
+  }
+  events.sort((a, b) => b.ts - a.ts || (a.key < b.key ? 1 : -1));
+  return events.slice(0, MAX_EVENTS);
+}
+function latestPerFile(events) {
+  const out = /* @__PURE__ */ new Map();
+  for (const e of events) if (!out.has(e.abs)) out.set(e.abs, e);
+  return [...out.values()];
+}
+var activeFiles = (events, now, activeMs) => latestPerFile(events).filter((e) => now - e.ts <= activeMs);
+function hotFolders(active, root) {
+  const out = /* @__PURE__ */ new Map();
+  if (!root) return out;
+  for (const e of active) {
+    for (const dir of ancestors(e.abs, 64)) {
+      if (!isInside(dir, root) || dir === root) break;
+      out.set(dir, (out.get(dir) ?? 0) + 1);
+    }
+  }
+  return out;
+}
+var recentFiles = (events, limit) => latestPerFile(events).slice(0, limit);
+var paneCount = (events) => new Set(events.map((e) => e.pane)).size;
+function age(ms) {
+  const s = Math.max(0, Math.round(ms / 1e3));
+  if (s < 60) return { unit: "s", n: s };
+  if (s < 3600) return { unit: "m", n: Math.floor(s / 60) };
+  if (s < 86400) return { unit: "h", n: Math.floor(s / 3600) };
+  return { unit: "d", n: Math.floor(s / 86400) };
+}
+
 // src/tree.js
 var MAX_SKIP = 50;
 function parseSkip(text) {
@@ -73,7 +182,7 @@ function withError(tree, path, message) {
 var opened = (tree, path) => ({ ...tree, open: adding(tree.open, path) });
 var closed = (tree, path) => ({ ...tree, open: without(tree.open, path) });
 var isLoaded = (tree, path) => path in tree.folders;
-function treeRows(tree, { strings, filters }) {
+function treeRows(tree, { strings, filters, decorate = null }) {
   const rows = [];
   const targets = /* @__PURE__ */ new Map();
   const note = (key, depth, icon, label) => rows.push({ id: `note:${key}`, label, icon, depth, muted: true });
@@ -90,7 +199,7 @@ function treeRows(tree, { strings, filters }) {
       const child = childPath(level.path, entry.name);
       const isOpen = tree.open.includes(child);
       const folderLike = entry.kind === "dir" || entry.kind === "link" && isLoaded(tree, child);
-      rows.push({
+      const row = {
         id: child,
         label: entry.name,
         icon: entry.kind === "dir" ? "folder" : entry.kind === "link" ? "link" : "file",
@@ -98,8 +207,10 @@ function treeRows(tree, { strings, filters }) {
         expandable: folderLike,
         expanded: folderLike && isOpen,
         hint: child
-      });
-      targets.set(child, { kind: folderLike ? "dir" : entry.kind, path: child });
+      };
+      const kind = folderLike ? "dir" : entry.kind;
+      rows.push(decorate ? { ...row, ...decorate(row, { kind, path: child, open: isOpen }) } : row);
+      targets.set(child, { kind, path: child });
       if (folderLike && isOpen) walk(child, depth + 1);
     }
     if (level.truncated) note(`${path}:truncated`, depth, "info", strings.truncated);
@@ -110,7 +221,389 @@ function treeRows(tree, { strings, filters }) {
   return { rows, targets };
 }
 
+// src/page-view.js
+var PAGE_RECENT = 100;
+var PAGE_NOW = 8;
+function pageEvent(e, root, prefix) {
+  const path = shownPath(e.abs, root);
+  const dir = path.includes("/") ? `${parent(path)}/` : "";
+  return {
+    id: `${prefix}${e.abs}`,
+    file: basename(e.abs),
+    dir: dir === "./" ? "" : dir,
+    pane: e.pane,
+    action: e.action,
+    ts: e.ts
+  };
+}
+function pageView({ tree, events, now, t, opts }) {
+  const root = tree.root;
+  const activity = opts.showActivity ? events : [];
+  const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
+  const latest = /* @__PURE__ */ new Map();
+  for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
+  const hot = hotFolders(active, root);
+  const built = treeRows(tree, {
+    strings: {
+      loading: t("row-loading"),
+      empty: t("row-empty"),
+      truncated: t("row-truncated"),
+      noFolder: t("row-no-folder")
+    },
+    filters: opts.filters
+  });
+  const targets = new Map(built.targets);
+  const rows = built.rows.map((r) => {
+    const target = built.targets.get(r.id);
+    const e = target && target.kind !== "dir" ? latest.get(r.id) : null;
+    const mark = e && now - e.ts <= opts.recentMs ? e : null;
+    return {
+      id: r.id,
+      name: r.label,
+      depth: r.depth ?? 0,
+      kind: target ? target.kind : "note",
+      ...r.expandable ? { expandable: true, expanded: !!r.expanded } : {},
+      ...r.muted ? { muted: true } : {},
+      ...mark ? { mark: { action: mark.action, pane: mark.pane, ts: mark.ts } } : {},
+      ...target?.kind === "dir" && !r.expanded && hot.has(r.id) ? { hot: hot.get(r.id) } : {}
+    };
+  });
+  const nowList = active.slice(0, PAGE_NOW).map((e) => pageEvent(e, root, "now:"));
+  const recent = recentFiles(activity, PAGE_RECENT);
+  for (const e of active.slice(0, PAGE_NOW))
+    targets.set(`now:${e.abs}`, { kind: "file", path: e.abs });
+  for (const e of recent) targets.set(`recent:${e.abs}`, { kind: "file", path: e.abs });
+  return {
+    state: {
+      type: "state",
+      title: root ? folderName(root) : t("title-no-folder"),
+      root: root ?? "",
+      live: nowList.length > 0,
+      now: nowList,
+      tree: rows,
+      recent: recent.map((e) => pageEvent(e, root, "recent:")),
+      panes: paneCount(recent),
+      activity: opts.showActivity
+    },
+    targets
+  };
+}
+function pageStrings(t, hookCommand) {
+  const n = "\xA7";
+  return {
+    type: "strings",
+    lang: t("page-lang"),
+    dir: t("page-dir") === "rtl" ? "rtl" : "ltr",
+    now: t("section-now"),
+    files: t("section-files"),
+    recent: t("section-recent"),
+    live: t("page-live"),
+    idle: t("page-idle"),
+    emptyNow: t("page-empty-now"),
+    emptyRecent: t("page-empty-recent"),
+    showAll: t("recent-all", { count: n }),
+    showFewer: t("recent-fewer"),
+    panes: t("page-panes", { count: n }),
+    busy: t("hint-busy", { count: n }),
+    doing: {
+      r: t("page-doing-r"),
+      e: t("page-doing-e"),
+      a: t("page-doing-a"),
+      d: t("page-doing-d")
+    },
+    ago: { s: t("ago-s", { n }), m: t("ago-m", { n }), h: t("ago-h", { n }), d: t("ago-d", { n }) },
+    setup: {
+      title: t("setup-title"),
+      intro: t("setup-intro"),
+      claude: t("setup-claude"),
+      codex: t("setup-codex"),
+      other: t("setup-other"),
+      copy: t("setup-copy"),
+      copied: t("setup-copied"),
+      close: t("setup-close"),
+      open: t("setup-open"),
+      command: hookCommand
+    }
+  };
+}
+
+// src/panel-view.js
+var PANEL_RECENT = 5;
+var RECENT_LIMIT = 100;
+var NOW_MAX = 5;
+function clamp(text, max) {
+  const chars = [...String(text)];
+  return chars.length <= max ? String(text) : `${chars.slice(0, max - 1).join("")}\u2026`;
+}
+var AGO_KEYS = { s: "ago-s", m: "ago-m", h: "ago-h", d: "ago-d" };
+var HINT_KEYS = { r: "hint-r", e: "hint-e", a: "hint-a", d: "hint-d" };
+var NOW_KEYS = { r: "now-r", e: "now-e", a: "now-a", d: "now-d" };
+var agoText = (t, ms) => {
+  const { unit, n } = age(ms);
+  return t(AGO_KEYS[unit], { n });
+};
+var activityHint = (t, e, now, path) => clamp(
+  `${t(HINT_KEYS[e.action] ?? HINT_KEYS.e, { pane: e.pane, ago: agoText(t, now - e.ts) })}
+${path}`,
+  512
+);
+var marked = (t, e, now, { pulse, path }) => ({
+  tone: TONES[e.action] ?? "warning",
+  ...pulse ? { pulse: true, badge: e.pane } : {},
+  trail: agoText(t, now - e.ts),
+  hint: activityHint(t, e, now, path)
+});
+function headline(t, active, root) {
+  if (!active.length) return root ? clamp(root, 512) : void 0;
+  const top = active[0];
+  const line = t(NOW_KEYS[top.action] ?? NOW_KEYS.e, {
+    pane: top.pane,
+    path: shownPath(top.abs, root)
+  });
+  const text = active.length > 1 ? t("now-more", { line, count: active.length - 1 }) : line;
+  return clamp(text, 512);
+}
+function recentFooter(t, events, root, now, { open, all }) {
+  const rows = [];
+  const targets = /* @__PURE__ */ new Map();
+  const recent = recentFiles(events, RECENT_LIMIT);
+  if (!recent.length) return { rows, targets };
+  rows.push({
+    id: "recent",
+    label: t("section-recent"),
+    section: true,
+    expandable: true,
+    expanded: open,
+    badge: String(recent.length)
+  });
+  targets.set("recent", { kind: "recent" });
+  if (!open) return { rows, targets };
+  for (const e of all ? recent : recent.slice(0, PANEL_RECENT)) {
+    const id = `recent:${e.abs}`;
+    rows.push({
+      id,
+      label: basename(e.abs),
+      icon: "file",
+      depth: 1,
+      ...marked(t, e, now, { pulse: false, path: shownPath(e.abs, root) }),
+      badge: e.pane
+    });
+    targets.set(id, { kind: "file", path: e.abs });
+  }
+  if (recent.length > PANEL_RECENT) {
+    const label = all ? t("recent-fewer") : t("recent-all", { count: recent.length });
+    rows.push({ id: "recent-more", label, icon: "none", depth: 1, tone: "accent" });
+    targets.set("recent-more", { kind: "recent-more" });
+  }
+  return { rows, targets };
+}
+function panelView({ tree, events, now, t, opts }) {
+  const root = tree.root;
+  const activity = opts.showActivity ? events : [];
+  const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
+  const latest = /* @__PURE__ */ new Map();
+  for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
+  const hot = hotFolders(active, root);
+  const decorate = (row, { kind, path, open }) => {
+    if (kind === "dir") {
+      const count = hot.get(path);
+      if (!count || open) return {};
+      return {
+        tone: "accent",
+        pulse: true,
+        badge: String(count),
+        hint: clamp(`${t("hint-busy", { count })}
+${path}`, 512)
+      };
+    }
+    const e = latest.get(path);
+    if (!e || now - e.ts > opts.recentMs) return {};
+    return marked(t, e, now, { pulse: now - e.ts <= opts.activeMs, path });
+  };
+  const built = treeRows(tree, {
+    strings: {
+      loading: t("row-loading"),
+      empty: t("row-empty"),
+      truncated: t("row-truncated"),
+      noFolder: t("row-no-folder")
+    },
+    filters: opts.filters,
+    decorate
+  });
+  const rows = [];
+  const targets = new Map(built.targets);
+  if (active.length) {
+    rows.push({ id: "now", label: t("section-now"), section: true, badge: String(active.length) });
+    for (const e of active.slice(0, NOW_MAX)) {
+      const id = `now:${e.abs}`;
+      const path = shownPath(e.abs, root);
+      const label = clamp(path, 256);
+      rows.push({ id, label, icon: "file", ...marked(t, e, now, { pulse: true, path }) });
+      targets.set(id, { kind: "file", path: e.abs });
+    }
+    rows.push({ id: "files", label: t("section-files"), section: true });
+  }
+  rows.push(...built.rows);
+  const footer = recentFooter(t, activity, root, now, {
+    open: opts.recentOpen,
+    all: opts.recentAll
+  });
+  for (const [id, target] of footer.targets) targets.set(id, target);
+  const subtitle = headline(t, active, root);
+  return {
+    content: {
+      title: root ? folderName(root) : t("title-no-folder"),
+      ...subtitle ? { subtitle } : {},
+      rows,
+      ...footer.rows.length ? { footer: { rows: footer.rows } } : {}
+    },
+    targets,
+    live: active.length > 0
+  };
+}
+
+// src/marker.js
+var MARKER_DIR = ".foldertree";
+var ACTIONS = Object.freeze({ r: "read", e: "edit", a: "add", d: "delete" });
+var MAX_CHUNKS = 23;
+var PANE_CHARS = 32;
+var DEFAULT_PANE = "agent";
+var MAX_FUTURE_MS = 6e4;
+var MARKER_RE = /^ft1\.([0-9a-z]{9})\.([0-9a-z]{4})\.([a-z])\.([A-Za-z0-9_-]{1,88})\.(~\d{2}|[A-Za-z0-9_-]+)$/;
+var CHUNK_RE = /^(\d{2})\.([A-Za-z0-9_-]{1,240})$/;
+function fromB64url(code) {
+  if (!/^[A-Za-z0-9_-]*$/.test(code) || code.length % 4 === 1) throw new Error("not base64url");
+  const padded = code.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((code.length + 3) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+function cleanPane(name) {
+  const flat = String(name ?? "").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").replace(/\s+/g, " ").trim();
+  return [...flat].slice(0, PANE_CHARS).join("").trim() || DEFAULT_PANE;
+}
+function cleanRelPath(path) {
+  const text = String(path ?? "").replace(/\\/g, "/");
+  if (!text || text.includes("\0") || text.startsWith("/") || /^[A-Za-z]:\//.test(text)) {
+    return null;
+  }
+  const parts = [];
+  for (const part of text.split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") {
+      if (!parts.length) return null;
+      parts.pop();
+    } else parts.push(part);
+  }
+  return parts.length ? parts.join("/") : null;
+}
+function decodeMarker(name, now = Date.now()) {
+  const m = MARKER_RE.exec(String(name ?? ""));
+  if (!m) return null;
+  const [, tsCode, nonce, letter, paneCode, target] = m;
+  const ts = parseInt(tsCode, 36);
+  if (!Number.isFinite(ts) || ts > now + MAX_FUTURE_MS) return null;
+  const action = letter in ACTIONS ? letter : "e";
+  let pane;
+  try {
+    pane = cleanPane(fromB64url(paneCode));
+  } catch {
+    return null;
+  }
+  if (target.startsWith("~")) {
+    const chunks = Number(target.slice(1));
+    if (chunks < 1 || chunks > MAX_CHUNKS) return null;
+    return { ts, nonce, action, pane, path: null, chunks };
+  }
+  let path;
+  try {
+    path = cleanRelPath(fromB64url(target));
+  } catch {
+    return null;
+  }
+  return path === null ? null : { ts, nonce, action, pane, path, chunks: 0 };
+}
+function joinChunks(names, expected) {
+  const parts = [];
+  for (const name of names) {
+    const m = CHUNK_RE.exec(name);
+    if (m) parts[Number(m[1])] = m[2];
+  }
+  if (parts.length !== expected) return null;
+  for (let i = 0; i < expected; i++) if (parts[i] === void 0) return null;
+  try {
+    return cleanRelPath(fromB64url(parts.join("")));
+  } catch {
+    return null;
+  }
+}
+
+// src/scan.js
+var SEARCH_UP = 6;
+var CHUNK_CACHE = 1e3;
+var QUIET = /* @__PURE__ */ new Set(["NotFoundError", "PathNotAllowedError", "NotADirectoryError"]);
+function createScanner(tf) {
+  const chunks = /* @__PURE__ */ new Map();
+  let denied = { root: null, dirs: /* @__PURE__ */ new Set() };
+  const markersIn = async (projectRoot, now) => {
+    const dir = join(projectRoot, MARKER_DIR);
+    let listing;
+    try {
+      listing = await tf.fs.list(dir);
+    } catch (err) {
+      if (err?.name === "PathNotAllowedError") denied.dirs.add(projectRoot);
+      if (!QUIET.has(err?.name)) void tf.log.warn(`Folder Tree: ${err?.name}: ${err?.message}`);
+      return [];
+    }
+    const out = [];
+    for (const entry of listing.entries) {
+      const marker = decodeMarker(entry.name, now);
+      if (!marker) continue;
+      if (marker.chunks && entry.kind === "dir") {
+        marker.path = await longPath(dir, entry.name, marker.chunks);
+      }
+      if (marker.path) out.push({ root: projectRoot, marker });
+    }
+    return out;
+  };
+  const longPath = async (dir, name, expected) => {
+    const key = `${dir}/${name}`;
+    if (chunks.has(key)) return chunks.get(key);
+    let path = null;
+    try {
+      const parts = await tf.fs.list(join(dir, name));
+      path = joinChunks(
+        parts.entries.map((e) => e.name),
+        expected
+      );
+    } catch {
+      return null;
+    }
+    if (path === null) return null;
+    if (chunks.size >= CHUNK_CACHE) chunks.delete(chunks.keys().next().value);
+    chunks.set(key, path);
+    return path;
+  };
+  return {
+    /** Every marker for the tree at `root` (its folder and those above). */
+    async scan(root, now = Date.now()) {
+      if (!root) return [];
+      if (denied.root !== root) denied = { root, dirs: /* @__PURE__ */ new Set() };
+      const found = [];
+      for (const dir of [root, ...ancestors(root, SEARCH_UP)]) {
+        if (denied.dirs.has(dir)) continue;
+        found.push(...await markersIn(dir, now));
+      }
+      return found;
+    }
+  };
+}
+
 // src/session.js
+var POLL_MS = 2e3;
+var AGE_REDRAW_MS = 1e4;
+var HOOK_COMMAND = "node hooks/install.mjs";
+var UI_KEY = "ui";
 var ERROR_KEYS = {
   PathNotAllowedError: "error-not-allowed",
   NotFoundError: "error-not-found",
@@ -118,34 +611,69 @@ var ERROR_KEYS = {
   RateLimitError: "error-busy"
 };
 function createFolderTree(tf) {
+  const scanner = createScanner(tf);
   let tree = emptyTree(null);
   let shown = false;
+  let pageOpen = false;
   let targets = /* @__PURE__ */ new Map();
+  let events = [];
+  let seen = "";
+  let lastDraw = 0;
+  let timer = null;
+  const ui = { recentOpen: true, recentAll: false };
   const explain = (err) => {
     const key = ERROR_KEYS[err?.name];
     if (!key) void tf.log.warn(`Folder Tree: ${err?.name ?? "Error"}: ${err?.message ?? err}`);
     return tf.t(key ?? "error-other");
   };
+  const options = () => ({
+    activeMs: Math.max(5, Number(tf.settings.get("activeSeconds")) || 20) * 1e3,
+    recentMs: Math.max(1, Number(tf.settings.get("recentMinutes")) || 30) * 6e4,
+    showActivity: tf.settings.get("showActivity") !== false,
+    filters: {
+      showHidden: tf.settings.get("showHidden") === true,
+      skip: parseSkip(tf.settings.get("skipFolders"))
+    },
+    ...ui
+  });
   const draw = async () => {
-    if (!shown) return;
-    const built = treeRows(tree, {
-      strings: {
-        loading: tf.t("row-loading"),
-        empty: tf.t("row-empty"),
-        truncated: tf.t("row-truncated"),
-        noFolder: tf.t("row-no-folder")
-      },
-      filters: {
-        showHidden: tf.settings.get("showHidden") === true,
-        skip: parseSkip(tf.settings.get("skipFolders"))
+    const now = Date.now();
+    lastDraw = now;
+    const next = /* @__PURE__ */ new Map();
+    const args = { tree, events, now, t: (k, a) => tf.t(k, a), opts: options() };
+    if (shown) {
+      const view = panelView(args);
+      for (const [id, target] of view.targets) next.set(id, target);
+      await tf.panel.show(view.content);
+    }
+    if (pageOpen) {
+      const view = pageView(args);
+      for (const [id, target] of view.targets) next.set(id, target);
+      await tf.page.post(view.state).catch(() => pageOpen = false);
+    }
+    targets = next;
+  };
+  const poll = async () => {
+    if (!shown && !pageOpen || !tree.root) return;
+    if (options().showActivity) {
+      events = toEvents(await scanner.scan(tree.root));
+      const print = `${events.length}:${events[0]?.key ?? ""}`;
+      if (print !== seen) {
+        seen = print;
+        return draw();
       }
-    });
-    targets = built.targets;
-    await tf.panel.show({
-      title: tree.root ? folderName(tree.root) : tf.t("title-no-folder"),
-      ...tree.root ? { subtitle: tree.root } : {},
-      rows: built.rows
-    });
+    }
+    if (events.length && Date.now() - lastDraw >= AGE_REDRAW_MS) return draw();
+    return void 0;
+  };
+  const pace = () => {
+    const wanted = shown || pageOpen;
+    if (wanted && !timer) {
+      timer = setInterval(() => void poll().catch((err) => explain(err)), POLL_MS);
+    } else if (!wanted && timer) {
+      clearInterval(timer);
+      timer = null;
+    }
   };
   const load = async (path) => {
     tree = startLoading(tree, path);
@@ -159,6 +687,8 @@ function createFolderTree(tf) {
   };
   const start = async (root) => {
     tree = emptyTree(root);
+    events = root && options().showActivity ? toEvents(await scanner.scan(root)) : [];
+    seen = `${events.length}:${events[0]?.key ?? ""}`;
     if (root) await load(root);
     else await draw();
   };
@@ -173,60 +703,122 @@ function createFolderTree(tf) {
     }
     return load(path);
   };
-  const openFile = async (path, isLink) => {
+  const openFile = async (path, isLink, from) => {
     try {
       await tf.viewer.open(path);
+      await tf.audit("file-opened", { from });
     } catch (err) {
       if (isLink && err?.name === "NotAFileError") return load(path);
       await tf.toast(explain(err));
     }
     return void 0;
   };
+  const setUi = async (change) => {
+    Object.assign(ui, change);
+    await tf.store.set(UI_KEY, { ...ui });
+    return draw();
+  };
+  const act = async (id, action, from) => {
+    const target = targets.get(id);
+    if (!target) return void 0;
+    if (target.kind === "dir") {
+      const open = action === "expand" || action === "activate" && !tree.open.includes(id);
+      return toggle(target.path, open);
+    }
+    if (target.kind === "file" || target.kind === "link") {
+      return openFile(target.path, target.kind === "link", from);
+    }
+    if (target.kind === "recent")
+      return setUi({
+        recentOpen: action === "expand" || action === "activate" && !ui.recentOpen
+      });
+    if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
+    return void 0;
+  };
+  const ensureRoot = async (root) => {
+    if (root !== tree.root || !isLoaded(tree, root ?? "")) await start(root);
+    else await draw();
+  };
+  void tf.store.get(UI_KEY).then((saved) => {
+    if (saved && typeof saved === "object") {
+      ui.recentOpen = saved.recentOpen !== false;
+      ui.recentAll = saved.recentAll === true;
+    }
+  });
   return {
     /** Shows the panel, or hides it when it is shown. */
     async toggleShown() {
       if (shown) {
         shown = false;
+        pace();
+        await tf.audit("hidden", {});
         return tf.panel.hide();
       }
       shown = true;
+      pace();
       const root = await tf.pane.cwd();
-      await tf.audit("shown", { hasFolder: root !== null });
-      return start(root);
+      await tf.audit("shown", { hasFolder: root !== null, window: pageOpen });
+      return ensureRoot(root);
+    },
+    /** Opens the window (it shows the setup help when `setup` is true). */
+    async openWindow(setup = false) {
+      if (!tf.page) return tf.toast(tf.t("needs-newer-tilefold"));
+      await tf.page.open({ visible: true });
+      pageOpen = true;
+      pace();
+      await tf.audit("window-opened", { setup });
+      await tf.page.post(pageStrings((k, a) => tf.t(k, a), HOOK_COMMAND));
+      if (setup) await tf.page.post({ type: "setup" });
+      return ensureRoot(await tf.pane.cwd());
     },
     /** Lists everything again from the top. */
-    refresh: () => shown ? start(tree.root) : void 0,
+    refresh: () => shown || pageOpen ? start(tree.root) : void 0,
     /** A click (or key) on a row of the panel. */
-    async clicked({ row, action } = {}) {
-      const target = targets.get(row);
-      if (!target) return void 0;
-      if (target.kind === "dir") {
-        const open = action === "expand" || action === "activate" && !tree.open.includes(row);
-        return toggle(target.path, open);
+    clicked: ({ row, action } = {}) => act(row, action, "panel"),
+    /** A message from the window. */
+    async message({ message } = {}) {
+      const m = message ?? {};
+      if (m.type === "ready") {
+        pageOpen = true;
+        pace();
+        await tf.page.post(pageStrings((k, a) => tf.t(k, a), HOOK_COMMAND));
+        return draw();
       }
-      if (target.kind === "file" || target.kind === "link") {
-        return openFile(target.path, target.kind === "link");
+      if (m.type === "toggle" && typeof m.id === "string") {
+        return act(m.id, m.open ? "expand" : "collapse", "window");
       }
+      if (m.type === "open" && typeof m.id === "string") return act(m.id, "activate", "window");
       return void 0;
     },
     /** The focused pane's folder changed. */
     async paneChanged(path) {
       if (path === tree.root) return void 0;
-      if (shown) return start(path);
+      if (shown || pageOpen) return start(path);
       tree = emptyTree(path);
       return void 0;
     },
-    /** A setting changed: draw again with the new filters. */
+    /** A setting changed: draw again with it. */
     settingChanged: () => draw(),
     /** The user closed the panel (or another tile's took its place). */
     closed() {
       shown = false;
-    }
+      pace();
+    },
+    /** The window was closed. */
+    pageClosed() {
+      pageOpen = false;
+      pace();
+    },
+    /** Reads the markers now (tests; the timer does it every two seconds). */
+    poll
   };
 }
 
 // src/main.js
 var main_default = (tf) => {
+  tf.setting("showActivity", true, tf.t("setting-show-activity"));
+  tf.setting("activeSeconds", 20, tf.t("setting-active-seconds"));
+  tf.setting("recentMinutes", 30, tf.t("setting-recent-minutes"));
   tf.setting("showHidden", false, tf.t("setting-show-hidden"));
   tf.setting("skipFolders", "node_modules", tf.t("setting-skip-folders"));
   const supported = Boolean(tf.panel && tf.pane && tf.fs && tf.viewer);
@@ -236,12 +828,20 @@ var main_default = (tf) => {
     id: "toggle",
     key: { mac: "Ctrl+Alt+T", other: "Ctrl+Alt+Shift+Y" }
   });
+  tf.command(tf.t("cmd-window"), () => tree ? tree.openWindow() : unsupported(), {
+    id: "window"
+  });
+  tf.command(tf.t("cmd-setup"), () => tree ? tree.openWindow(true) : unsupported(), {
+    id: "setup"
+  });
   tf.command(tf.t("cmd-refresh"), () => tree ? tree.refresh() : unsupported(), {
     id: "refresh"
   });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
+  tf.on("page.message", (e) => tree?.message(e));
+  tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());
 };
 export default main_default;

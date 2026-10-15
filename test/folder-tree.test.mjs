@@ -67,7 +67,7 @@ describe("Folder Tree", () => {
       expanded: false,
     });
     expect(rowOf(host, "README.md")).toMatchObject({ icon: "file", hint: "/work/app/README.md" });
-    expect(host.audits).toEqual([{ action: "shown", details: { hasFolder: true } }]);
+    expect(host.audits).toEqual([{ action: "shown", details: { hasFolder: true, window: false } }]);
     await host.command("toggle");
     expect(host.panel.content).toBeNull();
   });
@@ -182,7 +182,9 @@ describe("Folder Tree", () => {
     expect(lines(host)).toEqual([
       "0:(Tilefold doesn't know which folder this pane is in yet. Run a command in it, or open a new pane.)",
     ]);
-    expect(host.audits).toEqual([{ action: "shown", details: { hasFolder: false } }]);
+    expect(host.audits).toEqual([
+      { action: "shown", details: { hasFolder: false, window: false } },
+    ]);
   });
 
   it("asks for a newer Tilefold where panels or folders are missing", async () => {

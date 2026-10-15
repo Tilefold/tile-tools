@@ -219,14 +219,14 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1228 tests in 55 files, all passing on 2026-10-14).
+Run with `npm test` (1258 tests in 58 files, all passing on 2026-10-14).
 
 | Area | Covers |
 |---|---|
 | Rules | One default export, named exports and imports refused, size limit |
 | Bundling | Entry choice, local imports, npm packages, TypeScript, tree-shaking, the notice on top, export rewriting, errors with their place, minify, page scripts |
 | Commands and CLI | build, `--watch`, `--check`, validate, help, version, bad arguments and exit codes |
-| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises against the fake host |
+| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command) against the fake host |
 | Fake host | The fake Tilefold behaves like the real one for settings, strings, storage, overlays, panels, pages, sounds, network, keys, AI and folders |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
 | Issue tracker | The issue forms parse, set one area, one type and `status: triage` from `labels.json`, and list every example tile; blank issues off; the label sync creates and corrects labels without deleting any, and a dry run changes nothing |
@@ -235,7 +235,7 @@ Run with `npm test` (1228 tests in 55 files, all passing on 2026-10-14).
 ## Known blockers
 
 - Tile Tools 0.2.0 (the `tf` types, the docs and the examples) is prepared in this repository but not published; npm still has 0.1.0.
-- The docs describe Tilefold 0.1.9, which isn't released yet; its panels and folder access, and the examples that need them, wait for it. Tilefold 0.1.8 is the current release.
+- Tilefold 0.1.10 is the current release. The panel's footer, section headings, tones, badges, trailing text and pulses (in [docs/panels.md](docs/panels.md), and Folder Tree's agent activity in the panel) need Tilefold 0.1.11, which isn't released yet; older ones show the panel without them.
 - Most examples have been tried only against the fake host, not against their real service in a running Tilefold; [examples/README.md](examples/README.md) says which.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`).

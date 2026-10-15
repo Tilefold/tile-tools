@@ -82,6 +82,8 @@ export interface TileEventPayloads {
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
 export type PanelIcon = "folder" | "file" | "link" | "loading" | "error" | "info" | "none";
 
+/** A theme colour a panel row may take. */
+export type PanelTone = "accent" | "info" | "success" | "warning" | "error";
 /** One line of a docked panel. */
 export interface PanelRow {
   /** Unique in the panel, 1–1,024 characters; `panel.click` sends it back. */
@@ -98,14 +100,30 @@ export interface PanelRow {
   muted?: boolean;
   /** A tooltip, at most 512 characters. */
   hint?: string;
+  /** Drawn as a section heading (Tilefold 0.1.11). */
+  section?: boolean;
+  /** A theme colour for the row's icon, label and badge (Tilefold 0.1.11). */
+  tone?: PanelTone;
+  /** A short pill after the label, at most 32 characters (Tilefold 0.1.11). */
+  badge?: string;
+  /** A short muted text at the row's end, such as "2m", at most 32 characters (Tilefold 0.1.11). */
+  trail?: string;
+  /** A pulsing dot: something is happening now (Tilefold 0.1.11). */
+  pulse?: boolean;
 }
 
 /** What `tf.panel.show` takes. */
 export interface PanelContent {
   title: string;
   subtitle?: string;
-  /** At most 5,000. */
+  /** At most 5,000, the footer's included. */
   rows: PanelRow[];
+  /**
+   * Rows pinned to the bottom of the panel: they take the room they need,
+   * up to half the panel, then scroll inside (Tilefold 0.1.11; older ones
+   * ignore it). Ids are unique across `rows` and the footer.
+   */
+  footer?: { rows: PanelRow[] };
 }
 
 /** One name in a folder listing. */
