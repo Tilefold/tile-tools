@@ -20,6 +20,7 @@
  *   file named after `rm` that is gone counts as deleted. Agents do much
  *   of their reading and editing this way (sed -i, heredocs, scripts), so
  *   without it most of their work would go unseen.
+ * - Claude Code's Grep and Glob: the files they found count as read.
  * - Anything else with a `file_path` or `path` in its input counts as an
  *   edit when the tool's name says it writes, or a read when it says it
  *   reads.
@@ -171,8 +172,15 @@ export function shellChanges(command, info, { dir, now = Date.now() }) {
   return out;
 }
 
+/** The tools that run shell commands. */
+export const SHELL_TOOLS = new Set(["Bash", "shell", "exec_command"]);
+/** Claude Code's search tools, which return the files they found. */
+const SEARCH_TOOLS = new Set(["Grep", "Glob"]);
+/** Most found files taken from one search. */
+const MAX_FOUND = 30;
+
 /** The Bash or apply_patch command text, however the agent sends it. */
-const commandText = (input) => {
+export const commandText = (input) => {
   const c = input?.command ?? input?.cmd ?? input?.patch ?? input?.input;
   return Array.isArray(c) ? c.join(" ") : typeof c === "string" ? c : "";
 };
@@ -193,7 +201,16 @@ export function actionsFrom(hook, info = () => null, now = Date.now()) {
     return [{ action: made ? "a" : action, file }];
   }
   if (tool === "apply_patch") return patchActions(commandText(input));
-  if (tool === "Bash" || tool === "shell" || tool === "exec_command") {
+  if (SEARCH_TOOLS.has(tool)) {
+    const names = hook?.tool_response?.filenames;
+    if (!Array.isArray(names)) return [];
+    const cwd = typeof hook?.cwd === "string" && hook.cwd ? hook.cwd : resolve(".");
+    return names
+      .filter((f) => typeof f === "string" && f)
+      .slice(0, MAX_FOUND)
+      .map((f) => ({ action: "r", file: resolve(cwd, f) }));
+  }
+  if (SHELL_TOOLS.has(tool)) {
     const text = commandText(input);
     if (text.includes("*** Begin Patch")) return patchActions(text);
     const cwd = typeof hook?.cwd === "string" && hook.cwd ? hook.cwd : resolve(".");

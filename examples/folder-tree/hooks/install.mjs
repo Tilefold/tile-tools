@@ -11,8 +11,11 @@
  *   node hooks/install.mjs --remove   take them out again
  *   node hooks/install.mjs --dry-run  say what would change, change nothing
  *
- * Adds a PostToolUse hook that runs record.mjs (from this folder, by its
- * full path) to ~/.claude/settings.json and ~/.codex/hooks.json. Without
+ * Adds two hooks that run record.mjs (from this folder, by its full path)
+ * to ~/.claude/settings.json and ~/.codex/hooks.json: a PreToolUse one on
+ * shell commands, which only takes a stamp and so is quick, and a
+ * PostToolUse one on the tools that read or change files, which runs in
+ * the background so the agent never waits for it. Without
  * --claude or --codex it sets up each agent whose folder (~/.claude,
  * ~/.codex) exists. Each file is copied to `<file>.foldertree-backup`
  * before it is changed; everything else in it is kept as it was. Running
@@ -29,21 +32,30 @@ export const TAG = "--foldertree";
 /** The record.mjs next to this file. */
 const RECORD = join(dirname(fileURLToPath(import.meta.url)), "record.mjs");
 
-/** Each agent: its settings file, the tools to match, and its hook's extra fields. */
+/** The hook events Folder Tree adds a hook to. */
+export const EVENTS = ["PreToolUse", "PostToolUse"];
+
+/**
+ * Each agent: its settings file and, per event, the tools to match and
+ * the hook's extra fields.
+ */
 export const AGENTS = {
   claude: {
     name: "Claude Code",
     dir: ".claude",
     file: "settings.json",
-    matcher: "Read|Edit|MultiEdit|Write|NotebookEdit|Bash",
-    extra: { timeout: 10 },
+    PreToolUse: { matcher: "Bash", extra: { timeout: 5 } },
+    PostToolUse: {
+      matcher: "Read|Edit|MultiEdit|Write|NotebookEdit|Grep|Glob|Bash",
+      extra: { timeout: 10, async: true },
+    },
   },
   codex: {
     name: "Codex",
     dir: ".codex",
     file: "hooks.json",
-    matcher: "apply_patch|Bash",
-    extra: { timeout: 10, async: true },
+    PreToolUse: { matcher: "Bash", extra: { timeout: 5 } },
+    PostToolUse: { matcher: "apply_patch|Bash", extra: { timeout: 10, async: true } },
   },
 };
 
@@ -56,28 +68,32 @@ const ours = (group) =>
   Array.isArray(group?.hooks) &&
   group.hooks.some((h) => typeof h?.command === "string" && h.command.includes(TAG));
 
-/** `config` without Folder Tree's PostToolUse hook (a new object). */
+/** `config` without Folder Tree's hooks (a new object). */
 export function withoutHook(config) {
   const next = structuredClone(config ?? {});
-  const list = next.hooks?.PostToolUse;
-  if (!Array.isArray(list)) return next;
-  const kept = list.filter((g) => !ours(g));
-  if (kept.length) next.hooks.PostToolUse = kept;
-  else delete next.hooks.PostToolUse;
+  for (const event of EVENTS) {
+    const list = next.hooks?.[event];
+    if (!Array.isArray(list)) continue;
+    const kept = list.filter((g) => !ours(g));
+    if (kept.length) next.hooks[event] = kept;
+    else delete next.hooks[event];
+  }
   if (next.hooks && !Object.keys(next.hooks).length) delete next.hooks;
   return next;
 }
 
-/** `config` with Folder Tree's PostToolUse hook for `agent` (replacing an older one). */
+/** `config` with Folder Tree's hooks for `agent` (replacing older ones). */
 export function withHook(config, agent, record = RECORD) {
   const spec = AGENTS[agent];
   const next = withoutHook(config);
   next.hooks ??= {};
-  next.hooks.PostToolUse ??= [];
-  next.hooks.PostToolUse.push({
-    matcher: spec.matcher,
-    hooks: [{ type: "command", command: hookCommand(agent, record), ...spec.extra }],
-  });
+  for (const event of EVENTS) {
+    next.hooks[event] ??= [];
+    next.hooks[event].push({
+      matcher: spec[event].matcher,
+      hooks: [{ type: "command", command: hookCommand(agent, record), ...spec[event].extra }],
+    });
+  }
   return next;
 }
 
@@ -119,11 +135,11 @@ export function install({
       if (existsSync(file)) copyFileSync(file, `${file}.foldertree-backup`);
       writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`);
     }
-    const verb = remove ? "removed the hook from" : "added the hook to";
+    const verb = remove ? "removed the hooks from" : "added the hooks to";
     lines.push(`${spec.name}: ${dryRun ? "would have " : ""}${verb} ${file}.`);
   }
   if (!remove && !dryRun && chosen.includes("codex")) {
-    lines.push("Codex asks you to review and trust a new hook the next time it starts.");
+    lines.push("Codex asks you to review and trust the new hooks the next time it starts.");
   }
   return lines;
 }

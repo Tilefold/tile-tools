@@ -13,7 +13,13 @@ The colours, pulses and pinned Recent list need Tilefold 0.1.11. On 0.1.9 and 0.
 
 ## Showing what your agents do
 
-Agents read and change files with their own tools and with shell commands. Folder Tree sees both: a plain `cat`, `head`, `tail` or `sed -n` of a file is a read, a file a command names that changed in the last 30 seconds is an edit (or an addition when it is new), and a file removed with `rm` is a deletion.
+Agents read and change files with their own tools and with shell commands. Folder Tree sees both:
+
+- **File tools:** what Claude Code's Read, Edit, Write and NotebookEdit open or change, and the files its Grep and Glob find.
+- **Shell commands:** just before a command runs, the hook notes the time; once it has run, every file in the project changed since then is marked as edited, or added when it is new, even when the command never names it (a script, a formatter, a code generator). Folders that only hold tools' output, such as `node_modules`, `target`, `dist` and `.git`, are skipped. Files a search prints (`rg`, `grep`, `find`, `fd`, `git grep`) and plain `cat`, `head`, `tail` or `sed -n` reads are marked as read, and files removed with `rm` as deleted.
+- **Never in the way:** the hook before a command only notes the time, and the one after runs in the background, so the agent never waits for Folder Tree.
+
+When two agents work in the same project at once, a file one of them changes while the other's command runs may be marked for both.
 
 Folder Tree can't read your files, only their names. Agents tell it what they do through small hooks, which leave empty marker files whose names say who did what to which file. They are kept in a `.foldertree` folder at the top of the project (the repository), and also in the folder the agent was started in when that is somewhere else, so the tree finds them whether you open it on the project, on a folder above it holding several repositories, or on a folder inside it. Each `.foldertree` has its own `.gitignore` so markers never end up in a commit. The newest 300 from the last week are kept.
 
@@ -23,10 +29,10 @@ In the folder you copied Folder Tree to (for example `~/.tilefold/tiles/folder-t
 node hooks/install.mjs
 ```
 
-- **Claude Code:** adds a hook to `~/.claude/settings.json` for its file tools and its shell commands; it works from the next session. Agents already running when you install it don't show up until you restart them. Installed an earlier Folder Tree? Run it again so shell commands are seen too.
-- **Codex:** adds a hook to `~/.codex/hooks.json`; Codex asks you to trust it once.
+- **Claude Code:** adds two hooks to `~/.claude/settings.json`, one before shell commands and one after its file tools and shell commands; they work from the next session. Agents already running when you install them don't show up until you restart them. Installed an earlier Folder Tree? Run it again to get both.
+- **Codex:** adds the same two hooks to `~/.codex/hooks.json`; Codex asks you to trust them once.
 - `--claude` or `--codex` sets up only one; `--dry-run` says what would change; `--remove` takes the hooks out again. Each settings file is copied to `<file>.foldertree-backup` first.
-- Moved the tile? Run it again from the new folder: the hook is replaced, not added twice.
+- Moved the tile? Run it again from the new folder: the hooks are replaced, not added twice.
 - **Other agents:** run `node hooks/watch.mjs --pane "name"` in the project, beside the agent. It marks files as they are added, changed and deleted (it can't see reads).
 
 The pane's name in the panel is the agent's ("Claude Code", "Codex"). To tell several apart, start each with its own name: `FOLDERTREE_PANE=api claude`.
