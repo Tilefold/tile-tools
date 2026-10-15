@@ -29,6 +29,15 @@
  * Redraws are coalesced: while one frame is on its way to the window,
  * further changes just mark the scene dirty and the next frame carries all
  * of them.
+ *
+ * Dragging the card moves the card and its buttons anywhere in the window;
+ * dropped, it stays there whichever pane is focused, across restarts, until
+ * "Put the card back in the pane" or a new corner setting puts it back.
+ *
+ * Modified 2026-10-14 (the card can be dragged anywhere in the window and
+ * stays there instead of following the focused pane).
+ *
+ * Last updated by: Tilefold
  */
 import { createTrail } from "./audit.js";
 import { registerCommands } from "./commands.js";
@@ -40,54 +49,20 @@ import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
 import { createPlaylistViews } from "./playlists.js";
 import { volumeHit } from "../render/buttons.js";
-import { PANEL_ID, VOLUME_ID, actionForClick, diffItems, removedIds, sceneItems } from "./view.js";
-import { computeLayout } from "./scene.js";
+import {
+  CARD_ID,
+  PANEL_ID,
+  VOLUME_ID,
+  actionForClick,
+  diffItems,
+  removedIds,
+  sceneItems,
+} from "./view.js";
+import { computeLayout, groupSize } from "./scene.js";
+import { createMover } from "./mover.js";
+import * as C from "./run-config.js";
 
-/** How often the progress bar moves while a track plays, in ms. */
-export const CLOCK_MS = 1000;
-
-/** How long after a control to ask Spotify for the result, in ms. */
-export const CONFIRM_MS = 800;
-
-/** How often to check for a sign-in while signed out and on screen, in ms. */
-export const SIGN_IN_CHECK_MS = 5000;
-
-/**
- * How long to wait before trying again after Spotify refused the sign-in
- * Tilefold holds, in ms (the user may sign in again meanwhile; Refresh
- * tries at once).
- */
-export const AUTH_RETRY_MS = 60000;
-
-/** The sign-in Tuneboard declares in tile.json. */
-const SIGN_IN = "spotify";
-
-/** The audit action for each control result. */
-const CONTROL_ACTION = {
-  play: "control.play",
-  pause: "control.pause",
-  next: "control.next",
-  previous: "control.previous",
-  volume: "control.volume",
-};
-
-/** The message shown when playing in Tilefold fails, by error code. */
-const PLAYER_MESSAGE = {
-  account_error: "player-error-premium",
-  authentication_error: "player-error-sign-in",
-  token: "player-error-sign-in",
-  initialization_error: "player-error-unsupported",
-};
-
-/** The audit action recorded for a control that did not go through. */
-const FAILED_ACTION = {
-  playPause: "control.play",
-  next: "control.next",
-  previous: "control.previous",
-  volumeUp: "control.volume",
-  volumeDown: "control.volume",
-  mute: "control.volume",
-};
+export { AUTH_RETRY_MS, CLOCK_MS, CONFIRM_MS, SIGN_IN_CHECK_MS } from "./run-config.js";
 
 /**
  * Runs Tuneboard. Call it at the top of the tile's function, after its
@@ -130,6 +105,20 @@ export function runTuneboard(tf, deps = {}) {
   let layout = null;
   /** The scene last sent to the window, or null when it must be shown afresh. */
   let shown = null;
+  /** Where the user dragged the card, and their drags of it. */
+  const mover = createMover({
+    store,
+    trail,
+    layout: () => layout,
+    size: () => groupSize(settings()),
+    cardRect: () => rectsNow().card,
+    redraw: () => (visible ? draw() : undefined),
+    cardId: CARD_ID,
+  });
+
+  /** Every item's rectangle as the scene places them now. */
+  const rectsNow = (panelOpen = false) =>
+    computeLayout(layout, settings(), { panel: panelOpen, position: mover.position() });
 
   // ------------------------------------------------------------ drawing
   let drawing = null;
@@ -146,6 +135,7 @@ export function runTuneboard(tf, deps = {}) {
       layout,
       t: (key, args) => tf.t(key, args),
       panel: panel.view(),
+      position: mover.position(),
     });
     if (!shown) {
       const ok = await tf.overlay.show({ items });
@@ -223,7 +213,7 @@ export function runTuneboard(tf, deps = {}) {
     else if (!watch && poller.running) poller.stop();
 
     const tick = visible && shown !== null && session.status === "playing";
-    if (tick && clock === null) clock = setInterval(() => void draw(), CLOCK_MS);
+    if (tick && clock === null) clock = setInterval(() => void draw(), C.CLOCK_MS);
     else if (!tick && clock !== null) {
       clearInterval(clock);
       clock = null;
@@ -236,7 +226,9 @@ export function runTuneboard(tf, deps = {}) {
   /** Whether the user has signed in to Spotify in Settings (false when unknown). */
   const signedIn = async () => {
     try {
-      return Boolean(tf.auth && typeof tf.auth.has === "function" && (await tf.auth.has(SIGN_IN)));
+      return Boolean(
+        tf.auth && typeof tf.auth.has === "function" && (await tf.auth.has(C.SIGN_IN)),
+      );
     } catch {
       return false;
     }
@@ -289,10 +281,10 @@ export function runTuneboard(tf, deps = {}) {
         void (async () => {
           if (session.status !== "signed-out") return;
           // After a refusal, wait longer: the same sign-in would likely be refused again.
-          if (authFailedAt && now() - authFailedAt < AUTH_RETRY_MS) return;
+          if (authFailedAt && now() - authFailedAt < C.AUTH_RETRY_MS) return;
           if (await signedIn()) await connect();
         })().catch((err) => trail.error(err));
-      }, SIGN_IN_CHECK_MS);
+      }, C.SIGN_IN_CHECK_MS);
     } else if (!wanted && signInCheck !== null) {
       clearInterval(signInCheck);
       signInCheck = null;
@@ -304,6 +296,7 @@ export function runTuneboard(tf, deps = {}) {
   const show = async () => {
     visible = true;
     shown = null;
+    await mover.load();
     try {
       layout = await tf.overlay.layout();
     } catch {
@@ -331,8 +324,8 @@ export function runTuneboard(tf, deps = {}) {
   // ------------------------------------------------------------ actions
   /** Asks Spotify for the result of a control a moment later. */
   const confirmSoon = () => {
-    if (poller.running) poller.soon(CONFIRM_MS);
-    else setTimeout(() => void session.refresh().catch((err) => trail.error(err)), CONFIRM_MS);
+    if (poller.running) poller.soon(C.CONFIRM_MS);
+    else setTimeout(() => void session.refresh().catch((err) => trail.error(err)), C.CONFIRM_MS);
   };
 
   /** Tells the user something with the tile's own message. */
@@ -351,7 +344,7 @@ export function runTuneboard(tf, deps = {}) {
     } catch (err) {
       const code = String(err?.code ?? "unknown").slice(0, 40);
       trail.record("control.play-here", { ok: false, code });
-      tell(PLAYER_MESSAGE[code] ?? "player-error-other");
+      tell(C.PLAYER_MESSAGE[code] ?? "player-error-other");
     }
     return visible ? draw() : undefined;
   };
@@ -377,6 +370,7 @@ export function runTuneboard(tf, deps = {}) {
       return visible ? draw() : undefined;
     }
     if (action === "playHere") return playHere();
+    if (action === "resetPosition") return mover.reset("command");
     if (action === "panel") {
       if (!visible) await show();
       return panel.toggle();
@@ -396,10 +390,10 @@ export function runTuneboard(tf, deps = {}) {
     const result = await session.control(/** @type {any} */ (action));
     if (result.ok) {
       const details = result.did === "volume" ? { ok: true, volume: result.volume } : { ok: true };
-      trail.record(CONTROL_ACTION[result.did ?? ""] ?? "control.refresh", details);
+      trail.record(C.CONTROL_ACTION[result.did ?? ""] ?? "control.refresh", details);
       confirmSoon();
-    } else if (FAILED_ACTION[action]) {
-      trail.record(FAILED_ACTION[action], { ok: false, code: result.code ?? "unknown" });
+    } else if (C.FAILED_ACTION[action]) {
+      trail.record(C.FAILED_ACTION[action], { ok: false, code: result.code ?? "unknown" });
     }
     return visible ? draw() : undefined;
   };
@@ -429,15 +423,17 @@ export function runTuneboard(tf, deps = {}) {
     "overlay.pointer",
     background(async (e) => {
       if (!e || !visible) return;
+      // Dragging the card moves it.
+      if (await mover.pointer(e)) return;
       // The panel takes clicks and drags (which scroll it); the rest only clicks.
       if (e.item === PANEL_ID) {
-        return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
+        return panel.pointer(e, rectsNow(true)[PANEL_ID]);
       }
       if (e.type !== "click") return;
       // The volume control's action depends on which third is clicked.
       const action =
         e.item === VOLUME_ID
-          ? volumeHit(computeLayout(layout, settings())[VOLUME_ID], Number(e.x))
+          ? volumeHit(rectsNow()[VOLUME_ID], Number(e.x))
           : actionForClick(String(e.item));
       if (action) await run(action);
     }),
@@ -478,6 +474,8 @@ export function runTuneboard(tf, deps = {}) {
     "setting.changed",
     background(async (e) => {
       const key = e && e.key;
+      // Choosing a corner means "in the pane's corner" again, not where it was dragged.
+      if (key === "corner") await mover.reset("corner");
       if (LAYOUT_KEYS.includes(key) && visible) {
         try {
           layout = await tf.overlay.layout();

@@ -16,6 +16,10 @@
  *
  * Pure: everything it needs — state, playback, settings, layout and
  * labels — is passed in.
+ *
+ * Modified 2026-10-14 (the scene takes where the user dragged the card).
+ *
+ * Last updated by: Tilefold
  */
 import { BUTTONS, iconFor, renderButton, renderVolume } from "../render/buttons.js";
 import { renderCard } from "../render/card.js";
@@ -127,13 +131,18 @@ export function cardLabel(view, t) {
  *   layout: any,
  *   t: (key: string, args?: object) => string,
  *   panel?: any,
- * }} input `panel` is what the open panel shows (null or left out: closed).
+ *   position?: { fx: number, fy: number } | null,
+ * }} input `panel` is what the open panel shows (null or left out: closed);
+ *   `position` is where the user dragged the card (null or left out: the pane's corner).
  * @returns {object[]} Overlay items.
  */
 export function sceneItems(input) {
   const { status, playback, settings, t } = input;
   const panel = input.panel ?? null;
-  const rects = computeLayout(input.layout, settings, { panel: panel !== null });
+  const rects = computeLayout(input.layout, settings, {
+    panel: panel !== null,
+    position: input.position ?? null,
+  });
   const view = cardView(input);
   const card = rects[CARD_ID];
   const playing = status === "playing";

@@ -13,14 +13,24 @@
  * takes the window layout Tilefold reports and the size and corner
  * settings, and returns rectangles.
  *
+ * Once the user has dragged the card somewhere (`options.position`), the
+ * group sits at that spot in the window instead of in the pane's corner,
+ * and the panel opens on whichever side has more room.
+ *
  *     ┌──────────────────────────┐
  *     │           card           │
  *     └──────────────────────────┘
  *      [⏮]  [⏯]  [⏭]  [− 🔇 +]  [☰]
+ *
+ * Modified 2026-10-14 (the card can be dragged anywhere in the window and
+ * stays there instead of following the focused pane).
+ *
+ * Last updated by: Tilefold
  */
 import { BUTTON, BUTTONS } from "../render/buttons.js";
 import { CARD_H, CARD_W } from "../render/card.js";
 import { PANEL_H, PANEL_W } from "../render/panel.js";
+import { contentOf, placeAt } from "./position.js";
 
 /** Display scales for the size setting (logical size × scale). */
 export const SIZES = { small: 0.8, medium: 1 };
@@ -84,8 +94,19 @@ export function areaOf(layout) {
     const bottom = pane.composer ? pane.composer.y : pane.y + pane.h;
     return { x: pane.x, y: pane.y, w: pane.w, h: Math.max(0, bottom - pane.y) };
   }
-  const content = (layout && layout.content) || { w: 800, h: 600 };
+  const content = contentOf(layout);
   return { x: 0, y: 0, w: content.w, h: content.h };
+}
+
+/**
+ * The size of the card with its button row, for a size setting.
+ *
+ * @param {{ size?: unknown }} [settings]
+ * @returns {{ w: number, h: number }}
+ */
+export function groupSize(settings = {}) {
+  const scale = scaleOf(settings.size);
+  return { w: Math.round(GROUP_W * scale), h: Math.round(GROUP_H * scale) };
 }
 
 /**
@@ -94,21 +115,32 @@ export function areaOf(layout) {
  *
  * @param {any} layout What `tf.overlay.layout()` returned (may be null).
  * @param {{ size?: unknown, corner?: unknown }} [settings]
- * @param {{ panel?: boolean }} [options]
+ * @param {{ panel?: boolean, position?: { fx: number, fy: number } | null }} [options]
+ *   `position` is where the user dragged the card (null: the pane's corner).
  * @returns {Record<string, { x: number, y: number, w: number, h: number }>}
  */
 export function computeLayout(layout, settings = {}, options = {}) {
   const scale = scaleOf(settings.size);
   const corner = cornerOf(settings.corner);
-  const area = areaOf(layout);
-  const w = Math.round(GROUP_W * scale);
-  const h = Math.round(GROUP_H * scale);
+  const { w, h } = groupSize(settings);
 
-  // Corner placement, kept inside the window even when the pane is tiny.
-  const right = corner.endsWith("right");
-  const bottom = corner.startsWith("bottom");
-  const gx = Math.max(0, Math.round(right ? area.x + area.w - w - MARGIN : area.x + MARGIN));
-  const gy = Math.max(0, Math.round(bottom ? area.y + area.h - h - MARGIN : area.y + MARGIN));
+  let gx;
+  let gy;
+  let bottom;
+  if (options.position) {
+    // Where the user dropped it, in the window; the pane doesn't matter.
+    const content = contentOf(layout);
+    ({ x: gx, y: gy } = placeAt(content, w, h, options.position));
+    // The panel opens upward when the card is in the lower half, where there's more room above.
+    bottom = gy + h / 2 > content.h / 2;
+  } else {
+    // Corner placement, kept inside the window even when the pane is tiny.
+    const area = areaOf(layout);
+    const right = corner.endsWith("right");
+    bottom = corner.startsWith("bottom");
+    gx = Math.max(0, Math.round(right ? area.x + area.w - w - MARGIN : area.x + MARGIN));
+    gy = Math.max(0, Math.round(bottom ? area.y + area.h - h - MARGIN : area.y + MARGIN));
+  }
 
   /** @type {Record<string, { x: number, y: number, w: number, h: number }>} */
   const rects = { card: { x: gx, y: gy, w, h: Math.round(CARD_H * scale) } };

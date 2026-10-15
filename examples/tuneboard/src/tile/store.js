@@ -10,6 +10,8 @@
  *
  *   visible      whether the card was on screen, so it comes back the same
  *   libraryView  how the Library lists playlists: "grid" (thumbnails) or "list"
+ *   position     where the user dragged the card, as { fx, fy } fractions
+ *                of the window (null: in the focused pane's corner)
  *
  * Signing in to Spotify is Tilefold's job: the token lives in the system
  * keychain and never reaches the tile. Earlier versions of Tuneboard kept
@@ -18,11 +20,21 @@
  *
  * Everything read back is checked, so a damaged value falls back to a
  * sensible default. A failed write is logged and otherwise ignored.
+ *
+ * Modified 2026-10-14 (remembers where the user dragged the card).
+ *
+ * Last updated by: Tilefold
  */
+import { readPosition } from "./position.js";
 
 /** Storage keys. */
 /** `auth` is only read to clear what earlier versions saved there. */
-export const KEYS = { visible: "visible", auth: "auth", libraryView: "libraryView" };
+export const KEYS = {
+  visible: "visible",
+  auth: "auth",
+  libraryView: "libraryView",
+  position: "position",
+};
 
 /** The Library's ways of listing playlists; the first is the default. */
 export const LIBRARY_VIEWS = Object.freeze(["grid", "list"]);
@@ -75,6 +87,15 @@ export function createStore(tf) {
     async setLibraryView(view) {
       if (!LIBRARY_VIEWS.includes(view)) return false;
       return write(KEYS.libraryView, view);
+    },
+    /** Where the user dragged the card, checked (null: follow the pane). */
+    async position() {
+      return readPosition(await read(KEYS.position));
+    },
+    /** Remembers where the card was dropped; null puts it back in the pane's corner. */
+    async setPosition(pos) {
+      // Writing null rather than deleting: the tile's storage keeps no tombstones to filter.
+      return write(KEYS.position, pos === null ? null : readPosition(pos));
     },
     /**
      * Overwrites a refresh token an earlier version saved, if there is one.

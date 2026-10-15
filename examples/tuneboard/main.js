@@ -577,6 +577,57 @@ function panelHit(rect, x, y) {
   return null;
 }
 
+// src/tile/position.js
+var FALLBACK_CONTENT = { w: 800, h: 600 };
+function contentOf(layout) {
+  const c = layout && layout.content;
+  if (c && Number.isFinite(c.w) && Number.isFinite(c.h) && c.w > 0 && c.h > 0)
+    return { w: c.w, h: c.h };
+  return FALLBACK_CONTENT;
+}
+var unit = (n) => Math.min(1, Math.max(0, n));
+function readPosition(value) {
+  if (!value || typeof value !== "object") return null;
+  const { fx, fy } = (
+    /** @type {any} */
+    value
+  );
+  if (!Number.isFinite(fx) || !Number.isFinite(fy)) return null;
+  return { fx: unit(fx), fy: unit(fy) };
+}
+function placeAt(content, w, h, pos) {
+  const roomX = Math.max(0, content.w - w);
+  const roomY = Math.max(0, content.h - h);
+  return { x: Math.round(roomX * unit(pos.fx)), y: Math.round(roomY * unit(pos.fy)) };
+}
+function positionFor(content, w, h, x, y) {
+  const roomX = Math.max(0, content.w - w);
+  const roomY = Math.max(0, content.h - h);
+  return { fx: roomX > 0 ? unit(x / roomX) : 0, fy: roomY > 0 ? unit(y / roomY) : 0 };
+}
+function createDrag() {
+  let from = null;
+  const move = (px, py, content, w, h) => {
+    if (!from || !Number.isFinite(px) || !Number.isFinite(py)) return null;
+    return positionFor(content, w, h, from.x + (px - from.px), from.y + (py - from.py));
+  };
+  return {
+    start(px, py, origin) {
+      from = Number.isFinite(px) && Number.isFinite(py) ? { px, py, x: origin.x, y: origin.y } : null;
+    },
+    move,
+    end(px, py, content, w, h) {
+      const pos = move(px, py, content, w, h);
+      from = null;
+      return pos;
+    },
+    active: () => from !== null,
+    cancel() {
+      from = null;
+    }
+  };
+}
+
 // src/tile/scene.js
 var SIZES = { small: 0.8, medium: 1 };
 var CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"];
@@ -609,19 +660,31 @@ function areaOf(layout) {
     const bottom = pane.composer ? pane.composer.y : pane.y + pane.h;
     return { x: pane.x, y: pane.y, w: pane.w, h: Math.max(0, bottom - pane.y) };
   }
-  const content = layout && layout.content || { w: 800, h: 600 };
+  const content = contentOf(layout);
   return { x: 0, y: 0, w: content.w, h: content.h };
+}
+function groupSize(settings = {}) {
+  const scale = scaleOf(settings.size);
+  return { w: Math.round(GROUP_W * scale), h: Math.round(GROUP_H * scale) };
 }
 function computeLayout(layout, settings = {}, options = {}) {
   const scale = scaleOf(settings.size);
   const corner = cornerOf(settings.corner);
-  const area = areaOf(layout);
-  const w = Math.round(GROUP_W * scale);
-  const h = Math.round(GROUP_H * scale);
-  const right = corner.endsWith("right");
-  const bottom = corner.startsWith("bottom");
-  const gx = Math.max(0, Math.round(right ? area.x + area.w - w - MARGIN : area.x + MARGIN));
-  const gy = Math.max(0, Math.round(bottom ? area.y + area.h - h - MARGIN : area.y + MARGIN));
+  const { w, h } = groupSize(settings);
+  let gx;
+  let gy;
+  let bottom;
+  if (options.position) {
+    const content = contentOf(layout);
+    ({ x: gx, y: gy } = placeAt(content, w, h, options.position));
+    bottom = gy + h / 2 > content.h / 2;
+  } else {
+    const area = areaOf(layout);
+    const right = corner.endsWith("right");
+    bottom = corner.startsWith("bottom");
+    gx = Math.max(0, Math.round(right ? area.x + area.w - w - MARGIN : area.x + MARGIN));
+    gy = Math.max(0, Math.round(bottom ? area.y + area.h - h - MARGIN : area.y + MARGIN));
+  }
   const rects = { card: { x: gx, y: gy, w, h: Math.round(CARD_H * scale) } };
   const btn = Math.round(BUTTON * scale);
   const rowY = Math.round(gy + (CARD_H + GAP) * scale);
@@ -725,7 +788,9 @@ var ACTIONS = Object.freeze([
   "library.play",
   "library.view",
   "panel.show",
-  "panel.hide"
+  "panel.hide",
+  "view.move",
+  "view.reset"
 ]);
 var DETAIL_KEYS = Object.freeze(["from", "to", "volume", "ok", "code", "via"]);
 function cleanDetails(details) {
@@ -820,7 +885,8 @@ var COMMANDS = [
   { id: "play-here", title: "cmd-play-here", action: "playHere" },
   { id: "stop-here", title: "cmd-stop-here", action: "stopHere" },
   { id: "library", title: "cmd-library", action: "library" },
-  { id: "playlists", title: "cmd-playlists", action: "panel" }
+  { id: "playlists", title: "cmd-playlists", action: "panel" },
+  { id: "reset-position", title: "cmd-reset-position", action: "resetPosition" }
 ];
 function registerCommands(tf, run) {
   for (const c of COMMANDS) {
@@ -1247,7 +1313,12 @@ function createSession(o = {}) {
 }
 
 // src/tile/store.js
-var KEYS = { visible: "visible", auth: "auth", libraryView: "libraryView" };
+var KEYS = {
+  visible: "visible",
+  auth: "auth",
+  libraryView: "libraryView",
+  position: "position"
+};
 var LIBRARY_VIEWS = Object.freeze(["grid", "list"]);
 function createStore(tf) {
   const read = async (key) => {
@@ -1291,6 +1362,14 @@ function createStore(tf) {
     async setLibraryView(view) {
       if (!LIBRARY_VIEWS.includes(view)) return false;
       return write(KEYS.libraryView, view);
+    },
+    /** Where the user dragged the card, checked (null: follow the pane). */
+    async position() {
+      return readPosition(await read(KEYS.position));
+    },
+    /** Remembers where the card was dropped; null puts it back in the pane's corner. */
+    async setPosition(pos) {
+      return write(KEYS.position, pos === null ? null : readPosition(pos));
     },
     /**
      * Overwrites a refresh token an earlier version saved, if there is one.
@@ -1791,7 +1870,10 @@ function cardLabel(view, t) {
 function sceneItems(input) {
   const { status, playback, settings, t } = input;
   const panel = input.panel ?? null;
-  const rects = computeLayout(input.layout, settings, { panel: panel !== null });
+  const rects = computeLayout(input.layout, settings, {
+    panel: panel !== null,
+    position: input.position ?? null
+  });
   const view = cardView(input);
   const card = rects[CARD_ID];
   const playing = status === "playing";
@@ -1868,7 +1950,72 @@ function actionForClick(itemId) {
   return b ? b.action : null;
 }
 
-// src/tile/run.js
+// src/tile/mover.js
+function createMover({ store, trail, layout, size, cardRect, redraw, cardId }) {
+  let position = null;
+  const drag = createDrag();
+  let moved = null;
+  return {
+    /** The current position, for the scene (null: the pane's corner). */
+    position: () => position,
+    /** Reads the saved position back, as the card comes on screen. */
+    async load() {
+      position = await store.position();
+      return position;
+    },
+    /**
+     * Puts a dragged card back in the pane's corner. `via` says what asked
+     * ("command" or "corner"). Nothing happens, and nothing is recorded,
+     * when the card is already there.
+     */
+    async reset(via) {
+      drag.cancel();
+      moved = null;
+      if (position === null) return false;
+      position = null;
+      await store.setPosition(null);
+      trail.record("view.reset", { via });
+      await redraw();
+      return true;
+    },
+    /**
+     * Follows an overlay pointer event if it is part of a drag of the card.
+     * Returns true when it was (the caller then ignores it), false otherwise.
+     */
+    async pointer(e) {
+      const px = Number(e.x);
+      const py = Number(e.y);
+      if (e.type === "dragstart" && e.item === cardId) {
+        drag.start(px, py, cardRect());
+        moved = null;
+        return true;
+      }
+      if (!drag.active() || e.type !== "drag" && e.type !== "drop") return false;
+      const content = contentOf(layout());
+      const { w, h } = size();
+      if (e.type === "drag") {
+        const next = drag.move(px, py, content, w, h);
+        if (next) {
+          moved = next;
+          position = next;
+          await redraw();
+        }
+        return true;
+      }
+      const dropped = drag.end(px, py, content, w, h) ?? moved;
+      moved = null;
+      if (dropped) {
+        position = dropped;
+        await store.setPosition(dropped);
+        trail.record("view.move", { via: "drag" });
+        await redraw();
+      }
+      return true;
+    }
+  };
+}
+
+// src/tile/run-config.js
 var CLOCK_MS = 1e3;
 var CONFIRM_MS = 800;
 var SIGN_IN_CHECK_MS = 5e3;
@@ -1895,6 +2042,8 @@ var FAILED_ACTION = {
   volumeDown: "control.volume",
   mute: "control.volume"
 };
+
+// src/tile/run.js
 function runTuneboard(tf, deps = {}) {
   const now = deps.now ?? (() => Date.now());
   const trail = createTrail(tf);
@@ -1916,6 +2065,16 @@ function runTuneboard(tf, deps = {}) {
   let present = true;
   let layout = null;
   let shown = null;
+  const mover = createMover({
+    store,
+    trail,
+    layout: () => layout,
+    size: () => groupSize(settings()),
+    cardRect: () => rectsNow().card,
+    redraw: () => visible ? draw() : void 0,
+    cardId: CARD_ID
+  });
+  const rectsNow = (panelOpen = false) => computeLayout(layout, settings(), { panel: panelOpen, position: mover.position() });
   let drawing = null;
   let dirty = false;
   const paint = async () => {
@@ -1927,7 +2086,8 @@ function runTuneboard(tf, deps = {}) {
       settings: settings(),
       layout,
       t: (key, args) => tf.t(key, args),
-      panel: panel.view()
+      panel: panel.view(),
+      position: mover.position()
     });
     if (!shown) {
       const ok = await tf.overlay.show({ items });
@@ -1998,7 +2158,9 @@ function runTuneboard(tf, deps = {}) {
   let connecting = null;
   const signedIn = async () => {
     try {
-      return Boolean(tf.auth && typeof tf.auth.has === "function" && await tf.auth.has(SIGN_IN));
+      return Boolean(
+        tf.auth && typeof tf.auth.has === "function" && await tf.auth.has(SIGN_IN)
+      );
     } catch {
       return false;
     }
@@ -2050,6 +2212,7 @@ function runTuneboard(tf, deps = {}) {
   const show = async () => {
     visible = true;
     shown = null;
+    await mover.load();
     try {
       layout = await tf.overlay.layout();
     } catch {
@@ -2107,6 +2270,7 @@ function runTuneboard(tf, deps = {}) {
       return visible ? draw() : void 0;
     }
     if (action === "playHere") return playHere();
+    if (action === "resetPosition") return mover.reset("command");
     if (action === "panel") {
       if (!visible) await show();
       return panel.toggle();
@@ -2152,11 +2316,12 @@ function runTuneboard(tf, deps = {}) {
     "overlay.pointer",
     background(async (e) => {
       if (!e || !visible) return;
+      if (await mover.pointer(e)) return;
       if (e.item === PANEL_ID) {
-        return panel.pointer(e, computeLayout(layout, settings(), { panel: true })[PANEL_ID]);
+        return panel.pointer(e, rectsNow(true)[PANEL_ID]);
       }
       if (e.type !== "click") return;
-      const action = e.item === VOLUME_ID ? volumeHit(computeLayout(layout, settings())[VOLUME_ID], Number(e.x)) : actionForClick(String(e.item));
+      const action = e.item === VOLUME_ID ? volumeHit(rectsNow()[VOLUME_ID], Number(e.x)) : actionForClick(String(e.item));
       if (action) await run(action);
     })
   );
@@ -2186,6 +2351,7 @@ function runTuneboard(tf, deps = {}) {
     "setting.changed",
     background(async (e) => {
       const key = e && e.key;
+      if (key === "corner") await mover.reset("corner");
       if (LAYOUT_KEYS.includes(key) && visible) {
         try {
           layout = await tf.overlay.layout();
