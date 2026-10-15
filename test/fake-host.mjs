@@ -28,7 +28,8 @@
  * listed as kind "link" and followed when listed or opened; opened files
  * are kept in `host.opened`;
  * `host.cwd` is the focused pane's folder). `page: true` adds `tf.page`
- * (opens, closes and posted messages are kept in `host.page`). `panel: true`
+ * (opens, closes and posted messages are kept in `host.page`; `page:
+ * "dock"` adds docking in the window, as Tilefold 0.1.11). `panel: true`
  * adds `tf.panel` (`host.panel.content` is what is docked, or null; rows
  * are checked the way Tilefold checks them: unique ids, labels, depth, a
  * known icon).
@@ -239,7 +240,7 @@ export async function startTile(dir, opts = {}) {
   };
 
   if (opts.folders) addFolders(tf, host, opts.folders, named);
-  if (opts.page) addPage(tf, host);
+  if (opts.page) addPage(tf, host, { dock: opts.page === "dock" });
   if (opts.panel) addPanel(tf, host, named);
 
   const url = pathToFileURL(join(dir, "main.js")).href;
@@ -315,17 +316,23 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {} }
   };
 }
 
-/** `tf.page`, recording what the tile does with its page. */
-function addPage(tf, host) {
-  host.page = { open: false, opens: [], closes: 0, posted: [] };
+/**
+ * `tf.page`, recording what the tile does with its page. With `dock`
+ * (Tilefold 0.1.11) a page can be docked in the window: `host.page.dock`
+ * is its spot (null for a window of its own), and `dock()` moves it.
+ */
+function addPage(tf, host, { dock = false } = {}) {
+  host.page = { open: false, opens: [], closes: 0, posted: [], dock: null, docks: [] };
   tf.page = {
     async open(options = {}) {
+      if (!host.page.open) host.page.dock = dock && options.dock ? { ...options.dock } : null;
       host.page.open = true;
       host.page.opens.push(options);
       return null;
     },
     async close() {
       host.page.open = false;
+      host.page.dock = null;
       host.page.closes += 1;
       return null;
     },
@@ -336,6 +343,16 @@ function addPage(tf, host) {
       return null;
     },
   };
+  if (dock) {
+    tf.page.dock = async (spot) => {
+      if (!host.page.dock) {
+        throw Object.assign(new Error("the page is not docked"), { name: "PageError" });
+      }
+      host.page.dock = { ...spot };
+      host.page.docks.push({ ...spot });
+      return null;
+    };
+  }
 }
 
 /** Icons Tilefold draws in panel rows. */

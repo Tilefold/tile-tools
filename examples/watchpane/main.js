@@ -246,6 +246,8 @@ function listHit(rect, x, y, count) {
 var CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"];
 var GAP = 6;
 var MARGIN = 12;
+var VIDEO_W = 356;
+var VIDEO_H = 200;
 var cornerOf = (corner) => CORNERS.includes(corner) ? corner : "bottom-right";
 function areaOf(layout) {
   const panes = Array.isArray(layout?.panes) ? layout.panes : [];
@@ -257,7 +259,7 @@ function areaOf(layout) {
   const content = layout?.content ?? { w: 800, h: 600 };
   return { x: 0, y: 0, w: content.w, h: content.h };
 }
-function computeLayout(layout, corner, { list = false } = {}) {
+function computeLayout(layout, corner, { list = false, video = false } = {}) {
   const at = cornerOf(corner);
   const area = areaOf(layout);
   const groupH = CARD_H + GAP + BUTTON;
@@ -275,10 +277,15 @@ function computeLayout(layout, corner, { list = false } = {}) {
       h: BUTTON
     };
   });
-  if (list) {
-    const ly = bottom ? gy - GAP - LIST_H : gy + groupH + GAP;
-    rects.list = { x: gx, y: Math.max(0, ly), w: LIST_W, h: LIST_H };
-  }
+  let edge = bottom ? gy : gy + groupH;
+  const stack = (w, h) => {
+    const y = bottom ? edge - GAP - h : edge + GAP;
+    edge = bottom ? y : y + h;
+    const x = right ? gx + CARD_W - w : gx;
+    return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)), w, h };
+  };
+  if (video) rects.video = stack(VIDEO_W, VIDEO_H);
+  if (list) rects.list = stack(LIST_W, LIST_H);
   return rects;
 }
 
@@ -370,9 +377,15 @@ function createCard(tf, hooks) {
   let status = null;
   let layout = null;
   let drawn = "";
+  let docked = "";
   const t = (key, args) => tf.t(key, args);
   const items = () => {
-    const rects = computeLayout(layout, hooks.corner(), { list: listOpen });
+    const rects = computeLayout(layout, hooks.corner(), { list: listOpen, video: hooks.docked() });
+    if (rects.video && JSON.stringify(rects.video) !== docked) {
+      docked = JSON.stringify(rects.video);
+      void Promise.resolve(hooks.redock(rects.video)).catch(() => {
+      });
+    }
     const thumb = status ? thumbs.peek(status.id) : null;
     if (status && thumb === void 0) {
       void thumbs.get(status.id).then(() => draw());
@@ -385,7 +398,7 @@ function createCard(tf, hooks) {
         ...rects.card,
         hit: true,
         cursor: "pointer",
-        label: t("button-window")
+        label: t("card-idle-hint")
       },
       ...BUTTONS.map((b) => ({
         id: `btn-${b.id}`,
@@ -429,7 +442,7 @@ function createCard(tf, hooks) {
       listOpen = !listOpen;
       return draw();
     }
-    if (action === "window") return hooks.openWindow();
+    if (action === "window") return hooks.isOpen() ? hooks.closeWindow() : hooks.openWindow();
     if (!hooks.isOpen()) return hooks.openWindow();
     const control = action === "mute" ? status?.muted ? "unmute" : "mute" : action;
     return hooks.post({ do: "control", action: control });
@@ -468,7 +481,13 @@ function createCard(tf, hooks) {
     /** The window closed: the video stopped. */
     async stopped() {
       status = null;
+      docked = "";
       await draw();
+    },
+    /** Where the docked video goes now (the card's layout read first if needed). */
+    async videoSpot() {
+      if (!layout) layout = await tf.overlay.layout();
+      return computeLayout(layout, hooks.corner(), { list: listOpen, video: true }).video;
     },
     /** The recent list or a setting changed. */
     redraw: () => draw(),
@@ -480,7 +499,9 @@ function createCard(tf, hooks) {
     /** A pointer event on one of the card's items. */
     async pointer(e) {
       if (!visible || e?.type !== "click") return;
-      if (e.item === "card") return hooks.openWindow();
+      if (e.item === "card") {
+        return hooks.docked() && hooks.isOpen() ? hooks.paste() : hooks.openWindow();
+      }
       if (e.item === "list") {
         const rect = computeLayout(layout, hooks.corner(), { list: true }).list;
         const videos = hooks.recent().slice(0, LIST_ROWS);
@@ -607,13 +628,19 @@ function runWatchpane(tf) {
   let open = false;
   let recent = null;
   let pending = null;
+  let docked = false;
+  const canDock = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   const card = tf.overlay ? createCard(tf, {
     post: (m) => post(m),
     openWindow: () => show({ resume: true }),
     play: (id) => play(id),
     recent: () => recent ?? [],
     isOpen: () => open,
-    corner: () => cornerSetting(tf.settings)
+    corner: () => cornerSetting(tf.settings),
+    docked: () => open && docked,
+    redock: (spot) => tf.page.dock(spot),
+    closeWindow: () => close(),
+    paste: () => post({ do: "paste" })
   }) : null;
   const quiet = (fn) => Promise.resolve().then(fn).catch(() => {
   });
@@ -638,7 +665,8 @@ function runWatchpane(tf) {
       dir: tf.t("page-dir") === "rtl" ? "rtl" : "ltr",
       strings,
       options: readOptions(tf.settings),
-      recent: await loadRecent()
+      recent: await loadRecent(),
+      docked
     });
   };
   const show = async ({ resume = false } = {}) => {
@@ -647,10 +675,18 @@ function runWatchpane(tf) {
       return;
     }
     if (!open && resume && !pending) pending = (await loadRecent())[0]?.id ?? null;
-    await tf.page.open({ origin: "https" });
-    if (!open) void audit("opened", {});
+    const withCard = !!card && showCardSetting(tf.settings);
+    if (withCard) await card.show();
+    if (open) await tf.page.open({ origin: "https" });
+    else if (withCard && canDock()) {
+      await tf.page.open({ origin: "https", dock: await card.videoSpot() });
+      docked = true;
+    } else {
+      await tf.page.open({ origin: "https" });
+      docked = false;
+    }
+    if (!open) void audit("opened", { docked });
     open = true;
-    if (card && showCardSetting(tf.settings)) await card.show();
   };
   const play = async (id) => {
     if (open) return post({ do: "play", id });
@@ -664,8 +700,9 @@ function runWatchpane(tf) {
   };
   const toggleCard = async () => {
     if (!card) return;
-    if (card.visible) await card.hide();
-    else await card.show();
+    if (!card.visible) return card.show();
+    await card.hide();
+    if (open && docked) await close();
   };
   const close = async () => {
     if (!tf.page || !open) return;
@@ -728,6 +765,7 @@ function runWatchpane(tf) {
     background(async () => {
       if (open) void audit("closed", {});
       open = false;
+      docked = false;
       await card?.stopped();
     })
   );

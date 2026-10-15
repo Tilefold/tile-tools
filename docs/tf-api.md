@@ -179,7 +179,7 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 ## A web page of its own
 
-`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7). See [Tile pages](tile-pages.md).
+`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7); `tf.page.dock(spot)` moves a page docked in Tilefold's window (Tilefold 0.1.11). See [Tile pages](tile-pages.md).
 
 ## A docked panel
 

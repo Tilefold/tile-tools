@@ -99,6 +99,10 @@
       strings: {},
       options: { autoplay: true, captions: false, private: true },
       recent: [],
+      /** Docked in Tilefold's window: only the player, and the link box when asked. */
+      docked: false,
+      /** Whether the docked page shows its link box. */
+      pasting: false,
       /** YouTube's player script: "loading", "ready" or "failed". */
       api: "loading",
       /** The video picked last, and where it was picked from. */
@@ -132,9 +136,12 @@
             captions: o.captions === true,
             private: o.private !== false
           },
-          recent: cleanRecent(message.recent)
+          recent: cleanRecent(message.recent),
+          docked: message.docked === true
         });
       }
+      case "paste":
+        return none({ ...state2, pasting: true });
       case "recent":
         return none({ ...state2, recent: cleanRecent(message.recent) });
       case "play":
@@ -152,7 +159,7 @@
   function submit(state2, text) {
     const video = parseVideoLink(text);
     if (!video) return none({ ...state2, status: { key: "badLink" } });
-    return playVideo(state2, video, "link");
+    return playVideo({ ...state2, pasting: false }, video, "link");
   }
   function pick(state2, id) {
     if (!state2.recent.some((v) => v.id === id)) return none(state2);
@@ -210,6 +217,7 @@
       muted: snap?.muted === true
     };
   }
+  var showsLinkBox = (state2) => state2.docked && (state2.pasting || !state2.current);
 
   // page-src/main.js
   var API_URL = "https://www.youtube.com/iframe_api";
@@ -350,6 +358,8 @@
     $("link").placeholder = s.link ?? "";
     $("link").setAttribute("aria-label", s.link ?? "");
     $("play").textContent = s.play ?? "\u25B6";
+    document.body.classList.toggle("docked", state.docked);
+    document.body.classList.toggle("pasting", showsLinkBox(state));
     const line = statusLine(state);
     $("status").textContent = line.text;
     $("status").classList.toggle("error", line.error);

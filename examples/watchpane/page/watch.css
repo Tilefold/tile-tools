@@ -162,3 +162,50 @@ h2 {
   overflow: hidden;
   font-size: 12.5px;
 }
+
+/* Docked in Tilefold's window: the player fills the page, square-cornered;
+   the link box floats over it while nothing plays or when the card asks. */
+body.docked {
+  overflow: hidden;
+  background: #000;
+}
+
+body.docked main {
+  height: 100vh;
+  padding: 0;
+  gap: 0;
+}
+
+body.docked .stage {
+  width: 100vw;
+  height: 100vh;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+body.docked #recent-box,
+body.docked #status:empty {
+  display: none;
+}
+
+body.docked #status {
+  position: absolute;
+  inset: auto 8px 8px;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 70%);
+  color: #fff;
+  font-size: 12px;
+}
+
+body.docked #paste {
+  position: absolute;
+  inset: 8px 8px auto;
+  z-index: 2;
+  display: none;
+}
+
+body.docked.pasting #paste {
+  display: flex;
+}

@@ -9,6 +9,8 @@
  * the corner is at the bottom), with its row of buttons under it and,
  * while it is open, the recent list on the side facing into the pane:
  * above the card in a bottom corner, below the buttons in a top corner.
+ * With `video`, the video (the page docked in Tilefold's window) sits
+ * between the card and the list, lined up with the card's outer edge.
  * Pure geometry: the window layout Tilefold reports and the corner
  * setting in, rectangles out, by overlay item id.
  *
@@ -27,6 +29,9 @@ export const CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"];
 export const GAP = 6;
 /** How far the card keeps from the pane's edges. */
 export const MARGIN = 12;
+/** The docked video's size: 16:9, at YouTube's smallest player height. */
+export const VIDEO_W = 356;
+export const VIDEO_H = 200;
 
 /** The corner for a setting value (bottom-right for anything unknown). */
 export const cornerOf = (corner) => (CORNERS.includes(corner) ? corner : "bottom-right");
@@ -45,9 +50,10 @@ export function areaOf(layout) {
 
 /**
  * Every item's rectangle: `card`, `btn-<id>` for each button and, with
- * `list`, `list`. Whole CSS pixels, kept inside the window.
+ * `list`, `list`; with `video`, the docked video's spot `video`. Whole
+ * CSS pixels, kept inside the window.
  */
-export function computeLayout(layout, corner, { list = false } = {}) {
+export function computeLayout(layout, corner, { list = false, video = false } = {}) {
   const at = cornerOf(corner);
   const area = areaOf(layout);
   const groupH = CARD_H + GAP + BUTTON;
@@ -66,9 +72,15 @@ export function computeLayout(layout, corner, { list = false } = {}) {
       h: BUTTON,
     };
   });
-  if (list) {
-    const ly = bottom ? gy - GAP - LIST_H : gy + groupH + GAP;
-    rects.list = { x: gx, y: Math.max(0, ly), w: LIST_W, h: LIST_H };
-  }
+  // What stacks on the side facing into the pane: the video, then the list.
+  let edge = bottom ? gy : gy + groupH;
+  const stack = (w, h) => {
+    const y = bottom ? edge - GAP - h : edge + GAP;
+    edge = bottom ? y : y + h;
+    const x = right ? gx + CARD_W - w : gx;
+    return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)), w, h };
+  };
+  if (video) rects.video = stack(VIDEO_W, VIDEO_H);
+  if (list) rects.list = stack(LIST_W, LIST_H);
   return rects;
 }

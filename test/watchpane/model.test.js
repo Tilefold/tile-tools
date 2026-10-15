@@ -21,6 +21,7 @@ import {
   receive,
   started,
   statusLine,
+  showsLinkBox,
   statusMessage,
   submit,
 } from "../../examples/watchpane/page-src/watch-model.js";
@@ -206,5 +207,20 @@ describe("the card", () => {
       duration: 0,
       muted: false,
     });
+  });
+});
+
+describe("docked in Tilefold's window", () => {
+  it("shows the link box until a video is picked, and when the card asks", () => {
+    const docked = ready({ docked: true });
+    expect(docked.docked).toBe(true);
+    expect(showsLinkBox(docked)).toBe(true);
+    const playing = submit(docked, `https://youtu.be/${ID}`).state;
+    expect(showsLinkBox(playing)).toBe(false);
+    const asked = receive(playing, { do: "paste" }).state;
+    expect(showsLinkBox(asked)).toBe(true);
+    expect(showsLinkBox(submit(asked, `https://youtu.be/${OTHER}`).state)).toBe(false);
+    // In a window of its own the link box is always there.
+    expect(showsLinkBox(ready())).toBe(false);
   });
 });

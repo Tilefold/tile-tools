@@ -31,6 +31,7 @@ import {
   receive,
   started,
   statusLine,
+  showsLinkBox,
   statusMessage,
   submit,
 } from "./watch-model.js";
@@ -207,6 +208,10 @@ function render() {
   $("link").placeholder = s.link ?? "";
   $("link").setAttribute("aria-label", s.link ?? "");
   $("play").textContent = s.play ?? "▶";
+
+  // Docked in Tilefold's window, the page is the player, with the link box on top when asked.
+  document.body.classList.toggle("docked", state.docked);
+  document.body.classList.toggle("pasting", showsLinkBox(state));
 
   const line = statusLine(state);
   $("status").textContent = line.text;

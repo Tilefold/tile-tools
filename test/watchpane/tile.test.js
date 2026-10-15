@@ -144,7 +144,7 @@ describe("Watchpane", () => {
     });
     await host.command("open");
     expect(host.page.calls).toEqual([["open", { origin: "https" }]]);
-    expect(host.audits).toEqual([{ action: "opened", details: {} }]);
+    expect(host.audits).toEqual([{ action: "opened", details: { docked: false } }]);
 
     await host.fromPage({ type: "hello" });
     const setup = host.lastPost();

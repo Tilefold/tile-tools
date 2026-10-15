@@ -87,6 +87,10 @@ export function runWatchpane(tf) {
   let recent = null;
   /** A video to play once the window has loaded, or null. */
   let pending = null;
+  /** Whether the open page is docked in Tilefold's window (next to the card). */
+  let docked = false;
+  /** Whether this Tilefold can dock a page in its window (0.1.11). */
+  const canDock = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   /** The card over the panes (needs window.overlay). */
   const card = tf.overlay
     ? createCard(tf, {
@@ -96,6 +100,10 @@ export function runWatchpane(tf) {
         recent: () => recent ?? [],
         isOpen: () => open,
         corner: () => cornerSetting(tf.settings),
+        docked: () => open && docked,
+        redock: (spot) => tf.page.dock(spot),
+        closeWindow: () => close(),
+        paste: () => post({ do: "paste" }),
       })
     : null;
 
@@ -133,6 +141,7 @@ export function runWatchpane(tf) {
       strings,
       options: readOptions(tf.settings),
       recent: await loadRecent(),
+      docked,
     });
   };
 
@@ -147,11 +156,20 @@ export function runWatchpane(tf) {
       return;
     }
     if (!open && resume && !pending) pending = (await loadRecent())[0]?.id ?? null;
+    const withCard = !!card && showCardSetting(tf.settings);
+    if (withCard) await card.show();
     // A web address of its own: YouTube's player plays only in a page that has one.
-    await tf.page.open({ origin: "https" });
-    if (!open) void audit("opened", {});
+    // Next to the card when Tilefold can dock it; in a window of its own otherwise.
+    if (open) await tf.page.open({ origin: "https" });
+    else if (withCard && canDock()) {
+      await tf.page.open({ origin: "https", dock: await card.videoSpot() });
+      docked = true;
+    } else {
+      await tf.page.open({ origin: "https" });
+      docked = false;
+    }
+    if (!open) void audit("opened", { docked });
     open = true;
-    if (card && showCardSetting(tf.settings)) await card.show();
   };
 
   /** Plays video `id`: in the open window, or once the window has opened. */
@@ -171,8 +189,10 @@ export function runWatchpane(tf) {
   /** Shows the card, or hides it. */
   const toggleCard = async () => {
     if (!card) return;
-    if (card.visible) await card.hide();
-    else await card.show();
+    if (!card.visible) return card.show();
+    await card.hide();
+    // A docked video belongs with its card: it goes too.
+    if (open && docked) await close();
   };
 
   const close = async () => {
@@ -245,6 +265,7 @@ export function runWatchpane(tf) {
     background(async () => {
       if (open) void audit("closed", {});
       open = false;
+      docked = false;
       await card?.stopped();
     }),
   );

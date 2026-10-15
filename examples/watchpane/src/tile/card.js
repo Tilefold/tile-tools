@@ -9,9 +9,14 @@
  * last reported (`status`: the video, playing or paused, where it is,
  * muted), whether the recent list is open, and where the panes are. The
  * card's buttons play or pause, skip ten seconds back or forward, mute,
- * open the recent list (a click on a video plays it) and bring the
- * video's window forward; a click on the card does that too. The video
- * itself always plays in its window, which YouTube asks to stay visible.
+ * open the recent list (a click on a video plays it), and open or close
+ * the video. Where Tilefold can dock a page in its window (0.1.11), the
+ * video plays docked right next to the card, and moves with it: the card
+ * works out the spot (`videoSpot`) and moves the page there whenever the
+ * panes move or the list opens; a click on the card shows the box to
+ * paste a link. Elsewhere the video plays in a window of its own, which a
+ * click on the card brings forward. Either way the video stays visible,
+ * as YouTube asks.
  *
  * A redraw that keeps the same items only updates them (the progress
  * moves every second while a video plays); opening or closing the list
@@ -61,7 +66,9 @@ export function cardView(t, status, recent, thumb) {
  * The card for `tf`. `hooks`: `post(message)` to the page, `openWindow()`
  * shows (or brings forward) the video's window, `play(id)` plays a video
  * (opening the window when needed), `recent()` the videos watched lately,
- * `isOpen()` whether the window is open, `corner()` the corner setting.
+ * `isOpen()` whether the window is open, `corner()` the corner setting,
+ * `docked()` whether the video is docked, `redock(spot)` moves it,
+ * `closeWindow()` stops it, `paste()` shows the docked page's link box.
  */
 export function createCard(tf, hooks) {
   const thumbs = createThumbs(tf.net ? (url, init) => tf.net.fetch(url, init) : null);
@@ -71,12 +78,18 @@ export function createCard(tf, hooks) {
   let layout = null;
   /** The item ids drawn last, to tell an update from a new scene. */
   let drawn = "";
+  /** The docked video's spot as last sent, to send only changes. */
+  let docked = "";
 
   const t = (key, args) => tf.t(key, args);
 
   /** Every item of the scene. */
   const items = () => {
-    const rects = computeLayout(layout, hooks.corner(), { list: listOpen });
+    const rects = computeLayout(layout, hooks.corner(), { list: listOpen, video: hooks.docked() });
+    if (rects.video && JSON.stringify(rects.video) !== docked) {
+      docked = JSON.stringify(rects.video);
+      void Promise.resolve(hooks.redock(rects.video)).catch(() => {});
+    }
     const thumb = status ? thumbs.peek(status.id) : null;
     if (status && thumb === undefined) {
       // The picture comes later; the card is drawn again when it does.
@@ -90,7 +103,7 @@ export function createCard(tf, hooks) {
         ...rects.card,
         hit: true,
         cursor: "pointer",
-        label: t("button-window"),
+        label: t("card-idle-hint"),
       },
       ...BUTTONS.map((b) => ({
         id: `btn-${b.id}`,
@@ -138,7 +151,7 @@ export function createCard(tf, hooks) {
       listOpen = !listOpen;
       return draw();
     }
-    if (action === "window") return hooks.openWindow();
+    if (action === "window") return hooks.isOpen() ? hooks.closeWindow() : hooks.openWindow();
     // Playback needs the window: open it (it plays the last video) if it's closed.
     if (!hooks.isOpen()) return hooks.openWindow();
     const control = action === "mute" ? (status?.muted ? "unmute" : "mute") : action;
@@ -177,7 +190,13 @@ export function createCard(tf, hooks) {
     /** The window closed: the video stopped. */
     async stopped() {
       status = null;
+      docked = "";
       await draw();
+    },
+    /** Where the docked video goes now (the card's layout read first if needed). */
+    async videoSpot() {
+      if (!layout) layout = await tf.overlay.layout();
+      return computeLayout(layout, hooks.corner(), { list: listOpen, video: true }).video;
     },
     /** The recent list or a setting changed. */
     redraw: () => draw(),
@@ -189,7 +208,9 @@ export function createCard(tf, hooks) {
     /** A pointer event on one of the card's items. */
     async pointer(e) {
       if (!visible || e?.type !== "click") return;
-      if (e.item === "card") return hooks.openWindow();
+      if (e.item === "card") {
+        return hooks.docked() && hooks.isOpen() ? hooks.paste() : hooks.openWindow();
+      }
       if (e.item === "list") {
         const rect = computeLayout(layout, hooks.corner(), { list: true }).list;
         const videos = hooks.recent().slice(0, LIST_ROWS);

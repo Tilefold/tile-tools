@@ -5,7 +5,7 @@
   "description": "%tile-description%",
   "permissions": [
     {
-      "page": "to show YouTube's player, the box for your link and the videos you watched lately, in a window of its own"
+      "page": "to play YouTube's player next to its card in Tilefold's window (or in a window of its own on older Tilefolds), with a box for your link"
     },
     {
       "window.overlay": "to show a card over your panes with the video's picture, its title and progress, and buttons to play, pause, skip, mute and pick a video"

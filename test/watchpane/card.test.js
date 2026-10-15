@@ -313,4 +313,50 @@ describe("Watchpane's card, in the fake host", () => {
     await quiet.command("open");
     expect(quiet.overlay).toBeNull();
   });
+
+  it("docks the video next to the card where Tilefold can, and moves it with the panes", async () => {
+    const host = await start({ page: "dock" });
+    await host.command("open");
+    const spot = computeLayout(ONE_PANE, "bottom-right", { video: true }).video;
+    expect(host.page.opens).toEqual([{ origin: "https", dock: spot }]);
+    // Above the card, lined up with its right edge.
+    const card = host.item("card");
+    expect(spot.y + spot.h).toBe(card.y - 6);
+    expect(spot.x + spot.w).toBe(card.x + card.w);
+    expect(host.audits).toContainEqual({ action: "opened", details: { docked: true } });
+    await fromPage(host, { type: "hello" });
+    expect(posts(host)[0]).toMatchObject({ do: "setup", docked: true });
+
+    const moved = { ...ONE_PANE, panes: [{ ...ONE_PANE.panes[0], x: 0, w: 700 }] };
+    await host.emit("overlay.layout", moved);
+    expect(host.page.dock).toEqual(computeLayout(moved, "bottom-right", { video: true }).video);
+  });
+
+  it("shows the link box from the card, and closes and opens the docked video", async () => {
+    const host = await start({ page: "dock" });
+    await host.command("open");
+    await host.emit("overlay.pointer", { item: "card", type: "click", x: 0, y: 0 });
+    expect(posts(host).at(-1)).toEqual({ do: "paste" });
+    await host.emit("overlay.pointer", { item: "btn-window", type: "click", x: 0, y: 0 });
+    expect(host.page.closes).toBe(1);
+    await host.emit("page.closed");
+    await host.emit("overlay.pointer", { item: "btn-window", type: "click", x: 0, y: 0 });
+    expect(host.page.opens.at(-1)).toMatchObject({ origin: "https", dock: expect.any(Object) });
+  });
+
+  it("closes the docked video with its card", async () => {
+    const host = await start({ page: "dock" });
+    await host.command("open");
+    await host.command("card");
+    expect(host.overlay).toBeNull();
+    expect(host.page.closes).toBe(1);
+  });
+
+  it("plays in a window of its own where Tilefold can't dock", async () => {
+    const host = await start();
+    await host.command("open");
+    expect(host.page.opens).toEqual([{ origin: "https" }]);
+    await host.emit("overlay.pointer", { item: "card", type: "click", x: 0, y: 0 });
+    expect(host.page.opens).toHaveLength(2);
+  });
 });

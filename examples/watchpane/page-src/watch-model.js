@@ -45,6 +45,10 @@ export function initialState() {
     strings: {},
     options: { autoplay: true, captions: false, private: true },
     recent: [],
+    /** Docked in Tilefold's window: only the player, and the link box when asked. */
+    docked: false,
+    /** Whether the docked page shows its link box. */
+    pasting: false,
     /** YouTube's player script: "loading", "ready" or "failed". */
     api: "loading",
     /** The video picked last, and where it was picked from. */
@@ -94,8 +98,11 @@ export function receive(state, message) {
           private: o.private !== false,
         },
         recent: cleanRecent(message.recent),
+        docked: message.docked === true,
       });
     }
+    case "paste":
+      return none({ ...state, pasting: true });
     case "recent":
       return none({ ...state, recent: cleanRecent(message.recent) });
     case "play":
@@ -115,7 +122,7 @@ export function receive(state, message) {
 export function submit(state, text) {
   const video = parseVideoLink(text);
   if (!video) return none({ ...state, status: { key: "badLink" } });
-  return playVideo(state, video, "link");
+  return playVideo({ ...state, pasting: false }, video, "link");
 }
 
 /** The user clicked a video in the recent list. */
@@ -192,3 +199,6 @@ export function statusMessage(state, snap) {
     muted: snap?.muted === true,
   };
 }
+
+/** Whether the docked page shows its link box: asked for, or nothing picked yet. */
+export const showsLinkBox = (state) => state.docked && (state.pasting || !state.current);
