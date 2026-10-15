@@ -5,7 +5,7 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 ## Using it
 
 - **Folder Tree: Show or hide** (⌃⌥T on macOS) docks the tree. Click a folder to open it, and a file to read it in the document viewer beside the tree. The tree follows you when you switch panes or `cd`.
-- **Now**, at the top, lists the files agents are on at this moment, each pulsing: blue for reading, amber for editing, green for adding, red for deleting.
+- **Now**, at the top, lists the files agents are on at this moment, each pulsing: blue for reading, amber for editing, green for adding, red for deleting. It keeps its place and at least three rows' height even when no agent is busy, so the tree below doesn't jump.
 - **Every pane:** what agents do in all your panes shows together, not only in the pane you're in. A file outside the tree's folder shows after its pane's folder name (`game/src/hud.js`).
 - **Recent**, pinned to the bottom, shows the newest five. **Show all** lets it grow upward to half the panel, scrolling inside; **Show fewer** shrinks it back. Folder Tree remembers which you chose.
 - **Folder Tree: Open window** shows the same in a window of its own.

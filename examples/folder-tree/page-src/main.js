@@ -96,6 +96,14 @@ function treeRow(r) {
   return item;
 }
 
+/** The quiet line Now shows when no agent is busy. */
+function idleLine() {
+  const item = document.createElement("li");
+  item.className = "idle";
+  item.textContent = strings.emptyNow;
+  return item;
+}
+
 /** Draws the strings into the static parts. */
 function drawStrings() {
   document.documentElement.lang = strings.lang;
@@ -125,8 +133,13 @@ function draw() {
   live.textContent = state.live ? strings.live : strings.idle;
   live.classList.toggle("on", state.live);
 
-  $("now-box").hidden = !state.now.length;
-  $("now").replaceChildren(...state.now.map((e) => fileLine(e, { live: true, card: true })));
+  // Always there while activity is on, at its least height, so the tree stays put.
+  $("now-box").hidden = !state.activity;
+  $("now").replaceChildren(
+    ...(state.now.length
+      ? state.now.map((e) => fileLine(e, { live: true, card: true }))
+      : [idleLine()]),
+  );
   $("tree").replaceChildren(...state.tree.map(treeRow));
 
   const box = $("recent-box");

@@ -106,6 +106,12 @@
     item.append(button);
     return item;
   }
+  function idleLine() {
+    const item = document.createElement("li");
+    item.className = "idle";
+    item.textContent = strings.emptyNow;
+    return item;
+  }
   function drawStrings() {
     document.documentElement.lang = strings.lang;
     document.documentElement.dir = strings.dir;
@@ -131,8 +137,10 @@
     const live = $("live");
     live.textContent = state.live ? strings.live : strings.idle;
     live.classList.toggle("on", state.live);
-    $("now-box").hidden = !state.now.length;
-    $("now").replaceChildren(...state.now.map((e) => fileLine(e, { live: true, card: true })));
+    $("now-box").hidden = !state.activity;
+    $("now").replaceChildren(
+      ...state.now.length ? state.now.map((e) => fileLine(e, { live: true, card: true })) : [idleLine()]
+    );
     $("tree").replaceChildren(...state.tree.map(treeRow));
     const box = $("recent-box");
     box.hidden = !state.activity;

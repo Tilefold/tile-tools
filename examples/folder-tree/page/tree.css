@@ -170,6 +170,17 @@ h1 {
   margin-bottom: 14px;
 }
 
+/* Room for three cards whether or not agents are busy, so the tree below stays put. */
+.now .cards {
+  min-height: 132px;
+}
+
+.now .idle {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .cards,
 .list,
 .tree {

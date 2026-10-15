@@ -65,9 +65,12 @@ describe("Folder Tree with agent activity", () => {
   it("shows Now, the marked tree and Recent pinned to the bottom", async () => {
     const host = await start();
     await host.command("toggle");
+    // Now keeps at least NOW_MIN rows (blank ones after the file), so the tree stays put.
     expect(ids(host)).toEqual([
       "now",
       "now:/work/app/src/main.js",
+      "now-pad-1",
+      "now-pad-2",
       "files",
       "/work/app/src",
       "/work/app/README.md",
@@ -78,7 +81,7 @@ describe("Folder Tree with agent activity", () => {
       tone: "warning",
       badge: "api",
     });
-    expect(host.panel.content.rows[3]).toMatchObject({ label: "src", pulse: true, badge: "1" });
+    expect(host.panel.content.rows[5]).toMatchObject({ label: "src", pulse: true, badge: "1" });
     expect(footerIds(host)).toEqual([
       "recent",
       "recent:/work/app/src/main.js",

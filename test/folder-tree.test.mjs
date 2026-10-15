@@ -42,9 +42,15 @@ const start = (opts = {}) =>
     ...opts,
   });
 
-/** The docked rows as "depth:label" (notes as "depth:(label)"). */
+/** The tree's rows: those after the "Now" section, when it is there. */
+const treeRows = (host) => {
+  const rows = host.panel.content.rows;
+  const files = rows.findIndex((r) => r.id === "files");
+  return files < 0 ? rows : rows.slice(files + 1);
+};
+/** The tree's rows as "depth:label" (notes as "depth:(label)"). */
 const lines = (host) =>
-  host.panel.content.rows.map((r) => `${r.depth}:${r.muted ? `(${r.label})` : r.label}`);
+  treeRows(host).map((r) => `${r.depth}:${r.muted ? `(${r.label})` : r.label}`);
 /** The row with this label. */
 const rowOf = (host, label) => host.panel.content.rows.find((r) => r.label === label);
 /** Clicks a row as Tilefold reports it. */

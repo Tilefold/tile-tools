@@ -99,8 +99,13 @@ describe("panel", () => {
     expect(live).toBe(true);
     expect(content.title).toBe("app");
     expect(content.subtitle).toBe("now-e(api,src/a.js)");
-    const [now, nowFile, files, src, readme] = content.rows;
+    const [now, nowFile, pad1, pad2, files, src, readme] = content.rows;
     expect(now).toMatchObject({ id: "now", section: true, badge: "1" });
+    // Blank rows keep Now at its least height.
+    expect([pad1, pad2]).toEqual([
+      { id: "now-pad-1", label: " ", icon: "none", muted: true },
+      { id: "now-pad-2", label: " ", icon: "none", muted: true },
+    ]);
     expect(nowFile).toMatchObject({
       id: "now:/work/app/src/a.js",
       label: "src/a.js",
@@ -147,9 +152,19 @@ describe("panel", () => {
     expect(view({ recentOpen: false }).content.footer.rows).toEqual([
       expect.objectContaining({ id: "recent", expanded: false }),
     ]);
-    // No Now while nobody is working; ids stay unique across rows and footer.
+    // While nobody is working, Now stays, at its least height, with a quiet note;
+    // ids stay unique across rows and footer.
     const { content } = view({ recentAll: true });
-    expect(content.rows[0].id).toBe("/work/app/src");
+    expect(content.rows.slice(0, 5).map((r) => r.id)).toEqual([
+      "now",
+      "now-idle",
+      "now-pad-1",
+      "now-pad-2",
+      "files",
+    ]);
+    expect(content.rows[0].badge).toBeUndefined();
+    expect(content.rows[1]).toMatchObject({ label: "page-empty-now", muted: true });
+    expect(content.rows[5].id).toBe("/work/app/src");
     const ids = [...content.rows, ...content.footer.rows].map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
   });

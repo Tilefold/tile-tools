@@ -355,6 +355,7 @@ function pageStrings(t, hookCommand) {
 var PANEL_RECENT = 5;
 var RECENT_LIMIT = 100;
 var NOW_MAX = 5;
+var NOW_MIN = 3;
 function clamp(text, max) {
   const chars = [...String(text)];
   return chars.length <= max ? String(text) : `${chars.slice(0, max - 1).join("")}\u2026`;
@@ -456,14 +457,22 @@ ${path}`, 512)
   });
   const rows = [];
   const targets = new Map(built.targets);
-  if (active.length) {
-    rows.push({ id: "now", label: t("section-now"), section: true, badge: String(active.length) });
-    for (const e of active.slice(0, NOW_MAX)) {
+  if (opts.showActivity) {
+    const count = active.length ? { badge: String(active.length) } : {};
+    rows.push({ id: "now", label: t("section-now"), section: true, ...count });
+    const shown = active.slice(0, NOW_MAX);
+    for (const e of shown) {
       const id = `now:${e.abs}`;
       const path = e.shown ?? shownPath(e.abs, root);
       const label = clamp(path, 256);
       rows.push({ id, label, icon: "file", ...marked(t, e, now, { pulse: true, path }) });
       targets.set(id, { kind: "file", path: e.abs });
+    }
+    if (!shown.length) {
+      rows.push({ id: "now-idle", label: t("page-empty-now"), icon: "none", muted: true });
+    }
+    for (let i = Math.max(shown.length, 1); i < NOW_MIN; i++) {
+      rows.push({ id: `now-pad-${i}`, label: " ", icon: "none", muted: true });
     }
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
