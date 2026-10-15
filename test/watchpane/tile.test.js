@@ -219,8 +219,8 @@ describe("Watchpane", () => {
     await host.command("open");
     await host.command("toggle");
     expect(host.toasts).toEqual([
-      "Watchpane needs Tilefold 0.1.9 or later.",
-      "Watchpane needs Tilefold 0.1.9 or later.",
+      "Watchpane needs Tilefold 0.1.10 or later.",
+      "Watchpane needs Tilefold 0.1.10 or later.",
     ]);
   });
 });

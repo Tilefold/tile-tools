@@ -102,7 +102,7 @@ Prefer keeping requests in the tile where you can. Tuneboard's page uses the tok
 
 ## 6. Give the page a web address (only if a player needs one)
 
-Some embedded players play only in a page that has an https web address. YouTube's stops with **error 153** in an ordinary tile page. From **Tilefold 0.1.9** on macOS, open the page with one:
+Some embedded players play only in a page that has an https web address. YouTube's stops with **error 153** in an ordinary tile page. From **Tilefold 0.1.10** on macOS, open the page with one (0.1.9 accepts `origin` but opens the page without a web address):
 
 ```js
 tf.command("Open", () => void tf.page.open({ origin: "https" }), { id: "open" });
