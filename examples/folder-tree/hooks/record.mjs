@@ -33,7 +33,7 @@
 import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { actionsFrom, commandDir, commandText, SHELL_TOOLS } from "./agents.mjs";
+import { actionsFrom, commandDir, commandText, inPlaceEdit, SHELL_TOOLS } from "./agents.mjs";
 import { projectRoot, relPath, writeMarkers } from "./marker.mjs";
 import { changedSince, outputReads, startStamp, takeStamp } from "./scan.mjs";
 
@@ -100,7 +100,8 @@ export function shellActions(hook, fallback, { cwd, since, home = process.env.HO
   const dir = commandDir(text, cwd);
   const root = projectRoot(dir);
   const changed = broad(root, home) ? [] : changedSince(root, since);
-  const actions = changed.map(({ file, made }) => ({ action: made ? "a" : "e", file }));
+  const inPlace = inPlaceEdit(text);
+  const actions = changed.map(({ file, made }) => ({ action: made && !inPlace ? "a" : "e", file }));
   const done = new Set(actions.map((a) => a.file));
   for (const a of fallback) {
     if (a.action === "d" || (a.action === "r" && !done.has(resolve(cwd, a.file)))) actions.push(a);

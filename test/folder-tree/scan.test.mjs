@@ -193,6 +193,37 @@ describe("hook around a shell command", () => {
     expect(readdirSync(stamps.dir)).toEqual([]);
   });
 
+  it("marks an in-place edit as an edit, though the editor replaced the file", () => {
+    const root = scratch();
+    mkdirSync(join(root, ".git"));
+    writeFileSync(join(root, "a.js"), "1");
+    const stamps = { dir: join(scratch(), "stamps") };
+    until(Date.now());
+    const command = "sed -i '' s/1/2/ a.js";
+    const base = { session_id: "s", tool_use_id: "i", cwd: root, tool_name: "Bash" };
+    record(
+      { ...base, hook_event_name: "PreToolUse", tool_input: { command } },
+      "claude",
+      {},
+      {
+        stamps,
+      },
+    );
+    until(Date.now());
+    // Replaced, as sed -i does: a new file under the old name.
+    rmSync(join(root, "a.js"));
+    writeFileSync(join(root, "a.js"), "2");
+    record(
+      { ...base, hook_event_name: "PostToolUse", tool_input: { command } },
+      "claude",
+      {},
+      {
+        stamps,
+      },
+    );
+    expect(markers(root)).toEqual(["e a.js"]);
+  });
+
   it("falls back to the command's names without a stamp", () => {
     const root = scratch();
     mkdirSync(join(root, ".git"));

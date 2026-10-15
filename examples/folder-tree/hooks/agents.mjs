@@ -157,8 +157,7 @@ export function shellChanges(command, info, { dir, now = Date.now() }) {
   const writing = parts(text)
     .filter((part) => !plainReadArgs(part))
     .join("\n");
-  // An in-place editor replaces the file, so its new birth time is no addition.
-  const inPlace = /\b(?:sed|perl|ruby)\b[^\n;&|]*\s-[a-zA-Z]*i/.test(text);
+  const inPlace = inPlaceEdit(text);
   const names = new Set(writing.match(PATH_LIKE) ?? []);
   let lookups = 0;
   for (const name of names) {
@@ -171,6 +170,13 @@ export function shellChanges(command, info, { dir, now = Date.now() }) {
   }
   return out;
 }
+
+/**
+ * Whether a command edits files in place (sed -i, perl -pi, ruby -i): such
+ * an editor replaces the file, so its new birth time is no addition.
+ */
+export const inPlaceEdit = (command) =>
+  /\b(?:sed|perl|ruby)\b[^\n;&|]*\s-[a-zA-Z]*i/.test(String(command ?? ""));
 
 /** The tools that run shell commands. */
 export const SHELL_TOOLS = new Set(["Bash", "shell", "exec_command"]);
