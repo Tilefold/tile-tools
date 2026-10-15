@@ -11,6 +11,10 @@
  * failed. Every decision is made in watch-model.js; this file only draws
  * the state and runs the player.
  *
+ * The tile's card controls the player too (play, pause, skip, mute): the
+ * page runs what it asks (`control`) and reports the player's state back
+ * (`status`) when it changes, and every second while a video plays.
+ *
  * The player shows YouTube's own controls, at least 200 × 200, and stops
  * when the window closes, as YouTube's terms for embedded players ask.
  * In private mode the player comes from youtube-nocookie.com, which sets
@@ -85,6 +89,8 @@
     152: "errConfig",
     153: "errConfig"
   };
+  var CONTROLS = ["play", "pause", "toggle", "back", "forward", "mute", "unmute"];
+  var SKIP_SECONDS = 10;
   function initialState() {
     return {
       configured: false,
@@ -136,6 +142,9 @@
         return playVideo(state2, { id: message.id, start: 0 }, "tile");
       case "toggle":
         return { state: state2, send: null, act: state2.current ? { toggle: true } : null };
+      case "control":
+        if (!CONTROLS.includes(message.action) || !state2.current) return none(state2);
+        return { state: state2, send: null, act: { control: message.action } };
       default:
         return none(state2);
     }
@@ -187,11 +196,26 @@
     if (!state2.current && state2.recent.length === 0) return { text: s.empty ?? "", error: false };
     return { text: "", error: false };
   }
+  function statusMessage(state2, snap) {
+    const c = state2.current;
+    const whole = (n) => Number.isFinite(Number(n)) && Number(n) > 0 ? Math.floor(Number(n)) : 0;
+    const title = typeof snap?.title === "string" ? snap.title.trim().slice(0, 200) : "";
+    return {
+      type: "status",
+      id: c ? c.id : null,
+      title,
+      playing: snap?.playing === true,
+      time: whole(snap?.time),
+      duration: whole(snap?.duration),
+      muted: snap?.muted === true
+    };
+  }
 
   // page-src/main.js
   var API_URL = "https://www.youtube.com/iframe_api";
   var API_TIMEOUT_MS = 2e4;
   var PLAYING = 1;
+  var STATUS_MS = 1e3;
   var bridge = window.tilefold;
   var state = initialState();
   var player = null;
@@ -207,6 +231,29 @@
     if (act) run(act);
     render();
   }
+  var ask = (name, fallback) => {
+    try {
+      return player && typeof player[name] === "function" ? player[name]() : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  function report() {
+    if (!state.current) return;
+    const data = ask("getVideoData", {}) ?? {};
+    send(
+      statusMessage(state, {
+        title: data.title,
+        playing: ask("getPlayerState", -1) === PLAYING,
+        time: ask("getCurrentTime", 0),
+        duration: ask("getDuration", 0),
+        muted: ask("isMuted", false)
+      })
+    );
+  }
+  setInterval(() => {
+    if (ask("getPlayerState", -1) === PLAYING) report();
+  }, STATUS_MS);
   function makePlayer(video) {
     if (player) player.destroy();
     const stage = document.querySelector(".stage");
@@ -226,6 +273,7 @@
       },
       events: {
         onStateChange: (e) => {
+          report();
           if (e.data !== PLAYING) return;
           const data = typeof player.getVideoData === "function" ? player.getVideoData() : {};
           apply(started(state, data.video_id, data.title));
@@ -244,7 +292,20 @@
     } else if (act.toggle && player) {
       if (player.getPlayerState() === PLAYING) player.pauseVideo();
       else player.playVideo();
+    } else if (act.control && player) {
+      control(act.control);
     }
+  }
+  function control(action) {
+    const now = ask("getCurrentTime", 0);
+    if (action === "play") player.playVideo();
+    else if (action === "pause") player.pauseVideo();
+    else if (action === "toggle") run({ toggle: true });
+    else if (action === "back") player.seekTo(Math.max(0, now - SKIP_SECONDS), true);
+    else if (action === "forward") player.seekTo(now + SKIP_SECONDS, true);
+    else if (action === "mute") player.mute();
+    else if (action === "unmute") player.unMute();
+    setTimeout(report, 150);
   }
   function loadApi() {
     let settled = false;

@@ -11,7 +11,8 @@
  *
  * - `send`: a message for the tile, or null;
  * - `act`: what the player should do, or null: `{ load: { id, start } }`
- *   to play a video, `{ toggle: true }` to play or pause.
+ *   to play a video, `{ toggle: true }` to play or pause, `{ control }`
+ *   for one of the card's buttons (CONTROLS).
  *
  * `receive` applies a message from the tile; `submit` and `pick` are the
  * user's paste and click; `apiReady`, `apiFailed`, `playerError` and
@@ -29,6 +30,11 @@ const ERROR_KINDS = {
   152: "errConfig",
   153: "errConfig",
 };
+
+/** What the card's buttons may ask the player to do. */
+export const CONTROLS = ["play", "pause", "toggle", "back", "forward", "mute", "unmute"];
+/** How far "back" and "forward" skip, in seconds. */
+export const SKIP_SECONDS = 10;
 
 /** The page before the tile has said anything. */
 export function initialState() {
@@ -97,6 +103,9 @@ export function receive(state, message) {
       return playVideo(state, { id: message.id, start: 0 }, "tile");
     case "toggle":
       return { state, send: null, act: state.current ? { toggle: true } : null };
+    case "control":
+      if (!CONTROLS.includes(message.action) || !state.current) return none(state);
+      return { state, send: null, act: { control: message.action } };
     default:
       return none(state);
   }
@@ -161,4 +170,25 @@ export function statusLine(state) {
   if (state.api === "loading") return { text: s.loading ?? "", error: false };
   if (!state.current && state.recent.length === 0) return { text: s.empty ?? "", error: false };
   return { text: "", error: false };
+}
+
+/**
+ * What the page tells the tile about the player, for its card: the video,
+ * whether it plays, where it is and how long it is (whole seconds), and
+ * whether it is muted. `snap` is read from YouTube's player; anything
+ * missing or odd reads as zero, false or empty.
+ */
+export function statusMessage(state, snap) {
+  const c = state.current;
+  const whole = (n) => (Number.isFinite(Number(n)) && Number(n) > 0 ? Math.floor(Number(n)) : 0);
+  const title = typeof snap?.title === "string" ? snap.title.trim().slice(0, 200) : "";
+  return {
+    type: "status",
+    id: c ? c.id : null,
+    title,
+    playing: snap?.playing === true,
+    time: whole(snap?.time),
+    duration: whole(snap?.duration),
+    muted: snap?.muted === true,
+  };
 }

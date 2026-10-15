@@ -7,12 +7,20 @@
  *
  * Wires the page to Tilefold:
  *
- * - Commands: **Open** (⌃⌥Y) shows the window, **Play or pause** opens it
- *   when it's closed, **Close** closes it (closing stops the video).
+ * - Commands: **Open** (⌃⌥Y) shows the window and the card, **Play or
+ *   pause** opens it when it's closed, **Back / Forward 10 seconds**,
+ *   **Mute or unmute**, **Show or hide the card**, **Close** closes the
+ *   window (closing stops the video).
+ * - The card (card.js) sits over the panes like a music player's: the
+ *   video's picture, title and progress, and buttons for playback, the
+ *   recent videos and the window. The video plays in the window, which
+ *   YouTube asks to stay visible.
  * - Messages, page → tile: `hello` (the page has loaded), `watching
- *   {id, title, from}` (a video started), `error {code}` (YouTube's player
- *   refused or failed). Tile → page: `setup {lang, dir, strings, options,
- *   recent}`, `recent {recent}`, `toggle`.
+ *   {id, title, from}` (a video started), `status {id, title, playing,
+ *   time, duration, muted}` (for the card), `error {code}` (YouTube's
+ *   player refused or failed). Tile → page: `setup {lang, dir, strings,
+ *   options, recent}`, `recent {recent}`, `toggle`, `play {id}`, `control
+ *   {action}`.
  * - The videos watched lately are kept in `tf.store` (recent.js).
  * - Settings changes reach an open page at once; the player uses them for
  *   the next video.
@@ -30,8 +38,9 @@
  *
  * Registration comes first, with no `await` before it.
  */
+import { createCard } from "./card.js";
 import { addRecent, readRecent } from "./recent.js";
-import { readOptions } from "./settings.js";
+import { cornerSetting, readOptions, showCardSetting } from "./settings.js";
 
 /** Keys in `tf.store`. */
 export const KEYS = { recent: "recent" };
@@ -40,6 +49,10 @@ export const KEYS = { recent: "recent" };
 export const COMMANDS = [
   { id: "open", title: "cmd-open", key: { mac: "Ctrl+Alt+Y", other: "Ctrl+Alt+Y" } },
   { id: "toggle", title: "cmd-toggle" },
+  { id: "back", title: "cmd-back" },
+  { id: "forward", title: "cmd-forward" },
+  { id: "mute", title: "cmd-mute" },
+  { id: "card", title: "cmd-card" },
   { id: "close", title: "cmd-close" },
 ];
 
@@ -72,6 +85,19 @@ export function runWatchpane(tf) {
   let open = false;
   /** @type {{ id: string, title: string }[] | null} null until read from the store. */
   let recent = null;
+  /** A video to play once the window has loaded, or null. */
+  let pending = null;
+  /** The card over the panes (needs window.overlay). */
+  const card = tf.overlay
+    ? createCard(tf, {
+        post: (m) => post(m),
+        openWindow: () => show({ resume: true }),
+        play: (id) => play(id),
+        recent: () => recent ?? [],
+        isOpen: () => open,
+        corner: () => cornerSetting(tf.settings),
+      })
+    : null;
 
   const quiet = (fn) =>
     Promise.resolve()
@@ -111,15 +137,42 @@ export function runWatchpane(tf) {
   };
 
   // ------------------------------------------------------------ the window
-  const show = async () => {
+  /**
+   * Opens the window (or brings it forward), with the card. `resume`: a
+   * closed window starts the video watched last again.
+   */
+  const show = async ({ resume = false } = {}) => {
     if (!tf.page) {
       await tf.toast(tf.t("toast-no-pages"));
       return;
     }
+    if (!open && resume && !pending) pending = (await loadRecent())[0]?.id ?? null;
     // A web address of its own: YouTube's player plays only in a page that has one.
     await tf.page.open({ origin: "https" });
     if (!open) void audit("opened", {});
     open = true;
+    if (card && showCardSetting(tf.settings)) await card.show();
+  };
+
+  /** Plays video `id`: in the open window, or once the window has opened. */
+  const play = async (id) => {
+    if (open) return post({ do: "play", id });
+    pending = id;
+    return show();
+  };
+
+  /** One of the card's playback actions, from the palette. */
+  const control = async (action) => {
+    if (card) return card.run(action);
+    if (!open) return show({ resume: true });
+    return post({ do: "control", action: action === "mute" ? "mute" : action });
+  };
+
+  /** Shows the card, or hides it. */
+  const toggleCard = async () => {
+    if (!card) return;
+    if (card.visible) await card.hide();
+    else await card.show();
   };
 
   const close = async () => {
@@ -129,7 +182,7 @@ export function runWatchpane(tf) {
 
   const toggle = async () => {
     if (open) await post({ do: "toggle" });
-    else await show();
+    else await show({ resume: true });
   };
 
   // ------------------------------------------------------------ the page
@@ -137,12 +190,20 @@ export function runWatchpane(tf) {
     if (!message || typeof message !== "object") return;
     if (message.type === "hello") {
       await setup();
+      if (pending) {
+        const id = pending;
+        pending = null;
+        await post({ do: "play", id });
+      }
+    } else if (message.type === "status") {
+      await card?.status(message);
     } else if (message.type === "watching") {
       const before = await loadRecent();
       const after = addRecent(before, message);
       if (after === before) return;
       recent = after;
       await tf.store.set(KEYS.recent, recent).catch(() => {});
+      await card?.redraw();
       void audit("video.start", { from: FROM.includes(message.from) ? message.from : "link" });
       await post({ do: "recent", recent });
     } else if (message.type === "error") {
@@ -159,7 +220,15 @@ export function runWatchpane(tf) {
       .catch((err) => warn(err));
 
   // ------------------------------------------------------------ registration (nothing awaited above)
-  const runs = { open: show, toggle, close };
+  const runs = {
+    open: () => show(),
+    toggle,
+    close,
+    back: () => control("back"),
+    forward: () => control("forward"),
+    mute: () => control("mute"),
+    card: toggleCard,
+  };
   for (const c of COMMANDS) {
     tf.command(
       tf.t(c.title),
@@ -176,14 +245,28 @@ export function runWatchpane(tf) {
     background(async () => {
       if (open) void audit("closed", {});
       open = false;
+      await card?.stopped();
     }),
+  );
+  tf.on(
+    "overlay.pointer",
+    background((e) => card?.pointer(e)),
+  );
+  tf.on(
+    "overlay.layout",
+    background((e) => card?.moved(e)),
+  );
+  tf.on(
+    "overlay.hidden",
+    background(() => card?.hide(true)),
   );
   tf.on(
     "setting.changed",
     background(async () => {
       if (open) await setup();
+      await card?.redraw();
     }),
   );
 
-  return { state: () => ({ open, recent }) };
+  return { state: () => ({ open, recent, card: card?.visible ?? false }) };
 }

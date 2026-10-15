@@ -21,6 +21,7 @@ import {
   receive,
   started,
   statusLine,
+  statusMessage,
   submit,
 } from "../../examples/watchpane/page-src/watch-model.js";
 
@@ -164,5 +165,46 @@ describe("statusLine", () => {
     expect(statusLine(setUp)).toEqual({ text: "loading", error: false });
     expect(statusLine(apiReady(setUp).state)).toEqual({ text: "empty", error: false });
     expect(statusLine(ready())).toEqual({ text: "", error: false });
+  });
+});
+
+describe("the card", () => {
+  it("runs the card's controls only on a video, and only known ones", () => {
+    expect(receive(ready(), { do: "control", action: "pause" }).act).toBeNull();
+    const playing = receive(ready(), { do: "play", id: ID }).state;
+    expect(receive(playing, { do: "control", action: "forward" }).act).toEqual({
+      control: "forward",
+    });
+    expect(receive(playing, { do: "control", action: "explode" }).act).toBeNull();
+  });
+
+  it("reports the player's state in whole seconds, cleaned", () => {
+    const playing = receive(ready(), { do: "play", id: ID }).state;
+    expect(
+      statusMessage(playing, {
+        title: " T ",
+        playing: true,
+        time: 12.9,
+        duration: 300.2,
+        muted: true,
+      }),
+    ).toEqual({
+      type: "status",
+      id: ID,
+      title: "T",
+      playing: true,
+      time: 12,
+      duration: 300,
+      muted: true,
+    });
+    expect(statusMessage(ready(), { time: NaN, duration: -4, playing: "yes" })).toEqual({
+      type: "status",
+      id: null,
+      title: "",
+      playing: false,
+      time: 0,
+      duration: 0,
+      muted: false,
+    });
   });
 });

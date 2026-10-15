@@ -115,17 +115,23 @@ function createHost({ pages = true, store = {}, settings = {} } = {}) {
 }
 
 describe("Watchpane", () => {
-  it("registers three settings and three commands, Open with a shortcut", () => {
+  it("registers its settings and commands, Open with a shortcut", () => {
     const host = createHost();
     expect(host.regs.filter((r) => r.kind === "setting").map((r) => [r.key, r.def])).toEqual([
       ["autoplay", true],
       ["captions", false],
       ["private", true],
+      ["showCard", true],
+      ["corner", "bottom-right"],
     ]);
     const cmds = host.regs.filter((r) => r.kind === "command");
     expect(cmds.map((c) => [c.id, c.title])).toEqual([
       ["open", "Watchpane: Open"],
       ["toggle", "Watchpane: Play or pause"],
+      ["back", "Watchpane: Back 10 seconds"],
+      ["forward", "Watchpane: Forward 10 seconds"],
+      ["mute", "Watchpane: Mute or unmute"],
+      ["card", "Watchpane: Show or hide the card"],
       ["close", "Watchpane: Close"],
     ]);
     expect(cmds[0].key).toEqual({ mac: "Ctrl+Alt+Y", other: "Ctrl+Alt+Y" });

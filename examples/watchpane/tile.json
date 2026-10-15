@@ -1,16 +1,23 @@
 {
   "id": "example.watchpane",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
     {
       "page": "to show YouTube's player, the box for your link and the videos you watched lately, in a window of its own"
     },
-    { "script:www.youtube.com": "to load YouTube's own player in that window" },
+    {
+      "window.overlay": "to show a card over your panes with the video's picture, its title and progress, and buttons to play, pause, skip, mute and pick a video"
+    },
+    {
+      "script:www.youtube.com": "to load YouTube's own player in that window"
+    },
     {
       "net:www.youtube-nocookie.com": "to show YouTube's player in private mode, which sets no cookies until you play a video"
     },
-    { "net:i.ytimg.com": "to show the pictures of the videos you watched lately" }
+    {
+      "net:i.ytimg.com": "to show the pictures of your videos, in the window and on the card"
+    }
   ]
 }
