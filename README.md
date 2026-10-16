@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1244%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-17-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1352%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-17-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -219,7 +219,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1244 tests in 56 files, all passing on 2026-10-15).
+Run with `npm test` (1352 tests in 63 files, all passing on 2026-10-16).
 
 | Area | Covers |
 |---|---|
@@ -243,4 +243,4 @@ Run with `npm test` (1244 tests in 56 files, all passing on 2026-10-15).
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-10-15 by Tilefold
+Last updated: 2026-10-16 by Tilefold
