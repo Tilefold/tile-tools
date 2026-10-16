@@ -6,8 +6,10 @@
 tile-name = Aperçu web (exemple)
 tile-description = Affiche l’application web que vous construisez, par exemple localhost:5173, dans une fenêtre de navigateur à côté de vos volets, et liste les pages ouvertes récemment.
 setting-address = Adresse à ouvrir
+setting-docked = Afficher à côté des volets (désactivé : dans sa propre fenêtre)
 setting-panel = Afficher les pages récentes à côté des volets
 cmd-open = Aperçu web : Ouvrir
+cmd-move = Aperçu web : À côté des volets ou dans une fenêtre
 cmd-reload = Aperçu web : Recharger
 cmd-back = Aperçu web : Précédent
 cmd-forward = Aperçu web : Suivant

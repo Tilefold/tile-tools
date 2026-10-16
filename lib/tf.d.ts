@@ -110,6 +110,8 @@ export interface PanelRow {
 export interface BrowserPage {
   url: string;
   title: string;
+  /** Beside the panes (true) or in a window of its own (Tilefold 0.1.11). */
+  docked?: boolean;
 }
 
 /** What `tf.panel.show` takes. */
@@ -326,7 +328,8 @@ export interface Tf {
     post(message: unknown): Promise<null>;
   };
   /**
-   * Needs browser. A browser window Tilefold draws, with its own bar
+   * Needs browser. A browser Tilefold draws, beside the panes or in a
+   * window of its own, with its own bar
    * (address, back, forward, reload, open in the default browser) above the
    * page. Any http or https address opens, local ones (`localhost:5173`)
    * included; a bare local host gets http://, others https://. The tile can
@@ -336,7 +339,10 @@ export interface Tf {
    * 0.1.11.
    */
   readonly browser?: {
-    open(url?: string): Promise<BrowserPage>;
+    /** `{ docked: true }` shows it beside the panes (Tilefold 0.1.11); left out, a window. */
+    open(url?: string, options?: { docked?: boolean }): Promise<BrowserPage>;
+    /** Moves an open page beside the panes (true) or into a window of its own. */
+    dock(docked: boolean): Promise<null>;
     go(url: string): Promise<null>;
     back(): Promise<null>;
     forward(): Promise<null>;

@@ -7,8 +7,9 @@
  * Web Preview example — tests
  *
  * The recent-pages logic on its own, then the built tile against the fake
- * Tilefold: Open uses the address setting, the other commands steer the
- * window, pages the window lands on are remembered (newest first, once
+ * Tilefold: Open uses the address setting and opens beside the panes
+ * unless the docked setting is off, Move switches between the dock and a
+ * window, the other commands steer the page, pages the window lands on are remembered (newest first, once
  * each) and listed in the docked panel, a click on a row opens that page,
  * the list survives a restart and can be forgotten, refusals and an older
  * Tilefold become notices.
@@ -121,12 +122,36 @@ describe("the tile", () => {
     const host = await ready();
     await host.command("open");
     await host.advance(0);
-    expect(host.browser.calls[0]).toEqual(["open", "localhost:5173"]);
+    expect(host.browser.calls[0]).toEqual(["open", "localhost:5173", { docked: true }]);
+    expect(host.browser.docked).toBe(true);
     expect(host.browser.open).toBe(true);
     await host.setSetting("address", "localhost:3000/admin");
     await host.command("open");
     await host.advance(0);
-    expect(host.browser.calls[1]).toEqual(["open", "localhost:3000/admin"]);
+    expect(host.browser.calls[1]).toEqual(["open", "localhost:3000/admin", { docked: true }]);
+  });
+
+  it("opens in a window of its own when the docked setting is off", async () => {
+    const host = await ready({ settings: { docked: false } });
+    await host.command("open");
+    await host.advance(0);
+    expect(host.browser.calls[0]).toEqual(["open", "localhost:5173", { docked: false }]);
+    expect(host.browser.docked).toBe(false);
+  });
+
+  it("moves the page between the dock and a window, opening it docked when closed", async () => {
+    const host = await ready({ settings: { docked: false } });
+    await host.command("move");
+    await host.advance(0);
+    expect(host.browser.calls.at(-1)).toEqual(["open", "localhost:5173", { docked: true }]);
+    expect(host.browser.docked).toBe(true);
+    await host.command("move");
+    await host.advance(0);
+    expect(host.browser.calls.at(-1)).toEqual(["dock", false]);
+    expect(host.browser.docked).toBe(false);
+    await host.command("move");
+    await host.advance(0);
+    expect(host.browser.calls.at(-1)).toEqual(["dock", true]);
   });
 
   it("steers the window with its commands", async () => {

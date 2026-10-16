@@ -5,11 +5,13 @@
  *
  * Web Preview (example tile)
  *
- * Shows the web app you're building in a browser window next to your
- * panes. "Web Preview: Open" opens the address from its settings
- * (`localhost:5173` unless you change it); after that, type any address in
- * the window's own bar. Pages you open are remembered, and a panel docked
- * beside the panes lists the recent ones: click one to open it again.
+ * Shows the web app you're building beside your panes, or in a window of
+ * its own if you prefer (a setting). "Web Preview: Open" opens the address
+ * from its settings (`localhost:5173` unless you change it); after that,
+ * type any address in Tilefold's bar above the page. "Web Preview: Beside
+ * the panes or in a window" moves it between the two. Pages you open are
+ * remembered, and a panel docked beside the panes lists the recent ones:
+ * click one to open it again.
  *
  * Shown on purpose:
  * - the `browser` permission and `tf.browser`: Tilefold draws the window and
@@ -81,13 +83,24 @@ var main_default = (tf) => {
     }
   }
   tf.setting("address", "localhost:5173", tf.t("setting-address"));
+  tf.setting("docked", true, tf.t("setting-docked"));
   tf.setting("panel", true, tf.t("setting-panel"));
+  const open = (b, url) => b.open(url, { docked: tf.settings.get("docked") === true });
   tf.command(
     tf.t("cmd-open"),
-    () => void steer((b) => b.open(String(tf.settings.get("address")))),
+    () => void steer((b) => open(b, String(tf.settings.get("address")))),
     {
       id: "open"
     }
+  );
+  tf.command(
+    tf.t("cmd-move"),
+    () => void steer(async (b) => {
+      const page = await b.info();
+      if (!page) await b.open(String(tf.settings.get("address")), { docked: true });
+      else await b.dock(!page.docked);
+    }),
+    { id: "move" }
   );
   tf.command(tf.t("cmd-reload"), () => void steer((b) => b.reload()), { id: "reload" });
   tf.command(tf.t("cmd-back"), () => void steer((b) => b.back()), { id: "back" });
