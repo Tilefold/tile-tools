@@ -74,3 +74,4 @@ card-on-device = Sur { $device }
 card-volume = { $volume } %
 card-muted = Muet
 button-volume = Volume : baisser, couper ou monter
+cmd-reset-position = Tuneboard : Remettre la carte dans le volet

@@ -74,3 +74,4 @@ card-on-device = 在 { $device } 上
 card-volume = { $volume }%
 card-muted = 已静音
 button-volume = 音量：调低、静音或调高
+cmd-reset-position = Tuneboard：将卡片放回窗格

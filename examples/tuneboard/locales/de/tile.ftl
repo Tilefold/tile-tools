@@ -74,3 +74,4 @@ card-on-device = Auf { $device }
 card-volume = { $volume } %
 card-muted = Stumm
 button-volume = Lautstärke: leiser, stumm oder lauter
+cmd-reset-position = Tuneboard: Karte zurück in den Bereich setzen

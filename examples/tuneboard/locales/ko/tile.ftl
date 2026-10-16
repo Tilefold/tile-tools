@@ -74,3 +74,4 @@ card-on-device = { $device }에서 재생
 card-volume = { $volume }%
 card-muted = 음소거
 button-volume = 볼륨: 줄이기, 음소거, 키우기
+cmd-reset-position = Tuneboard: 카드를 창 영역으로 되돌리기

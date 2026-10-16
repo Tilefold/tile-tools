@@ -74,3 +74,4 @@ card-on-device = On { $device }
 card-volume = { $volume }%
 card-muted = Muted
 button-volume = Volume: lower, mute or raise
+cmd-reset-position = Tuneboard: Put the card back in the pane
