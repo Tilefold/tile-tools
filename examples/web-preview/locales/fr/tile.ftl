@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Web Preview (example tile): French strings.
+
+tile-name = Aperçu web (exemple)
+tile-description = Affiche l’application web que vous construisez, par exemple localhost:5173, dans une fenêtre de navigateur à côté de vos volets, et liste les pages ouvertes récemment.
+setting-address = Adresse à ouvrir
+setting-panel = Afficher les pages récentes à côté des volets
+cmd-open = Aperçu web : Ouvrir
+cmd-reload = Aperçu web : Recharger
+cmd-back = Aperçu web : Précédent
+cmd-forward = Aperçu web : Suivant
+cmd-close = Aperçu web : Fermer
+cmd-clear = Aperçu web : Oublier les pages récentes
+panel-title = Aperçu web
+panel-subtitle = Pages récentes
+recent-cleared = Pages récentes oubliées.
+error-no-browser = Ce Tilefold ne peut pas encore ouvrir de navigateur pour les tuiles. Mettez Tilefold à jour pour utiliser l’aperçu web.
+error-refused = L’aperçu web n’a pas pu ouvrir cela : { $reason }
+error-failed = Un problème est survenu avec la fenêtre d’aperçu. Réessayez.

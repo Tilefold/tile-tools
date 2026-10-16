@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Web Preview (example tile): Spanish strings.
+
+tile-name = Vista previa web (ejemplo)
+tile-description = Muestra la aplicación web que estás creando, como localhost:5173, en una ventana de navegador junto a tus paneles, y enumera las páginas que abriste hace poco.
+setting-address = Dirección que abrir
+setting-panel = Mostrar las páginas recientes junto a los paneles
+cmd-open = Vista previa web: Abrir
+cmd-reload = Vista previa web: Recargar
+cmd-back = Vista previa web: Atrás
+cmd-forward = Vista previa web: Adelante
+cmd-close = Vista previa web: Cerrar
+cmd-clear = Vista previa web: Olvidar las páginas recientes
+panel-title = Vista previa web
+panel-subtitle = Páginas recientes
+recent-cleared = Páginas recientes olvidadas.
+error-no-browser = Este Tilefold aún no puede abrir un navegador para los tiles. Actualiza Tilefold para usar la vista previa web.
+error-refused = La vista previa web no pudo abrir eso: { $reason }
+error-failed = Algo salió mal con la ventana de vista previa. Inténtalo de nuevo.

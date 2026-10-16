@@ -9,7 +9,7 @@
  *   export default (tf: Tf) => { ... };
  *
  * Types only: nothing here runs, and the build strips it away. `net`,
- * `auth`, `ai`, `page`, `panel`, `pane`, `fs` and `viewer` are optional because an
+ * `auth`, `ai`, `page`, `panel`, `pane`, `fs`, `viewer` and `browser` are optional because an
  * older Tilefold doesn't have them; check before use.
  */
 
@@ -35,7 +35,9 @@ export type TileEvent =
   | "page.message"
   | "pane.cwd"
   | "panel.click"
-  | "panel.closed";
+  | "panel.closed"
+  | "browser.navigated"
+  | "browser.closed";
 
 /** A rectangle in the window's content area, in CSS pixels. */
 export interface Rect {
@@ -77,6 +79,10 @@ export interface TileEventPayloads {
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
   /** The tile's panel was closed by the user, or replaced by another tile's. */
   "panel.closed": { by: "user" | "replaced" };
+  /** The tile's browser finished loading a page, or its title changed (needs browser). */
+  "browser.navigated": { url: string; title: string };
+  /** The user closed the tile's browser window (needs browser). */
+  "browser.closed": { url: string };
 }
 
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
@@ -98,6 +104,12 @@ export interface PanelRow {
   muted?: boolean;
   /** A tooltip, at most 512 characters. */
   hint?: string;
+}
+
+/** The page a tile's browser window shows. */
+export interface BrowserPage {
+  url: string;
+  title: string;
 }
 
 /** What `tf.panel.show` takes. */
@@ -226,6 +238,7 @@ export type TileErrorName =
   | "BudgetExceededError"
   | "RefusedError"
   | "PathNotAllowedError"
+  | "BrowserError"
   | "NotFoundError"
   | "NotADirectoryError"
   | "NotAFileError"
@@ -311,6 +324,26 @@ export interface Tf {
     open(options?: { visible?: boolean; keepRunning?: boolean; origin?: "https" }): Promise<null>;
     close(): Promise<null>;
     post(message: unknown): Promise<null>;
+  };
+  /**
+   * Needs browser. A browser window Tilefold draws, with its own bar
+   * (address, back, forward, reload, open in the default browser) above the
+   * page. Any http or https address opens, local ones (`localhost:5173`)
+   * included; a bare local host gets http://, others https://. The tile can
+   * steer the window but never see the page; "browser.navigated" says where
+   * it went. `open` without an address shows it empty, waiting for one. A
+   * refused address rejects with a BrowserError. Missing before Tilefold
+   * 0.1.11.
+   */
+  readonly browser?: {
+    open(url?: string): Promise<BrowserPage>;
+    go(url: string): Promise<null>;
+    back(): Promise<null>;
+    forward(): Promise<null>;
+    reload(): Promise<null>;
+    close(): Promise<null>;
+    /** What the window shows, or null when it is closed. */
+    info(): Promise<BrowserPage | null>;
   };
   /**
    * Needs window.panel. A panel docked beside the panes, drawn by Tilefold

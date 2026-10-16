@@ -27,6 +27,7 @@ npx @tilefold/tile-tools build
 | `tuneboard` | A music player card with a sign-in and a page of its own | 0.1.7 |
 | `watchpane` | A video player in a page of its own | 0.1.9 |
 | `folder-tree` | The folder you're working in, as a tree docked beside your panes | 0.1.9 |
+| `web-preview` | The web app you're building, in a browser window beside your panes | 0.1.11 |
 
 Each tile's commands are in the command palette under its name, and its settings in **Settings → Tiles**.
 

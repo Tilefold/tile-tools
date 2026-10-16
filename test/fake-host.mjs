@@ -31,7 +31,11 @@
  * (opens, closes and posted messages are kept in `host.page`). `panel: true`
  * adds `tf.panel` (`host.panel.content` is what is docked, or null; rows
  * are checked the way Tilefold checks them: unique ids, labels, depth, a
- * known icon).
+ * known icon). `browser: true` adds `tf.browser` (`host.browser` keeps
+ * `open`, the `url` shown, and every call in `calls`; `host.visit(url,
+ * title)` plays a page load and fires `browser.navigated`, and
+ * `host.closeBrowser()` plays the user closing it). An address with an
+ * unsafe scheme is refused with `BrowserError`, as in Tilefold.
  *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
@@ -241,6 +245,7 @@ export async function startTile(dir, opts = {}) {
   if (opts.folders) addFolders(tf, host, opts.folders, named);
   if (opts.page) addPage(tf, host);
   if (opts.panel) addPanel(tf, host, named);
+  if (opts.browser) addBrowser(tf, host, named);
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;
@@ -372,5 +377,66 @@ function addPanel(tf, host, named) {
       host.panel.content = null;
       return null;
     },
+  };
+}
+
+/** `tf.browser`, keeping what the window shows and every call. */
+function addBrowser(tf, host, named) {
+  host.browser = { open: false, url: "about:blank", title: "", calls: [] };
+  const address = (text) => {
+    if (/^\s*(javascript|data|file|about|blob):/i.test(text)) {
+      throw named("BrowserError", "only http and https pages open here");
+    }
+    return /^https?:\/\//i.test(text) ? text : `http://${text}`;
+  };
+  const need = () => {
+    if (!host.browser.open) throw named("BrowserError", "the browser is not open");
+  };
+  const page = () => ({ url: host.browser.url, title: host.browser.title });
+  tf.browser = {
+    async open(url) {
+      host.browser.calls.push(["open", url]);
+      if (url !== undefined) host.browser.url = address(url);
+      host.browser.open = true;
+      return page();
+    },
+    async go(url) {
+      host.browser.calls.push(["go", url]);
+      need();
+      host.browser.url = address(url);
+      return null;
+    },
+    async back() {
+      host.browser.calls.push(["back"]);
+      need();
+      return null;
+    },
+    async forward() {
+      host.browser.calls.push(["forward"]);
+      need();
+      return null;
+    },
+    async reload() {
+      host.browser.calls.push(["reload"]);
+      need();
+      return null;
+    },
+    async close() {
+      host.browser.calls.push(["close"]);
+      host.browser.open = false;
+      return null;
+    },
+    async info() {
+      return host.browser.open ? page() : null;
+    },
+  };
+  host.visit = async (url, title = "") => {
+    host.browser.url = url;
+    host.browser.title = title;
+    await host.emit("browser.navigated", { url, title });
+  };
+  host.closeBrowser = async () => {
+    host.browser.open = false;
+    await host.emit("browser.closed", { url: host.browser.url });
   };
 }
