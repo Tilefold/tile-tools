@@ -21,17 +21,20 @@
  * the user has set up, for `tf.auth.has`; `ai` answers `tf.ai.ask` (every
  * question is recorded; without it, asking fails with `AiNotSetUpError`).
  *
- * For tiles that use folders: `folders: { cwd, roots, files, links }` adds
- * `tf.pane`, `tf.fs` and `tf.viewer` with Tilefold's rules (only paths
+ * For tiles that use folders: `folders: { cwd, roots, files, links, panes }`
+ * adds `tf.pane`, `tf.fs` and `tf.viewer` with Tilefold's rules (only paths
  * inside a `roots` folder; `files` are absolute file paths and their
  * folders exist implicitly; `links` maps a link's path to its target,
  * listed as kind "link" and followed when listed or opened; opened files
  * are kept in `host.opened`;
- * `host.cwd` is the focused pane's folder). `page: true` adds `tf.page`
+ * `host.cwd` is the focused pane's folder; `panes`, when given, is what
+ * `tf.pane.list()` answers (Tilefold 0.1.11: [{ session, name, folder,
+ * focused }]), kept in `host.panes`). `page: true` adds `tf.page`
  * (opens, closes and posted messages are kept in `host.page`). `panel: true`
  * adds `tf.panel` (`host.panel.content` is what is docked, or null; rows
- * are checked the way Tilefold checks them: unique ids, labels, depth, a
- * known icon). `browser: true` adds `tf.browser` (`host.browser` keeps
+ * and the footer's rows are checked the way Tilefold 0.1.11 checks them:
+ * unique ids, labels, depth, a known icon and tone, badge and trail
+ * lengths). `browser: true` adds `tf.browser` (`host.browser` keeps
  * `open`, the `url` shown, and every call in `calls`; `host.visit(url,
  * title)` plays a page load and fires `browser.navigated`, and
  * `host.closeBrowser()` plays the user closing it). An address with an
@@ -262,8 +265,9 @@ const parentOf = (path) => {
 };
 
 /** `tf.pane`, `tf.fs` and `tf.viewer` over a list of files, with Tilefold's rules. */
-function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {} }, named) {
+function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, panes }, named) {
   host.cwd = cwd;
+  host.panes = panes ? structuredClone(panes) : null;
   host.roots = roots;
   // Copies, so a test that changes the files never changes the next test's.
   host.files = [...files];
@@ -294,6 +298,8 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {} }
     return path;
   };
   tf.pane = { cwd: async () => host.cwd };
+  // tf.pane.list() exists only where Tilefold has it (0.1.11), as a tile sees it.
+  if (host.panes) tf.pane.list = async () => structuredClone(host.panes);
   tf.fs = {
     async list(raw) {
       const path = check(raw);
@@ -345,8 +351,38 @@ function addPage(tf, host) {
 
 /** Icons Tilefold draws in panel rows. */
 const PANEL_ICONS = ["folder", "file", "link", "loading", "error", "info", "none"];
+/** Theme tones a panel row may take (Tilefold 0.1.11). */
+const PANEL_TONES = ["accent", "info", "success", "warning", "error"];
 
-/** `tf.panel`, keeping the docked content and checking rows as Tilefold does. */
+/** Whether `v` is left out or a string of 1..max characters. */
+const optionalText = (v, max) =>
+  v === undefined ||
+  v === null ||
+  (typeof v === "string" && v.trim().length > 0 && v.length <= max);
+/** Whether `v` is left out or true/false. */
+const optionalFlag = (v) => v === undefined || typeof v === "boolean";
+
+/** Whether one panel row is as Tilefold accepts it (ids checked by the caller). */
+const panelRowOk = (r) =>
+  typeof r?.id === "string" &&
+  r.id.length > 0 &&
+  r.id.length <= 1024 &&
+  typeof r.label === "string" &&
+  r.label.length > 0 &&
+  r.label.length <= 256 &&
+  (r.depth === undefined || (Number.isInteger(r.depth) && r.depth >= 0)) &&
+  (r.icon === undefined || PANEL_ICONS.includes(r.icon)) &&
+  ["expandable", "expanded", "muted", "section", "pulse"].every((f) => optionalFlag(r[f])) &&
+  (r.tone === undefined || r.tone === null || PANEL_TONES.includes(r.tone)) &&
+  optionalText(r.hint, 512) &&
+  optionalText(r.badge, 32) &&
+  optionalText(r.trail, 32);
+
+/**
+ * `tf.panel`, keeping the docked content and checking rows as Tilefold
+ * 0.1.11 does: ids unique across the rows and the footer, at most 5,000
+ * rows in all.
+ */
 function addPanel(tf, host, named) {
   host.panel = { content: null, shows: 0 };
   tf.panel = {
@@ -355,19 +391,17 @@ function addPanel(tf, host, named) {
       if (typeof content?.title !== "string" || !content.title.trim()) {
         throw named("TypeError", "title");
       }
-      for (const [i, r] of (content.rows ?? []).entries()) {
-        const ok =
-          typeof r.id === "string" &&
-          r.id.length > 0 &&
-          r.id.length <= 1024 &&
-          !ids.has(r.id) &&
-          typeof r.label === "string" &&
-          r.label.length > 0 &&
-          r.label.length <= 256 &&
-          (r.depth === undefined || (Number.isInteger(r.depth) && r.depth >= 0)) &&
-          (r.icon === undefined || PANEL_ICONS.includes(r.icon));
-        if (!ok) throw named("TypeError", `rows[${i}]`);
-        ids.add(r.id);
+      const footer = content.footer?.rows ?? [];
+      const lists = [
+        ["rows", content.rows ?? []],
+        ["footer.rows", footer],
+      ];
+      if (content.rows.length + footer.length > 5000) throw named("TypeError", "at most 5000 rows");
+      for (const [where, list] of lists) {
+        for (const [i, r] of list.entries()) {
+          if (!panelRowOk(r) || ids.has(r.id)) throw named("TypeError", `${where}[${i}]`);
+          ids.add(r.id);
+        }
       }
       host.panel.content = structuredClone(content);
       host.panel.shows += 1;

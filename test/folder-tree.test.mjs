@@ -42,9 +42,15 @@ const start = (opts = {}) =>
     ...opts,
   });
 
-/** The docked rows as "depth:label" (notes as "depth:(label)"). */
+/** The tree's rows: those after the "Now" section, when it is there. */
+const treeRows = (host) => {
+  const rows = host.panel.content.rows;
+  const files = rows.findIndex((r) => r.id === "files");
+  return files < 0 ? rows : rows.slice(files + 1);
+};
+/** The tree's rows as "depth:label" (notes as "depth:(label)"). */
 const lines = (host) =>
-  host.panel.content.rows.map((r) => `${r.depth}:${r.muted ? `(${r.label})` : r.label}`);
+  treeRows(host).map((r) => `${r.depth}:${r.muted ? `(${r.label})` : r.label}`);
 /** The row with this label. */
 const rowOf = (host, label) => host.panel.content.rows.find((r) => r.label === label);
 /** Clicks a row as Tilefold reports it. */
@@ -67,7 +73,7 @@ describe("Folder Tree", () => {
       expanded: false,
     });
     expect(rowOf(host, "README.md")).toMatchObject({ icon: "file", hint: "/work/app/README.md" });
-    expect(host.audits).toEqual([{ action: "shown", details: { hasFolder: true } }]);
+    expect(host.audits).toEqual([{ action: "shown", details: { hasFolder: true, window: false } }]);
     await host.command("toggle");
     expect(host.panel.content).toBeNull();
   });
@@ -182,7 +188,9 @@ describe("Folder Tree", () => {
     expect(lines(host)).toEqual([
       "0:(Tilefold doesn't know which folder this pane is in yet. Run a command in it, or open a new pane.)",
     ]);
-    expect(host.audits).toEqual([{ action: "shown", details: { hasFolder: false } }]);
+    expect(host.audits).toEqual([
+      { action: "shown", details: { hasFolder: false, window: false } },
+    ]);
   });
 
   it("asks for a newer Tilefold where panels or folders are missing", async () => {

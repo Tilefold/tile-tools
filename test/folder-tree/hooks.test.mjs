@@ -1,0 +1,520 @@
+// @vitest-environment node
+/**
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Folder Tree — hook tests
+ *
+ * The markers the hooks write read back the same in the tile (short and
+ * long paths, any pane name), and nothing outside the project or from the
+ * future is believed. Old markers and stale half-written ones are pruned,
+ * fresh ones kept, and a .gitignore keeps them out of commits. The agents'
+ * hook input becomes the right actions (Claude Code's tools, Codex's
+ * patches, and reads, edits and deletions in shell commands). The installer adds the hook
+ * once, keeps everything else, backs files up, takes the hook out again
+ * and never touches a file it can't read. The hook command writes markers
+ * at the project's top and in the agent's own folder (the same marker, so
+ * the tile counts it once), prints nothing and always exits 0.
+ */
+import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  actionsFrom,
+  CHANGED_MS,
+  commandDir,
+  patchActions,
+  shellChanges,
+  shellReads,
+} from "../../examples/folder-tree/hooks/agents.mjs";
+import {
+  hookCommand,
+  install,
+  TAG,
+  withHook,
+  withoutHook,
+} from "../../examples/folder-tree/hooks/install.mjs";
+import {
+  KEEP,
+  MAX_AGE_MS,
+  markerName,
+  projectRoot,
+  paneField,
+  prune,
+  writeMarker,
+  writeMarkers,
+} from "../../examples/folder-tree/hooks/marker.mjs";
+import { record } from "../../examples/folder-tree/hooks/record.mjs";
+import { watched } from "../../examples/folder-tree/hooks/watch.mjs";
+import { toEvents } from "../../examples/folder-tree/src/activity.js";
+import { decodeMarker, joinChunks } from "../../examples/folder-tree/src/marker.js";
+
+const HOOKS = fileURLToPath(new URL("../../examples/folder-tree/hooks/", import.meta.url));
+const made = [];
+/** A fresh temporary folder, removed after the test. */
+const scratch = () => {
+  const dir = mkdtempSync(join(tmpdir(), "foldertree-"));
+  made.push(dir);
+  return dir;
+};
+afterEach(() => {
+  while (made.length) rmSync(made.pop(), { recursive: true, force: true });
+});
+
+const NOW = Date.UTC(2026, 9, 14, 12);
+
+describe("the pane part of a marker", () => {
+  const SID = "01a13f0e-62d0-74b5-83a8-f091605b57ca";
+
+  it("carries the pane's session inside Tilefold, read back apart from the name", () => {
+    const { name } = markerName({
+      ts: NOW,
+      nonce: "aa00",
+      action: "e",
+      pane: "Claude Code",
+      session: SID,
+      rel: "a.js",
+    });
+    expect(decodeMarker(name, NOW)).toMatchObject({ pane: "Claude Code", session: SID });
+    expect(paneField("Claude Code", SID)).toBe(`Claude Code ~${SID}`);
+  });
+
+  it("leaves out a session that doesn't look like one, and fits a long name", () => {
+    expect(paneField("Codex", "not a session!")).toBe("Codex");
+    expect(paneField("Codex", null)).toBe("Codex");
+    const long = paneField("名".repeat(32), SID);
+    expect(Buffer.byteLength(long)).toBeLessThanOrEqual(66);
+    expect(long.endsWith(` ~${SID}`)).toBe(true);
+    const { name } = markerName({
+      ts: NOW,
+      nonce: "aa01",
+      action: "r",
+      pane: "名".repeat(32),
+      session: SID,
+      rel: "a.js",
+    });
+    expect(decodeMarker(name, NOW)).toMatchObject({ session: SID });
+  });
+});
+
+describe("markers", () => {
+  it("read back in the tile as written, short paths and long", () => {
+    const short = markerName({
+      ts: NOW,
+      nonce: "ab12",
+      action: "e",
+      pane: "Claude Code",
+      rel: "src/a.js",
+    });
+    expect(short.chunks).toEqual([]);
+    expect(decodeMarker(short.name, NOW)).toEqual({
+      ts: NOW,
+      nonce: "ab12",
+      action: "e",
+      pane: "Claude Code",
+      session: null,
+      path: "src/a.js",
+      chunks: 0,
+    });
+    const rel = `${"deep/".repeat(60)}ファイル.ts`;
+    const long = markerName({ ts: NOW, nonce: "zz99", action: "a", pane: "Ünïcode ✓", rel });
+    const head = decodeMarker(long.name, NOW);
+    expect(head).toMatchObject({ action: "a", pane: "Ünïcode ✓", path: null });
+    expect(joinChunks(long.chunks, head.chunks)).toBe(rel);
+    // Every name fits a file system's 255-byte limit.
+    for (const n of [short.name, long.name, ...long.chunks])
+      expect(Buffer.byteLength(n)).toBeLessThan(256);
+  });
+
+  it("are not believed from the future, outside the project or malformed", () => {
+    const future = markerName({
+      ts: NOW + 120_000,
+      nonce: "ab12",
+      action: "e",
+      pane: "x",
+      rel: "a",
+    });
+    expect(decodeMarker(future.name, NOW)).toBeNull();
+    const escape = `ft1.${NOW.toString(36)}.ab12.e.eA.${Buffer.from("../etc/passwd").toString("base64url")}`;
+    expect(decodeMarker(escape, NOW)).toBeNull();
+    for (const bad of ["", ".gitignore", "ft1.x", "ft1.0mv8xc3mi.ab12.e.eA.~99"]) {
+      expect(decodeMarker(bad, NOW)).toBeNull();
+    }
+    // A missing part means the long path isn't finished yet.
+    const long = markerName({
+      ts: NOW,
+      nonce: "ab12",
+      action: "e",
+      pane: "x",
+      rel: "x/".repeat(150) + "y",
+    });
+    expect(joinChunks(long.chunks.slice(1), long.chunks.length)).toBeNull();
+  });
+
+  it("are written in .foldertree with a .gitignore, inside the project only", () => {
+    const root = scratch();
+    const name = writeMarker(root, {
+      action: "r",
+      pane: "Codex",
+      file: join(root, "src", "a.js"),
+      now: NOW,
+    });
+    const dir = join(root, ".foldertree");
+    expect(readdirSync(dir).sort()).toEqual([".gitignore", name].sort());
+    expect(readFileSync(join(dir, ".gitignore"), "utf8")).toContain("*");
+    expect(decodeMarker(name, NOW)).toMatchObject({ action: "r", pane: "Codex", path: "src/a.js" });
+    expect(
+      writeMarker(root, { action: "e", pane: "x", file: join(root, "..", "other.js") }),
+    ).toBeNull();
+    expect(writeMarker(root, { action: "x", pane: "x", file: join(root, "a.js") })).toBeNull();
+    // A marker listed by a search, at any depth, is not marked.
+    const listed = join(root, "app", ".foldertree", "ft1.x");
+    expect(writeMarker(root, { action: "r", pane: "x", file: listed })).toBeNull();
+    expect(writeMarker(root, { action: "e", pane: "x", file: join(dir, "loop") })).toBeNull();
+  });
+
+  it("are pruned past the newest KEEP, after a week, and stale halves only", () => {
+    const root = scratch();
+    const dir = join(root, ".foldertree");
+    mkdirSync(dir);
+    const old = markerName({
+      ts: NOW - MAX_AGE_MS - 1,
+      nonce: "0000",
+      action: "e",
+      pane: "x",
+      rel: "old",
+    });
+    writeFileSync(join(dir, old.name), "");
+    for (let i = 0; i < KEEP + 5; i++) {
+      const m = markerName({
+        ts: NOW - i * 1000,
+        nonce: String(i).padStart(4, "0"),
+        action: "e",
+        pane: "x",
+        rel: "a",
+      });
+      writeFileSync(join(dir, m.name), "");
+    }
+    mkdirSync(join(dir, ".tmp-fresh"));
+    mkdirSync(join(dir, ".tmp-stale"));
+    const longAgo = new Date(NOW - 3_600_000);
+    utimesSync(join(dir, ".tmp-stale"), longAgo, longAgo);
+    expect(prune(dir, NOW)).toBe(5 + 1 + 1);
+    const left = readdirSync(dir);
+    expect(left.filter((n) => n.startsWith("ft1.")).length).toBe(KEEP);
+    expect(left).toContain(".tmp-fresh");
+    expect(left).not.toContain(".tmp-stale");
+    expect(left).not.toContain(old.name);
+  });
+});
+
+describe("agent input", () => {
+  it("reads Claude Code's tools", () => {
+    const tool = (tool_name, tool_input, tool_response) =>
+      actionsFrom({ tool_name, tool_input, tool_response });
+    expect(tool("Read", { file_path: "/p/a.js" })).toEqual([{ action: "r", file: "/p/a.js" }]);
+    expect(tool("Edit", { file_path: "a.js" })).toEqual([{ action: "e", file: "a.js" }]);
+    expect(tool("MultiEdit", { file_path: "a.js" })).toEqual([{ action: "e", file: "a.js" }]);
+    expect(tool("Write", { file_path: "n.js" }, { type: "create" })).toEqual([
+      { action: "a", file: "n.js" },
+    ]);
+    expect(tool("Write", { file_path: "n.js" }, { type: "update" })).toEqual([
+      { action: "e", file: "n.js" },
+    ]);
+    expect(tool("NotebookEdit", { notebook_path: "x.ipynb" })).toEqual([
+      { action: "e", file: "x.ipynb" },
+    ]);
+    expect(tool("Read", {})).toEqual([]);
+    expect(tool("Grep", { pattern: "x" })).toEqual([]);
+  });
+
+  it("reads Codex's patches, moves included", () => {
+    const patch = [
+      "*** Begin Patch",
+      "*** Add File: src/new.js",
+      "+hi",
+      "*** Update File: src/a.js",
+      "*** Move to: src/b.js",
+      "@@",
+      "*** Delete File: old.txt",
+      "*** End Patch",
+    ].join("\n");
+    expect(patchActions(patch)).toEqual([
+      { action: "a", file: "src/new.js" },
+      { action: "d", file: "src/a.js" },
+      { action: "a", file: "src/b.js" },
+      { action: "d", file: "old.txt" },
+    ]);
+    expect(actionsFrom({ tool_name: "apply_patch", tool_input: { command: patch } })).toHaveLength(
+      4,
+    );
+    // A patch sent through the shell counts too.
+    expect(
+      actionsFrom({ tool_name: "Bash", tool_input: { command: ["apply_patch", patch] } }),
+    ).toHaveLength(4);
+  });
+
+  it("reads plain reads in shell commands, of files that exist", () => {
+    const exists = (f) => ["a.js", "src/b.js", "my file.md"].includes(f);
+    expect(shellReads("cat a.js && sed -n '1,20p' src/b.js | head -5", exists)).toEqual([
+      { action: "r", file: "a.js" },
+      { action: "r", file: "src/b.js" },
+    ]);
+    expect(shellReads(`cat "my file.md" missing.js`, exists)).toEqual([
+      { action: "r", file: "my file.md" },
+    ]);
+    expect(shellReads("sed -i 's/a/b/' a.js; rm a.js; cat *.js", exists)).toEqual([]);
+  });
+
+  it("finds the folder a command works in from its plain cd", () => {
+    expect(commandDir("ls", "/w")).toBe("/w");
+    expect(commandDir("cd app && sed -i x a.js", "/w")).toBe("/w/app");
+    expect(commandDir("cd /abs; cd sub; ls", "/w")).toBe("/abs/sub");
+    expect(commandDir("cd $HOME; ls", "/w")).toBe("/w");
+  });
+
+  /** A fake disk: path -> { mtimeMs, birthtimeMs } (files only). */
+  const disk = (files) => (p) => (p in files ? { file: true, ...files[p] } : null);
+  const fresh = { mtimeMs: NOW - 1000, birthtimeMs: NOW - 86_400_000 };
+  const born = { mtimeMs: NOW - 1000, birthtimeMs: NOW - 1000 };
+  const old = { mtimeMs: NOW - CHANGED_MS - 1, birthtimeMs: NOW - 86_400_000 };
+
+  it("sees files a shell command just changed, made or removed", () => {
+    const info = disk({ "/w/a.js": fresh, "/w/src/new.ts": born, "/w/b.js": old });
+    const opts = { dir: "/w", now: NOW };
+    expect(shellChanges("sed -i 's/a/b/' a.js b.js", info, opts)).toEqual([
+      { action: "e", file: "/w/a.js" },
+    ]);
+    expect(shellChanges("cat > src/new.ts <<'EOF'\nx\nEOF", info, opts)).toEqual([
+      { action: "a", file: "/w/src/new.ts" },
+    ]);
+    // Names inside a script count too.
+    const script = "python3 - <<'EOF'\np='a.js'\nopen(p,'w').write(s)\nEOF";
+    expect(shellChanges(script, info, opts)).toEqual([{ action: "e", file: "/w/a.js" }]);
+    expect(shellChanges("rm -f gone.js b.js && git rm old.md", info, opts)).toEqual([
+      { action: "d", file: "/w/gone.js" },
+      { action: "d", file: "/w/old.md" },
+    ]);
+    expect(shellChanges("curl https://x.io/a.js; ls ~/a.js", info, opts)).toEqual([]);
+    // sed -i replaces the file: a fresh birth time is still an edit.
+    expect(shellChanges("sed -i '' s/a/b/ src/new.ts", info, opts)).toEqual([
+      { action: "e", file: "/w/src/new.ts" },
+    ]);
+    // Only read here, however recently it changed.
+    expect(shellChanges("cat a.js | head -3; sed -n 1p a.js", info, opts)).toEqual([]);
+  });
+
+  it("turns a shell command into reads and changes, never both for one file", () => {
+    const info = disk({ "/w/app/a.js": fresh, "/w/app/b.js": old });
+    const hook = (command) => ({ cwd: "/w", tool_name: "Bash", tool_input: { command } });
+    expect(actionsFrom(hook("cd app && head -n 3 b.js"), info, NOW)).toEqual([
+      { action: "r", file: "/w/app/b.js" },
+    ]);
+    expect(actionsFrom(hook("cd app && cat a.js && sed -i x a.js"), info, NOW)).toEqual([
+      { action: "e", file: "/w/app/a.js" },
+    ]);
+    expect(actionsFrom(hook("cd app && cat a.js"), info, NOW)).toEqual([
+      { action: "r", file: "/w/app/a.js" },
+    ]);
+    // A redirect writes: cat > is no read.
+    expect(actionsFrom(hook("cat > app/a.js <<'EOF'\nx\nEOF"), info, NOW)).toEqual([
+      { action: "e", file: "/w/app/a.js" },
+    ]);
+  });
+
+  it("guesses other tools from their names", () => {
+    expect(actionsFrom({ tool_name: "mcp__fs__write_file", tool_input: { path: "a" } })).toEqual([
+      { action: "e", file: "a" },
+    ]);
+    expect(actionsFrom({ tool_name: "mcp__fs__read_file", tool_input: { path: "a" } })).toEqual([
+      { action: "r", file: "a" },
+    ]);
+    expect(actionsFrom({ tool_name: "mcp__x__frobnicate", tool_input: { path: "a" } })).toEqual([]);
+    expect(actionsFrom(null)).toEqual([]);
+  });
+});
+
+describe("installer", () => {
+  it("adds its hook once, keeping everything else, and takes it out again", () => {
+    const config = {
+      model: "x",
+      hooks: { PostToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "lint" }] }] },
+    };
+    const once = withHook(config, "claude", "/t/record.mjs");
+    const twice = withHook(once, "claude", "/t/record.mjs");
+    expect(twice).toEqual(once);
+    expect(once.model).toBe("x");
+    expect(once.hooks.PostToolUse).toHaveLength(2);
+    expect(once.hooks.PostToolUse[1].hooks[0].command).toBe(hookCommand("claude", "/t/record.mjs"));
+    expect(hookCommand("codex", "/t/record.mjs")).toContain(TAG);
+    expect(withoutHook(once)).toEqual(config);
+    expect(withoutHook(withHook({}, "codex", "/t/r.mjs"))).toEqual({});
+  });
+
+  it("sets up the agents it finds, backs files up, and can remove and dry-run", () => {
+    const home = scratch();
+    mkdirSync(join(home, ".claude"));
+    writeFileSync(join(home, ".claude", "settings.json"), '{ "theme": "dark" }');
+    expect(install({ home, record: "/t/record.mjs" })).toEqual([
+      expect.stringContaining("Claude Code: added the hook"),
+    ]);
+    const settings = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf8"));
+    expect(settings.theme).toBe("dark");
+    expect(settings.hooks.PostToolUse[0].matcher).toContain("Edit");
+    expect(readFileSync(join(home, ".claude", "settings.json.foldertree-backup"), "utf8")).toBe(
+      '{ "theme": "dark" }',
+    );
+    expect(install({ home, record: "/t/record.mjs" })[0]).toContain("nothing to change");
+
+    // Codex, asked for by name, gets its folder made and the trust note.
+    const lines = install({ home, agents: ["codex"], record: "/t/record.mjs" });
+    expect(lines[0]).toContain("Codex: added the hook");
+    expect(lines[1]).toContain("trust");
+    const codex = JSON.parse(readFileSync(join(home, ".codex", "hooks.json"), "utf8"));
+    expect(codex.hooks.PostToolUse[0]).toMatchObject({ matcher: "apply_patch|Bash" });
+
+    expect(install({ home, remove: true, dryRun: true })[0]).toContain("would have removed");
+    install({ home, remove: true });
+    expect(JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf8"))).toEqual({
+      theme: "dark",
+    });
+  });
+
+  it("leaves a settings file it can't read alone, and says when it finds no agent", () => {
+    const home = scratch();
+    expect(install({ home })[0]).toContain("No Claude Code or Codex");
+    mkdirSync(join(home, ".claude"));
+    writeFileSync(join(home, ".claude", "settings.json"), "{ not json");
+    expect(install({ home })[0]).toContain("isn't valid JSON");
+    expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe("{ not json");
+  });
+});
+
+describe("hook command", () => {
+  it("marks at the project's top, named by FOLDERTREE_PANE or the agent", () => {
+    const root = scratch();
+    mkdirSync(join(root, ".git"));
+    mkdirSync(join(root, "src", "deep"), { recursive: true });
+    const cwd = join(root, "src");
+    const hook = { cwd, tool_name: "Edit", tool_input: { file_path: "deep/x.js" } };
+    const [first] = record(hook, "claude", {});
+    expect(decodeMarker(first)).toMatchObject({ pane: "Claude Code", path: "src/deep/x.js" });
+    const [second] = record(hook, "codex", { FOLDERTREE_PANE: "api" });
+    expect(decodeMarker(second)).toMatchObject({ pane: "api" });
+    expect(readdirSync(join(root, ".foldertree")).length).toBe(3);
+  });
+
+  it("finds the project: the repository first, then a .foldertree, then the folder", () => {
+    const top = scratch();
+    const deep = join(top, "a", "b");
+    mkdirSync(join(deep, ".foldertree"), { recursive: true });
+    expect(projectRoot(deep)).toBe(deep);
+    mkdirSync(join(top, ".git"));
+    expect(projectRoot(deep)).toBe(top);
+    const loose = scratch();
+    expect(projectRoot(loose)).toBe(loose);
+  });
+
+  it("also marks in the agent's folder when it is below the project's top", () => {
+    const root = scratch();
+    mkdirSync(join(root, ".git"));
+    mkdirSync(join(root, "src", "deep"), { recursive: true });
+    const cwd = join(root, "src");
+    const hook = { cwd, tool_name: "Edit", tool_input: { file_path: "deep/x.js" } };
+    const [atTop, atAgent] = record(hook, "claude", {});
+    expect(decodeMarker(atTop)).toMatchObject({ path: "src/deep/x.js" });
+    expect(decodeMarker(atAgent)).toMatchObject({ path: "deep/x.js" });
+    expect(readdirSync(join(cwd, ".foldertree"))).toContain(atAgent);
+  });
+
+  it("marks in the agent's folder when it was started above the repository", () => {
+    // A workspace of several repositories, with no .git of its own.
+    const workspace = scratch();
+    const repo = join(workspace, "app");
+    mkdirSync(join(repo, ".git"), { recursive: true });
+    mkdirSync(join(repo, "src"));
+    const hook = { cwd: workspace, tool_name: "Read", tool_input: { file_path: "app/src/a.js" } };
+    const written = record(hook, "claude", {});
+    expect(written).toHaveLength(2);
+    expect(readdirSync(join(repo, ".foldertree"))).toContain(written[0]);
+    expect(readdirSync(join(workspace, ".foldertree"))).toContain(written[1]);
+    expect(decodeMarker(written[1])).toMatchObject({ action: "r", path: "app/src/a.js" });
+  });
+
+  it("marks only at the file's project when the file is outside the agent's folder", () => {
+    const base = scratch();
+    const here = join(base, "here");
+    const there = join(base, "there");
+    mkdirSync(join(here, ".git"), { recursive: true });
+    mkdirSync(join(there, ".git"), { recursive: true });
+    const hook = { cwd: here, tool_name: "Edit", tool_input: { file_path: join(there, "b.js") } };
+    expect(record(hook, "claude", {})).toHaveLength(1);
+    expect(existsSync(join(here, ".foldertree"))).toBe(false);
+    expect(readdirSync(join(there, ".foldertree"))).toHaveLength(2);
+  });
+
+  it("writes one marker per folder that the tile counts once", () => {
+    const top = scratch();
+    const sub = join(top, "src");
+    mkdirSync(sub);
+    const file = join(sub, "a.js");
+    const names = writeMarkers([top, sub, `${sub}/`], { action: "e", pane: "x", file, now: NOW });
+    expect(names).toHaveLength(2);
+    const found = [
+      { root: top, marker: decodeMarker(names[0], NOW) },
+      { root: sub, marker: decodeMarker(names[1], NOW) },
+    ];
+    expect(toEvents(found)).toHaveLength(1);
+  });
+
+  it("still marks the other folders when one can't be written to", () => {
+    const top = scratch();
+    const blocked = join(top, "blocked");
+    // A file where the marker folder would go: that folder can't be made.
+    mkdirSync(blocked);
+    writeFileSync(join(blocked, ".foldertree"), "");
+    const file = join(blocked, "a.js");
+    const names = writeMarkers([blocked, top], { action: "a", pane: "x", file, now: NOW });
+    expect(names).toHaveLength(1);
+    expect(readdirSync(join(top, ".foldertree"))).toContain(names[0]);
+  });
+
+  it("prints nothing and exits 0, whatever it is given", () => {
+    const root = scratch();
+    for (const input of [
+      "not json",
+      "",
+      JSON.stringify({ cwd: root, tool_name: "Read", tool_input: { file_path: "a" } }),
+    ]) {
+      const run = spawnSync(process.execPath, [join(HOOKS, "record.mjs"), "claude", TAG], {
+        input,
+        encoding: "utf8",
+      });
+      expect(run.status).toBe(0);
+      expect(run.stdout).toBe("");
+    }
+    expect(readdirSync(join(root, ".foldertree")).filter((n) => n.startsWith("ft1."))).toHaveLength(
+      1,
+    );
+  });
+
+  it("watches files but never .git, node_modules or its own markers", () => {
+    expect(watched("src/a.js")).toBe(true);
+    expect(watched(".git/index")).toBe(false);
+    expect(watched("web\\node_modules\\x.js")).toBe(false);
+    expect(watched(".foldertree/ft1.x")).toBe(false);
+  });
+});
