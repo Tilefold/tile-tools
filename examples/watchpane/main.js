@@ -468,8 +468,34 @@ function areaOf(layout) {
   const content = layout?.content ?? { w: 800, h: 600 };
   return { x: 0, y: 0, w: content.w, h: content.h };
 }
+var rectOrNull = (r) => r && [r.x, r.y, r.w, r.h].every(Number.isFinite) && r.w > 0 && r.h > 0 ? r : null;
+var overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+function keepOut(layout) {
+  const panes = (Array.isArray(layout?.panes) ? layout.panes : []).filter(rectOrNull);
+  const top = panes.length ? Math.max(0, Math.min(...panes.map((p) => p.y))) : 0;
+  const zones = panes.map((p) => rectOrNull(p.composer)).filter(Boolean);
+  return { top, zones };
+}
+function clickable(layout, rect) {
+  const { top, zones } = keepOut(layout);
+  return rect.y >= top && !zones.some((z) => overlaps(rect, z));
+}
+function settle(layout, o, size) {
+  const content = contentOf(layout);
+  const { top, zones } = keepOut(layout);
+  const maxY = Math.max(top, content.h - size.h);
+  let y = Math.min(maxY, Math.max(top, o.y));
+  for (let pass = 0; pass <= zones.length; pass++) {
+    const g = { x: o.x, y, w: size.w, h: size.h };
+    const hit = zones.find((z) => overlaps(g, z));
+    if (!hit) break;
+    const above = hit.y - GAP - size.h;
+    y = above >= top ? above : Math.min(maxY, hit.y + hit.h + GAP);
+  }
+  return { x: o.x, y: Math.round(y) };
+}
 function originOf(layout, at, size, position) {
-  if (position) return placeAt(contentOf(layout), size.w, size.h, position);
+  if (position) return settle(layout, placeAt(contentOf(layout), size.w, size.h, position), size);
   const area = areaOf(layout);
   const x = at.endsWith("right") ? area.x + area.w - size.w - MARGIN : area.x + MARGIN;
   const y = at.startsWith("bottom") ? area.y + area.h - size.h - MARGIN : area.y + MARGIN;
@@ -522,6 +548,7 @@ function computeLayout(layout, corner, { list = false, video = false, position =
   else {
     const below = position ? g.y + g.h / 2 < content.h / 2 : at.startsWith("top");
     cardScene(rects, g, list, below);
+    if (position && rects.list && !clickable(layout, rects.list)) cardScene(rects, g, list, !below);
   }
   return rects;
 }

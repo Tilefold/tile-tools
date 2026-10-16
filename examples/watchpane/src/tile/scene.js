@@ -82,12 +82,61 @@ export function areaOf(layout) {
   return { x: 0, y: 0, w: content.w, h: content.h };
 }
 
+/** A rectangle with a usable size, or null. */
+const rectOrNull = (r) =>
+  r && [r.x, r.y, r.w, r.h].every(Number.isFinite) && r.w > 0 && r.h > 0 ? r : null;
+
+/** Whether two rectangles overlap. */
+const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
 /**
- * The group's top-left: at the saved position in the window, or in the
- * pane's corner.
+ * Where Tilefold never lets an overlay item take a click: every pane's
+ * Composer row, and the bars above the panes (the title bar and the tab
+ * bar). An item touching one of them, by even a pixel, can't be clicked
+ * or dragged, so the player must keep clear of them. Returns the band
+ * above the panes' top (`top`) and the Composer rows (`zones`).
+ */
+export function keepOut(layout) {
+  const panes = (Array.isArray(layout?.panes) ? layout.panes : []).filter(rectOrNull);
+  const top = panes.length ? Math.max(0, Math.min(...panes.map((p) => p.y))) : 0;
+  const zones = panes.map((p) => rectOrNull(p.composer)).filter(Boolean);
+  return { top, zones };
+}
+
+/** Whether a rectangle is clear of every zone where it couldn't be clicked. */
+export function clickable(layout, rect) {
+  const { top, zones } = keepOut(layout);
+  return rect.y >= top && !zones.some((z) => overlaps(rect, z));
+}
+
+/**
+ * Moves a dragged group (top-left `o`, size `size`) clear of the zones
+ * where it couldn't be clicked: never above the panes' top; and, when it
+ * covers a Composer row, just above it, or just below it where above has
+ * no room. A window too small to keep it clear keeps it inside the window.
+ */
+export function settle(layout, o, size) {
+  const content = contentOf(layout);
+  const { top, zones } = keepOut(layout);
+  const maxY = Math.max(top, content.h - size.h);
+  let y = Math.min(maxY, Math.max(top, o.y));
+  // Each pass clears one row; a group can't cover more rows than there are.
+  for (let pass = 0; pass <= zones.length; pass++) {
+    const g = { x: o.x, y, w: size.w, h: size.h };
+    const hit = zones.find((z) => overlaps(g, z));
+    if (!hit) break;
+    const above = hit.y - GAP - size.h;
+    y = above >= top ? above : Math.min(maxY, hit.y + hit.h + GAP);
+  }
+  return { x: o.x, y: Math.round(y) };
+}
+
+/**
+ * The group's top-left: at the saved position in the window (kept clear
+ * of where it couldn't be clicked), or in the pane's corner.
  */
 function originOf(layout, at, size, position) {
-  if (position) return placeAt(contentOf(layout), size.w, size.h, position);
+  if (position) return settle(layout, placeAt(contentOf(layout), size.w, size.h, position), size);
   const area = areaOf(layout);
   const x = at.endsWith("right") ? area.x + area.w - size.w - MARGIN : area.x + MARGIN;
   const y = at.startsWith("bottom") ? area.y + area.h - size.h - MARGIN : area.y + MARGIN;
@@ -164,6 +213,8 @@ export function computeLayout(
     // top half, above one in its bottom half (in a corner: by the corner).
     const below = position ? g.y + g.h / 2 < content.h / 2 : at.startsWith("top");
     cardScene(rects, g, list, below);
+    // A dragged card's list that would land where it can't be clicked opens on the other side.
+    if (position && rects.list && !clickable(layout, rects.list)) cardScene(rects, g, list, !below);
   }
   return rects;
 }

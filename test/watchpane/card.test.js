@@ -12,8 +12,10 @@
  * The layout puts the card in the corner asked for, buttons under it and
  * the list facing into the pane; the docked player puts the dock right
  * under the video, as wide as it, and the list beside them; a dragged
- * position wins over the corner. The dock is drawn in two halves within
- * Tilefold's item size, and a click on it finds its button. Pictures are
+ * position wins over the corner, kept clear of every Composer row and the
+ * bars above the panes (where Tilefold lets no overlay item be clicked).
+ * The dock is drawn in two halves within Tilefold's item size, and a click
+ * on it finds its button. Pictures are
  * fetched once and refused when too big. End to end in the fake host:
  * opening shows the window and the card; the page's status moves the
  * card; the buttons control the player; the list plays a video; a button
@@ -57,6 +59,9 @@ import { cleanStart, readResume, resumePoint } from "../../examples/watchpane/sr
 import {
   computeLayout,
   DOCK_GAP,
+  clickable,
+  keepOut,
+  settle,
   SIDE_LIST_ROWS,
   VIDEO_H,
   VIDEO_W,
@@ -224,9 +229,11 @@ describe("layout", () => {
   });
 
   it("puts a dragged group where the user dropped it, whichever its shape", () => {
-    const { w, h } = ONE_PANE.content;
+    const { w } = ONE_PANE.content;
+    const pane = ONE_PANE.panes[0];
+    // Dragged to the very top: it stops at the panes, clear of the tab bar.
     const atTopLeft = computeLayout(ONE_PANE, "bottom-right", { position: { fx: 0, fy: 0 } });
-    expect(atTopLeft.card).toMatchObject({ x: 0, y: 0 });
+    expect(atTopLeft.card).toMatchObject({ x: 0, y: pane.y });
     // Dragged near the top, the list opens below.
     const open = computeLayout(ONE_PANE, "bottom-right", {
       list: true,
@@ -238,7 +245,104 @@ describe("layout", () => {
       position: { fx: 1, fy: 1 },
     });
     expect(player.group.x + player.group.w).toBe(w);
-    expect(player.dock.y + player.dock.h).toBe(h);
+    // Dragged to the very bottom: it stops just above the Composer, clickable.
+    expect(player.dock.y + player.dock.h).toBe(pane.composer.y - 6);
+  });
+
+  it("keeps a dragged player clear of every Composer row and the bars above the panes", () => {
+    const touches = (a, b) =>
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    expect(keepOut(ONE_PANE)).toEqual({ top: 40, zones: [ONE_PANE.panes[0].composer] });
+    // Two panes, one over the other: a Composer row in the middle of the window too.
+    const split = {
+      content: { w: 1200, h: 800 },
+      panes: [
+        {
+          id: "p1",
+          x: 0,
+          y: 40,
+          w: 1200,
+          h: 360,
+          focused: true,
+          composer: { x: 0, y: 354, w: 1200, h: 46 },
+        },
+        {
+          id: "p2",
+          x: 0,
+          y: 400,
+          w: 1200,
+          h: 400,
+          focused: false,
+          composer: { x: 0, y: 754, w: 1200, h: 46 },
+        },
+      ],
+    };
+    for (let fy = 0; fy <= 1; fy += 0.05) {
+      for (const video of [true, false]) {
+        const r = computeLayout(split, "bottom-right", { video, position: { fx: 1, fy } });
+        const hot = video ? [r.dock] : [r.card, r["btn-play"]];
+        for (const rect of hot) {
+          for (const zone of split.panes.map((p) => p.composer)) {
+            expect(touches(rect, zone)).toBe(false);
+          }
+          expect(rect.y).toBeGreaterThanOrEqual(40);
+        }
+      }
+    }
+    // Where above a row has no room, it goes just below it.
+    const short = {
+      content: { w: 1200, h: 800 },
+      panes: [
+        {
+          id: "p1",
+          x: 0,
+          y: 40,
+          w: 1200,
+          h: 300,
+          focused: true,
+          composer: { x: 0, y: 294, w: 1200, h: 46 },
+        },
+        {
+          id: "p2",
+          x: 0,
+          y: 340,
+          w: 1200,
+          h: 460,
+          focused: false,
+          composer: { x: 0, y: 754, w: 1200, h: 46 },
+        },
+      ],
+    };
+    const fy = 100 / (800 - 290);
+    const low = computeLayout(short, "bottom-right", { video: true, position: { fx: 0, fy } });
+    expect(low.group.y).toBe(340 + 6);
+    // A window too small to keep it clear still keeps it inside.
+    const tiny = { content: { w: 400, h: 300 }, panes: [{ ...ONE_PANE.panes[0], w: 400, h: 260 }] };
+    const r = computeLayout(tiny, "bottom-right", { video: true, position: { fx: 1, fy: 1 } });
+    expect(r.group.y).toBeGreaterThanOrEqual(0);
+    expect(settle(null, { x: 5, y: 9 }, { w: 10, h: 10 })).toEqual({ x: 5, y: 9 });
+    // The small card's list opens on the side where it can be clicked.
+    for (let fy = 0; fy <= 1; fy += 0.05) {
+      const c = computeLayout(split, "bottom-right", { list: true, position: { fx: 0, fy } });
+      if (clickable(split, c.list)) continue;
+      // Not clickable: then the other side can't be either (both were tried).
+      const g = c.group;
+      const other =
+        c.list.y > g.y ? { ...c.list, y: g.y - 6 - c.list.h } : { ...c.list, y: g.y + g.h + 6 };
+      expect(clickable(split, other)).toBe(false);
+    }
+  });
+
+  it("frees a player stuck over the Composer from an earlier drag", async () => {
+    const host = await startTile(DIR, {
+      page: "dock",
+      store: { [POSITION_KEY]: { fx: 1, fy: 1 } },
+    });
+    await host.command("open");
+    const composer = ONE_PANE.panes[0].composer;
+    const dock = { ...host.item("dock-l") };
+    expect(dock.y + dock.h).toBeLessThanOrEqual(composer.y);
+    expect(host.page.dock.y + host.page.dock.h).toBeLessThan(dock.y);
   });
 });
 
