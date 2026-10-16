@@ -18,7 +18,13 @@
  * user's paste and click; `apiReady`, `apiFailed`, `playerError` and
  * `started` are what YouTube's player reports.
  */
-import { isVideoId, parseVideoLink } from "./links.js";
+import { isVideoId, MAX_START, parseVideoLink } from "./links.js";
+
+/** A start second from the tile: whole, 0..MAX_START (0 for anything else). */
+export function startOf(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.min(MAX_START, Math.floor(n)) : 0;
+}
 
 /** YouTube player error codes, grouped by what the user is told. */
 const ERROR_KINDS = {
@@ -106,8 +112,9 @@ export function receive(state, message) {
     case "recent":
       return none({ ...state, recent: cleanRecent(message.recent) });
     case "play":
+      // `start`: carry on from that second (the tile reopening a closed video).
       if (!isVideoId(message.id)) return none(state);
-      return playVideo(state, { id: message.id, start: 0 }, "tile");
+      return playVideo(state, { id: message.id, start: startOf(message.start) }, "tile");
     case "toggle":
       return { state, send: null, act: state.current ? { toggle: true } : null };
     case "control":

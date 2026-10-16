@@ -830,6 +830,31 @@ function addRecent(list, video) {
   return [entry, ...list.filter((v) => v.id !== entry.id)].slice(0, MAX_RECENT);
 }
 
+// src/tile/resume.js
+var MAX_RESUME = 24 * 60 * 60;
+var END_SLACK = 3;
+var VIDEO_ID2 = /^[A-Za-z0-9_-]{11}$/;
+function cleanStart(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(MAX_RESUME, Math.floor(n));
+}
+function resumePoint(status) {
+  if (!status || typeof status.id !== "string" || !VIDEO_ID2.test(status.id)) return null;
+  const at = cleanStart(status.time);
+  const ended = status.duration > 0 && at >= status.duration - END_SLACK;
+  return { id: status.id, at: ended ? 0 : at };
+}
+function readResume(value) {
+  if (!value || typeof value !== "object") return null;
+  const { id, at } = (
+    /** @type {any} */
+    value
+  );
+  if (typeof id !== "string" || !VIDEO_ID2.test(id)) return null;
+  return { id, at: cleanStart(at) };
+}
+
 // src/tile/settings.js
 var CORNER_KEYS = {
   "bottom-right": "corner-bottom-right",
@@ -881,7 +906,7 @@ function readOptions(settings) {
 }
 
 // src/tile/run.js
-var KEYS = { recent: "recent" };
+var KEYS = { recent: "recent", resume: "resume" };
 var COMMANDS = [
   { id: "open", title: "cmd-open", key: { mac: "Ctrl+Alt+Y", other: "Ctrl+Alt+Y" } },
   { id: "toggle", title: "cmd-toggle" },
@@ -911,6 +936,8 @@ function runWatchpane(tf) {
   let open = false;
   let recent = null;
   let pending = null;
+  let last = null;
+  let resumeAt;
   let docked = false;
   const canDock = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   const card = tf.overlay ? createCard(tf, {
@@ -957,7 +984,7 @@ function runWatchpane(tf) {
       await tf.toast(tf.t("toast-no-pages"));
       return;
     }
-    if (!open && resume && !pending) pending = (await loadRecent())[0]?.id ?? null;
+    if (!open && resume && !pending) pending = await resumeTarget();
     const withCard = !!card && showCardSetting(tf.settings);
     if (withCard) await card.show();
     if (open) await tf.page.open({ origin: "https" });
@@ -972,9 +999,33 @@ function runWatchpane(tf) {
     open = true;
     if (docked) await card?.redraw();
   };
+  const loadResume = async () => {
+    if (resumeAt === void 0) {
+      resumeAt = readResume(await tf.store.get(KEYS.resume).catch(() => null));
+    }
+    return resumeAt;
+  };
+  const resumeTarget = async () => {
+    const at = await loadResume();
+    if (at) return { id: at.id, start: at.at };
+    const id = (await loadRecent())[0]?.id;
+    return id ? { id, start: 0 } : null;
+  };
+  const keepResume = async () => {
+    const point = resumePoint(last);
+    last = null;
+    if (!point) return;
+    resumeAt = point;
+    await tf.store.set(KEYS.resume, point).catch(() => {
+    });
+  };
+  const playMessage = ({ id, start }) => {
+    const from = cleanStart(start);
+    return from ? { do: "play", id, start: from } : { do: "play", id };
+  };
   const play = async (id) => {
     if (open) return post({ do: "play", id });
-    pending = id;
+    pending = { id, start: 0 };
     return show();
   };
   const control = async (action) => {
@@ -1001,11 +1052,12 @@ function runWatchpane(tf) {
     if (message.type === "hello") {
       await setup();
       if (pending) {
-        const id = pending;
+        const next = pending;
         pending = null;
-        await post({ do: "play", id });
+        await post(playMessage(next));
       }
     } else if (message.type === "status") {
+      last = cleanStatus(message) ?? last;
       await card?.status(message);
     } else if (message.type === "watching") {
       const before = await loadRecent();
@@ -1053,6 +1105,7 @@ function runWatchpane(tf) {
       if (open) void audit("closed", {});
       open = false;
       docked = false;
+      await keepResume();
       await card?.stopped();
     })
   );

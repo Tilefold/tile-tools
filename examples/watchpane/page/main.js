@@ -80,6 +80,10 @@
   }
 
   // page-src/watch-model.js
+  function startOf(value) {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.min(MAX_START, Math.floor(n)) : 0;
+  }
   var ERROR_KINDS = {
     2: "badLink",
     100: "errNotFound",
@@ -146,7 +150,7 @@
         return none({ ...state2, recent: cleanRecent(message.recent) });
       case "play":
         if (!isVideoId(message.id)) return none(state2);
-        return playVideo(state2, { id: message.id, start: 0 }, "tile");
+        return playVideo(state2, { id: message.id, start: startOf(message.start) }, "tile");
       case "toggle":
         return { state: state2, send: null, act: state2.current ? { toggle: true } : null };
       case "control":

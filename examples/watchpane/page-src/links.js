@@ -35,7 +35,7 @@ const HOSTS = new Set([
 const ID_PATHS = ["shorts", "live", "embed", "v", "e"];
 
 /** Longest start time accepted, in seconds (a day; longer is a typo). */
-const MAX_START = 24 * 60 * 60;
+export const MAX_START = 24 * 60 * 60;
 
 /**
  * Whether `id` is a well-formed YouTube video id.

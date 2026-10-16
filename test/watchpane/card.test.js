@@ -53,6 +53,7 @@ import {
 import { MAX_SIDE, svgOf } from "../../examples/watchpane/src/render/svg.js";
 import { cardView, cleanStatus } from "../../examples/watchpane/src/tile/card.js";
 import { POSITION_KEY } from "../../examples/watchpane/src/tile/mover.js";
+import { cleanStart, readResume, resumePoint } from "../../examples/watchpane/src/tile/resume.js";
 import {
   computeLayout,
   DOCK_GAP,
@@ -241,6 +242,25 @@ describe("layout", () => {
   });
 });
 
+describe("resume point", () => {
+  it("keeps where the video was, from the top once it had ended", () => {
+    expect(resumePoint({ id: ID, time: 75, duration: 300 })).toEqual({ id: ID, at: 75 });
+    expect(resumePoint({ id: ID, time: 298, duration: 300 })).toEqual({ id: ID, at: 0 });
+    // A live stream reports no duration: the time is kept.
+    expect(resumePoint({ id: ID, time: 40, duration: 0 })).toEqual({ id: ID, at: 40 });
+    expect(resumePoint(null)).toBeNull();
+    expect(resumePoint({ id: "bad", time: 4, duration: 9 })).toBeNull();
+  });
+
+  it("reads a stored point back, refusing damaged ones", () => {
+    expect(readResume({ id: ID, at: 12.7 })).toEqual({ id: ID, at: 12 });
+    expect(readResume({ id: ID, at: -3 })).toEqual({ id: ID, at: 0 });
+    expect(readResume({ id: "<x>", at: 3 })).toBeNull();
+    expect(readResume("nope")).toBeNull();
+    expect(cleanStart(10 ** 9)).toBe(24 * 60 * 60);
+  });
+});
+
 describe("card state", () => {
   it("cleans what the page reports, and shows it", () => {
     expect(cleanStatus({ id: 5 })).toBeNull();
@@ -409,6 +429,61 @@ describe("Watchpane's card, in the fake host", () => {
     await fromPage(host, { type: "hello" });
     expect(posts(host).map((m) => m.do)).toEqual(["setup", "play"]);
     expect(posts(host).at(-1)).toEqual({ do: "play", id: ID });
+  });
+
+  it("carries on where the video was when it is opened again", async () => {
+    const host = await start({ page: "dock" });
+    await host.command("open");
+    await fromPage(host, { type: "hello" });
+    await fromPage(host, {
+      type: "status",
+      id: OTHER,
+      title: "Second",
+      playing: true,
+      time: 75,
+      duration: 300,
+      muted: false,
+    });
+    // The window button closes the video, and opens it again.
+    const dock = computeLayout(ONE_PANE, "bottom-right", { video: true }).dock;
+    const windowButton = { x: dock.x + buttonX(5) + 14, y: dock.y + 46 + 14 };
+    await host.emit("overlay.pointer", { item: "dock-r", type: "click", ...windowButton });
+    expect(host.page.closes).toBe(1);
+    await host.emit("page.closed");
+    expect(host.store.get("resume")).toEqual({ id: OTHER, at: 75 });
+    await host.emit("overlay.pointer", { item: "btn-window", type: "click", x: 0, y: 0 });
+    await fromPage(host, { type: "hello" });
+    expect(posts(host).at(-1)).toEqual({ do: "play", id: OTHER, start: 75 });
+
+    // Remembered across a restart too.
+    const again = await start({ store: { resume: { id: OTHER, at: 75 } } });
+    await again.command("toggle");
+    await fromPage(again, { type: "hello" });
+    expect(posts(again).at(-1)).toEqual({ do: "play", id: OTHER, start: 75 });
+  });
+
+  it("starts from the top a video that had ended, or one picked from the list", async () => {
+    const host = await start();
+    await host.command("open");
+    await fromPage(host, { type: "hello" });
+    await fromPage(host, { type: "status", id: ID, playing: false, time: 119, duration: 120 });
+    await host.emit("page.closed");
+    await host.emit("overlay.pointer", { item: "btn-play", type: "click", x: 0, y: 0 });
+    await fromPage(host, { type: "hello" });
+    expect(posts(host).at(-1)).toEqual({ do: "play", id: ID });
+    // Picked from the list while closed: from the top, whatever was kept.
+    await fromPage(host, { type: "status", id: ID, playing: true, time: 50, duration: 120 });
+    await host.emit("page.closed");
+    await host.emit("overlay.pointer", { item: "btn-list", type: "click", x: 0, y: 0 });
+    const list = host.item("list");
+    await host.emit("overlay.pointer", {
+      item: "list",
+      type: "click",
+      x: list.x + 50,
+      y: list.y + 28 + 24 + 5,
+    });
+    await fromPage(host, { type: "hello" });
+    expect(posts(host).at(-1)).toEqual({ do: "play", id: OTHER });
   });
 
   it("can be hidden, and stays hidden when the setting says so", async () => {

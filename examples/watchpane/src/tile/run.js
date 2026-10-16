@@ -24,7 +24,9 @@
  *   player refused or failed). Tile → page: `setup {lang, dir, strings,
  *   options, recent}`, `recent {recent}`, `toggle`, `play {id}`, `control
  *   {action}`.
- * - The videos watched lately are kept in `tf.store` (recent.js).
+ * - The videos watched lately are kept in `tf.store` (recent.js), and so
+ *   is where the last one was when it closed (resume.js): opening it
+ *   again carries on from there, not from the top.
  * - Settings changes reach an open page at once; the player uses them for
  *   the next video.
  *
@@ -41,12 +43,13 @@
  *
  * Registration comes first, with no `await` before it.
  */
-import { createCard } from "./card.js";
+import { cleanStatus, createCard } from "./card.js";
 import { addRecent, readRecent } from "./recent.js";
+import { cleanStart, readResume, resumePoint } from "./resume.js";
 import { cornerSetting, readOptions, showCardSetting } from "./settings.js";
 
 /** Keys in `tf.store`. */
-export const KEYS = { recent: "recent" };
+export const KEYS = { recent: "recent", resume: "resume" };
 
 /** Commands: stable ids, message keys of their titles, default shortcuts. */
 export const COMMANDS = [
@@ -89,8 +92,12 @@ export function runWatchpane(tf) {
   let open = false;
   /** @type {{ id: string, title: string }[] | null} null until read from the store. */
   let recent = null;
-  /** A video to play once the window has loaded, or null. */
+  /** A video to play once the window has loaded (`start`: the second to start at), or null. */
   let pending = null;
+  /** The page's last status, cleaned, while a video is on (for the resume point). */
+  let last = null;
+  /** Where to pick the last video up again; undefined until read from the store. */
+  let resumeAt;
   /** Whether the open page is docked in Tilefold's window (next to the card). */
   let docked = false;
   /** Whether this Tilefold can dock a page in its window (0.1.11). */
@@ -159,7 +166,7 @@ export function runWatchpane(tf) {
       await tf.toast(tf.t("toast-no-pages"));
       return;
     }
-    if (!open && resume && !pending) pending = (await loadRecent())[0]?.id ?? null;
+    if (!open && resume && !pending) pending = await resumeTarget();
     const withCard = !!card && showCardSetting(tf.settings);
     if (withCard) await card.show();
     // A web address of its own: YouTube's player plays only in a page that has one.
@@ -178,10 +185,41 @@ export function runWatchpane(tf) {
     if (docked) await card?.redraw();
   };
 
-  /** Plays video `id`: in the open window, or once the window has opened. */
+  /** The resume point, read from the store the first time it's needed. */
+  const loadResume = async () => {
+    if (resumeAt === undefined) {
+      resumeAt = readResume(await tf.store.get(KEYS.resume).catch(() => null));
+    }
+    return resumeAt;
+  };
+
+  /** What reopening plays: the last video where it was left, else the newest watched. */
+  const resumeTarget = async () => {
+    const at = await loadResume();
+    if (at) return { id: at.id, start: at.at };
+    const id = (await loadRecent())[0]?.id;
+    return id ? { id, start: 0 } : null;
+  };
+
+  /** The page closed: keep where its video was, to carry on from there. */
+  const keepResume = async () => {
+    const point = resumePoint(last);
+    last = null;
+    if (!point) return;
+    resumeAt = point;
+    await tf.store.set(KEYS.resume, point).catch(() => {});
+  };
+
+  /** The play message for a video: from `start` seconds when there is one. */
+  const playMessage = ({ id, start }) => {
+    const from = cleanStart(start);
+    return from ? { do: "play", id, start: from } : { do: "play", id };
+  };
+
+  /** Plays video `id` from the top: in the open window, or once the window has opened. */
   const play = async (id) => {
     if (open) return post({ do: "play", id });
-    pending = id;
+    pending = { id, start: 0 };
     return show();
   };
 
@@ -217,11 +255,12 @@ export function runWatchpane(tf) {
     if (message.type === "hello") {
       await setup();
       if (pending) {
-        const id = pending;
+        const next = pending;
         pending = null;
-        await post({ do: "play", id });
+        await post(playMessage(next));
       }
     } else if (message.type === "status") {
+      last = cleanStatus(message) ?? last;
       await card?.status(message);
     } else if (message.type === "watching") {
       const before = await loadRecent();
@@ -275,6 +314,7 @@ export function runWatchpane(tf) {
       if (open) void audit("closed", {});
       open = false;
       docked = false;
+      await keepResume();
       await card?.stopped();
     }),
   );

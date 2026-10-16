@@ -9,7 +9,7 @@
  * The page takes its text, settings and recent list from the tile, plays
  * what the user pastes or picks once YouTube's player is ready, reports a
  * started video once with its title, and turns YouTube's error codes into
- * the right message.
+ * the right message. A video the tile names can start at a given second.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -20,6 +20,7 @@ import {
   playerError,
   receive,
   started,
+  startOf,
   statusLine,
   showsLinkBox,
   statusMessage,
@@ -85,6 +86,18 @@ describe("receive", () => {
     const { act, state } = receive(ready(), { do: "play", id: ID });
     expect(act).toEqual({ load: { id: ID, start: 0 } });
     expect(state.current.from).toBe("tile");
+  });
+
+  it("starts a video the tile names at the second it asks for, within a day", () => {
+    expect(receive(ready(), { do: "play", id: ID, start: 75.9 }).act).toEqual({
+      load: { id: ID, start: 75 },
+    });
+    for (const start of [-5, "x", null, Infinity]) {
+      expect(receive(ready(), { do: "play", id: ID, start }).act).toEqual({
+        load: { id: ID, start: 0 },
+      });
+    }
+    expect(startOf(10 ** 9)).toBe(24 * 60 * 60);
   });
 
   it("toggles only when something was picked", () => {
