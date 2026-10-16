@@ -6,8 +6,10 @@
 tile-name = Prévia web (exemplo)
 tile-description = Mostra o app web que você está criando, como localhost:5173, em uma janela de navegador ao lado dos seus painéis, e lista as páginas abertas recentemente.
 setting-address = Endereço a abrir
+setting-docked = Mostrar ao lado dos painéis (desligado: em uma janela própria)
 setting-panel = Mostrar páginas recentes ao lado dos painéis
 cmd-open = Prévia web: Abrir
+cmd-move = Prévia web: Ao lado dos painéis ou em uma janela
 cmd-reload = Prévia web: Recarregar
 cmd-back = Prévia web: Voltar
 cmd-forward = Prévia web: Avançar

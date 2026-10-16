@@ -6,8 +6,10 @@
 tile-name = Web プレビュー(例)
 tile-description = 作成中の Web アプリ(localhost:5173 など)をペインの横のブラウザウィンドウに表示し、最近開いたページを一覧にします。
 setting-address = 開くアドレス
+setting-docked = ペインの横に表示(オフ: 専用のウィンドウ)
 setting-panel = 最近のページをペインの横に表示
 cmd-open = Web プレビュー: 開く
+cmd-move = Web プレビュー: ペインの横またはウィンドウ
 cmd-reload = Web プレビュー: 再読み込み
 cmd-back = Web プレビュー: 戻る
 cmd-forward = Web プレビュー: 進む

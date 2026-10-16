@@ -36,7 +36,7 @@
  * and the footer's rows are checked the way Tilefold 0.1.11 checks them:
  * unique ids, labels, depth, a known icon and tone, badge and trail
  * lengths). `browser: true` adds `tf.browser` (`host.browser` keeps
- * `open`, the `url` shown, and every call in `calls`; `host.visit(url,
+ * `open`, `docked`, the `url` shown, and every call in `calls`; `host.visit(url,
  * title)` plays a page load and fires `browser.navigated`, and
  * `host.closeBrowser()` plays the user closing it). An address with an
  * unsafe scheme is refused with `BrowserError`, as in Tilefold.
@@ -433,7 +433,7 @@ function addPanel(tf, host, named) {
 
 /** `tf.browser`, keeping what the window shows and every call. */
 function addBrowser(tf, host, named) {
-  host.browser = { open: false, url: "about:blank", title: "", calls: [] };
+  host.browser = { open: false, docked: false, url: "about:blank", title: "", calls: [] };
   const address = (text) => {
     if (/^\s*(javascript|data|file|about|blob):/i.test(text)) {
       throw named("BrowserError", "only http and https pages open here");
@@ -443,13 +443,29 @@ function addBrowser(tf, host, named) {
   const need = () => {
     if (!host.browser.open) throw named("BrowserError", "the browser is not open");
   };
-  const page = () => ({ url: host.browser.url, title: host.browser.title });
+  const page = () => ({
+    url: host.browser.url,
+    title: host.browser.title,
+    docked: host.browser.docked,
+  });
   tf.browser = {
-    async open(url) {
-      host.browser.calls.push(["open", url]);
-      if (url !== undefined) host.browser.url = address(url);
+    async open(url, options) {
+      host.browser.calls.push(options === undefined ? ["open", url] : ["open", url, options]);
+      if (url !== undefined && url !== null) host.browser.url = address(url);
+      if (options !== undefined && options !== null && typeof options !== "object") {
+        throw named("TypeError", "options must be an object");
+      }
+      if (typeof options?.docked === "boolean") host.browser.docked = options.docked;
+      else if (!host.browser.open) host.browser.docked = false;
       host.browser.open = true;
       return page();
+    },
+    async dock(docked) {
+      host.browser.calls.push(["dock", docked]);
+      if (typeof docked !== "boolean") throw named("TypeError", "dock takes true or false");
+      need();
+      host.browser.docked = docked;
+      return null;
     },
     async go(url) {
       host.browser.calls.push(["go", url]);

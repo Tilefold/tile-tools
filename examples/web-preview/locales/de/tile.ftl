@@ -6,8 +6,10 @@
 tile-name = Web-Vorschau (Beispiel)
 tile-description = Zeigt die Web-App, die du baust, etwa localhost:5173, in einem Browserfenster neben deinen Bereichen und listet die zuletzt geöffneten Seiten.
 setting-address = Zu öffnende Adresse
+setting-docked = Neben den Bereichen zeigen (aus: in einem eigenen Fenster)
 setting-panel = Letzte Seiten neben den Bereichen zeigen
 cmd-open = Web-Vorschau: Öffnen
+cmd-move = Web-Vorschau: Neben den Bereichen oder im Fenster
 cmd-reload = Web-Vorschau: Neu laden
 cmd-back = Web-Vorschau: Zurück
 cmd-forward = Web-Vorschau: Vorwärts

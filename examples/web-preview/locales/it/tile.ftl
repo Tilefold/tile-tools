@@ -6,8 +6,10 @@
 tile-name = Anteprima web (esempio)
 tile-description = Mostra l’app web che stai costruendo, come localhost:5173, in una finestra del browser accanto ai tuoi riquadri, ed elenca le pagine aperte di recente.
 setting-address = Indirizzo da aprire
+setting-docked = Mostra accanto ai riquadri (disattivato: in una finestra propria)
 setting-panel = Mostra le pagine recenti accanto ai riquadri
 cmd-open = Anteprima web: Apri
+cmd-move = Anteprima web: Accanto ai riquadri o in una finestra
 cmd-reload = Anteprima web: Ricarica
 cmd-back = Anteprima web: Indietro
 cmd-forward = Anteprima web: Avanti

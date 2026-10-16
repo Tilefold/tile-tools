@@ -6,8 +6,10 @@
 tile-name = 웹 미리보기(예제)
 tile-description = 만들고 있는 웹 앱(예: localhost:5173)을 창 옆의 브라우저 창에 보여 주고, 최근에 연 페이지를 나열합니다.
 setting-address = 열 주소
+setting-docked = 창 옆에 표시(끄면: 별도 창)
 setting-panel = 최근 페이지를 창 옆에 표시
 cmd-open = 웹 미리보기: 열기
+cmd-move = 웹 미리보기: 창 옆 또는 별도 창
 cmd-reload = 웹 미리보기: 새로 고침
 cmd-back = 웹 미리보기: 뒤로
 cmd-forward = 웹 미리보기: 앞으로

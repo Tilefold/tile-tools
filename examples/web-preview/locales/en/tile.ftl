@@ -6,8 +6,10 @@
 tile-name = Web Preview (example)
 tile-description = Shows the web app you're building, such as localhost:5173, in a browser window next to your panes, and lists the pages you opened recently.
 setting-address = Address to open
+setting-docked = Show beside the panes (off: in a window of its own)
 setting-panel = Show recent pages beside the panes
 cmd-open = Web Preview: Open
+cmd-move = Web Preview: Beside the panes or in a window
 cmd-reload = Web Preview: Reload
 cmd-back = Web Preview: Back
 cmd-forward = Web Preview: Forward
