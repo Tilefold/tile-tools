@@ -350,11 +350,20 @@ export interface Tf {
    * that leaves `keepRunning` out keeps the current choice. `origin: "https"`
    * (Tilefold 0.1.9, macOS) gives the page a web address of its own, which
    * some embedded players (YouTube's) require; the page is then one
-   * self-contained document. `post` sends plain JSON to the open page.
-   * Missing on a Tilefold without tile pages.
+   * self-contained document. `dock` (Tilefold 0.1.11) shows the page
+   * docked in Tilefold's window at that spot (content CSS pixels, 120 to
+   * 2,000 a side) instead of in a window of its own; `dock()` moves it
+   * there, and is missing before 0.1.11. `post` sends plain JSON to the
+   * open page. Missing on a Tilefold without tile pages.
    */
   readonly page?: {
-    open(options?: { visible?: boolean; keepRunning?: boolean; origin?: "https" }): Promise<null>;
+    open(options?: {
+      visible?: boolean;
+      keepRunning?: boolean;
+      origin?: "https";
+      dock?: Rect;
+    }): Promise<null>;
+    dock?(spot: Rect): Promise<null>;
     close(): Promise<null>;
     post(message: unknown): Promise<null>;
   };

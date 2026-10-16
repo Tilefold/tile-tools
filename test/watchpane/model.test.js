@@ -9,7 +9,7 @@
  * The page takes its text, settings and recent list from the tile, plays
  * what the user pastes or picks once YouTube's player is ready, reports a
  * started video once with its title, and turns YouTube's error codes into
- * the right message.
+ * the right message. A video the tile names can start at a given second.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -20,7 +20,10 @@ import {
   playerError,
   receive,
   started,
+  startOf,
   statusLine,
+  showsLinkBox,
+  statusMessage,
   submit,
 } from "../../examples/watchpane/page-src/watch-model.js";
 
@@ -83,6 +86,18 @@ describe("receive", () => {
     const { act, state } = receive(ready(), { do: "play", id: ID });
     expect(act).toEqual({ load: { id: ID, start: 0 } });
     expect(state.current.from).toBe("tile");
+  });
+
+  it("starts a video the tile names at the second it asks for, within a day", () => {
+    expect(receive(ready(), { do: "play", id: ID, start: 75.9 }).act).toEqual({
+      load: { id: ID, start: 75 },
+    });
+    for (const start of [-5, "x", null, Infinity]) {
+      expect(receive(ready(), { do: "play", id: ID, start }).act).toEqual({
+        load: { id: ID, start: 0 },
+      });
+    }
+    expect(startOf(10 ** 9)).toBe(24 * 60 * 60);
   });
 
   it("toggles only when something was picked", () => {
@@ -164,5 +179,61 @@ describe("statusLine", () => {
     expect(statusLine(setUp)).toEqual({ text: "loading", error: false });
     expect(statusLine(apiReady(setUp).state)).toEqual({ text: "empty", error: false });
     expect(statusLine(ready())).toEqual({ text: "", error: false });
+  });
+});
+
+describe("the card", () => {
+  it("runs the card's controls only on a video, and only known ones", () => {
+    expect(receive(ready(), { do: "control", action: "pause" }).act).toBeNull();
+    const playing = receive(ready(), { do: "play", id: ID }).state;
+    expect(receive(playing, { do: "control", action: "forward" }).act).toEqual({
+      control: "forward",
+    });
+    expect(receive(playing, { do: "control", action: "explode" }).act).toBeNull();
+  });
+
+  it("reports the player's state in whole seconds, cleaned", () => {
+    const playing = receive(ready(), { do: "play", id: ID }).state;
+    expect(
+      statusMessage(playing, {
+        title: " T ",
+        playing: true,
+        time: 12.9,
+        duration: 300.2,
+        muted: true,
+      }),
+    ).toEqual({
+      type: "status",
+      id: ID,
+      title: "T",
+      playing: true,
+      time: 12,
+      duration: 300,
+      muted: true,
+    });
+    expect(statusMessage(ready(), { time: NaN, duration: -4, playing: "yes" })).toEqual({
+      type: "status",
+      id: null,
+      title: "",
+      playing: false,
+      time: 0,
+      duration: 0,
+      muted: false,
+    });
+  });
+});
+
+describe("docked in Tilefold's window", () => {
+  it("shows the link box until a video is picked, and when the card asks", () => {
+    const docked = ready({ docked: true });
+    expect(docked.docked).toBe(true);
+    expect(showsLinkBox(docked)).toBe(true);
+    const playing = submit(docked, `https://youtu.be/${ID}`).state;
+    expect(showsLinkBox(playing)).toBe(false);
+    const asked = receive(playing, { do: "paste" }).state;
+    expect(showsLinkBox(asked)).toBe(true);
+    expect(showsLinkBox(submit(asked, `https://youtu.be/${OTHER}`).state)).toBe(false);
+    // In a window of its own the link box is always there.
+    expect(showsLinkBox(ready())).toBe(false);
   });
 });

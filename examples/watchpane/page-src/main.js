@@ -11,6 +11,10 @@
  * failed. Every decision is made in watch-model.js; this file only draws
  * the state and runs the player.
  *
+ * The tile's card controls the player too (play, pause, skip, mute): the
+ * page runs what it asks (`control`) and reports the player's state back
+ * (`status`) when it changes, and every second while a video plays.
+ *
  * The player shows YouTube's own controls, at least 200 × 200, and stops
  * when the window closes, as YouTube's terms for embedded players ask.
  * In private mode the player comes from youtube-nocookie.com, which sets
@@ -18,6 +22,7 @@
  * `textContent`, never as HTML, so a video's title can't change the page.
  */
 import {
+  SKIP_SECONDS,
   apiFailed,
   apiReady,
   initialState,
@@ -26,6 +31,8 @@ import {
   receive,
   started,
   statusLine,
+  showsLinkBox,
+  statusMessage,
   submit,
 } from "./watch-model.js";
 
@@ -35,6 +42,8 @@ const API_URL = "https://www.youtube.com/iframe_api";
 const API_TIMEOUT_MS = 20_000;
 /** YouTube's player state for "playing". */
 const PLAYING = 1;
+/** How often the card hears where the video is, while it plays. */
+const STATUS_MS = 1000;
 
 const bridge = window.tilefold;
 let state = initialState();
@@ -59,6 +68,33 @@ function apply({ state: next, send: message, act }) {
 
 // ------------------------------------------------------------ the player
 
+/** Reads a player call, or `fallback` when the player can't answer yet. */
+const ask = (name, fallback) => {
+  try {
+    return player && typeof player[name] === "function" ? player[name]() : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+/** Tells the tile where the player is, for its card. */
+function report() {
+  if (!state.current) return;
+  const data = ask("getVideoData", {}) ?? {};
+  send(
+    statusMessage(state, {
+      title: data.title,
+      playing: ask("getPlayerState", -1) === PLAYING,
+      time: ask("getCurrentTime", 0),
+      duration: ask("getDuration", 0),
+      muted: ask("isMuted", false),
+    }),
+  );
+}
+setInterval(() => {
+  if (ask("getPlayerState", -1) === PLAYING) report();
+}, STATUS_MS);
+
 /** Makes YouTube's player for `video`, in the mode the settings ask for. */
 function makePlayer(video) {
   if (player) player.destroy();
@@ -80,6 +116,7 @@ function makePlayer(video) {
     },
     events: {
       onStateChange: (e) => {
+        report();
         if (e.data !== PLAYING) return;
         const data = typeof player.getVideoData === "function" ? player.getVideoData() : {};
         apply(started(state, data.video_id, data.title));
@@ -101,7 +138,23 @@ function run(act) {
   } else if (act.toggle && player) {
     if (player.getPlayerState() === PLAYING) player.pauseVideo();
     else player.playVideo();
+  } else if (act.control && player) {
+    control(act.control);
   }
+}
+
+/** Runs one of the card's buttons on the player, then reports. */
+function control(action) {
+  const now = ask("getCurrentTime", 0);
+  if (action === "play") player.playVideo();
+  else if (action === "pause") player.pauseVideo();
+  else if (action === "toggle") run({ toggle: true });
+  else if (action === "back") player.seekTo(Math.max(0, now - SKIP_SECONDS), true);
+  else if (action === "forward") player.seekTo(now + SKIP_SECONDS, true);
+  else if (action === "mute") player.mute();
+  else if (action === "unmute") player.unMute();
+  // Muting fires no state change, so the card hears it here.
+  setTimeout(report, 150);
 }
 
 /** Loads YouTube's player script, which calls `onYouTubeIframeAPIReady` when done. */
@@ -155,6 +208,10 @@ function render() {
   $("link").placeholder = s.link ?? "";
   $("link").setAttribute("aria-label", s.link ?? "");
   $("play").textContent = s.play ?? "▶";
+
+  // Docked in Tilefold's window, the page is the player, with the link box on top when asked.
+  document.body.classList.toggle("docked", state.docked);
+  document.body.classList.toggle("pasting", showsLinkBox(state));
 
   const line = statusLine(state);
   $("status").textContent = line.text;
