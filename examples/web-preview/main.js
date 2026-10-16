@@ -80,17 +80,21 @@ var main_default = (tf) => {
       await tf.toast(tf.t(errorKey(err), { reason: String(err?.message ?? "") }));
     }
   }
-  tf.setting("address", "localhost:5173", "setting-address");
-  tf.setting("panel", true, "setting-panel");
-  tf.command("cmd-open", () => void steer((b) => b.open(String(tf.settings.get("address")))), {
-    id: "open"
-  });
-  tf.command("cmd-reload", () => void steer((b) => b.reload()), { id: "reload" });
-  tf.command("cmd-back", () => void steer((b) => b.back()), { id: "back" });
-  tf.command("cmd-forward", () => void steer((b) => b.forward()), { id: "forward" });
-  tf.command("cmd-close", () => void steer((b) => b.close()), { id: "close" });
+  tf.setting("address", "localhost:5173", tf.t("setting-address"));
+  tf.setting("panel", true, tf.t("setting-panel"));
   tf.command(
-    "cmd-clear",
+    tf.t("cmd-open"),
+    () => void steer((b) => b.open(String(tf.settings.get("address")))),
+    {
+      id: "open"
+    }
+  );
+  tf.command(tf.t("cmd-reload"), () => void steer((b) => b.reload()), { id: "reload" });
+  tf.command(tf.t("cmd-back"), () => void steer((b) => b.back()), { id: "back" });
+  tf.command(tf.t("cmd-forward"), () => void steer((b) => b.forward()), { id: "forward" });
+  tf.command(tf.t("cmd-close"), () => void steer((b) => b.close()), { id: "close" });
+  tf.command(
+    tf.t("cmd-clear"),
     async () => {
       recent = [];
       await tf.store.set("recent", []);

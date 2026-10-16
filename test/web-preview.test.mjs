@@ -108,6 +108,15 @@ describe("the tile", () => {
     return host;
   }
 
+  it("names its commands and settings in the user's language, not by key", async () => {
+    const host = await ready();
+    const titles = host.regs.filter((r) => r.kind === "command").map((r) => r.title);
+    expect(titles).toContain("Web Preview: Open");
+    expect(titles.every((t) => !t.startsWith("cmd-"))).toBe(true);
+    const de = await ready({ locale: "de" });
+    expect(de.regs.find((r) => r.id === "open").title).toBe("Web-Vorschau: Öffnen");
+  });
+
   it("opens the address from its settings", async () => {
     const host = await ready();
     await host.command("open");
