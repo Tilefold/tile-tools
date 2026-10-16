@@ -9,12 +9,15 @@
  *
  * - Commands: **Open** (⌃⌥Y) shows the window and the card, **Play or
  *   pause** opens it when it's closed, **Back / Forward 10 seconds**,
- *   **Mute or unmute**, **Show or hide the card**, **Close** closes the
- *   window (closing stops the video).
+ *   **Mute or unmute**, **Show or hide the card**, **Put the player back
+ *   in the pane**, **Close** closes the video (closing stops it).
  * - The card (card.js) sits over the panes like a music player's: the
  *   video's picture, title and progress, and buttons for playback, the
- *   recent videos and the window. The video plays in the window, which
- *   YouTube asks to stay visible.
+ *   recent videos and the video. Where Tilefold can dock a page, the video
+ *   plays over the panes with the controls in a dock right under it;
+ *   elsewhere in a window of its own. YouTube asks for it to stay visible.
+ *   The user can drag the player anywhere in the window; choosing a
+ *   corner in the settings, or the command, puts it back in the pane.
  * - Messages, page → tile: `hello` (the page has loaded), `watching
  *   {id, title, from}` (a video started), `status {id, title, playing,
  *   time, duration, muted}` (for the card), `error {code}` (YouTube's
@@ -53,6 +56,7 @@ export const COMMANDS = [
   { id: "forward", title: "cmd-forward" },
   { id: "mute", title: "cmd-mute" },
   { id: "card", title: "cmd-card" },
+  { id: "reset", title: "cmd-reset" },
   { id: "close", title: "cmd-close" },
 ];
 
@@ -170,6 +174,8 @@ export function runWatchpane(tf) {
     }
     if (!open) void audit("opened", { docked });
     open = true;
+    // A docked video takes the player's shape: the dock under the video, not the card.
+    if (docked) await card?.redraw();
   };
 
   /** Plays video `id`: in the open window, or once the window has opened. */
@@ -248,6 +254,9 @@ export function runWatchpane(tf) {
     forward: () => control("forward"),
     mute: () => control("mute"),
     card: toggleCard,
+    reset: async () => {
+      await card?.reset("command");
+    },
   };
   for (const c of COMMANDS) {
     tf.command(
@@ -281,10 +290,18 @@ export function runWatchpane(tf) {
     "overlay.hidden",
     background(() => card?.hide(true)),
   );
+  /** The corner setting as last seen: choosing another puts a dragged player back. */
+  let corner = cornerSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
       if (open) await setup();
+      const now = cornerSetting(tf.settings);
+      if (now !== corner) {
+        corner = now;
+        // reset() draws the scene itself when the player was dragged.
+        if (await card?.reset("corner")) return;
+      }
       await card?.redraw();
     }),
   );

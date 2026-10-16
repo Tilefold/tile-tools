@@ -25,7 +25,7 @@ npx @tilefold/tile-tools build
 | `weather-card` | Today's weather on a card, with an optional summary by Claude | 0.1.6 |
 | `pipeline-board` | Your CI pipelines on a card, with a sign-in | 0.1.6 |
 | `tuneboard` | A music player card with a sign-in and a page of its own | 0.1.7 |
-| `watchpane` | A YouTube player in a small window of its own, with a card over your panes to play, pause, skip, mute and pick what to watch | 0.1.10 |
+| `watchpane` | A YouTube player over your panes, with a control dock under it that you can drag anywhere and a list of videos beside it (in a small window of its own before Tilefold 0.1.11) | 0.1.10 |
 | `folder-tree` | The folder you're working in, as a tree docked beside your panes | 0.1.9 |
 
 Each tile's commands are in the command palette under its name, and its settings in **Settings → Tiles**.

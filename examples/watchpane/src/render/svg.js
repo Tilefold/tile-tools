@@ -93,6 +93,30 @@ export function svgUrl(logicalW, logicalH, body, displayW = logicalW, displayH =
 }
 
 /**
+ * One vertical strip of a wider picture, as its own `data:image/svg+xml`
+ * URL: the part of the logical drawing from `sliceX` to `sliceX + sliceW`,
+ * drawn at its logical size. Tilefold draws an overlay item at most
+ * {@link MAX_SIDE} pixels a side, so a wider picture (the control dock
+ * under the video) goes over the panes as strips laid side by side.
+ *
+ * @param {number} logicalW The whole picture's width (for the check only).
+ * @param {number} logicalH
+ * @param {string} body SVG elements of the whole picture.
+ * @param {number} sliceX Where the strip starts.
+ * @param {number} sliceW The strip's width (at most MAX_SIDE).
+ * @returns {string}
+ */
+export function svgSlice(logicalW, logicalH, body, sliceX, sliceW) {
+  const x = Math.max(0, Math.min(logicalW, sliceX));
+  const w = Math.min(MAX_SIDE, Math.max(0, Math.min(sliceW, logicalW - x)));
+  const h = Math.min(MAX_SIDE, logicalH);
+  const doc =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${round2(w)}" height="${round2(h)}" ` +
+    `viewBox="${round2(x)} 0 ${round2(w)} ${round2(logicalH)}">${body}</svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(doc);
+}
+
+/**
  * Decodes an SVG data URL made by {@link svgUrl} back into its markup.
  * Used by tests and diagnostics only.
  *

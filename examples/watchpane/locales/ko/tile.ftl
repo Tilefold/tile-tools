@@ -43,3 +43,6 @@ button-list = 최근 본 동영상
 button-window = 동영상 열기 또는 닫기
 list-heading = 최근 본 동영상
 list-empty = 아직 동영상이 없습니다.
+cmd-reset = Watchpane: 플레이어를 창 안으로 되돌리기
+dock-label = 동영상 조작. 끌어서 플레이어 이동
+dock-idle-hint = 여기를 클릭해 YouTube 링크를 붙여 넣거나 ☰로 동영상을 고르세요.

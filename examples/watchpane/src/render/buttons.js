@@ -58,6 +58,26 @@ const ART = {
 };
 
 /**
+ * One button's SVG elements in a BUTTON×BUTTON box at the origin: its
+ * round face (lit in the accent colour while it is "on") and its artwork.
+ * Shared by the round buttons under the card and the control dock, which
+ * draws the same buttons inside its own picture.
+ *
+ * @param {string} id One of BUTTONS' ids.
+ * @param {{ playing?: boolean, muted?: boolean, listOpen?: boolean, enabled?: boolean }} state
+ * @returns {string}
+ */
+export function buttonBody(id, state = {}) {
+  const lit = (id === "list" && state.listOpen) || (id === "play" && state.playing);
+  const color = state.enabled === false ? THEME.muted : lit ? "#fff" : THEME.text;
+  const fill = lit ? THEME.accent : THEME.panel;
+  return (
+    `<circle cx="${C}" cy="${C}" r="${C - 0.5}" fill="${fill}" fill-opacity="${lit ? 1 : THEME.panelOpacity}" stroke="${THEME.border}"/>` +
+    (ART[id] ? ART[id](state, color) : "")
+  );
+}
+
+/**
  * Draws one button.
  *
  * @param {string} id One of BUTTONS' ids.
@@ -66,13 +86,7 @@ const ART = {
  * @returns {string} A `data:image/svg+xml` URL.
  */
 export function renderButton(id, state = {}, display = BUTTON) {
-  const lit = (id === "list" && state.listOpen) || (id === "play" && state.playing);
-  const color = state.enabled === false ? THEME.muted : lit ? "#fff" : THEME.text;
-  const fill = lit ? THEME.accent : THEME.panel;
-  const body =
-    `<circle cx="${C}" cy="${C}" r="${C - 0.5}" fill="${fill}" fill-opacity="${lit ? 1 : THEME.panelOpacity}" stroke="${THEME.border}"/>` +
-    (ART[id] ? ART[id](state, color) : "");
-  return svgUrl(BUTTON, BUTTON, body, display, display);
+  return svgUrl(BUTTON, BUTTON, buttonBody(id, state), display, display);
 }
 
 /** What a click on the item `itemId` does, or null. */

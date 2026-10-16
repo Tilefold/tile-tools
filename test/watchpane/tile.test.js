@@ -132,6 +132,7 @@ describe("Watchpane", () => {
       ["forward", "Watchpane: Forward 10 seconds"],
       ["mute", "Watchpane: Mute or unmute"],
       ["card", "Watchpane: Show or hide the card"],
+      ["reset", "Watchpane: Put the player back in the pane"],
       ["close", "Watchpane: Close"],
     ]);
     expect(cmds[0].key).toEqual({ mac: "Ctrl+Alt+Y", other: "Ctrl+Alt+Y" });

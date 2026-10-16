@@ -146,5 +146,5 @@ const docked = typeof tf.page.dock === "function";
 await tf.page.open(docked ? { origin: "https", dock: spot } : { origin: "https" });
 ```
 
-The **Watchpane** example docks YouTube's player next to its card this way.
+The **Watchpane** example docks YouTube's player this way, with its controls drawn as overlay items in a dock right under it. When the user drags that dock (`overlay.pointer` drag events), Watchpane moves the page with `tf.page.dock` on every move, so the video follows. The page itself can't be the drag handle, because a docked web page keeps the pointer.
 

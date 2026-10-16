@@ -43,3 +43,6 @@ button-list = Videos vistos hace poco
 button-window = Abrir o cerrar el video
 list-heading = Vistos hace poco
 list-empty = Aún no hay videos.
+cmd-reset = Watchpane: Devolver el reproductor al panel
+dock-label = Controles del video. Arrastra para mover el reproductor
+dock-idle-hint = Haz clic aquí para pegar un enlace de YouTube, o elige un video con ☰.

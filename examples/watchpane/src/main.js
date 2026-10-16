@@ -5,14 +5,18 @@
  *
  * Watchpane
  *
- * Plays YouTube videos in a small window of its own, with a card over the
- * panes like a music player's: the video's picture, title and progress,
- * and buttons to play or pause, skip ten seconds, mute, pick one of the
- * videos watched lately, and bring the window forward. The window is the
- * tile's page (`page/`), which runs YouTube's own embedded player and
- * stays visible while it plays, as YouTube asks; the tile opens and
- * closes it, keeps the recent list and the settings, draws the card
- * (`window.overlay`), and talks to the page by messages.
+ * Plays YouTube videos over the panes, like a music player's card: where
+ * Tilefold can dock a page (0.1.11), the video sits in Tilefold's window
+ * with a control dock right under it (title, progress, and buttons to
+ * play or pause, skip ten seconds, mute, pick one of the videos watched
+ * lately, and close the video), the list opening beside them; the user
+ * can drag the player anywhere. Older Tilefolds show the video in a small
+ * window of its own, with a card over the panes. The video is the tile's
+ * page (`page/`), which runs YouTube's own embedded player and stays
+ * visible while it plays, as YouTube asks; the tile opens and closes it,
+ * keeps the recent list, the settings and where the player was put, draws
+ * the card and the dock (`window.overlay`), and talks to the page by
+ * messages.
  *
  * It shows how a tile page can host a third party's embedded player:
  * - `page` plus `script:www.youtube.com` for YouTube's IFrame Player API;

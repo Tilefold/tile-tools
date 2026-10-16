@@ -43,3 +43,6 @@ button-list = Zuletzt angesehene Videos
 button-window = Video öffnen oder schließen
 list-heading = Zuletzt angesehen
 list-empty = Noch keine Videos.
+cmd-reset = Watchpane: Player zurück in den Bereich setzen
+dock-label = Videosteuerung. Ziehen, um den Player zu verschieben
+dock-idle-hint = Hier klicken, um einen YouTube-Link einzufügen, oder ein Video mit ☰ wählen.

@@ -7,16 +7,21 @@
  *
  * Keeps the card's state and draws it with `tf.overlay`: what the page
  * last reported (`status`: the video, playing or paused, where it is,
- * muted), whether the recent list is open, and where the panes are. The
- * card's buttons play or pause, skip ten seconds back or forward, mute,
- * open the recent list (a click on a video plays it), and open or close
- * the video. Where Tilefold can dock a page in its window (0.1.11), the
- * video plays docked right next to the card, and moves with it: the card
- * works out the spot (`videoSpot`) and moves the page there whenever the
- * panes move or the list opens; a click on the card shows the box to
- * paste a link. Elsewhere the video plays in a window of its own, which a
- * click on the card brings forward. Either way the video stays visible,
- * as YouTube asks.
+ * muted), whether the recent list is open, where the panes are, and where
+ * the user dragged the player (mover.js). The buttons play or pause, skip
+ * ten seconds back or forward, mute, open the recent list (a click on a
+ * video plays it), and open or close the video.
+ *
+ * Where Tilefold can dock a page in its window (0.1.11), the video plays
+ * docked over the panes, with the controls in one dock right under it,
+ * as wide as the video, and the recent list beside them (scene.js). The
+ * card works out the video's spot (`videoSpot`) and moves the page there
+ * whenever the panes move, or the user drags the dock; a click on the
+ * dock outside its buttons shows the box to paste a link. Without a
+ * docked video the small card shows instead, with its own row of
+ * buttons; a click on it shows the video. Elsewhere (older Tilefolds)
+ * the video plays in a window of its own, which a click on the card
+ * brings forward. Either way the video stays visible, as YouTube asks.
  *
  * A redraw that keeps the same items only updates them (the progress
  * moves every second while a video plays); opening or closing the list
@@ -25,9 +30,14 @@
  */
 import { actionForClick, BUTTONS, renderButton } from "../render/buttons.js";
 import { clock, renderCard } from "../render/card.js";
-import { listHit, LIST_ROWS, renderList } from "../render/list.js";
-import { computeLayout } from "./scene.js";
+import { dockHit, renderDock } from "../render/dock.js";
+import { listHit, renderList } from "../render/list.js";
+import { createMover } from "./mover.js";
+import { computeLayout, groupSize, listRows } from "./scene.js";
 import { createThumbs } from "./thumbs.js";
+
+/** The overlay items a drag of the player starts on. */
+export const HANDLES = ["card", "dock-l", "dock-r"];
 
 /** What the page reports, cleaned: or null for anything malformed. */
 export function cleanStatus(m) {
@@ -83,19 +93,73 @@ export function createCard(tf, hooks) {
 
   const t = (key, args) => tf.t(key, args);
 
+  const mover = createMover({
+    tf,
+    handles: HANDLES,
+    layout: () => layout,
+    size: () => groupSize(hooks.docked()),
+    origin: () => rectsNow().group,
+    redraw: () => draw(),
+  });
+
+  /** Every rectangle of the scene as it is now (`list` overrides whether the list is open). */
+  const rectsNow = (list = listOpen) =>
+    computeLayout(layout, hooks.corner(), {
+      list,
+      video: hooks.docked(),
+      position: mover.position(),
+    });
+
+  /** The recent list's item, at `rect`, with `rows` rows. */
+  const listItem = (rect, rows) => ({
+    id: "list",
+    image: renderList(
+      {
+        heading: t("list-heading"),
+        empty: t("list-empty"),
+        videos: hooks.recent(),
+        current: status?.id ?? null,
+      },
+      { rows },
+    ),
+    ...rect,
+    hit: true,
+    cursor: "pointer",
+    label: t("button-list"),
+  });
+
+  /** The player's items: the dock's two halves under the video, and the list. */
+  const playerItems = (rects, state) => {
+    const view = cardView(t, status, hooks.recent(), null);
+    // Nothing on yet: the hint points at the dock, not the card.
+    if (view.mode === "message") view.hint = t("dock-idle-hint");
+    const halves = renderDock(view, state);
+    const out = ["dock-l", "dock-r"].map((id) => ({
+      id,
+      image: id === "dock-l" ? halves.left : halves.right,
+      ...rects[id],
+      hit: true,
+      cursor: "pointer",
+      label: t("dock-label"),
+    }));
+    if (listOpen) out.push(listItem(rects.list, listRows(true)));
+    return out;
+  };
+
   /** Every item of the scene. */
   const items = () => {
-    const rects = computeLayout(layout, hooks.corner(), { list: listOpen, video: hooks.docked() });
+    const rects = rectsNow();
     if (rects.video && JSON.stringify(rects.video) !== docked) {
       docked = JSON.stringify(rects.video);
       void Promise.resolve(hooks.redock(rects.video)).catch(() => {});
     }
+    const state = { playing: !!status?.playing, muted: !!status?.muted, listOpen };
+    if (rects.video) return playerItems(rects, state);
     const thumb = status ? thumbs.peek(status.id) : null;
     if (status && thumb === undefined) {
       // The picture comes later; the card is drawn again when it does.
       void thumbs.get(status.id).then(() => draw());
     }
-    const state = { playing: !!status?.playing, muted: !!status?.muted, listOpen };
     const out = [
       {
         id: "card",
@@ -114,21 +178,7 @@ export function createCard(tf, hooks) {
         label: t(b.label),
       })),
     ];
-    if (listOpen) {
-      out.push({
-        id: "list",
-        image: renderList({
-          heading: t("list-heading"),
-          empty: t("list-empty"),
-          videos: hooks.recent(),
-          current: status?.id ?? null,
-        }),
-        ...rects.list,
-        hit: true,
-        cursor: "pointer",
-        label: t("button-list"),
-      });
-    }
+    if (listOpen) out.push(listItem(rects.list, listRows(false)));
     return out;
   };
 
@@ -169,6 +219,7 @@ export function createCard(tf, hooks) {
       visible = true;
       drawn = "";
       layout = null;
+      await mover.load();
       void tf.audit("card.shown", {}).catch(() => {});
       await draw();
     },
@@ -196,8 +247,12 @@ export function createCard(tf, hooks) {
     /** Where the docked video goes now (the card's layout read first if needed). */
     async videoSpot() {
       if (!layout) layout = await tf.overlay.layout();
-      return computeLayout(layout, hooks.corner(), { list: listOpen, video: true }).video;
+      await mover.load();
+      return computeLayout(layout, hooks.corner(), { video: true, position: mover.position() })
+        .video;
     },
+    /** Puts a dragged player back in the pane's corner (`via`: "command" or "corner"). */
+    reset: (via) => mover.reset(via),
     /** The recent list or a setting changed. */
     redraw: () => draw(),
     /** The panes moved. */
@@ -207,14 +262,23 @@ export function createCard(tf, hooks) {
     },
     /** A pointer event on one of the card's items. */
     async pointer(e) {
-      if (!visible || e?.type !== "click") return;
+      if (!visible || !e) return;
+      if (await mover.pointer(e)) return;
+      if (e.type !== "click") return;
       if (e.item === "card") {
         return hooks.docked() && hooks.isOpen() ? hooks.paste() : hooks.openWindow();
       }
+      if (e.item === "dock-l" || e.item === "dock-r") {
+        const action = dockHit(rectsNow().dock, Number(e.x), Number(e.y));
+        if (action === "paste") return hooks.paste();
+        if (action) await act(action);
+        return;
+      }
       if (e.item === "list") {
-        const rect = computeLayout(layout, hooks.corner(), { list: true }).list;
-        const videos = hooks.recent().slice(0, LIST_ROWS);
-        const row = listHit(rect, Number(e.x), Number(e.y), videos.length);
+        const rows = listRows(hooks.docked());
+        const rect = rectsNow(true).list;
+        const videos = hooks.recent().slice(0, rows);
+        const row = listHit(rect, Number(e.x), Number(e.y), videos.length, rows);
         if (row === null) return;
         listOpen = false;
         await draw();

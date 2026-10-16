@@ -43,3 +43,6 @@ button-list = Video guardati di recente
 button-window = Apri o chiudi il video
 list-heading = Guardati di recente
 list-empty = Ancora nessun video.
+cmd-reset = Watchpane: Riporta il lettore nel riquadro
+dock-label = Controlli del video. Trascina per spostare il lettore
+dock-idle-hint = Fai clic qui per incollare un link di YouTube, o scegli un video con ☰.

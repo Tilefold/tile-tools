@@ -43,3 +43,6 @@ button-list = Videos watched lately
 button-window = Open or close the video
 list-heading = Watched lately
 list-empty = No videos yet.
+cmd-reset = Watchpane: Put the player back in the pane
+dock-label = Video controls. Drag to move the player
+dock-idle-hint = Click here to paste a YouTube link, or pick a video with ☰.

@@ -5,14 +5,18 @@
  *
  * Watchpane
  *
- * Plays YouTube videos in a small window of its own, with a card over the
- * panes like a music player's: the video's picture, title and progress,
- * and buttons to play or pause, skip ten seconds, mute, pick one of the
- * videos watched lately, and bring the window forward. The window is the
- * tile's page (`page/`), which runs YouTube's own embedded player and
- * stays visible while it plays, as YouTube asks; the tile opens and
- * closes it, keeps the recent list and the settings, draws the card
- * (`window.overlay`), and talks to the page by messages.
+ * Plays YouTube videos over the panes, like a music player's card: where
+ * Tilefold can dock a page (0.1.11), the video sits in Tilefold's window
+ * with a control dock right under it (title, progress, and buttons to
+ * play or pause, skip ten seconds, mute, pick one of the videos watched
+ * lately, and close the video), the list opening beside them; the user
+ * can drag the player anywhere. Older Tilefolds show the video in a small
+ * window of its own, with a card over the panes. The video is the tile's
+ * page (`page/`), which runs YouTube's own embedded player and stays
+ * visible while it plays, as YouTube asks; the tile opens and closes it,
+ * keeps the recent list, the settings and where the player was put, draws
+ * the card and the dock (`window.overlay`), and talks to the page by
+ * messages.
  *
  * It shows how a tile page can host a third party's embedded player:
  * - `page` plus `script:www.youtube.com` for YouTube's IFrame Player API;
@@ -51,6 +55,13 @@ function svgUrl(logicalW, logicalH, body, displayW = logicalW, displayH = logica
   const w = Math.min(MAX_SIDE, round2(displayW));
   const h = Math.min(MAX_SIDE, round2(displayH));
   const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${logicalW} ${logicalH}">${body}</svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(doc);
+}
+function svgSlice(logicalW, logicalH, body, sliceX, sliceW) {
+  const x = Math.max(0, Math.min(logicalW, sliceX));
+  const w = Math.min(MAX_SIDE, Math.max(0, Math.min(sliceW, logicalW - x)));
+  const h = Math.min(MAX_SIDE, logicalH);
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${round2(w)}" height="${round2(h)}" viewBox="${round2(x)} 0 ${round2(w)} ${round2(logicalH)}">${body}</svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(doc);
 }
 function isWide(cp) {
@@ -103,12 +114,14 @@ var ART = {
   list: (_s, c) => [9.5, 14, 18.5].map((y) => stroke(`M8 ${y} H20`, c)).join(""),
   window: (_s, c) => `<rect x="7" y="8" width="14" height="11" rx="2" stroke="${c}" stroke-width="1.8" fill="none"/><path d="M12 11.5 L16.5 13.5 L12 15.5 Z" fill="${c}"/>`
 };
-function renderButton(id, state = {}, display = BUTTON) {
+function buttonBody(id, state = {}) {
   const lit = id === "list" && state.listOpen || id === "play" && state.playing;
   const color = state.enabled === false ? THEME.muted : lit ? "#fff" : THEME.text;
   const fill = lit ? THEME.accent : THEME.panel;
-  const body = `<circle cx="${C}" cy="${C}" r="${C - 0.5}" fill="${fill}" fill-opacity="${lit ? 1 : THEME.panelOpacity}" stroke="${THEME.border}"/>` + (ART[id] ? ART[id](state, color) : "");
-  return svgUrl(BUTTON, BUTTON, body, display, display);
+  return `<circle cx="${C}" cy="${C}" r="${C - 0.5}" fill="${fill}" fill-opacity="${lit ? 1 : THEME.panelOpacity}" stroke="${THEME.border}"/>` + (ART[id] ? ART[id](state, color) : "");
+}
+function renderButton(id, state = {}, display = BUTTON) {
+  return svgUrl(BUTTON, BUTTON, buttonBody(id, state), display, display);
 }
 function actionForClick(itemId) {
   const b = BUTTONS.find((x) => `btn-${x.id}` === itemId);
@@ -194,15 +207,79 @@ function renderCard(view, opts = {}) {
   return svgUrl(CARD_W, CARD_H, body, opts.displayW, opts.displayH);
 }
 
+// src/render/dock.js
+var DOCK_W = 356;
+var DOCK_H = 86;
+var DOCK_HALF = DOCK_W / 2;
+var PAD = 14;
+var TITLE_Y = 26;
+var BAR_Y = 34;
+var BUTTONS_Y = 46;
+var BUTTON_GAP = 18;
+var ROW_W = BUTTONS.length * BUTTON + (BUTTONS.length - 1) * BUTTON_GAP;
+var ROW_X = (DOCK_W - ROW_W) / 2;
+var HIT_SLOP = 3;
+var TIME_MAX_W = 170;
+var buttonX = (i) => ROW_X + i * (BUTTON + BUTTON_GAP);
+var frame2 = () => `<rect x="0.5" y="0.5" width="${DOCK_W - 1}" height="${DOCK_H - 1}" rx="12" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/><rect x="${DOCK_W / 2 - 16}" y="6" width="32" height="3" rx="1.5" fill="${THEME.track}"/>`;
+function titleRow(title, time) {
+  const timeW = time ? Math.min(TIME_MAX_W, textWidth(time, 10)) : 0;
+  const titleW = DOCK_W - 2 * PAD - (timeW ? timeW + 12 : 0);
+  return textEl({ x: PAD, y: TITLE_Y, text: title, size: 12, weight: 600, maxWidth: titleW }) + (time ? textEl({
+    x: DOCK_W - PAD,
+    y: TITLE_Y,
+    text: time,
+    size: 10,
+    fill: THEME.muted,
+    anchor: "end",
+    maxWidth: TIME_MAX_W
+  }) : "");
+}
+function progressBar(progress) {
+  const w = DOCK_W - 2 * PAD;
+  return `<rect x="${PAD}" y="${BAR_Y}" width="${w}" height="3" rx="1.5" fill="${THEME.track}"/><rect x="${PAD}" y="${BAR_Y}" width="${round2(w * clampProgress(progress))}" height="3" rx="1.5" fill="${THEME.accent}"/>`;
+}
+function renderDock(view, state = {}) {
+  let body = frame2();
+  if (view.mode === "video") {
+    body += titleRow(view.title, view.detail) + progressBar(view.progress);
+  } else {
+    const hint = wrapLines(view.hint, 9, DOCK_W - 2 * PAD, 1)[0] ?? "";
+    body += titleRow(view.title, "") + textEl({ x: PAD, y: BAR_Y + 5, text: hint, size: 9, fill: THEME.muted });
+  }
+  BUTTONS.forEach((b, i) => {
+    body += `<g transform="translate(${round2(buttonX(i))} ${BUTTONS_Y})">${buttonBody(b.id, state)}</g>`;
+  });
+  return {
+    left: svgSlice(DOCK_W, DOCK_H, body, 0, DOCK_HALF),
+    right: svgSlice(DOCK_W, DOCK_H, body, DOCK_HALF, DOCK_HALF)
+  };
+}
+function dockHit(rect, x, y) {
+  if (!rect || rect.w <= 0 || rect.h <= 0 || !Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+  const lx = (x - rect.x) * DOCK_W / rect.w;
+  const ly = (y - rect.y) * DOCK_H / rect.h;
+  if (lx < 0 || lx > DOCK_W || ly < 0 || ly > DOCK_H) return null;
+  const r = BUTTON / 2 + HIT_SLOP;
+  const cy = BUTTONS_Y + BUTTON / 2;
+  const i = BUTTONS.findIndex((_, n) => Math.hypot(lx - (buttonX(n) + BUTTON / 2), ly - cy) <= r);
+  return i >= 0 ? BUTTONS[i].action : "paste";
+}
+
 // src/render/list.js
 var LIST_W = 240;
 var LIST_ROWS = 6;
 var HEAD_H = 28;
 var ROW_H = 24;
-var PAD = 6;
-var LIST_H = HEAD_H + LIST_ROWS * ROW_H + PAD;
+var PAD2 = 6;
+var listHeight = (rows) => HEAD_H + rows * ROW_H + PAD2;
+var LIST_H = listHeight(LIST_ROWS);
 function renderList(view, opts = {}) {
-  let body = `<rect x="0.5" y="0.5" width="${LIST_W - 1}" height="${LIST_H - 1}" rx="12" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/>` + textEl({
+  const rows = opts.rows ?? LIST_ROWS;
+  const h = listHeight(rows);
+  let body = `<rect x="0.5" y="0.5" width="${LIST_W - 1}" height="${h - 1}" rx="12" fill="${THEME.panel}" fill-opacity="${THEME.panelOpacity}" stroke="${THEME.border}"/>` + textEl({
     x: 12,
     y: 19,
     text: view.heading,
@@ -211,7 +288,7 @@ function renderList(view, opts = {}) {
     fill: THEME.muted,
     maxWidth: LIST_W - 24
   });
-  const videos = view.videos.slice(0, LIST_ROWS);
+  const videos = view.videos.slice(0, rows);
   if (!videos.length) {
     body += textEl({
       x: 12,
@@ -231,23 +308,155 @@ function renderList(view, opts = {}) {
     }
     body += textEl({ x: 26, y: y + 16, text: v.title || v.id, size: 11, maxWidth: LIST_W - 38 });
   });
-  return svgUrl(LIST_W, LIST_H, body, opts.displayW, opts.displayH);
+  return svgUrl(LIST_W, h, body, opts.displayW, opts.displayH);
 }
-function listHit(rect, x, y, count) {
+function listHit(rect, x, y, count, rows = LIST_ROWS) {
   if (!rect || rect.w <= 0 || rect.h <= 0) return null;
   const lx = (x - rect.x) * LIST_W / rect.w;
-  const ly = (y - rect.y) * LIST_H / rect.h;
+  const ly = (y - rect.y) * listHeight(rows) / rect.h;
   if (lx < 0 || lx > LIST_W || ly < HEAD_H) return null;
   const row = Math.floor((ly - HEAD_H) / ROW_H);
-  return row >= 0 && row < Math.min(count, LIST_ROWS) ? row : null;
+  return row >= 0 && row < Math.min(count, rows) ? row : null;
+}
+
+// src/tile/position.js
+var FALLBACK_CONTENT = { w: 800, h: 600 };
+function contentOf(layout) {
+  const c = layout && layout.content;
+  if (c && Number.isFinite(c.w) && Number.isFinite(c.h) && c.w > 0 && c.h > 0)
+    return { w: c.w, h: c.h };
+  return FALLBACK_CONTENT;
+}
+var unit = (n) => Math.min(1, Math.max(0, n));
+function readPosition(value) {
+  if (!value || typeof value !== "object") return null;
+  const { fx, fy } = (
+    /** @type {any} */
+    value
+  );
+  if (!Number.isFinite(fx) || !Number.isFinite(fy)) return null;
+  return { fx: unit(fx), fy: unit(fy) };
+}
+function placeAt(content, w, h, pos) {
+  const roomX = Math.max(0, content.w - w);
+  const roomY = Math.max(0, content.h - h);
+  return { x: Math.round(roomX * unit(pos.fx)), y: Math.round(roomY * unit(pos.fy)) };
+}
+function positionFor(content, w, h, x, y) {
+  const roomX = Math.max(0, content.w - w);
+  const roomY = Math.max(0, content.h - h);
+  return { fx: roomX > 0 ? unit(x / roomX) : 0, fy: roomY > 0 ? unit(y / roomY) : 0 };
+}
+function createDrag() {
+  let from = null;
+  const move = (px, py, content, w, h) => {
+    if (!from || !Number.isFinite(px) || !Number.isFinite(py)) return null;
+    return positionFor(content, w, h, from.x + (px - from.px), from.y + (py - from.py));
+  };
+  return {
+    start(px, py, origin) {
+      from = Number.isFinite(px) && Number.isFinite(py) ? { px, py, x: origin.x, y: origin.y } : null;
+    },
+    move,
+    end(px, py, content, w, h) {
+      const pos = move(px, py, content, w, h);
+      from = null;
+      return pos;
+    },
+    active: () => from !== null,
+    cancel() {
+      from = null;
+    }
+  };
+}
+
+// src/tile/mover.js
+var POSITION_KEY = "position";
+function createMover({ tf, handles, layout, size, origin, redraw }) {
+  let position = null;
+  let loaded = false;
+  const drag = createDrag();
+  let moved = null;
+  const audit = (action, details) => Promise.resolve().then(() => tf.audit(action, details)).catch(() => {
+  });
+  const save = (value) => Promise.resolve().then(() => tf.store.set(POSITION_KEY, value)).catch(() => {
+  });
+  return {
+    /** The current position, for the scene (null: the pane's corner). */
+    position: () => position,
+    /** Whether a drag is under way. */
+    dragging: () => drag.active(),
+    /** Reads the saved position back, once, as the player comes on screen. */
+    async load() {
+      if (loaded) return position;
+      loaded = true;
+      position = readPosition(await Promise.resolve(tf.store.get(POSITION_KEY)).catch(() => null));
+      return position;
+    },
+    /**
+     * Puts a dragged player back in the pane's corner. `via` says what
+     * asked ("command" or "corner"). Nothing happens, and nothing is
+     * recorded, when it is already there.
+     */
+    async reset(via) {
+      drag.cancel();
+      moved = null;
+      if (position === null) return false;
+      position = null;
+      await save(null);
+      void audit("card.reset", { via });
+      await redraw();
+      return true;
+    },
+    /**
+     * Follows an overlay pointer event if it is part of a drag of the
+     * player. Returns true when it was (the caller then ignores it).
+     */
+    async pointer(e) {
+      const px = Number(e?.x);
+      const py = Number(e?.y);
+      if (e?.type === "dragstart" && handles.includes(String(e.item))) {
+        drag.start(px, py, origin());
+        moved = null;
+        return true;
+      }
+      if (!drag.active() || e?.type !== "drag" && e?.type !== "drop") return false;
+      const content = contentOf(layout());
+      const { w, h } = size();
+      if (e.type === "drag") {
+        const next = drag.move(px, py, content, w, h);
+        if (next) {
+          moved = next;
+          position = next;
+          await redraw();
+        }
+        return true;
+      }
+      const dropped = drag.end(px, py, content, w, h) ?? moved;
+      moved = null;
+      if (dropped) {
+        position = dropped;
+        await save(dropped);
+        void audit("card.moved", { via: "drag" });
+        await redraw();
+      }
+      return true;
+    }
+  };
 }
 
 // src/tile/scene.js
 var CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"];
 var GAP = 6;
+var DOCK_GAP = 4;
 var MARGIN = 12;
-var VIDEO_W = 356;
+var VIDEO_W = DOCK_W;
 var VIDEO_H = 200;
+var SIDE_LIST_ROWS = 9;
+var CARD_GROUP = { w: CARD_W, h: CARD_H + GAP + BUTTON };
+var PLAYER_GROUP = { w: VIDEO_W, h: VIDEO_H + DOCK_GAP + DOCK_H };
+var groupSize = (video) => video ? PLAYER_GROUP : CARD_GROUP;
+var listRows = (video) => video ? SIDE_LIST_ROWS : LIST_ROWS;
 var cornerOf = (corner) => CORNERS.includes(corner) ? corner : "bottom-right";
 function areaOf(layout) {
   const panes = Array.isArray(layout?.panes) ? layout.panes : [];
@@ -259,33 +468,61 @@ function areaOf(layout) {
   const content = layout?.content ?? { w: 800, h: 600 };
   return { x: 0, y: 0, w: content.w, h: content.h };
 }
-function computeLayout(layout, corner, { list = false, video = false } = {}) {
-  const at = cornerOf(corner);
+function originOf(layout, at, size, position) {
+  if (position) return placeAt(contentOf(layout), size.w, size.h, position);
   const area = areaOf(layout);
-  const groupH = CARD_H + GAP + BUTTON;
-  const right = at.endsWith("right");
-  const bottom = at.startsWith("bottom");
-  const gx = Math.max(0, Math.round(right ? area.x + area.w - CARD_W - MARGIN : area.x + MARGIN));
-  const gy = Math.max(0, Math.round(bottom ? area.y + area.h - groupH - MARGIN : area.y + MARGIN));
-  const rects = { card: { x: gx, y: gy, w: CARD_W, h: CARD_H } };
+  const x = at.endsWith("right") ? area.x + area.w - size.w - MARGIN : area.x + MARGIN;
+  const y = at.startsWith("bottom") ? area.y + area.h - size.h - MARGIN : area.y + MARGIN;
+  return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) };
+}
+function cardScene(rects, g, list, below) {
+  rects.card = { x: g.x, y: g.y, w: CARD_W, h: CARD_H };
   const step = (CARD_W - BUTTON) / (BUTTONS.length - 1);
   BUTTONS.forEach((b, i) => {
     rects[`btn-${b.id}`] = {
-      x: Math.round(gx + i * step),
-      y: gy + CARD_H + GAP,
+      x: Math.round(g.x + i * step),
+      y: g.y + CARD_H + GAP,
       w: BUTTON,
       h: BUTTON
     };
   });
-  let edge = bottom ? gy : gy + groupH;
-  const stack = (w, h) => {
-    const y = bottom ? edge - GAP - h : edge + GAP;
-    edge = bottom ? y : y + h;
-    const x = right ? gx + CARD_W - w : gx;
-    return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)), w, h };
-  };
-  if (video) rects.video = stack(VIDEO_W, VIDEO_H);
-  if (list) rects.list = stack(LIST_W, LIST_H);
+  if (list) {
+    const h = listHeight(LIST_ROWS);
+    const y = below ? g.y + g.h + GAP : g.y - GAP - h;
+    rects.list = { x: g.x, y: Math.max(0, y), w: LIST_W, h };
+  }
+}
+function playerScene(rects, g, list, content) {
+  rects.video = { x: g.x, y: g.y, w: VIDEO_W, h: VIDEO_H };
+  const dockY = g.y + VIDEO_H + DOCK_GAP;
+  rects.dock = { x: g.x, y: dockY, w: DOCK_W, h: DOCK_H };
+  rects["dock-l"] = { x: g.x, y: dockY, w: DOCK_HALF, h: DOCK_H };
+  rects["dock-r"] = { x: g.x + DOCK_HALF, y: dockY, w: DOCK_HALF, h: DOCK_H };
+  if (list) {
+    const h = listHeight(SIDE_LIST_ROWS);
+    const left = g.x - GAP - LIST_W;
+    const right = g.x + g.w + GAP;
+    const x = left >= 0 || right + LIST_W > content.w ? left : right;
+    rects.list = {
+      x: Math.max(0, x),
+      y: Math.max(0, g.y + Math.round((g.h - h) / 2)),
+      w: LIST_W,
+      h
+    };
+  }
+}
+function computeLayout(layout, corner, { list = false, video = false, position = null } = {}) {
+  const at = cornerOf(corner);
+  const size = groupSize(video);
+  const content = contentOf(layout);
+  const o = originOf(layout, at, size, position);
+  const g = { x: o.x, y: o.y, w: size.w, h: size.h };
+  const rects = { group: g };
+  if (video) playerScene(rects, g, list, content);
+  else {
+    const below = position ? g.y + g.h / 2 < content.h / 2 : at.startsWith("top");
+    cardScene(rects, g, list, below);
+  }
   return rects;
 }
 
@@ -343,6 +580,7 @@ function createThumbs(fetchFn) {
 }
 
 // src/tile/card.js
+var HANDLES = ["card", "dock-l", "dock-r"];
 function cleanStatus(m) {
   if (!m || typeof m !== "object" || typeof m.id !== "string") return null;
   const n = (v) => Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
@@ -379,18 +617,63 @@ function createCard(tf, hooks) {
   let drawn = "";
   let docked = "";
   const t = (key, args) => tf.t(key, args);
+  const mover = createMover({
+    tf,
+    handles: HANDLES,
+    layout: () => layout,
+    size: () => groupSize(hooks.docked()),
+    origin: () => rectsNow().group,
+    redraw: () => draw()
+  });
+  const rectsNow = (list = listOpen) => computeLayout(layout, hooks.corner(), {
+    list,
+    video: hooks.docked(),
+    position: mover.position()
+  });
+  const listItem = (rect, rows) => ({
+    id: "list",
+    image: renderList(
+      {
+        heading: t("list-heading"),
+        empty: t("list-empty"),
+        videos: hooks.recent(),
+        current: status?.id ?? null
+      },
+      { rows }
+    ),
+    ...rect,
+    hit: true,
+    cursor: "pointer",
+    label: t("button-list")
+  });
+  const playerItems = (rects, state) => {
+    const view = cardView(t, status, hooks.recent(), null);
+    if (view.mode === "message") view.hint = t("dock-idle-hint");
+    const halves = renderDock(view, state);
+    const out = ["dock-l", "dock-r"].map((id) => ({
+      id,
+      image: id === "dock-l" ? halves.left : halves.right,
+      ...rects[id],
+      hit: true,
+      cursor: "pointer",
+      label: t("dock-label")
+    }));
+    if (listOpen) out.push(listItem(rects.list, listRows(true)));
+    return out;
+  };
   const items = () => {
-    const rects = computeLayout(layout, hooks.corner(), { list: listOpen, video: hooks.docked() });
+    const rects = rectsNow();
     if (rects.video && JSON.stringify(rects.video) !== docked) {
       docked = JSON.stringify(rects.video);
       void Promise.resolve(hooks.redock(rects.video)).catch(() => {
       });
     }
+    const state = { playing: !!status?.playing, muted: !!status?.muted, listOpen };
+    if (rects.video) return playerItems(rects, state);
     const thumb = status ? thumbs.peek(status.id) : null;
     if (status && thumb === void 0) {
       void thumbs.get(status.id).then(() => draw());
     }
-    const state = { playing: !!status?.playing, muted: !!status?.muted, listOpen };
     const out = [
       {
         id: "card",
@@ -409,21 +692,7 @@ function createCard(tf, hooks) {
         label: t(b.label)
       }))
     ];
-    if (listOpen) {
-      out.push({
-        id: "list",
-        image: renderList({
-          heading: t("list-heading"),
-          empty: t("list-empty"),
-          videos: hooks.recent(),
-          current: status?.id ?? null
-        }),
-        ...rects.list,
-        hit: true,
-        cursor: "pointer",
-        label: t("button-list")
-      });
-    }
+    if (listOpen) out.push(listItem(rects.list, listRows(false)));
     return out;
   };
   const draw = async () => {
@@ -458,6 +727,7 @@ function createCard(tf, hooks) {
       visible = true;
       drawn = "";
       layout = null;
+      await mover.load();
       void tf.audit("card.shown", {}).catch(() => {
       });
       await draw();
@@ -487,8 +757,11 @@ function createCard(tf, hooks) {
     /** Where the docked video goes now (the card's layout read first if needed). */
     async videoSpot() {
       if (!layout) layout = await tf.overlay.layout();
-      return computeLayout(layout, hooks.corner(), { list: listOpen, video: true }).video;
+      await mover.load();
+      return computeLayout(layout, hooks.corner(), { video: true, position: mover.position() }).video;
     },
+    /** Puts a dragged player back in the pane's corner (`via`: "command" or "corner"). */
+    reset: (via) => mover.reset(via),
     /** The recent list or a setting changed. */
     redraw: () => draw(),
     /** The panes moved. */
@@ -498,14 +771,23 @@ function createCard(tf, hooks) {
     },
     /** A pointer event on one of the card's items. */
     async pointer(e) {
-      if (!visible || e?.type !== "click") return;
+      if (!visible || !e) return;
+      if (await mover.pointer(e)) return;
+      if (e.type !== "click") return;
       if (e.item === "card") {
         return hooks.docked() && hooks.isOpen() ? hooks.paste() : hooks.openWindow();
       }
+      if (e.item === "dock-l" || e.item === "dock-r") {
+        const action2 = dockHit(rectsNow().dock, Number(e.x), Number(e.y));
+        if (action2 === "paste") return hooks.paste();
+        if (action2) await act(action2);
+        return;
+      }
       if (e.item === "list") {
-        const rect = computeLayout(layout, hooks.corner(), { list: true }).list;
-        const videos = hooks.recent().slice(0, LIST_ROWS);
-        const row = listHit(rect, Number(e.x), Number(e.y), videos.length);
+        const rows = listRows(hooks.docked());
+        const rect = rectsNow(true).list;
+        const videos = hooks.recent().slice(0, rows);
+        const row = listHit(rect, Number(e.x), Number(e.y), videos.length, rows);
         if (row === null) return;
         listOpen = false;
         await draw();
@@ -607,6 +889,7 @@ var COMMANDS = [
   { id: "forward", title: "cmd-forward" },
   { id: "mute", title: "cmd-mute" },
   { id: "card", title: "cmd-card" },
+  { id: "reset", title: "cmd-reset" },
   { id: "close", title: "cmd-close" }
 ];
 var STRINGS = {
@@ -687,6 +970,7 @@ function runWatchpane(tf) {
     }
     if (!open) void audit("opened", { docked });
     open = true;
+    if (docked) await card?.redraw();
   };
   const play = async (id) => {
     if (open) return post({ do: "play", id });
@@ -747,7 +1031,10 @@ function runWatchpane(tf) {
     back: () => control("back"),
     forward: () => control("forward"),
     mute: () => control("mute"),
-    card: toggleCard
+    card: toggleCard,
+    reset: async () => {
+      await card?.reset("command");
+    }
   };
   for (const c of COMMANDS) {
     tf.command(
@@ -781,10 +1068,16 @@ function runWatchpane(tf) {
     "overlay.hidden",
     background(() => card?.hide(true))
   );
+  let corner = cornerSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
       if (open) await setup();
+      const now = cornerSetting(tf.settings);
+      if (now !== corner) {
+        corner = now;
+        if (await card?.reset("corner")) return;
+      }
       await card?.redraw();
     })
   );

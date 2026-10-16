@@ -10,11 +10,16 @@
  * lines, the card shows the video or a message, the buttons follow
  * playing, muted and the list, and the list says which row a click hit.
  * The layout puts the card in the corner asked for, buttons under it and
- * the list facing into the pane. Pictures are fetched once and refused
- * when too big. End to end in the fake host: opening shows the window and
- * the card; the page's status moves the card; the buttons control the
- * player; the list plays a video; a button with the window closed opens
- * it on the video watched last; and the card can be hidden.
+ * the list facing into the pane; the docked player puts the dock right
+ * under the video, as wide as it, and the list beside them; a dragged
+ * position wins over the corner. The dock is drawn in two halves within
+ * Tilefold's item size, and a click on it finds its button. Pictures are
+ * fetched once and refused when too big. End to end in the fake host:
+ * opening shows the window and the card; the page's status moves the
+ * card; the buttons control the player; the list plays a video; a button
+ * with the window closed opens it on the video watched last; the card can
+ * be hidden; the docked player is controlled from its dock, and dragged,
+ * remembered, and put back.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,10 +35,31 @@ import {
   renderCard,
   wrapLines,
 } from "../../examples/watchpane/src/render/card.js";
-import { LIST_H, LIST_W, listHit, renderList } from "../../examples/watchpane/src/render/list.js";
-import { svgOf } from "../../examples/watchpane/src/render/svg.js";
+import {
+  DOCK_H,
+  DOCK_HALF,
+  DOCK_W,
+  buttonX,
+  dockHit,
+  renderDock,
+} from "../../examples/watchpane/src/render/dock.js";
+import {
+  LIST_H,
+  LIST_W,
+  listHeight,
+  listHit,
+  renderList,
+} from "../../examples/watchpane/src/render/list.js";
+import { MAX_SIDE, svgOf } from "../../examples/watchpane/src/render/svg.js";
 import { cardView, cleanStatus } from "../../examples/watchpane/src/tile/card.js";
-import { computeLayout } from "../../examples/watchpane/src/tile/scene.js";
+import { POSITION_KEY } from "../../examples/watchpane/src/tile/mover.js";
+import {
+  computeLayout,
+  DOCK_GAP,
+  SIDE_LIST_ROWS,
+  VIDEO_H,
+  VIDEO_W,
+} from "../../examples/watchpane/src/tile/scene.js";
 import { createThumbs, MAX_THUMB_BYTES } from "../../examples/watchpane/src/tile/thumbs.js";
 import { ONE_PANE, startTile } from "../fake-host.mjs";
 
@@ -109,6 +135,51 @@ describe("pictures", () => {
     expect(listHit(rect, 150, 50 + 28 + 24 * 3 + 5, 3)).toBeNull();
     expect(listHit(rect, 150, 55, 3)).toBeNull();
     expect(listHit(undefined, 0, 0, 3)).toBeNull();
+    // A taller list beside the video: more rows, the same row maths.
+    const tall = { x: 0, y: 0, w: LIST_W, h: listHeight(SIDE_LIST_ROWS) };
+    expect(listHit(tall, 50, 28 + 24 * 8 + 5, 12, SIDE_LIST_ROWS)).toBe(8);
+    const nine = Array.from({ length: 12 }, (_, i) => ({ id: `v${i}`, title: `Video ${i}` }));
+    const svg9 = svgOf(
+      renderList({ heading: "h", empty: "", videos: nine, current: null }, { rows: 9 }),
+    );
+    expect(svg9).toContain("Video 8");
+    expect(svg9).not.toContain("Video 9");
+    expect(listHeight(SIDE_LIST_ROWS)).toBeLessThanOrEqual(MAX_SIDE);
+  });
+
+  it("draws the dock in two halves within the item size, with the video's title and time", () => {
+    const { left, right } = renderDock(
+      { mode: "video", title: "<i>Song</i>", detail: "0:30 / 2:00", progress: 0.25 },
+      { playing: true },
+    );
+    const l = svgOf(left);
+    const r = svgOf(right);
+    expect(DOCK_HALF * 2).toBe(DOCK_W);
+    expect(DOCK_HALF).toBeLessThanOrEqual(MAX_SIDE);
+    expect(l).toContain(`viewBox="0 0 ${DOCK_HALF} ${DOCK_H}"`);
+    expect(r).toContain(`viewBox="${DOCK_HALF} 0 ${DOCK_HALF} ${DOCK_H}"`);
+    expect(l).toContain("&lt;i&gt;Song&lt;/i&gt;");
+    expect(l).toContain("0:30 / 2:00");
+    // Nothing on yet: the hint instead of the progress bar.
+    const idle = svgOf(
+      renderDock({ mode: "message", tone: "info", title: "Idle", hint: "Paste here" }).left,
+    );
+    expect(idle).toContain("Idle");
+    expect(idle).toContain("Paste here");
+  });
+
+  it("finds the dock button a click hit, and pastes for the rest of the bar", () => {
+    const rect = { x: 100, y: 400, w: DOCK_W, h: DOCK_H };
+    const centre = (i) => [rect.x + buttonX(i) + 14, rect.y + 46 + 14];
+    expect(dockHit(rect, ...centre(0))).toBe("back");
+    expect(dockHit(rect, ...centre(1))).toBe("toggle");
+    expect(dockHit(rect, ...centre(3))).toBe("mute");
+    expect(dockHit(rect, ...centre(5))).toBe("window");
+    expect(dockHit(rect, rect.x + 30, rect.y + 20)).toBe("paste");
+    expect(dockHit(rect, rect.x - 1, rect.y + 20)).toBeNull();
+    expect(dockHit(rect, rect.x + 10, rect.y + DOCK_H + 1)).toBeNull();
+    expect(dockHit(undefined, 0, 0)).toBeNull();
+    expect(dockHit(rect, NaN, 0)).toBeNull();
   });
 });
 
@@ -126,6 +197,47 @@ describe("layout", () => {
     expect(tl.list.y).toBeGreaterThan(tl["btn-play"].y);
     expect(computeLayout(ONE_PANE, "sideways").card).toEqual(br.card);
     expect(computeLayout(null, "bottom-right").list).toBeUndefined();
+  });
+
+  it("stacks the docked video over a dock as wide as it, with the list on the left", () => {
+    const pane = ONE_PANE.panes[0];
+    const p = computeLayout(ONE_PANE, "bottom-right", { video: true, list: true });
+    expect(p.video).toMatchObject({ w: VIDEO_W, h: VIDEO_H });
+    expect(p.video.x + p.video.w).toBe(pane.x + pane.w - 12);
+    expect(p.dock).toEqual({
+      x: p.video.x,
+      y: p.video.y + VIDEO_H + DOCK_GAP,
+      w: DOCK_W,
+      h: DOCK_H,
+    });
+    expect(p["dock-l"]).toMatchObject({ x: p.dock.x, w: DOCK_HALF });
+    expect(p["dock-r"]).toMatchObject({ x: p.dock.x + DOCK_HALF, w: DOCK_HALF });
+    expect(p.card).toBeUndefined();
+    expect(p["btn-play"]).toBeUndefined();
+    // The list beside the player, on its left, centred on it.
+    expect(p.list.x + p.list.w).toBe(p.video.x - 6);
+    expect(p.list.y + p.list.h / 2).toBeCloseTo(p.group.y + p.group.h / 2, 0);
+    // With no room on the left, on the right.
+    const left = computeLayout(ONE_PANE, "bottom-left", { video: true, list: true });
+    expect(left.list.x).toBe(left.video.x + left.video.w + 6);
+  });
+
+  it("puts a dragged group where the user dropped it, whichever its shape", () => {
+    const { w, h } = ONE_PANE.content;
+    const atTopLeft = computeLayout(ONE_PANE, "bottom-right", { position: { fx: 0, fy: 0 } });
+    expect(atTopLeft.card).toMatchObject({ x: 0, y: 0 });
+    // Dragged near the top, the list opens below.
+    const open = computeLayout(ONE_PANE, "bottom-right", {
+      list: true,
+      position: { fx: 0, fy: 0 },
+    });
+    expect(open.list.y).toBeGreaterThan(open["btn-play"].y);
+    const player = computeLayout(ONE_PANE, "top-left", {
+      video: true,
+      position: { fx: 1, fy: 1 },
+    });
+    expect(player.group.x + player.group.w).toBe(w);
+    expect(player.dock.y + player.dock.h).toBe(h);
   });
 });
 
@@ -314,15 +426,17 @@ describe("Watchpane's card, in the fake host", () => {
     expect(quiet.overlay).toBeNull();
   });
 
-  it("docks the video next to the card where Tilefold can, and moves it with the panes", async () => {
+  it("docks the video over its control dock where Tilefold can, and moves it with the panes", async () => {
     const host = await start({ page: "dock" });
     await host.command("open");
-    const spot = computeLayout(ONE_PANE, "bottom-right", { video: true }).video;
-    expect(host.page.opens).toEqual([{ origin: "https", dock: spot }]);
-    // Above the card, lined up with its right edge.
-    const card = host.item("card");
-    expect(spot.y + spot.h).toBe(card.y - 6);
-    expect(spot.x + spot.w).toBe(card.x + card.w);
+    const layout = computeLayout(ONE_PANE, "bottom-right", { video: true });
+    expect(host.page.opens).toEqual([{ origin: "https", dock: layout.video }]);
+    // The dock's two halves, right under the video and as wide as it; no card.
+    expect(host.overlay.items.map((i) => i.id)).toEqual(["dock-l", "dock-r"]);
+    const dl = host.item("dock-l");
+    expect(dl.y).toBe(layout.video.y + VIDEO_H + DOCK_GAP);
+    expect(dl.x).toBe(layout.video.x);
+    expect(host.item("dock-r").x + DOCK_HALF).toBe(layout.video.x + VIDEO_W);
     expect(host.audits).toContainEqual({ action: "opened", details: { docked: true } });
     await fromPage(host, { type: "hello" });
     expect(posts(host)[0]).toMatchObject({ do: "setup", docked: true });
@@ -330,6 +444,140 @@ describe("Watchpane's card, in the fake host", () => {
     const moved = { ...ONE_PANE, panes: [{ ...ONE_PANE.panes[0], x: 0, w: 700 }] };
     await host.emit("overlay.layout", moved);
     expect(host.page.dock).toEqual(computeLayout(moved, "bottom-right", { video: true }).video);
+  });
+
+  it("plays, skips, mutes and lists from the dock's buttons", async () => {
+    const host = await start({ page: "dock" });
+    await host.command("open");
+    await fromPage(host, { type: "hello" });
+    await fromPage(host, {
+      type: "status",
+      id: ID,
+      title: "Song",
+      playing: true,
+      time: 5,
+      duration: 50,
+      muted: false,
+    });
+    expect(svgOf(host.item("dock-l").image)).toContain("Song");
+    const dock = computeLayout(ONE_PANE, "bottom-right", { video: true }).dock;
+    const at = (i) => ({ x: dock.x + buttonX(i) + 14, y: dock.y + 46 + 14 });
+    const click = (i) =>
+      host.emit("overlay.pointer", { item: i < 3 ? "dock-l" : "dock-r", type: "click", ...at(i) });
+    for (const i of [0, 1, 2, 3]) await click(i);
+    expect(
+      posts(host)
+        .filter((m) => m.do === "control")
+        .map((m) => m.action),
+    ).toEqual(["back", "toggle", "forward", "mute"]);
+    // The list opens beside the player, and a row plays its video.
+    await click(4);
+    const list = host.item("list");
+    expect(list.x + list.w).toBe(dock.x - 6);
+    expect(list.h).toBe(listHeight(SIDE_LIST_ROWS));
+    await host.emit("overlay.pointer", {
+      item: "list",
+      type: "click",
+      x: list.x + 50,
+      y: list.y + 28 + 24 + 5,
+    });
+    expect(posts(host).at(-1)).toEqual({ do: "play", id: OTHER });
+    // Elsewhere on the bar: the box to paste a link.
+    await host.emit("overlay.pointer", {
+      item: "dock-l",
+      type: "click",
+      x: dock.x + 20,
+      y: dock.y + 20,
+    });
+    expect(posts(host).at(-1)).toEqual({ do: "paste" });
+  });
+
+  it("drags the player by its dock, video and all, and remembers where", async () => {
+    const host = await start({ page: "dock" });
+    await host.command("open");
+    const before = { ...host.item("dock-l") };
+    const from = { x: before.x + 40, y: before.y + 10 };
+    await host.emit("overlay.pointer", { item: "dock-l", type: "dragstart", ...from });
+    await host.emit("overlay.pointer", {
+      item: "dock-l",
+      type: "drag",
+      x: from.x - 100,
+      y: from.y - 50,
+    });
+    // The video follows the dock while it moves.
+    expect(host.item("dock-l")).toMatchObject({ x: before.x - 100, y: before.y - 50 });
+    expect(host.page.dock).toMatchObject({
+      x: before.x - 100,
+      y: before.y - 50 - VIDEO_H - DOCK_GAP,
+    });
+    expect(host.store.has(POSITION_KEY)).toBe(false);
+    await host.emit("overlay.pointer", {
+      item: "dock-r",
+      type: "drop",
+      x: from.x - 120,
+      y: from.y - 60,
+    });
+    expect(host.item("dock-l")).toMatchObject({ x: before.x - 120, y: before.y - 60 });
+    const saved = host.store.get(POSITION_KEY);
+    expect(saved).toMatchObject({ fx: expect.any(Number), fy: expect.any(Number) });
+    expect(host.audits).toContainEqual({ action: "card.moved", details: { via: "drag" } });
+    // A drop is never taken as a click.
+    expect(posts(host).filter((m) => m.do === "paste")).toEqual([]);
+
+    // Remembered: a new start puts the player there.
+    const again = await start({ page: "dock", store: { [POSITION_KEY]: saved } });
+    await again.command("open");
+    expect(again.item("dock-l")).toMatchObject({ x: before.x - 120, y: before.y - 60 });
+
+    // The command puts it back in the pane's corner.
+    await host.command("reset");
+    expect(host.item("dock-l")).toMatchObject({ x: before.x, y: before.y });
+    expect(host.store.get(POSITION_KEY)).toBeNull();
+    expect(host.audits).toContainEqual({ action: "card.reset", details: { via: "command" } });
+  });
+
+  it("puts a dragged player back when a corner is chosen", async () => {
+    const host = await start({ page: "dock", store: { [POSITION_KEY]: { fx: 0, fy: 0 } } });
+    await host.command("open");
+    expect(host.item("dock-l")).toMatchObject({ x: 0 });
+    await host.setSetting("corner", "top-left");
+    const want = computeLayout(ONE_PANE, "top-left", { video: true });
+    expect(host.item("dock-l")).toMatchObject({ x: want.dock.x, y: want.dock.y });
+    expect(host.audits).toContainEqual({ action: "card.reset", details: { via: "corner" } });
+  });
+
+  it("drags the small card too", async () => {
+    const host = await start();
+    await host.command("open");
+    const card = { ...host.item("card") };
+    await host.emit("overlay.pointer", {
+      item: "card",
+      type: "dragstart",
+      x: card.x + 5,
+      y: card.y + 5,
+    });
+    await host.emit("overlay.pointer", {
+      item: "card",
+      type: "drop",
+      x: card.x - 95,
+      y: card.y - 45,
+    });
+    expect(host.item("card")).toMatchObject({ x: card.x - 100, y: card.y - 50 });
+    // A drag on a button doesn't move anything.
+    const play = { ...host.item("btn-play") };
+    await host.emit("overlay.pointer", {
+      item: "btn-play",
+      type: "dragstart",
+      x: play.x,
+      y: play.y,
+    });
+    await host.emit("overlay.pointer", {
+      item: "btn-play",
+      type: "drop",
+      x: play.x + 50,
+      y: play.y,
+    });
+    expect(host.item("btn-play")).toEqual(play);
   });
 
   it("shows the link box from the card, and closes and opens the docked video", async () => {

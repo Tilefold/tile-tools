@@ -43,3 +43,6 @@ button-list = مقاطع شوهدت مؤخرًا
 button-window = فتح المقطع أو إغلاقه
 list-heading = شوهدت مؤخرًا
 list-empty = لا توجد مقاطع بعد.
+cmd-reset = Watchpane: إعادة المشغّل إلى اللوحة
+dock-label = أزرار التحكم بالمقطع. اسحب لتحريك المشغّل
+dock-idle-hint = انقر هنا للصق رابط YouTube، أو اختر مقطعًا عبر ☰.
