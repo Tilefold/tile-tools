@@ -15,7 +15,13 @@
  * Tilefold become notices. Several addresses open one page each (the
  * first on the tile's first page, the others named after their ports),
  * which the commands move, reload and close together; a Tilefold with one
- * page per tile opens the first and says why.
+ * page per tile opens the first and says why. Each address is remembered
+ * with the browser page it was seen in, its row names that page, and a
+ * click reopens it there.
+ *
+ * Modified 2026-10-17 (each tab's panel lists its own pages).
+ *
+ * Last updated by: Tilefold
  */
 import { fileURLToPath } from "node:url";
 import {
@@ -32,6 +38,7 @@ import {
   errorKey,
   isPage,
   panelRows,
+  readRowId,
   readRecent,
   remember,
   shortAddress,
@@ -48,8 +55,8 @@ describe("recent pages", () => {
     list = remember(list, { url: "http://localhost:5173/login", title: "Sign in" });
     list = remember(list, { url: "http://localhost:5173/", title: "" });
     expect(list).toEqual([
-      { url: "http://localhost:5173/", title: "App" },
-      { url: "http://localhost:5173/login", title: "Sign in" },
+      { url: "http://localhost:5173/", title: "App", page: "" },
+      { url: "http://localhost:5173/login", title: "Sign in", page: "" },
     ]);
     expect(remember(list, { url: "about:blank", title: "" })).toBe(list);
     expect(remember(list, null)).toBe(list);
@@ -75,28 +82,60 @@ describe("recent pages", () => {
         { url: "https://c.dev/", title: "t".repeat(500) },
       ]),
     ).toEqual([
-      { url: "https://a.dev/", title: "A" },
-      { url: "https://c.dev/", title: "t".repeat(120) },
+      { url: "https://a.dev/", title: "A", page: "" },
+      { url: "https://c.dev/", title: "t".repeat(120), page: "" },
     ]);
+    // A page name is kept; a bad one counts as the first page.
+    expect(
+      readRecent([
+        { url: "https://a.dev/", title: "", page: "3000" },
+        { url: "https://b.dev/", title: "", page: "Bad Name" },
+      ]).map((e) => e.page),
+    ).toEqual(["3000", ""]);
+  });
+
+  it("keeps each browser page's addresses apart, at most MAX_RECENT each", () => {
+    let list = remember([], { url: "http://localhost:3000/", title: "A", page: "" });
+    list = remember(list, { url: "http://localhost:3000/", title: "A again", page: "3000" });
+    expect(list.map((e) => e.page)).toEqual(["3000", ""]);
+    for (let i = 0; i < MAX_RECENT + 3; i++)
+      list = remember(list, { url: `http://h/${i}`, title: "", page: "3001" });
+    expect(list.filter((e) => e.page === "3001")).toHaveLength(MAX_RECENT);
+    // The other pages keep theirs.
+    expect(list.filter((e) => e.page !== "3001")).toHaveLength(2);
+  });
+
+  it("reads a row id back, old ones included", () => {
+    expect(readRowId(`${ROW_PREFIX}3001|http://localhost:3001/a|b`)).toEqual({
+      page: "3001",
+      url: "http://localhost:3001/a|b",
+    });
+    expect(readRowId(`${ROW_PREFIX}|http://x/`)).toEqual({ page: "", url: "http://x/" });
+    // From before pages were kept: the first page.
+    expect(readRowId(`${ROW_PREFIX}http://x/`)).toEqual({ page: "", url: "http://x/" });
+    expect(readRowId("other")).toBeNull();
+    expect(readRowId(5)).toBeNull();
   });
 
   it("turns the list into panel rows that open each page", () => {
     const rows = panelRows([
-      { url: "http://localhost:5173/", title: "" },
-      { url: "https://tilefold.com/docs", title: "Docs" },
+      { url: "http://localhost:5173/", title: "", page: "" },
+      { url: "https://tilefold.com/docs", title: "Docs", page: "3000" },
     ]);
     expect(rows).toEqual([
       {
-        id: `${ROW_PREFIX}http://localhost:5173/`,
+        id: `${ROW_PREFIX}|http://localhost:5173/`,
         label: "localhost:5173",
         icon: "link",
         hint: "http://localhost:5173/",
+        page: "",
       },
       {
-        id: `${ROW_PREFIX}https://tilefold.com/docs`,
+        id: `${ROW_PREFIX}3000|https://tilefold.com/docs`,
         label: "Docs",
         icon: "link",
         hint: "https://tilefold.com/docs",
+        page: "3000",
       },
     ]);
     expect(shortAddress("https://x.dev/")).toBe("x.dev");
@@ -268,21 +307,42 @@ describe("the tile", () => {
     expect(host.panel.content.title).toBe("Web Preview");
     expect(host.panel.content.rows.map((r) => r.label)).toEqual(["Settings", "My app"]);
     await host.emit("panel.click", {
-      row: `${ROW_PREFIX}http://localhost:5173/`,
+      row: `${ROW_PREFIX}|http://localhost:5173/`,
       action: "activate",
     });
     await host.advance(0);
-    expect(host.browser.calls.at(-1)).toEqual(["open", "http://localhost:5173/"]);
+    const again = ["open", "http://localhost:5173/", { docked: true }];
+    expect(host.browser.calls.at(-1)).toEqual(again);
     await host.emit("panel.click", { row: "other", action: "activate" });
     await host.advance(0);
-    expect(host.browser.calls.at(-1)).toEqual(["open", "http://localhost:5173/"]);
+    expect(host.browser.calls.at(-1)).toEqual(again);
+  });
+
+  it("ties each row to its browser page, and reopens it there", async () => {
+    const host = await ready({ settings: { address: "localhost:3000, localhost:3001" } });
+    await host.command("open");
+    await host.advance(0);
+    await host.visit("http://localhost:3000/", "App");
+    await host.visit("http://localhost:3001/", "API", "3001");
+    await host.advance(0);
+    expect(host.panel.content.rows.map((r) => [r.label, r.page])).toEqual([
+      ["API", "3001"],
+      ["App", ""],
+    ]);
+    await host.emit("panel.click", { row: host.panel.content.rows[0].id, action: "activate" });
+    await host.advance(0);
+    expect(host.browser.pages["3001"].calls.at(-1)).toEqual([
+      "open",
+      "http://localhost:3001/",
+      { docked: true },
+    ]);
   });
 
   it("keeps the list across a restart, and forgets it on request", async () => {
     const first = await ready();
     await first.visit("http://localhost:5173/", "My app");
     const stored = first.store.get("recent");
-    expect(stored).toEqual([{ url: "http://localhost:5173/", title: "My app" }]);
+    expect(stored).toEqual([{ url: "http://localhost:5173/", title: "My app", page: "" }]);
     const again = await ready({ store: { recent: stored } });
     expect(again.panel.content.rows).toHaveLength(1);
     await again.command("clear");

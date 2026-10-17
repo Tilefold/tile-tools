@@ -17,7 +17,8 @@
  * at once, one per address: the first on the tile's first page, each other
  * on a page named after its port (`tf.browser.page("3000")`). Docked, they
  * stack beside the panes. Open, Move, Reload and Close act on every page;
- * Back and Forward on the first; a click in the panel opens the first.
+ * Back and Forward on the first. The panel lists each page's recent
+ * addresses on that page's tab, and a click opens one again in its page.
  *
  * Shown on purpose:
  * - the `browser` permission and `tf.browser`: Tilefold draws the window and
@@ -28,6 +29,11 @@
  * - several pages at once (`tf.browser.page`), and a Tilefold without them
  *   showing just the first address;
  * - errors are told apart by their `name`, not their message.
+ *
+ * Modified 2026-10-17 (each tab's panel lists its own pages): recent
+ * addresses keep their browser page, and the panel's rows say which.
+ *
+ * Last updated by: Tilefold
  *
  * Build:  npx @tilefold/tile-tools build
  */
@@ -84,30 +90,58 @@ function planPages(addresses) {
 
 // src/recent.js
 var MAX_RECENT = 12;
+var MAX_RECENT_ALL = 48;
+var PAGE_NAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)?$/;
+function pageOf(page) {
+  return typeof page === "string" && PAGE_NAME.test(page) ? page : "";
+}
 var MAX_TITLE = 120;
 var ROW_PREFIX = "page:";
 function isPage(url) {
   return typeof url === "string" && /^https?:\/\//i.test(url) && url.length <= 4096;
 }
+function cap(list) {
+  const seen = /* @__PURE__ */ new Map();
+  return list.filter((e) => {
+    const n = (seen.get(e.page) ?? 0) + 1;
+    seen.set(e.page, n);
+    return n <= MAX_RECENT;
+  }).slice(0, MAX_RECENT_ALL);
+}
 function readRecent(value) {
   if (!Array.isArray(value)) return [];
-  return value.filter((e) => e && isPage(e.url) && typeof e.title === "string").slice(0, MAX_RECENT).map((e) => ({ url: e.url, title: e.title.slice(0, MAX_TITLE) }));
+  return cap(
+    value.filter((e) => e && isPage(e.url) && typeof e.title === "string").map((e) => ({ url: e.url, title: e.title.slice(0, MAX_TITLE), page: pageOf(e.page) }))
+  );
 }
-function remember(list, page) {
-  if (!isPage(page?.url)) return list;
-  const old = list.find((e) => e.url === page.url);
-  const title = (page.title || old?.title || "").slice(0, MAX_TITLE);
-  return [{ url: page.url, title }, ...list.filter((e) => e.url !== page.url)].slice(0, MAX_RECENT);
+function remember(list, seen) {
+  if (!isPage(seen?.url)) return list;
+  const page = pageOf(seen.page);
+  const same = (e) => e.url === seen.url && e.page === page;
+  const old = list.find(same);
+  const title = (seen.title || old?.title || "").slice(0, MAX_TITLE);
+  return cap([{ url: seen.url, title, page }, ...list.filter((e) => !same(e))]);
 }
 function shortAddress(url) {
   return url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
 }
+function rowId(entry) {
+  return `${ROW_PREFIX}${entry.page}|${entry.url}`;
+}
+function readRowId(id) {
+  if (typeof id !== "string" || !id.startsWith(ROW_PREFIX)) return null;
+  const rest = id.slice(ROW_PREFIX.length);
+  const bar = rest.indexOf("|");
+  if (bar < 0 || !PAGE_NAME.test(rest.slice(0, bar))) return { page: "", url: rest };
+  return { page: rest.slice(0, bar), url: rest.slice(bar + 1) };
+}
 function panelRows(list) {
-  return list.map((e) => ({
-    id: `${ROW_PREFIX}${e.url}`.slice(0, 1024),
+  return list.filter((e) => rowId(e).length <= 1024).map((e) => ({
+    id: rowId(e),
     label: (e.title || shortAddress(e.url)).slice(0, 256) || e.url.slice(0, 256),
     icon: "link",
-    hint: e.url.slice(0, 512)
+    hint: e.url.slice(0, 512),
+    page: e.page
   }));
 }
 function errorKey(err) {
@@ -195,15 +229,20 @@ var main_default = (tf) => {
     recent = readRecent(await tf.store.get("recent"));
     await showPanel();
   });
-  tf.on("browser.navigated", async ({ url, title }) => {
-    const next = remember(recent, { url, title });
+  tf.on("browser.navigated", async ({ url, title, page }) => {
+    const next = remember(recent, { url, title, page });
     if (next === recent) return;
     recent = next;
     await tf.store.set("recent", recent);
     await showPanel();
   });
   tf.on("panel.click", ({ row }) => {
-    if (row.startsWith(ROW_PREFIX)) void steer((b) => b.open(row.slice(ROW_PREFIX.length)));
+    const hit = readRowId(row);
+    if (!hit) return;
+    void steer((b) => {
+      const target = hit.page && typeof b.page === "function" ? b.page(hit.page) : b;
+      return open(target, hit.url);
+    });
   });
   tf.on("setting.changed", ({ key }) => {
     if (key === "panel") void showPanel();

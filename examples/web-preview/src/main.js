@@ -17,7 +17,8 @@
  * at once, one per address: the first on the tile's first page, each other
  * on a page named after its port (`tf.browser.page("3000")`). Docked, they
  * stack beside the panes. Open, Move, Reload and Close act on every page;
- * Back and Forward on the first; a click in the panel opens the first.
+ * Back and Forward on the first. The panel lists each page's recent
+ * addresses on that page's tab, and a click opens one again in its page.
  *
  * Shown on purpose:
  * - the `browser` permission and `tf.browser`: Tilefold draws the window and
@@ -29,10 +30,15 @@
  *   showing just the first address;
  * - errors are told apart by their `name`, not their message.
  *
+ * Modified 2026-10-17 (each tab's panel lists its own pages): recent
+ * addresses keep their browser page, and the panel's rows say which.
+ *
+ * Last updated by: Tilefold
+ *
  * Build:  npx @tilefold/tile-tools build
  */
 import { planPages, readAddresses } from "./addresses.js";
-import { ROW_PREFIX, errorKey, panelRows, readRecent, remember } from "./recent.js";
+import { errorKey, panelRows, readRecent, readRowId, remember } from "./recent.js";
 
 export default (tf) => {
   /** Recent pages, newest first (read from the store when Tilefold is ready). */
@@ -138,17 +144,24 @@ export default (tf) => {
     await showPanel();
   });
 
-  // Each page the window lands on goes to the top of the list.
-  tf.on("browser.navigated", async ({ url, title }) => {
-    const next = remember(recent, { url, title });
+  // Each page the browser lands on goes to the top of the list, with the
+  // browser page it was in (none named: the first page).
+  tf.on("browser.navigated", async ({ url, title, page }) => {
+    const next = remember(recent, { url, title, page });
     if (next === recent) return;
     recent = next;
     await tf.store.set("recent", recent);
     await showPanel();
   });
 
+  // A recent address opens again in the browser page it was seen in.
   tf.on("panel.click", ({ row }) => {
-    if (row.startsWith(ROW_PREFIX)) void steer((b) => b.open(row.slice(ROW_PREFIX.length)));
+    const hit = readRowId(row);
+    if (!hit) return;
+    void steer((b) => {
+      const target = hit.page && typeof b.page === "function" ? b.page(hit.page) : b;
+      return open(target, hit.url);
+    });
   });
 
   tf.on("setting.changed", ({ key }) => {

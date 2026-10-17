@@ -11,6 +11,10 @@
  * Types only: nothing here runs, and the build strips it away. `net`,
  * `auth`, `ai`, `page`, `panel`, `pane`, `fs`, `viewer` and `browser` are optional because an
  * older Tilefold doesn't have them; check before use.
+ *
+ * Modified 2026-10-17 (panel rows per tab): a panel row's `page`.
+ *
+ * Last updated by: Tilefold
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -134,6 +138,12 @@ export interface PanelRow {
   trail?: string;
   /** A pulsing dot: something is happening now (Tilefold 0.1.11). */
   pulse?: boolean;
+  /**
+   * The tile's browser page the row belongs to: a page name (as in
+   * `tf.browser.page(name)`), or "" for the first page. Each tab's panel
+   * then lists only the rows for the pages docked there (Tilefold 0.1.11).
+   */
+  page?: string;
 }
 
 /** The page a tile's browser window shows. */
