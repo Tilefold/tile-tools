@@ -5,7 +5,7 @@
 
 tile-name = 웹 미리보기(예제)
 tile-description = 만들고 있는 웹 앱(예: localhost:5173)을 창 옆의 브라우저 창에 보여 주고, 최근에 연 페이지를 나열합니다.
-setting-address = 열 포트 또는 주소(쉼표로 구분, 하나마다 페이지 하나: 5173, 3000 또는 staging.example.com)
+setting-address = 열 localhost 포트(쉼표로 구분). 각각 localhost:포트를 별도 페이지로 엽니다(5173, 3000). staging.example.com 같은 전체 주소도 됩니다.
 setting-docked = 창 옆에 표시(끄면: 별도 창)
 setting-panel = 최근 페이지를 창 옆에 표시
 cmd-open = 웹 미리보기: 열기

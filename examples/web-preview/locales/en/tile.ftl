@@ -5,7 +5,7 @@
 
 tile-name = Web Preview (example)
 tile-description = Shows the web app you're building, such as localhost:5173, in a browser window next to your panes, and lists the pages you opened recently.
-setting-address = Ports or addresses to open, separated by commas: one page each (5173, 3000 or staging.example.com)
+setting-address = Ports on localhost to open, separated by commas: each opens localhost:PORT in a page of its own (5173, 3000). Full addresses such as staging.example.com work too.
 setting-docked = Show beside the panes (off: in a window of its own)
 setting-panel = Show recent pages beside the panes
 cmd-open = Web Preview: Open

@@ -5,7 +5,7 @@
 
 tile-name = Prévia web (exemplo)
 tile-description = Mostra o app web que você está criando, como localhost:5173, em uma janela de navegador ao lado dos seus painéis, e lista as páginas abertas recentemente.
-setting-address = Portas ou endereços a abrir, separados por vírgulas: uma página cada (5173, 3000 ou staging.example.com)
+setting-address = Portas do localhost a abrir, separadas por vírgulas: cada uma abre localhost:PORTA em uma página própria (5173, 3000). Endereços completos como staging.example.com também funcionam.
 setting-docked = Mostrar ao lado dos painéis (desligado: em uma janela própria)
 setting-panel = Mostrar páginas recentes ao lado dos painéis
 cmd-open = Prévia web: Abrir
