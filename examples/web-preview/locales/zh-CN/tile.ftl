@@ -5,7 +5,7 @@
 
 tile-name = 网页预览(示例)
 tile-description = 在窗格旁的浏览器窗口中显示你正在构建的网页应用(例如 localhost:5173),并列出最近打开的页面。
-setting-address = 要打开的地址，用逗号分隔，每个地址一个页面（localhost:5173, localhost:3000）
+setting-address = 要打开的端口或地址，用逗号分隔，每个一个页面（5173、3000 或 staging.example.com）
 setting-docked = 在窗格旁显示(关闭时:在单独的窗口中)
 setting-panel = 在窗格旁显示最近的页面
 cmd-open = 网页预览:打开

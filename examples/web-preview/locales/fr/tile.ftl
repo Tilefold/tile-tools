@@ -5,7 +5,7 @@
 
 tile-name = Aperçu web (exemple)
 tile-description = Affiche l’application web que vous construisez, par exemple localhost:5173, dans une fenêtre de navigateur à côté de vos volets, et liste les pages ouvertes récemment.
-setting-address = Adresses à ouvrir, séparées par des virgules : une page chacune (localhost:5173, localhost:3000)
+setting-address = Ports ou adresses à ouvrir, séparés par des virgules : une page chacun (5173, 3000 ou staging.example.com)
 setting-docked = Afficher à côté des volets (désactivé : dans sa propre fenêtre)
 setting-panel = Afficher les pages récentes à côté des volets
 cmd-open = Aperçu web : Ouvrir

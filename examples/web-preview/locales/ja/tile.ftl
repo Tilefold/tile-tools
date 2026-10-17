@@ -5,7 +5,7 @@
 
 tile-name = Web プレビュー(例)
 tile-description = 作成中の Web アプリ(localhost:5173 など)をペインの横のブラウザウィンドウに表示し、最近開いたページを一覧にします。
-setting-address = 開くアドレス（カンマ区切り、1 つにつき 1 ページ。例: localhost:5173, localhost:3000）
+setting-address = 開くポートまたはアドレス（カンマ区切り、1 つにつき 1 ページ。例: 5173, 3000, staging.example.com）
 setting-docked = ペインの横に表示(オフ: 専用のウィンドウ)
 setting-panel = 最近のページをペインの横に表示
 cmd-open = Web プレビュー: 開く

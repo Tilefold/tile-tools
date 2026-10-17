@@ -18,7 +18,12 @@
  * page per tile opens the first and says why.
  */
 import { fileURLToPath } from "node:url";
-import { MAX_PAGES, planPages, readAddresses } from "../examples/web-preview/src/addresses.js";
+import {
+  MAX_PAGES,
+  expandAddress,
+  planPages,
+  readAddresses,
+} from "../examples/web-preview/src/addresses.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTile } from "./fake-host.mjs";
 import {
@@ -112,6 +117,17 @@ describe("the addresses", () => {
       "localhost:3000",
       "api.test",
     ]);
+    // A port alone is that port on this computer.
+    expect(readAddresses("5173, :3000, 8080/x, 0, 70000")).toEqual([
+      "localhost:5173",
+      "localhost:3000",
+      "8080/x",
+      "0",
+      "70000",
+    ]);
+    // The same page written two ways opens once.
+    expect(readAddresses("3000 localhost:3000")).toEqual(["localhost:3000"]);
+    expect(expandAddress("api.test")).toBe("api.test");
     expect(readAddresses("")).toEqual([]);
     expect(readAddresses(null)).toEqual([]);
     const many = Array.from({ length: MAX_PAGES + 3 }, (_, i) => `localhost:${3000 + i}`);
@@ -209,7 +225,7 @@ describe("the tile", () => {
   });
 
   it("opens one page per address, and moves, reloads and closes them together", async () => {
-    const host = await ready({ settings: { address: "localhost:5173, localhost:3000" } });
+    const host = await ready({ settings: { address: "5173, 3000" } });
     await host.command("open");
     await host.advance(0);
     expect(host.browser.calls[0]).toEqual(["open", "localhost:5173", { docked: true }]);

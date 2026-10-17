@@ -7,7 +7,7 @@
  *
  * Shows the web app you're building beside your panes, or in a window of
  * its own if you prefer (a setting). "Web Preview: Open" opens the address
- * from its settings (`localhost:5173` unless you change it); after that,
+ * from its settings (port 5173 on this computer unless you change it); after that,
  * type any address in Tilefold's bar above the page. "Web Preview: Beside
  * the panes or in a window" moves it between the two. Pages you open are
  * remembered, and a panel docked beside the panes lists the recent ones:
@@ -65,7 +65,7 @@ export default (tf) => {
     }
   }
 
-  tf.setting("address", "localhost:5173", tf.t("setting-address"));
+  tf.setting("address", "5173", tf.t("setting-address"));
   tf.setting("docked", true, tf.t("setting-docked"));
   tf.setting("panel", true, tf.t("setting-panel"));
 

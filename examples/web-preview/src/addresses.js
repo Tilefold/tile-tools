@@ -7,6 +7,8 @@
  *
  * The address setting may hold several addresses, separated by commas,
  * spaces or new lines (`localhost:5173, localhost:3000`): one page each.
+ * A port alone (`3000`, or `:3000`) means that port on this computer
+ * (`localhost:3000`), so `5173, 3000` is enough.
  * The first opens on the tile's first page (`tf.browser`); every other one
  * on a page of its own (`tf.browser.page(name)`), named after its port
  * ("3000"), or after its host when it has none, so AI agents and the user
@@ -19,13 +21,23 @@ export const MAX_PAGES = 6;
 /** Longest page name Tilefold accepts. */
 const MAX_NAME = 32;
 
+/** A port alone (1 to 65535, with or without a leading colon). */
+const PORT_ONLY = /^:?(\d{1,5})$/;
+
+/** `text` as an address: a port alone becomes that port on localhost. */
+export function expandAddress(text) {
+  const port = PORT_ONLY.exec(text)?.[1];
+  if (port && Number(port) >= 1 && Number(port) <= 65535) return `localhost:${Number(port)}`;
+  return text;
+}
+
 /** The addresses in the setting, trimmed, once each, at most MAX_PAGES. */
 export function readAddresses(value) {
   if (typeof value !== "string") return [];
   const seen = new Set();
   const out = [];
   for (const part of value.split(/[\s,]+/)) {
-    const address = part.trim();
+    const address = expandAddress(part.trim());
     if (!address || seen.has(address.toLowerCase())) continue;
     seen.add(address.toLowerCase());
     out.push(address);
