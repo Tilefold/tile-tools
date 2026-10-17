@@ -5,7 +5,7 @@
 
 tile-name = 웹 미리보기(예제)
 tile-description = 만들고 있는 웹 앱(예: localhost:5173)을 창 옆의 브라우저 창에 보여 주고, 최근에 연 페이지를 나열합니다.
-setting-address = 열 주소
+setting-address = 열 주소(쉼표로 구분, 주소마다 페이지 하나: localhost:5173, localhost:3000)
 setting-docked = 창 옆에 표시(끄면: 별도 창)
 setting-panel = 최근 페이지를 창 옆에 표시
 cmd-open = 웹 미리보기: 열기
@@ -21,3 +21,4 @@ recent-cleared = 최근 페이지를 지웠습니다.
 error-no-browser = 이 Tilefold는 아직 타일용 브라우저를 열 수 없습니다. 웹 미리보기를 사용하려면 Tilefold를 업데이트하세요.
 error-refused = 웹 미리보기에서 열 수 없습니다: { $reason }
 error-failed = 미리보기 창에 문제가 생겼습니다. 다시 시도하세요.
+error-one-page = 이 Tilefold는 한 번에 한 페이지만 보여 주므로 Web Preview가 첫 번째 주소만 열었습니다. 모두 열려면 Tilefold를 업데이트하세요.

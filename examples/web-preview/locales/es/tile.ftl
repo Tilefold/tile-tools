@@ -5,7 +5,7 @@
 
 tile-name = Vista previa web (ejemplo)
 tile-description = Muestra la aplicación web que estás creando, como localhost:5173, en una ventana de navegador junto a tus paneles, y enumera las páginas que abriste hace poco.
-setting-address = Dirección que abrir
+setting-address = Direcciones que abrir, separadas por comas: una página cada una (localhost:5173, localhost:3000)
 setting-docked = Mostrar junto a los paneles (desactivado: en su propia ventana)
 setting-panel = Mostrar las páginas recientes junto a los paneles
 cmd-open = Vista previa web: Abrir
@@ -21,3 +21,4 @@ recent-cleared = Páginas recientes olvidadas.
 error-no-browser = Este Tilefold aún no puede abrir un navegador para los tiles. Actualiza Tilefold para usar la vista previa web.
 error-refused = La vista previa web no pudo abrir eso: { $reason }
 error-failed = Algo salió mal con la ventana de vista previa. Inténtalo de nuevo.
+error-one-page = Este Tilefold muestra una página a la vez, así que Web Preview solo abrió la primera dirección. Actualiza Tilefold para abrirlas todas.

@@ -13,16 +13,25 @@
  * remembered, and a panel docked beside the panes lists the recent ones:
  * click one to open it again.
  *
+ * Several addresses (`localhost:5173, localhost:3000`) open several pages
+ * at once, one per address: the first on the tile's first page, each other
+ * on a page named after its port (`tf.browser.page("3000")`). Docked, they
+ * stack beside the panes. Open, Move, Reload and Close act on every page;
+ * Back and Forward on the first; a click in the panel opens the first.
+ *
  * Shown on purpose:
  * - the `browser` permission and `tf.browser`: Tilefold draws the window and
  *   its bar and checks every address; the tile only steers it and hears
  *   where it went (`browser.navigated`), never what the page shows;
  * - `tf.browser` (and `tf.panel`) are missing on an older Tilefold, so the
  *   tile says so instead of failing;
+ * - several pages at once (`tf.browser.page`), and a Tilefold without them
+ *   showing just the first address;
  * - errors are told apart by their `name`, not their message.
  *
  * Build:  npx @tilefold/tile-tools build
  */
+import { planPages, readAddresses } from "./addresses.js";
 import { ROW_PREFIX, errorKey, panelRows, readRecent, remember } from "./recent.js";
 
 export default (tf) => {
@@ -60,31 +69,59 @@ export default (tf) => {
   tf.setting("docked", true, tf.t("setting-docked"));
   tf.setting("panel", true, tf.t("setting-panel"));
 
-  /** Opens `url` where the settings say (beside the panes, or a window). */
+  /** Opens `url` in page `b` where the settings say (beside the panes, or a window). */
   const open = (b, url) => b.open(url, { docked: tf.settings.get("docked") === true });
 
-  tf.command(
-    tf.t("cmd-open"),
-    () => void steer((b) => open(b, String(tf.settings.get("address")))),
-    {
-      id: "open",
-    },
-  );
-  // Moves an open page between the dock and a window; opens it docked when closed.
+  /**
+   * The pages for the addresses in the settings, each with its browser
+   * (`b`). A Tilefold that opens one page at a time gets just the first
+   * address, and the user is told why.
+   */
+  async function pages(b) {
+    const planned = planPages(readAddresses(String(tf.settings.get("address"))));
+    if (typeof b.page === "function") {
+      return planned.map((p) => ({ ...p, b: p.page ? b.page(p.page) : b }));
+    }
+    if (planned.length > 1) await tf.toast(tf.t("error-one-page"));
+    return planned.slice(0, 1).map((p) => ({ ...p, b }));
+  }
+
+  /** Runs `step` on every page of the addresses in the settings. */
+  const eachPage = (step) =>
+    steer(async (b) => {
+      for (const p of await pages(b)) await step(p);
+    });
+
+  tf.command(tf.t("cmd-open"), () => void eachPage((p) => open(p.b, p.address)), {
+    id: "open",
+  });
+  // Moves the pages between the dock and a window (all the way the first
+  // goes); opens a closed one docked.
   tf.command(
     tf.t("cmd-move"),
     () =>
       void steer(async (b) => {
-        const page = await b.info();
-        if (!page) await b.open(String(tf.settings.get("address")), { docked: true });
-        else await b.dock(!page.docked);
+        const first = await b.info();
+        const docked = first ? !first.docked : true;
+        for (const p of await pages(b)) {
+          const now = await p.b.info();
+          if (!now) await p.b.open(p.address, { docked: true });
+          else if (now.docked !== docked) await p.b.dock(docked);
+        }
       }),
     { id: "move" },
   );
-  tf.command(tf.t("cmd-reload"), () => void steer((b) => b.reload()), { id: "reload" });
+  tf.command(
+    tf.t("cmd-reload"),
+    () =>
+      void eachPage(async (p) => {
+        if (await p.b.info()) await p.b.reload();
+      }),
+    { id: "reload" },
+  );
   tf.command(tf.t("cmd-back"), () => void steer((b) => b.back()), { id: "back" });
   tf.command(tf.t("cmd-forward"), () => void steer((b) => b.forward()), { id: "forward" });
-  tf.command(tf.t("cmd-close"), () => void steer((b) => b.close()), { id: "close" });
+  tf.command(tf.t("cmd-close"), () => void eachPage((p) => p.b.close()), { id: "close" });
   tf.command(
     tf.t("cmd-clear"),
     async () => {

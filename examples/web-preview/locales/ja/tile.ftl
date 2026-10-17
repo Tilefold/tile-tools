@@ -5,7 +5,7 @@
 
 tile-name = Web プレビュー(例)
 tile-description = 作成中の Web アプリ(localhost:5173 など)をペインの横のブラウザウィンドウに表示し、最近開いたページを一覧にします。
-setting-address = 開くアドレス
+setting-address = 開くアドレス（カンマ区切り、1 つにつき 1 ページ。例: localhost:5173, localhost:3000）
 setting-docked = ペインの横に表示(オフ: 専用のウィンドウ)
 setting-panel = 最近のページをペインの横に表示
 cmd-open = Web プレビュー: 開く
@@ -21,3 +21,4 @@ recent-cleared = 最近のページを消去しました。
 error-no-browser = この Tilefold はまだタイル用のブラウザを開けません。Web プレビューを使うには Tilefold を更新してください。
 error-refused = Web プレビューで開けませんでした: { $reason }
 error-failed = プレビューウィンドウで問題が起きました。もう一度お試しください。
+error-one-page = この Tilefold は一度に 1 ページしか表示できないため、Web Preview は最初のアドレスだけを開きました。すべて開くには Tilefold を更新してください。

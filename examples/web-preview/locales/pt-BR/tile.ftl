@@ -5,7 +5,7 @@
 
 tile-name = Prévia web (exemplo)
 tile-description = Mostra o app web que você está criando, como localhost:5173, em uma janela de navegador ao lado dos seus painéis, e lista as páginas abertas recentemente.
-setting-address = Endereço a abrir
+setting-address = Endereços a abrir, separados por vírgulas: uma página cada (localhost:5173, localhost:3000)
 setting-docked = Mostrar ao lado dos painéis (desligado: em uma janela própria)
 setting-panel = Mostrar páginas recentes ao lado dos painéis
 cmd-open = Prévia web: Abrir
@@ -21,3 +21,4 @@ recent-cleared = Páginas recentes esquecidas.
 error-no-browser = Este Tilefold ainda não pode abrir um navegador para tiles. Atualize o Tilefold para usar a prévia web.
 error-refused = A prévia web não conseguiu abrir isso: { $reason }
 error-failed = Algo deu errado com a janela de prévia. Tente de novo.
+error-one-page = Este Tilefold mostra uma página por vez, então o Web Preview abriu só o primeiro endereço. Atualize o Tilefold para abrir todos.

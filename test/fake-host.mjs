@@ -38,14 +38,20 @@
  * lengths). `browser: true` adds `tf.browser` (`host.browser` keeps
  * `open`, `docked`, the `url` shown, and every call in `calls`; `host.visit(url,
  * title)` plays a page load and fires `browser.navigated`, and
- * `host.closeBrowser()` plays the user closing it). An address with an
- * unsafe scheme is refused with `BrowserError`, as in Tilefold.
+ * `host.closeBrowser()` plays the user closing it). `tf.browser.page(name)`
+ * is another page of the tile (Tilefold 0.1.11), kept in
+ * `host.browser.pages[name]` with the same fields; `host.visit(url, title,
+ * name)` and `host.closeBrowser(name)` play its events, which carry
+ * `page: name` (`browser: "one-page"` leaves `page()` out, as an earlier
+ * Tilefold). An address with an unsafe scheme is refused with
+ * `BrowserError`, as in Tilefold.
  *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { addBrowser } from "./fake-browser.mjs";
 import { pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
@@ -249,7 +255,7 @@ export async function startTile(dir, opts = {}) {
   if (opts.folders) addFolders(tf, host, opts.folders, named);
   if (opts.page) addPage(tf, host, { dock: opts.page === "dock" });
   if (opts.panel) addPanel(tf, host, named);
-  if (opts.browser) addBrowser(tf, host, named);
+  if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;
@@ -428,82 +434,5 @@ function addPanel(tf, host, named) {
       host.panel.content = null;
       return null;
     },
-  };
-}
-
-/** `tf.browser`, keeping what the window shows and every call. */
-function addBrowser(tf, host, named) {
-  host.browser = { open: false, docked: false, url: "about:blank", title: "", calls: [] };
-  const address = (text) => {
-    if (/^\s*(javascript|data|file|about|blob):/i.test(text)) {
-      throw named("BrowserError", "only http and https pages open here");
-    }
-    return /^https?:\/\//i.test(text) ? text : `http://${text}`;
-  };
-  const need = () => {
-    if (!host.browser.open) throw named("BrowserError", "the browser is not open");
-  };
-  const page = () => ({
-    url: host.browser.url,
-    title: host.browser.title,
-    docked: host.browser.docked,
-  });
-  tf.browser = {
-    async open(url, options) {
-      host.browser.calls.push(options === undefined ? ["open", url] : ["open", url, options]);
-      if (url !== undefined && url !== null) host.browser.url = address(url);
-      if (options !== undefined && options !== null && typeof options !== "object") {
-        throw named("TypeError", "options must be an object");
-      }
-      if (typeof options?.docked === "boolean") host.browser.docked = options.docked;
-      else if (!host.browser.open) host.browser.docked = false;
-      host.browser.open = true;
-      return page();
-    },
-    async dock(docked) {
-      host.browser.calls.push(["dock", docked]);
-      if (typeof docked !== "boolean") throw named("TypeError", "dock takes true or false");
-      need();
-      host.browser.docked = docked;
-      return null;
-    },
-    async go(url) {
-      host.browser.calls.push(["go", url]);
-      need();
-      host.browser.url = address(url);
-      return null;
-    },
-    async back() {
-      host.browser.calls.push(["back"]);
-      need();
-      return null;
-    },
-    async forward() {
-      host.browser.calls.push(["forward"]);
-      need();
-      return null;
-    },
-    async reload() {
-      host.browser.calls.push(["reload"]);
-      need();
-      return null;
-    },
-    async close() {
-      host.browser.calls.push(["close"]);
-      host.browser.open = false;
-      return null;
-    },
-    async info() {
-      return host.browser.open ? page() : null;
-    },
-  };
-  host.visit = async (url, title = "") => {
-    host.browser.url = url;
-    host.browser.title = title;
-    await host.emit("browser.navigated", { url, title });
-  };
-  host.closeBrowser = async () => {
-    host.browser.open = false;
-    await host.emit("browser.closed", { url: host.browser.url });
   };
 }

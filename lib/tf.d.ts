@@ -94,10 +94,13 @@ export interface TileEventPayloads {
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
   /** The tile's panel was closed by the user, or replaced by another tile's. */
   "panel.closed": { by: "user" | "replaced" };
-  /** The tile's browser finished loading a page, or its title changed (needs browser). */
-  "browser.navigated": { url: string; title: string };
-  /** The user closed the tile's browser window (needs browser). */
-  "browser.closed": { url: string };
+  /**
+   * The tile's browser finished loading a page, or its title changed (needs
+   * browser). `page` names which of the tile's pages, for a named one.
+   */
+  "browser.navigated": { url: string; title: string; page?: string };
+  /** The user closed one of the tile's browser pages (needs browser). */
+  "browser.closed": { url: string; page?: string };
 }
 
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
@@ -139,6 +142,23 @@ export interface BrowserPage {
   title: string;
   /** Beside the panes (true) or in a window of its own (Tilefold 0.1.11). */
   docked?: boolean;
+  /** The page's name, for a named page (`tf.browser.page(name)`). */
+  page?: string;
+}
+
+/** One browser page of a tile: the first (`tf.browser`) or a named one. */
+export interface BrowserPageApi {
+  /** `{ docked: true }` shows it beside the panes (Tilefold 0.1.11); left out, a window. */
+  open(url?: string, options?: { docked?: boolean }): Promise<BrowserPage>;
+  /** Moves an open page beside the panes (true) or into a window of its own. */
+  dock(docked: boolean): Promise<null>;
+  go(url: string): Promise<null>;
+  back(): Promise<null>;
+  forward(): Promise<null>;
+  reload(): Promise<null>;
+  close(): Promise<null>;
+  /** What the page shows, or null when it is closed. */
+  info(): Promise<BrowserPage | null>;
 }
 
 /** What `tf.panel.show` takes. */
@@ -379,19 +399,15 @@ export interface Tf {
    * it went. `open` without an address shows it empty, waiting for one. A
    * refused address rejects with a BrowserError. Missing before Tilefold
    * 0.1.11.
+   *
+   * `tf.browser` is the tile's first page; `page(name)` is another, so a
+   * tile can keep several open at once (say one per port of the app it
+   * previews). Names are 1 to 32 lowercase letters, digits and dashes
+   * ("3000", "api"); a bad one throws a TypeError.
    */
-  readonly browser?: {
-    /** `{ docked: true }` shows it beside the panes (Tilefold 0.1.11); left out, a window. */
-    open(url?: string, options?: { docked?: boolean }): Promise<BrowserPage>;
-    /** Moves an open page beside the panes (true) or into a window of its own. */
-    dock(docked: boolean): Promise<null>;
-    go(url: string): Promise<null>;
-    back(): Promise<null>;
-    forward(): Promise<null>;
-    reload(): Promise<null>;
-    close(): Promise<null>;
-    /** What the window shows, or null when it is closed. */
-    info(): Promise<BrowserPage | null>;
+  readonly browser?: BrowserPageApi & {
+    /** The tile's page called `name`, with the same methods. */
+    page(name: string): BrowserPageApi;
   };
   /**
    * Needs window.panel. A panel docked beside the panes, drawn by Tilefold

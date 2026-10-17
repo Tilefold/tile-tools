@@ -43,7 +43,7 @@ Every limit Tilefold puts on a tile, and every error name a `tf` call can fail w
 | `tf.net.fetch` | `https` on port 443 only; URL 8 KB; 64 headers, each value 8 KB; body 1 MB; answer 4 MB; 30 seconds; 5 redirects; 4 at once and 60 a minute |
 | `tf.ai.ask` | 1–50 messages; 200,000 characters; `maxTokens` 1–16,000 (default 4,096); 50,000 tokens per tile per day (UTC); a question waits at most 5 minutes for the user; an answer at most 2 minutes |
 | `tf.panel.show` | 5,000 rows; title 120 characters, subtitle 512, labels 256, row ids 1,024 (unique), hints 512; 30 a second |
-| `tf.browser` | `http` and `https` addresses only, without a user name or password; 4,096 characters; one window per tile |
+| `tf.browser` | `http` and `https` addresses only, without a user name or password; 4,096 characters; one window or docked view per page; page names 1 to 32 lowercase letters, digits and dashes |
 | `tf.fs.list`, `tf.viewer.open` | Paths inside a folder one of the user's panes is in; path 4,096 characters; 2,000 entries a listing; 60 calls (both together) in any 10 seconds |
 | Sign-in (`oauth2-pkce`) | 5 minutes in the browser |
 

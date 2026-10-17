@@ -12,9 +12,13 @@
  * window, the other commands steer the page, pages the window lands on are remembered (newest first, once
  * each) and listed in the docked panel, a click on a row opens that page,
  * the list survives a restart and can be forgotten, refusals and an older
- * Tilefold become notices.
+ * Tilefold become notices. Several addresses open one page each (the
+ * first on the tile's first page, the others named after their ports),
+ * which the commands move, reload and close together; a Tilefold with one
+ * page per tile opens the first and says why.
  */
 import { fileURLToPath } from "node:url";
+import { MAX_PAGES, planPages, readAddresses } from "../examples/web-preview/src/addresses.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTile } from "./fake-host.mjs";
 import {
@@ -101,6 +105,42 @@ describe("recent pages", () => {
   });
 });
 
+describe("the addresses", () => {
+  it("reads several, separated by commas, spaces or lines, once each", () => {
+    expect(readAddresses("localhost:5173, localhost:3000\nlocalhost:5173  api.test")).toEqual([
+      "localhost:5173",
+      "localhost:3000",
+      "api.test",
+    ]);
+    expect(readAddresses("")).toEqual([]);
+    expect(readAddresses(null)).toEqual([]);
+    const many = Array.from({ length: MAX_PAGES + 3 }, (_, i) => `localhost:${3000 + i}`);
+    expect(readAddresses(many.join(","))).toHaveLength(MAX_PAGES);
+  });
+
+  it("puts the first on the first page and names the others", () => {
+    expect(
+      planPages([
+        "localhost:5173",
+        "localhost:3000",
+        "http://localhost:3000/admin",
+        "api.example.test",
+        "https://Staging_Box.local",
+      ]),
+    ).toEqual([
+      { address: "localhost:5173", page: null },
+      { address: "localhost:3000", page: "3000" },
+      { address: "http://localhost:3000/admin", page: "3000-2" },
+      { address: "api.example.test", page: "api" },
+      { address: "https://Staging_Box.local", page: "staging-box" },
+    ]);
+    expect(planPages([])).toEqual([]);
+    for (const { page } of planPages(["a", `x${"y".repeat(50)}.test`, "%%"])) {
+      if (page) expect(page).toMatch(/^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/);
+    }
+  });
+});
+
 describe("the tile", () => {
   /** The tile on a Tilefold with browser and panel, ready. */
   async function ready(opts = {}) {
@@ -166,6 +206,40 @@ describe("the tile", () => {
       "forward",
       "close",
     ]);
+  });
+
+  it("opens one page per address, and moves, reloads and closes them together", async () => {
+    const host = await ready({ settings: { address: "localhost:5173, localhost:3000" } });
+    await host.command("open");
+    await host.advance(0);
+    expect(host.browser.calls[0]).toEqual(["open", "localhost:5173", { docked: true }]);
+    const api = host.browser.pages["3000"];
+    expect(api.calls[0]).toEqual(["open", "localhost:3000", { docked: true }]);
+    expect(api.open && api.docked).toBe(true);
+    await host.command("move");
+    await host.advance(0);
+    expect([host.browser.docked, api.docked]).toEqual([false, false]);
+    await host.command("reload");
+    await host.advance(0);
+    expect(api.calls.at(-1)).toEqual(["reload"]);
+    await host.command("close");
+    await host.advance(0);
+    expect([host.browser.open, api.open]).toEqual([false, false]);
+    // A named page's visits are remembered too.
+    await host.visit("http://localhost:3000/health", "API", "3000");
+    await host.advance(0);
+    expect(host.panel.content.rows.some((r) => r.id.endsWith("localhost:3000/health"))).toBe(true);
+  });
+
+  it("opens only the first address on a Tilefold with one page per tile, and says why", async () => {
+    const host = await ready({
+      browser: "one-page",
+      settings: { address: "localhost:5173, localhost:3000" },
+    });
+    await host.command("open");
+    await host.advance(0);
+    expect(host.browser.calls).toEqual([["open", "localhost:5173", { docked: true }]]);
+    expect(host.toasts.at(-1)).toMatch(/one page at a time/);
   });
 
   it("lists pages it lands on in the panel, and a click opens one", async () => {

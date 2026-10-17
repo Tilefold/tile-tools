@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1354%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-17-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1358%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-17-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -219,7 +219,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1354 tests in 63 files, all passing on 2026-10-16).
+Run with `npm test` (1358 tests in 63 files, all passing on 2026-10-16).
 
 | Area | Covers |
 |---|---|
@@ -227,7 +227,7 @@ Run with `npm test` (1354 tests in 63 files, all passing on 2026-10-16).
 | Bundling | Entry choice, local imports, npm packages, TypeScript, tree-shaking, the notice on top, export rewriting, errors with their place, minify, page scripts |
 | Commands and CLI | build, `--watch`, `--check`, validate, help, version, bad arguments and exit codes |
 | Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command) against the fake host |
-| Fake host | The fake Tilefold behaves like the real one for settings, strings, storage, overlays, panels, pages, browsers, sounds, network, keys, AI and folders |
+| Fake host | The fake Tilefold behaves like the real one for settings, strings, storage, overlays, panels, pages, browsers (several pages per tile), sounds, network, keys, AI and folders |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
 | Issue tracker | The issue forms parse, set one area, one type and `status: triage` from `labels.json`, and list every example tile; blank issues off; the label sync creates and corrects labels without deleting any, and a dry run changes nothing |
 | Package | Public and MIT-licensed, the right files exported and packed, the MIT line in every shipped file |

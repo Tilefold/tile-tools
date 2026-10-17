@@ -13,17 +13,69 @@
  * remembered, and a panel docked beside the panes lists the recent ones:
  * click one to open it again.
  *
+ * Several addresses (`localhost:5173, localhost:3000`) open several pages
+ * at once, one per address: the first on the tile's first page, each other
+ * on a page named after its port (`tf.browser.page("3000")`). Docked, they
+ * stack beside the panes. Open, Move, Reload and Close act on every page;
+ * Back and Forward on the first; a click in the panel opens the first.
+ *
  * Shown on purpose:
  * - the `browser` permission and `tf.browser`: Tilefold draws the window and
  *   its bar and checks every address; the tile only steers it and hears
  *   where it went (`browser.navigated`), never what the page shows;
  * - `tf.browser` (and `tf.panel`) are missing on an older Tilefold, so the
  *   tile says so instead of failing;
+ * - several pages at once (`tf.browser.page`), and a Tilefold without them
+ *   showing just the first address;
  * - errors are told apart by their `name`, not their message.
  *
  * Build:  npx @tilefold/tile-tools build
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
+// src/addresses.js
+var MAX_PAGES = 6;
+var MAX_NAME = 32;
+function readAddresses(value) {
+  if (typeof value !== "string") return [];
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const part of value.split(/[\s,]+/)) {
+    const address = part.trim();
+    if (!address || seen.has(address.toLowerCase())) continue;
+    seen.add(address.toLowerCase());
+    out.push(address);
+    if (out.length === MAX_PAGES) break;
+  }
+  return out;
+}
+function baseName(address) {
+  let url = null;
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(address) ? address : `http://${address}`);
+  } catch {
+  }
+  const raw = url ? url.port || url.hostname.split(".")[0] : address;
+  const name = String(raw).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, MAX_NAME).replace(/-+$/, "");
+  return name || "page";
+}
+function unique(base, taken) {
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) {
+    const suffix = `-${n}`;
+    const name = `${base.slice(0, MAX_NAME - suffix.length)}${suffix}`;
+    if (!taken.has(name)) return name;
+  }
+}
+function planPages(addresses) {
+  const taken = /* @__PURE__ */ new Set();
+  return addresses.map((address, i) => {
+    if (i === 0) return { address, page: null };
+    const page = unique(baseName(address), taken);
+    taken.add(page);
+    return { address, page };
+  });
+}
+
 // src/recent.js
 var MAX_RECENT = 12;
 var MAX_TITLE = 120;
@@ -86,26 +138,43 @@ var main_default = (tf) => {
   tf.setting("docked", true, tf.t("setting-docked"));
   tf.setting("panel", true, tf.t("setting-panel"));
   const open = (b, url) => b.open(url, { docked: tf.settings.get("docked") === true });
-  tf.command(
-    tf.t("cmd-open"),
-    () => void steer((b) => open(b, String(tf.settings.get("address")))),
-    {
-      id: "open"
+  async function pages(b) {
+    const planned = planPages(readAddresses(String(tf.settings.get("address"))));
+    if (typeof b.page === "function") {
+      return planned.map((p) => ({ ...p, b: p.page ? b.page(p.page) : b }));
     }
-  );
+    if (planned.length > 1) await tf.toast(tf.t("error-one-page"));
+    return planned.slice(0, 1).map((p) => ({ ...p, b }));
+  }
+  const eachPage = (step) => steer(async (b) => {
+    for (const p of await pages(b)) await step(p);
+  });
+  tf.command(tf.t("cmd-open"), () => void eachPage((p) => open(p.b, p.address)), {
+    id: "open"
+  });
   tf.command(
     tf.t("cmd-move"),
     () => void steer(async (b) => {
-      const page = await b.info();
-      if (!page) await b.open(String(tf.settings.get("address")), { docked: true });
-      else await b.dock(!page.docked);
+      const first = await b.info();
+      const docked = first ? !first.docked : true;
+      for (const p of await pages(b)) {
+        const now = await p.b.info();
+        if (!now) await p.b.open(p.address, { docked: true });
+        else if (now.docked !== docked) await p.b.dock(docked);
+      }
     }),
     { id: "move" }
   );
-  tf.command(tf.t("cmd-reload"), () => void steer((b) => b.reload()), { id: "reload" });
+  tf.command(
+    tf.t("cmd-reload"),
+    () => void eachPage(async (p) => {
+      if (await p.b.info()) await p.b.reload();
+    }),
+    { id: "reload" }
+  );
   tf.command(tf.t("cmd-back"), () => void steer((b) => b.back()), { id: "back" });
   tf.command(tf.t("cmd-forward"), () => void steer((b) => b.forward()), { id: "forward" });
-  tf.command(tf.t("cmd-close"), () => void steer((b) => b.close()), { id: "close" });
+  tf.command(tf.t("cmd-close"), () => void eachPage((p) => p.b.close()), { id: "close" });
   tf.command(
     tf.t("cmd-clear"),
     async () => {
