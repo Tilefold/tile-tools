@@ -102,7 +102,7 @@ Prefer keeping requests in the tile where you can. Tuneboard's page uses the tok
 
 ## 6. Give the page a web address (only if a player needs one)
 
-Some embedded players play only in a page that has an https web address. YouTube's stops with **error 153** in an ordinary tile page. From **Tilefold 0.1.9** on macOS, open the page with one:
+Some embedded players play only in a page that has an https web address. YouTube's stops with **error 153** in an ordinary tile page. From **Tilefold 0.1.10** on macOS, open the page with one (0.1.9 accepts `origin` but opens the page without a web address):
 
 ```js
 tf.command("Open", () => void tf.page.open({ origin: "https" }), { id: "open" });
@@ -129,3 +129,22 @@ Use `type="module"` (or put the script at the end of `<body>`): an inlined class
 A page's own requests go straight to the websites it may reach, so unlike `tf.net.fetch` they aren't logged one by one. A script loaded with a `script:` permission may run part of itself in a frame from its own website, and that frame follows its website's rules, not the tile's. Ask for a `script:` website only if you trust it.
 
 Every opening and closing is recorded as `tile.page.open` and `tile.page.close`, and a close button that only hid the window as `tile.page.hide`.
+
+## 7. Dock the page in Tilefold's window
+
+From **Tilefold 0.1.11**, a page can sit **inside Tilefold's window** instead of in a window of its own: a video next to the tile's card, say. Open it with a spot, in the window's content and in CSS pixels, like overlay items (120 to 2,000 pixels a side):
+
+```js
+await tf.page.open({ origin: "https", dock: { x: 600, y: 300, w: 356, h: 200 } });
+tf.on("overlay.layout", (layout) => void tf.page.dock(spotFor(layout)));
+```
+
+A docked page has no title bar or close button and doesn't take the keyboard when it opens; the user clicks into it to use it. It moves with Tilefold's window, and Tilefold hides it while its own interface covers the spot (the command palette, settings, menus) or the user hides tile overlays. Move it with `tf.page.dock(spot)` and close it with `tf.page.close()`. `tf.page.dock` is missing before 0.1.11, so check for it and fall back to a window of its own:
+
+```js
+const docked = typeof tf.page.dock === "function";
+await tf.page.open(docked ? { origin: "https", dock: spot } : { origin: "https" });
+```
+
+The **Watchpane** example docks YouTube's player this way, with its controls drawn as overlay items in a dock right under it. When the user drags that dock (`overlay.pointer` drag events), Watchpane moves the page with `tf.page.dock` on every move, so the video follows. The page itself can't be the drag handle, because a docked web page keeps the pointer.
+

@@ -1,0 +1,513 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Folder Tree's window — styles. Light and dark follow the system. Each
+ * action has a colour (read blue, edit amber, add green, delete red); the
+ * files agents are on now pulse. The recent list is pinned to the bottom
+ * and, showing all, grows upward to half the window, scrolling inside.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --fg: #1b1d22;
+  --muted: #6c7180;
+  --line: #e1e4ea;
+  --hover: #eef1f6;
+  --accent: #6d5dfc;
+  --read: #2f7de1;
+  --edit: #d48a0b;
+  --add: #1f9d55;
+  --delete: #d64545;
+  --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 4px 16px rgb(16 24 40 / 6%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111318;
+    --panel: #181b22;
+    --fg: #e8eaf0;
+    --muted: #8d93a3;
+    --line: #262a34;
+    --hover: #20242d;
+    --accent: #8b7dff;
+    --read: #5ea2ff;
+    --edit: #f0b03d;
+    --add: #3ccf7f;
+    --delete: #ff6b6b;
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 25%);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font:
+    13px/1.4 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ------------------------------------------------------------- header */
+
+.head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px 12px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 14%, var(--panel)),
+    var(--panel)
+  );
+  border-bottom: 1px solid var(--line);
+}
+
+.titles {
+  flex: 1;
+  min-width: 0;
+}
+
+h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.live::before {
+  width: 7px;
+  height: 7px;
+  content: "";
+  background: var(--muted);
+  border-radius: 50%;
+}
+
+.live.on {
+  color: var(--add);
+  border-color: color-mix(in srgb, var(--add) 40%, transparent);
+}
+
+.live.on::before {
+  background: var(--add);
+  animation: pulse 1.6s ease-out infinite;
+  --pulse: var(--add);
+}
+
+.ghost {
+  padding: 4px 10px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.ghost:hover {
+  background: var(--hover);
+}
+
+/* --------------------------------------------------------------- body */
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 10px;
+  overflow: auto;
+}
+
+.now {
+  margin-bottom: 14px;
+}
+
+/* Room for three cards whether or not agents are busy, so the tree below stays put. */
+.now .cards {
+  min-height: 132px;
+}
+
+.now .idle {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cards,
+.list,
+.tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cards {
+  display: grid;
+  gap: 6px;
+}
+
+.card .row {
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  text-align: start;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.row.muted,
+.row.note {
+  font-style: italic;
+  color: var(--muted);
+  cursor: default;
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.file,
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file {
+  font-weight: 600;
+}
+
+.dir {
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+}
+
+.doing {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pane {
+  padding: 0 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  border-radius: 999px;
+}
+
+.age,
+.count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* Action colours: the dot, the pane pill and a marked tree row's name. */
+.read {
+  --tone: var(--read);
+}
+
+.edit {
+  --tone: var(--edit);
+}
+
+.add {
+  --tone: var(--add);
+}
+
+.delete {
+  --tone: var(--delete);
+}
+
+.pane {
+  color: var(--tone, var(--accent));
+  background: color-mix(in srgb, var(--tone, var(--accent)) 15%, transparent);
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--tone, var(--accent));
+  border-radius: 50%;
+}
+
+.dot.live {
+  animation: pulse 1.6s ease-out infinite;
+  --pulse: var(--tone, var(--accent));
+}
+
+.node .row.read .name,
+.node .row.edit .name,
+.node .row.add .name {
+  color: color-mix(in srgb, var(--tone) 70%, var(--fg));
+}
+
+.node .row.delete .name {
+  color: var(--delete);
+  text-decoration: line-through;
+}
+
+.node .row.hot .name {
+  font-weight: 600;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pulse) 60%, transparent);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot.live,
+  .live.on::before {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------- tree */
+
+.node .row {
+  padding-inline-start: calc(6px + var(--depth, 0) * 16px);
+}
+
+.twisty {
+  flex: none;
+  width: 10px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.icon {
+  flex: none;
+  width: 14px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.icon.dir {
+  background: color-mix(in srgb, var(--accent) 55%, var(--muted));
+  clip-path: polygon(0 0, 40% 0, 50% 18%, 100% 18%, 100% 100%, 0 100%);
+}
+
+.icon.dir.open {
+  background: var(--accent);
+}
+
+.icon.file,
+.icon.link {
+  width: 10px;
+  margin-inline: 2px;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  clip-path: polygon(0 0, 70% 0, 100% 30%, 100% 100%, 0 100%);
+}
+
+.icon.note {
+  background: transparent;
+}
+
+.name {
+  flex: 1;
+}
+
+/* ------------------------------------------- recent, pinned to the bottom */
+
+.recent {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  padding: 10px 10px 8px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 20px -14px rgb(0 0 0 / 35%);
+}
+
+.recent-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.recent .list {
+  overflow: auto;
+}
+
+/* Showing all: up to half the window, then it scrolls inside. */
+.recent.all .list {
+  max-height: calc(50vh - 64px);
+}
+
+.empty {
+  padding: 4px 6px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.more {
+  position: sticky;
+  bottom: 0;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 8px;
+  color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.more:hover {
+  background: var(--hover);
+}
+
+/* -------------------------------------------------------------- setup */
+
+dialog {
+  max-width: min(520px, 92vw);
+  padding: 18px 20px;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+
+dialog h2 {
+  font-size: 13px;
+  color: var(--fg);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.steps {
+  padding-inline-start: 18px;
+}
+
+.command {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.command code {
+  flex: 1;
+  font:
+    12px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  overflow-wrap: anywhere;
+}
+
+.command button,
+dialog form button {
+  padding: 4px 12px;
+  color: #fff;
+  cursor: pointer;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+dialog form {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}

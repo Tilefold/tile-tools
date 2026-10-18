@@ -74,3 +74,4 @@ card-on-device = Su { $device }
 card-volume = { $volume }%
 card-muted = Muto
 button-volume = Volume: abbassa, disattiva o alza
+cmd-reset-position = Tuneboard: Riporta la scheda nel riquadro

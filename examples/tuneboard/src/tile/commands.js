@@ -13,7 +13,12 @@
  * installed together. Users can change any of them in Settings → Keyboard.
  * Playing in Tilefold itself (Tuneboard's own player page), stopping it,
  * the Library window and the card's playlist panel have no default keys;
- * users can give them one.
+ * users can give them one, and so has putting a dragged card back in the
+ * pane's corner.
+ *
+ * Modified 2026-10-14 (adds the command that puts a dragged card back in the pane).
+ *
+ * Last updated by: Tilefold
  */
 
 /**
@@ -76,6 +81,7 @@ export const COMMANDS = [
   { id: "stop-here", title: "cmd-stop-here", action: "stopHere" },
   { id: "library", title: "cmd-library", action: "library" },
   { id: "playlists", title: "cmd-playlists", action: "panel" },
+  { id: "reset-position", title: "cmd-reset-position", action: "resetPosition" },
 ];
 
 /**

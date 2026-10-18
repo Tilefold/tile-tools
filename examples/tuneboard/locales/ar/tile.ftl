@@ -74,3 +74,4 @@ card-on-device = على { $device }
 card-volume = { $volume }٪
 card-muted = مكتوم
 button-volume = مستوى الصوت: خفض أو كتم أو رفع
+cmd-reset-position = Tuneboard: إعادة البطاقة إلى اللوحة

@@ -25,8 +25,9 @@ npx @tilefold/tile-tools build
 | `weather-card` | Today's weather on a card, with an optional summary by Claude | 0.1.6 |
 | `pipeline-board` | Your CI pipelines on a card, with a sign-in | 0.1.6 |
 | `tuneboard` | A music player card with a sign-in and a page of its own | 0.1.7 |
-| `watchpane` | A video player in a page of its own | 0.1.9 |
-| `folder-tree` | The folder you're working in, as a tree docked beside your panes | 0.1.9 |
+| `watchpane` | A YouTube player over your panes, with a control dock under it that you can drag anywhere and a list of videos beside it (in a small window of its own before Tilefold 0.1.11) | 0.1.10 |
+| `folder-tree` | The folder you're working in, as a tree docked beside your panes, with what your coding agents are reading and changing in it and the recent files pinned at the bottom; also in a window of its own. Agents report through hooks in `hooks/` ([README](folder-tree/README.md)) | 0.1.9 (activity colours and pinned Recent: 0.1.11) |
+| `web-view` | The web app you're building, in a browser beside your panes: one page per address (say one per localhost port) | 0.1.11 |
 
 Each tile's commands are in the command palette under its name, and its settings in **Settings → Tiles**.
 

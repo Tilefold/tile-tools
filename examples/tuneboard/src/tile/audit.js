@@ -12,10 +12,15 @@
  * getting ready, failing (by Spotify's error kind), stopping or closing, and
  * the Library shown, its playlists loaded, one played (where, and whether
  * it worked) and its view changed, and the card's playlist panel opened or
- * closed. Never a token, a client id, a track title, a playlist
+ * closed, and the card dragged to a spot of its own or put back in the
+ * pane's corner. Never a token, a client id, a track title, a playlist
  * or anything else about what the user listens to: details are limited to
  * a known set of short keys. Every record is fire-and-forget, so a failing
  * log can never slow down or break the tile.
+ *
+ * Modified 2026-10-14 (records the card being moved or put back).
+ *
+ * Last updated by: Tilefold
  */
 
 /** The actions Tuneboard records, so the trail stays a known, small set. */
@@ -45,6 +50,8 @@ export const ACTIONS = Object.freeze([
   "library.view",
   "panel.show",
   "panel.hide",
+  "view.move",
+  "view.reset",
 ]);
 
 /**

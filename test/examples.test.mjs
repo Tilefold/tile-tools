@@ -91,6 +91,7 @@ describe("examples", () => {
       "tuneboard",
       "watchpane",
       "weather-card",
+      "web-view",
       "with-npm-package",
     ]);
   });
@@ -119,11 +120,11 @@ describe("examples", () => {
       const keys = Object.keys(manifest).filter((k) => k !== "permissions" && k !== "auth");
       expect(keys.sort()).toEqual(["description", "id", "name", "version"]);
       // Permissions, when asked for, each come with the reason shown to the user:
-      // window/sound/ai ones, `page`, or `net:` / `script:` with a public host.
+      // window/sound/ai ones, `page`, `browser`, or `net:` / `script:` with a public host.
       for (const p of manifest.permissions ?? []) {
         const [[name, reason]] = Object.entries(p);
         expect(name).toMatch(
-          /^(?:[a-z]+\.[a-z]+|page|(?:net|script):(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)$/,
+          /^(?:[a-z]+\.[a-z]+|page|browser|(?:net|script):(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)$/,
         );
         expect(reason.length).toBeGreaterThan(10);
       }

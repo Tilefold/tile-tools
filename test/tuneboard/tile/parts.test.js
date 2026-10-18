@@ -178,12 +178,13 @@ describe("commands", () => {
       expect(c.key.mac).toMatch(/^Ctrl\+Alt\+[A-Z]$/);
       expect(c.key.other).toBe(c.key.mac);
     }
-    // Playing in Tilefold, stopping it and the Library have no default keys.
+    // Playing in Tilefold, stopping it, the Library and putting the card back have no default keys.
     expect(COMMANDS.filter((c) => !c.key).map((c) => c.id)).toEqual([
       "play-here",
       "stop-here",
       "library",
       "playlists",
+      "reset-position",
     ]);
   });
 

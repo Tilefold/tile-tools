@@ -10,7 +10,8 @@
  * that came instead), open and close it. `treeRows` turns it into the rows
  * Tilefold draws in the panel (folders open or closed, files, links, and
  * quiet notes for loading, empty, cut-short and failed folders), plus a
- * map from each row's id to what it stands for, for clicks. No `tf` here,
+ * map from each row's id to what it stands for, for clicks; `decorate`
+ * may add to each folder and file row (the activity marks). No `tf` here,
  * so it is tested directly.
  *
  * Folders are kept by the path that was asked for; child paths are built
@@ -71,9 +72,10 @@ export const isLoaded = (tree, path) => path in tree.folders;
  * The panel rows for the tree, and `targets`: row id → { kind, path } for
  * folders, files and links (notes aren't clickable). `strings` holds the
  * notes' text (loading, empty, truncated, noFolder); `filters` what to
- * leave out (see tree.js).
+ * leave out (see tree.js); `decorate(row, { kind, path, open })`, when
+ * given, returns fields to add to a folder's or file's row.
  */
-export function treeRows(tree, { strings, filters }) {
+export function treeRows(tree, { strings, filters, decorate = null }) {
   const rows = [];
   const targets = new Map();
   const note = (key, depth, icon, label) =>
@@ -93,7 +95,7 @@ export function treeRows(tree, { strings, filters }) {
       const isOpen = tree.open.includes(child);
       // A link that turned out to be a folder opens like one.
       const folderLike = entry.kind === "dir" || (entry.kind === "link" && isLoaded(tree, child));
-      rows.push({
+      const row = {
         id: child,
         label: entry.name,
         icon: entry.kind === "dir" ? "folder" : entry.kind === "link" ? "link" : "file",
@@ -101,8 +103,10 @@ export function treeRows(tree, { strings, filters }) {
         expandable: folderLike,
         expanded: folderLike && isOpen,
         hint: child,
-      });
-      targets.set(child, { kind: folderLike ? "dir" : entry.kind, path: child });
+      };
+      const kind = folderLike ? "dir" : entry.kind;
+      rows.push(decorate ? { ...row, ...decorate(row, { kind, path: child, open: isOpen }) } : row);
+      targets.set(child, { kind, path: child });
       if (folderLike && isOpen) walk(child, depth + 1);
     }
     if (level.truncated) note(`${path}:truncated`, depth, "info", strings.truncated);

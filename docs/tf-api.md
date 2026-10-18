@@ -94,8 +94,11 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `page.message` | The tile's page sent a message (`window.tilefold.post`) | `{ message }` |
 | `page.closed` | The tile's page closed, whatever closed it | `{}` |
 | `pane.cwd` | The focused pane's folder changed: another pane or tab, or a `cd` (needs `pane.cwd`; Tilefold 0.1.9) | `{ path }`, `null` when none is known |
+| `pane.list` | A pane opened, closed, was renamed, moved folder or took focus (needs `pane.list`; Tilefold 0.1.11) | `{ panes }`: `[{ session, name, folder, focused }]` |
 | `panel.click` | A row of the tile's docked panel was clicked (needs `window.panel`; Tilefold 0.1.9) | `{ row, action }`, action `activate`, `expand` or `collapse` |
 | `panel.closed` | The user closed the tile's panel, or another tile's panel replaced it | `{ by }`, `user` or `replaced` |
+| `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
+| `browser.closed` | The user closed the tile's browser window | `{ url }` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 
@@ -179,15 +182,29 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 ## A web page of its own
 
-`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7). See [Tile pages](tile-pages.md).
+`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7); `tf.page.dock(spot)` moves a page docked in Tilefold's window (Tilefold 0.1.11). See [Tile pages](tile-pages.md).
 
 ## A docked panel
 
 `tf.panel.show({ title, subtitle, rows })` docks a panel beside the panes that Tilefold draws from your rows, and `tf.panel.hide()` takes it away (`window.panel`, Tilefold 0.1.9). See [Panels](panels.md).
 
+## A browser window
+
+`tf.browser.open(url?)` opens a browser window that Tilefold draws, with its own bar (address, back, forward, reload, open in the default browser) above the page, and resolves to `{ url, title }`. Any `http` or `https` address opens, local ones such as `localhost:5173` included: a bare local host gets `http://`, any other name `https://`. Without an address the window opens empty, waiting for the user to type one. `tf.browser.open(url, { docked: true })` shows it beside the panes instead, on the right like a tile's panel, and `tf.browser.dock(true)` or `dock(false)` moves an open page between the two without reloading it; `open` and `info` say where it is (`docked`). `tf.browser.go(url)`, `back()`, `forward()`, `reload()` and `close()` steer it, and `tf.browser.info()` resolves to `{ url, title }`, or `null` while it is closed (`browser`, Tilefold 0.1.11). The tile never sees what the page shows, and the page can't reach Tilefold. `browser.navigated` tells you where it went. A refused address (`file:`, `javascript:`, a user name and password in it) rejects with `BrowserError`. The `web-view` example uses it to preview the app you're building.
+
+A tile can keep several pages open at once, for example one for each port of the app being built. `tf.browser` is the tile's first page, and `tf.browser.page(name)` is another page with the same methods, named with 1 to 32 lowercase letters, digits and dashes (`"3000"`, `"api"`; a bad name throws `TypeError`). Each page has its own bar, address and history; pages docked beside the same tab stack one above the other. `browser.navigated` and `browser.closed` for a named page carry `page: name`, and so do the results of its `open` and `info`. The pages share the tile's permission and its website data. AI agents in Tilefold see each page as `<tile id>:<name>` (the first page as the tile id), so the user can ask an agent to work with a given one.
+
+```js
+const app = tf.browser;                 // localhost:5173
+const api = tf.browser.page("3000");    // localhost:3000
+await app.open("localhost:5173", { docked: true });
+await api.open("localhost:3000", { docked: true });
+tf.on("browser.navigated", ({ url, page }) => tf.log(page ?? "main", url));
+```
+
 ## Your folders
 
-`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). See [Folders](folders.md).
+`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). See [Folders](folders.md).
 
 ## Asking Claude
 
@@ -210,7 +227,7 @@ A call the user hasn't allowed fails with `PermissionDeniedError`, which is also
 
 ## Checking for features
 
-A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, and `tf.page` before Tilefold 0.1.7, so check before using them and tell the user to update:
+A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, and `tf.browser` before Tilefold 0.1.11, so check before using them and tell the user to update:
 
 ```js
 if (!tf.net) return tf.toast(tf.t("update-tilefold"));

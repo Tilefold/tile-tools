@@ -9,8 +9,12 @@
  *   export default (tf: Tf) => { ... };
  *
  * Types only: nothing here runs, and the build strips it away. `net`,
- * `auth`, `ai`, `page`, `panel`, `pane`, `fs` and `viewer` are optional because an
+ * `auth`, `ai`, `page`, `panel`, `pane`, `fs`, `viewer` and `browser` are optional because an
  * older Tilefold doesn't have them; check before use.
+ *
+ * Modified 2026-10-17 (panel rows per tab): a panel row's `page`.
+ *
+ * Last updated by: Tilefold
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -34,8 +38,23 @@ export type TileEvent =
   | "page.closed"
   | "page.message"
   | "pane.cwd"
+  | "pane.list"
   | "panel.click"
-  | "panel.closed";
+  | "panel.closed"
+  | "browser.navigated"
+  | "browser.closed";
+
+/** One of the user's panes, as tf.pane.list() and the "pane.list" event give it. */
+export interface PaneInfo {
+  /** The pane's session: what its programs see as TILEFOLD_SESSION_ID; null while no shell runs. */
+  session: string | null;
+  /** The name the user gave the pane, or null. */
+  name: string | null;
+  /** The folder the pane is in, or null when none is known. */
+  folder: string | null;
+  /** True for the focused pane. */
+  focused: boolean;
+}
 
 /** A rectangle in the window's content area, in CSS pixels. */
 export interface Rect {
@@ -73,15 +92,26 @@ export interface TileEventPayloads {
   "page.message": { message: unknown };
   /** The focused pane's folder changed (needs pane.cwd); null when none is known. */
   "pane.cwd": { path: string | null };
+  /** A pane opened, closed, was renamed, moved folder or took focus (needs pane.list). */
+  "pane.list": { panes: PaneInfo[] };
   /** A row of the tile's docked panel was clicked (needs window.panel). */
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
   /** The tile's panel was closed by the user, or replaced by another tile's. */
   "panel.closed": { by: "user" | "replaced" };
+  /**
+   * The tile's browser finished loading a page, or its title changed (needs
+   * browser). `page` names which of the tile's pages, for a named one.
+   */
+  "browser.navigated": { url: string; title: string; page?: string };
+  /** The user closed one of the tile's browser pages (needs browser). */
+  "browser.closed": { url: string; page?: string };
 }
 
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
 export type PanelIcon = "folder" | "file" | "link" | "loading" | "error" | "info" | "none";
 
+/** A theme colour a panel row may take. */
+export type PanelTone = "accent" | "info" | "success" | "warning" | "error";
 /** One line of a docked panel. */
 export interface PanelRow {
   /** Unique in the panel, 1–1,024 characters; `panel.click` sends it back. */
@@ -98,14 +128,61 @@ export interface PanelRow {
   muted?: boolean;
   /** A tooltip, at most 512 characters. */
   hint?: string;
+  /** Drawn as a section heading (Tilefold 0.1.11). */
+  section?: boolean;
+  /** A theme colour for the row's icon, label and badge (Tilefold 0.1.11). */
+  tone?: PanelTone;
+  /** A short pill after the label, at most 32 characters (Tilefold 0.1.11). */
+  badge?: string;
+  /** A short muted text at the row's end, such as "2m", at most 32 characters (Tilefold 0.1.11). */
+  trail?: string;
+  /** A pulsing dot: something is happening now (Tilefold 0.1.11). */
+  pulse?: boolean;
+  /**
+   * The tile's browser page the row belongs to: a page name (as in
+   * `tf.browser.page(name)`), or "" for the first page. Each tab's panel
+   * then lists only the rows for the pages docked there (Tilefold 0.1.11).
+   */
+  page?: string;
+}
+
+/** The page a tile's browser window shows. */
+export interface BrowserPage {
+  url: string;
+  title: string;
+  /** Beside the panes (true) or in a window of its own (Tilefold 0.1.11). */
+  docked?: boolean;
+  /** The page's name, for a named page (`tf.browser.page(name)`). */
+  page?: string;
+}
+
+/** One browser page of a tile: the first (`tf.browser`) or a named one. */
+export interface BrowserPageApi {
+  /** `{ docked: true }` shows it beside the panes (Tilefold 0.1.11); left out, a window. */
+  open(url?: string, options?: { docked?: boolean }): Promise<BrowserPage>;
+  /** Moves an open page beside the panes (true) or into a window of its own. */
+  dock(docked: boolean): Promise<null>;
+  go(url: string): Promise<null>;
+  back(): Promise<null>;
+  forward(): Promise<null>;
+  reload(): Promise<null>;
+  close(): Promise<null>;
+  /** What the page shows, or null when it is closed. */
+  info(): Promise<BrowserPage | null>;
 }
 
 /** What `tf.panel.show` takes. */
 export interface PanelContent {
   title: string;
   subtitle?: string;
-  /** At most 5,000. */
+  /** At most 5,000, the footer's included. */
   rows: PanelRow[];
+  /**
+   * Rows pinned to the bottom of the panel: they take the room they need,
+   * up to half the panel, then scroll inside (Tilefold 0.1.11; older ones
+   * ignore it). Ids are unique across `rows` and the footer.
+   */
+  footer?: { rows: PanelRow[] };
 }
 
 /** One name in a folder listing. */
@@ -226,6 +303,7 @@ export type TileErrorName =
   | "BudgetExceededError"
   | "RefusedError"
   | "PathNotAllowedError"
+  | "BrowserError"
   | "NotFoundError"
   | "NotADirectoryError"
   | "NotAFileError"
@@ -304,13 +382,42 @@ export interface Tf {
    * that leaves `keepRunning` out keeps the current choice. `origin: "https"`
    * (Tilefold 0.1.9, macOS) gives the page a web address of its own, which
    * some embedded players (YouTube's) require; the page is then one
-   * self-contained document. `post` sends plain JSON to the open page.
-   * Missing on a Tilefold without tile pages.
+   * self-contained document. `dock` (Tilefold 0.1.11) shows the page
+   * docked in Tilefold's window at that spot (content CSS pixels, 120 to
+   * 2,000 a side) instead of in a window of its own; `dock()` moves it
+   * there, and is missing before 0.1.11. `post` sends plain JSON to the
+   * open page. Missing on a Tilefold without tile pages.
    */
   readonly page?: {
-    open(options?: { visible?: boolean; keepRunning?: boolean; origin?: "https" }): Promise<null>;
+    open(options?: {
+      visible?: boolean;
+      keepRunning?: boolean;
+      origin?: "https";
+      dock?: Rect;
+    }): Promise<null>;
+    dock?(spot: Rect): Promise<null>;
     close(): Promise<null>;
     post(message: unknown): Promise<null>;
+  };
+  /**
+   * Needs browser. A browser Tilefold draws, beside the panes or in a
+   * window of its own, with its own bar
+   * (address, back, forward, reload, open in the default browser) above the
+   * page. Any http or https address opens, local ones (`localhost:5173`)
+   * included; a bare local host gets http://, others https://. The tile can
+   * steer the window but never see the page; "browser.navigated" says where
+   * it went. `open` without an address shows it empty, waiting for one. A
+   * refused address rejects with a BrowserError. Missing before Tilefold
+   * 0.1.11.
+   *
+   * `tf.browser` is the tile's first page; `page(name)` is another, so a
+   * tile can keep several open at once (say one per port of the app it
+   * previews). Names are 1 to 32 lowercase letters, digits and dashes
+   * ("3000", "api"); a bad one throws a TypeError.
+   */
+  readonly browser?: BrowserPageApi & {
+    /** The tile's page called `name`, with the same methods. */
+    page(name: string): BrowserPageApi;
   };
   /**
    * Needs window.panel. A panel docked beside the panes, drawn by Tilefold
@@ -324,7 +431,14 @@ export interface Tf {
    * Needs pane.cwd. The folder the focused pane is in, or null; the
    * "pane.cwd" event says when it changes. Missing before Tilefold 0.1.9.
    */
-  readonly pane?: { cwd(): Promise<string | null> };
+  readonly pane?: {
+    cwd(): Promise<string | null>;
+    /**
+     * Needs pane.list. Every pane in every tab, in layout order. Missing
+     * before Tilefold 0.1.11.
+     */
+    list?(): Promise<PaneInfo[]>;
+  };
   /**
    * Needs fs.list. One level of a folder inside a folder one of the user's
    * panes is in: names and kinds only, never file contents. Missing before
