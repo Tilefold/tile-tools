@@ -11,6 +11,10 @@
  * every message's `{ $variables }`, uses only simple `key = text` lines,
  * and keeps the names that must not be translated (GitHub, Claude,
  * Tilefold, the host names the tile reaches, and the `tf.` calls).
+ *
+ * Modified 2026-10-18 (screensaver themes): the screensaver-themes example.
+ *
+ * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -26,6 +30,7 @@ const EXAMPLES = [
   "github-inbox",
   "orbit-guard",
   "pipeline-board",
+  "screensaver-themes",
   "service-status",
   "shell-tips",
   "watchpane",

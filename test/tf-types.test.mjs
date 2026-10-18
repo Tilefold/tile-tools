@@ -9,6 +9,10 @@
  * lib/tf.d.ts is valid TypeScript, and stays in step with the API it
  * describes: every `tf` member, event, permission-backed call and error
  * name the documentation lists is declared.
+ *
+ * Modified 2026-10-18 (screensaver themes): `tf.screensaver` and its frame type.
+ *
+ * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { transform } from "esbuild";
@@ -48,6 +52,8 @@ describe("lib/tf.d.ts", () => {
       "readonly pane?:",
       "readonly fs?:",
       "readonly viewer?:",
+      "readonly screensaver?:",
+      "interface ScreensaverFrame",
       "interface TilePageBridge",
     ];
     for (const m of members) expect(TYPES, m).toContain(m);

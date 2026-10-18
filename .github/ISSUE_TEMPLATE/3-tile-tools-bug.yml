@@ -33,6 +33,7 @@ body:
         - "Example: hello"
         - "Example: orbit-guard"
         - "Example: pipeline-board"
+        - "Example: screensaver-themes"
         - "Example: service-status"
         - "Example: shell-tips"
         - "Example: tilefall"

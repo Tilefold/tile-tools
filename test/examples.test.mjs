@@ -12,6 +12,10 @@
  * doesn't use); any permission it asks for carries a reason. Each one is
  * also run against a small fake `tf`: its settings and commands register up
  * front with ids, and its commands do what the example promises.
+ *
+ * Modified 2026-10-18 (screensaver themes): the screensaver-themes example.
+ *
+ * Last updated by: Tilefold
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -84,6 +88,7 @@ describe("examples", () => {
       "hello",
       "orbit-guard",
       "pipeline-board",
+      "screensaver-themes",
       "service-status",
       "shell-tips",
       "tilefall",

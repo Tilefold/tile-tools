@@ -14,6 +14,7 @@ Every limit Tilefold puts on a tile, and every error name a `tf` call can fail w
 | An event handler | 0.5 seconds; longer stops the tile, and a listener that runs over 5 times within 10 minutes is skipped for the session |
 | Crashes | 3 within 5 minutes turn the tile off |
 | Commands, settings, listeners | 50 of each |
+| Screensaver themes | 12 (a tile asking for `screensaver.theme` may ask for nothing else) |
 | Permissions | 64 |
 | Credentials (`auth`) | 8, each sent to 1–8 hosts |
 
@@ -43,6 +44,7 @@ Every limit Tilefold puts on a tile, and every error name a `tf` call can fail w
 | `tf.net.fetch` | `https` on port 443 only; URL 8 KB; 64 headers, each value 8 KB; body 1 MB; answer 4 MB; 30 seconds; 5 redirects; 4 at once and 60 a minute |
 | `tf.ai.ask` | 1–50 messages; 200,000 characters; `maxTokens` 1–16,000 (default 4,096); 50,000 tokens per tile per day (UTC); a question waits at most 5 minutes for the user; an answer at most 2 minutes |
 | `tf.panel.show` | 5,000 rows; title 120 characters, subtitle 512, labels 256, row ids 1,024 (unique), hints 512; 30 a second |
+| `tf.screensaver.theme` | Id: a lowercase letter, then lowercase letters, digits or hyphens, 64 characters; name 60 characters; at most 30 frames a second; a frame must finish within 2 seconds |
 | `tf.browser` | `http` and `https` addresses only, without a user name or password; 4,096 characters; one window or docked view per page; page names 1 to 32 lowercase letters, digits and dashes |
 | `tf.fs.list`, `tf.viewer.open` | Paths inside a folder one of the user's panes is in; path 4,096 characters; 2,000 entries a listing; 60 calls (both together) in any 10 seconds |
 | Sign-in (`oauth2-pkce`) | 5 minutes in the browser |
