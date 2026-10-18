@@ -40,7 +40,7 @@ body:
         - "Example: tuneboard"
         - "Example: watchpane"
         - "Example: weather-card"
-        - "Example: web-preview"
+        - "Example: web-view"
         - "Example: with-npm-package"
         - "Something else"
     validations:

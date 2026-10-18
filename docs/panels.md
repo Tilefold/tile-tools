@@ -63,7 +63,7 @@ await tf.panel.show({
 });
 ```
 
-A tile with browser pages on several tabs can give each row its `page`. Each tab's panel then lists the rows for the pages docked on that tab, plus rows with no `page` and rows whose page isn't docked (in a window, or closed). A section heading with nothing left under it is left out, and on a tab where nothing of the panel would show, the panel steps aside. Web Preview does this with its recent addresses. Older Tilefolds ignore `page` and show every row on every tab.
+A tile with browser pages on several tabs can give each row its `page`. Each tab's panel then lists the rows for the pages docked on that tab, plus rows with no `page` and rows whose page isn't docked (in a window, or closed). A section heading with nothing left under it is left out, and on a tab where nothing of the panel would show, the panel steps aside. Web View does this with its recent addresses. Older Tilefolds ignore `page` and show every row on every tab.
 
 Ids are unique across the rows and the footer, and the 5,000-row limit counts both. Tilefold 0.1.9 and 0.1.10 ignore `footer`, `section`, `tone`, `badge`, `trail` and `pulse`: the panel still shows, plainer and without the footer, so keep anything essential in the rows or in a [tile page](tile-pages.md) too.
 

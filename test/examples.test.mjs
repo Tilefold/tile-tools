@@ -91,7 +91,7 @@ describe("examples", () => {
       "tuneboard",
       "watchpane",
       "weather-card",
-      "web-preview",
+      "web-view",
       "with-npm-package",
     ]);
   });
