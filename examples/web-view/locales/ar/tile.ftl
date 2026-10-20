@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = عرض الويب (مثال)
 tile-description = تعرض تطبيق الويب الذي تبنيه، مثل localhost:5173، في نافذة متصفح بجوار أجزائك، وتسرد الصفحات التي فتحتها مؤخرًا.
-setting-address = منافذ localhost المطلوب فتحها مفصولة بفواصل: يفتح كل منفذ localhost:PORT في صفحة خاصة به (5173، 3000). تعمل العناوين الكاملة مثل staging.example.com أيضًا.
+setting-address = منافذ localhost المطلوب فتحها مفصولة بفواصل: يفتح كل منفذ localhost:PORT في صفحة خاصة به (5173، 3000). النطاق مثل 3000-3010 يفتح كل منفذ فيه. تعمل العناوين الكاملة مثل staging.example.com أيضًا.
 setting-docked = الإظهار بجوار الأجزاء (عند الإيقاف: في نافذة مستقلة)
 setting-panel = إظهار الصفحات الأخيرة بجوار الأجزاء
 cmd-open = عرض الويب: فتح

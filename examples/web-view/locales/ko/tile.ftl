@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = 웹 보기(예제)
 tile-description = 만들고 있는 웹 앱(예: localhost:5173)을 창 옆의 브라우저 창에 보여 주고, 최근에 연 페이지를 나열합니다.
-setting-address = 열 localhost 포트(쉼표로 구분). 각각 localhost:포트를 별도 페이지로 엽니다(5173, 3000). staging.example.com 같은 전체 주소도 됩니다.
+setting-address = 열 localhost 포트(쉼표로 구분). 각각 localhost:포트를 별도 페이지로 엽니다(5173, 3000). 3000-3010 같은 범위는 그 안의 모든 포트를 엽니다. staging.example.com 같은 전체 주소도 됩니다.
 setting-docked = 창 옆에 표시(끄면: 별도 창)
 setting-panel = 최근 페이지를 창 옆에 표시
 cmd-open = 웹 보기: 열기

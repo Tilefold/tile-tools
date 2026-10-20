@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = Visualização web (exemplo)
 tile-description = Mostra o app web que você está criando, como localhost:5173, em uma janela de navegador ao lado dos seus painéis, e lista as páginas abertas recentemente.
-setting-address = Portas do localhost a abrir, separadas por vírgulas: cada uma abre localhost:PORTA em uma página própria (5173, 3000). Endereços completos como staging.example.com também funcionam.
+setting-address = Portas do localhost a abrir, separadas por vírgulas: cada uma abre localhost:PORTA em uma página própria (5173, 3000). Um intervalo como 3000-3010 abre todas as portas dele. Endereços completos como staging.example.com também funcionam.
 setting-docked = Mostrar ao lado dos painéis (desligado: em uma janela própria)
 setting-panel = Mostrar páginas recentes ao lado dos painéis
 cmd-open = Visualização web: Abrir
