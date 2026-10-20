@@ -17,11 +17,14 @@
  * which the commands move, reload and close together; a Tilefold with one
  * page per tile opens the first and says why. Each address is remembered
  * with the browser page it was seen in, its row names that page, and a
- * click reopens it there.
+ * click reopens it there. A range of ports opens a page for each port in it.
  *
  * Modified 2026-10-17 (each tab's panel lists its own pages).
  *
  * Modified 2026-10-18 (renamed): Web Preview is now Web View (example.web-view).
+ *
+ * Modified 2026-10-19 (port ranges): `3000-3010` / `3000~3010` and the
+ * 12-page cap.
  *
  * Last updated by: Tilefold
  */
@@ -29,6 +32,7 @@ import { fileURLToPath } from "node:url";
 import {
   MAX_PAGES,
   expandAddress,
+  expandPart,
   planPages,
   readAddresses,
 } from "../examples/web-view/src/addresses.js";
@@ -175,6 +179,48 @@ describe("the addresses", () => {
     expect(readAddresses(many.join(","))).toHaveLength(MAX_PAGES);
   });
 
+  it("opens every port of a range, written with - or ~, lowest first", () => {
+    const ports = (from, to) =>
+      Array.from({ length: to - from + 1 }, (_, i) => `localhost:${from + i}`);
+    expect(readAddresses("3000~3010")).toEqual(ports(3000, 3010));
+    expect(readAddresses("3000-3010")).toEqual(ports(3000, 3010));
+    // Spaces around the sign, a leading colon, and either way round.
+    expect(readAddresses("3000 ~ 3002")).toEqual(ports(3000, 3002));
+    expect(readAddresses(":3002-3000")).toEqual(ports(3000, 3002));
+    // A host keeps its name; a range mixes with other addresses, once each.
+    expect(readAddresses("api.test:8000-8001")).toEqual(["api.test:8000", "api.test:8001"]);
+    expect(readAddresses("5173, 3000~3001, localhost:3001")).toEqual([
+      "localhost:5173",
+      ...ports(3000, 3001),
+    ]);
+    // A single-port range is that port.
+    expect(readAddresses("4000-4000")).toEqual(["localhost:4000"]);
+  });
+
+  it("keeps a range within MAX_PAGES, and leaves an out-of-bounds one as typed", () => {
+    expect(MAX_PAGES).toBeGreaterThanOrEqual(11);
+    expect(readAddresses("2000-9000")).toHaveLength(MAX_PAGES);
+    expect(readAddresses("5173, 2000-9000")[0]).toBe("localhost:5173");
+    expect(readAddresses("5173, 2000-9000")).toHaveLength(MAX_PAGES);
+    expect(expandPart("3000-3010", 3)).toEqual([
+      "localhost:3000",
+      "localhost:3001",
+      "localhost:3002",
+    ]);
+    // Tilefold refuses these with a reason, rather than them vanishing.
+    expect(readAddresses("0-3, 3000-70000")).toEqual(["0-3", "3000-70000"]);
+    // Hyphens in a host name are not a range.
+    expect(readAddresses("my-app.test, app-2.test")).toEqual(["my-app.test", "app-2.test"]);
+  });
+
+  it("names a range's pages after their ports", () => {
+    expect(planPages(readAddresses("3000-3002")).map((p) => p.page)).toEqual([
+      null,
+      "3001",
+      "3002",
+    ]);
+  });
+
   it("puts the first on the first page and names the others", () => {
     expect(
       planPages([
@@ -286,6 +332,21 @@ describe("the tile", () => {
     await host.visit("http://localhost:3000/health", "API", "3000");
     await host.advance(0);
     expect(host.panel.content.rows.some((r) => r.id.endsWith("localhost:3000/health"))).toBe(true);
+  });
+
+  it("opens a page for every port of a range in its settings", async () => {
+    const host = await ready({ settings: { address: "3000~3010" } });
+    await host.command("open");
+    await host.advance(0);
+    expect(host.browser.calls[0]).toEqual(["open", "localhost:3000", { docked: true }]);
+    for (let port = 3001; port <= 3010; port++) {
+      expect(host.browser.pages[String(port)].calls[0]).toEqual([
+        "open",
+        `localhost:${port}`,
+        { docked: true },
+      ]);
+    }
+    expect(Object.keys(host.browser.pages)).toHaveLength(10);
   });
 
   it("opens only the first address on a Tilefold with one page per tile, and says why", async () => {

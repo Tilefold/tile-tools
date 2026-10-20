@@ -1,6 +1,6 @@
 {
   "id": "example.web-view",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [

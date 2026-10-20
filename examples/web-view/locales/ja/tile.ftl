@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = Web ビュー(例)
 tile-description = 作成中の Web アプリ(localhost:5173 など)をペインの横のブラウザウィンドウに表示し、最近開いたページを一覧にします。
-setting-address = 開く localhost のポート（カンマ区切り）。それぞれ localhost:ポート を専用のページで開きます（5173, 3000）。staging.example.com のような完全なアドレスも使えます。
+setting-address = 開く localhost のポート（カンマ区切り）。それぞれ localhost:ポート を専用のページで開きます（5173, 3000）。3000-3010 のような範囲は、その中のすべてのポートを開きます。staging.example.com のような完全なアドレスも使えます。
 setting-docked = ペインの横に表示(オフ: 専用のウィンドウ)
 setting-panel = 最近のページをペインの横に表示
 cmd-open = Web ビュー: 開く
