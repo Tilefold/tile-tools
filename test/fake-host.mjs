@@ -48,6 +48,15 @@
  *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
+ *
+ * `host.command(id, input?)` runs a command the way Tilefold does: from the
+ * palette with `null`, or as an AI agent would with `input`, which only a
+ * command registered with `options.input` accepts; it resolves to what the
+ * handler returned, as plain JSON (refused past 64 KB).
+ *
+ * Modified 2026-10-20 (agent input): commands' input and results.
+ *
+ * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -127,11 +136,28 @@ export async function startTile(dir, opts = {}) {
       for (const run of handlers.get(event) ?? []) await run(payload);
       await drain();
     },
-    async command(id) {
+    /**
+     * Runs command `id` as Tilefold does: from the palette with no input
+     * (`null`), or as an AI agent would with `input`, which only a command
+     * registered with `options.input` accepts. Resolves to what the handler
+     * returned, as plain JSON data (undefined for none).
+     */
+    async command(id, input = null) {
       const run = commands.get(id);
       if (!run) throw new Error(`no command ${id}`);
-      await run();
+      const reg = host.regs.find((r) => r.kind === "command" && r.id === id);
+      if (input !== null && input !== undefined && !reg?.input) {
+        throw new Error(`The command "${id}" takes no input.`);
+      }
+      const value = await run(input ?? null);
       await drain();
+      if (value === undefined) return undefined;
+      const json = JSON.stringify(value);
+      if (json === undefined) return undefined;
+      if (new TextEncoder().encode(json).length > 64 * 1024) {
+        throw new Error(`The result of "${id}" is larger than the 64 KB an agent can get.`);
+      }
+      return JSON.parse(json);
     },
     async setSetting(key, value) {
       values.set(key, value);
@@ -156,7 +182,12 @@ export async function startTile(dir, opts = {}) {
       host.regs.push({ kind: "setting", key, default: def, description, ...options });
     },
     command(title, run, options = {}) {
-      host.regs.push({ kind: "command", title, id: options.id });
+      host.regs.push({
+        kind: "command",
+        title,
+        id: options.id,
+        ...(typeof options.input === "string" ? { input: options.input } : {}),
+      });
       commands.set(options.id, run);
     },
     on(event, run) {

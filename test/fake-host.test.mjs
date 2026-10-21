@@ -10,7 +10,12 @@
  * credential fails before anything is answered, `tf.auth.has` reports what
  * the user set up, `tf.ai.ask` records questions, fails when AI is not set
  * up and can wait for an answer given later, and notices and warnings are
- * recorded.
+ * recorded. A command runs with an agent's input only when it says it takes
+ * some, and hands back what it returned as plain JSON.
+ *
+ * Modified 2026-10-20 (agent input): commands with input and results.
+ *
+ * Last updated by: Tilefold
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -36,6 +41,12 @@ beforeAll(() => {
         try { tf.audit("answer", { text: (await tf.ai.ask("hi")).text }); }
         catch (e) { tf.audit("failed", { name: e.name }); }
       }, { id: "ask" });
+      const cards = [];
+      tf.command("Add card", (card) => {
+        cards.push(card.title);
+        return { cards, at: new Date(0), skip: () => 1 };
+      }, { id: "add-card", input: "{ title }: the card to add" });
+      tf.command("Big", () => "x".repeat(70000), { id: "big" });
       tf.command("Say", async () => {
         await tf.toast("hello");
         await tf.log.warn("careful");
@@ -97,5 +108,20 @@ describe("fake host", () => {
     await host.command("say");
     expect(host.toasts).toEqual(["hello"]);
     expect(host.warnings).toEqual(["careful"]);
+  });
+
+  it("runs a command with an agent's input when it takes some, and hands back its result", async () => {
+    const host = await startTile(dir);
+    expect(host.regs.find((r) => r.id === "add-card")).toMatchObject({
+      input: "{ title }: the card to add",
+    });
+    expect(await host.command("add-card", { title: "Fix login" })).toEqual({
+      cards: ["Fix login"],
+      at: "1970-01-01T00:00:00.000Z",
+    });
+    // A command without input refuses it; from the palette it gets null.
+    await expect(host.command("say", { x: 1 })).rejects.toThrow(/takes no input/);
+    expect(await host.command("say")).toBeUndefined();
+    await expect(host.command("big")).rejects.toThrow(/64 KB/);
   });
 });

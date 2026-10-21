@@ -45,11 +45,33 @@ Adds a command to the palette.
 | Argument | |
 |---|---|
 | `title` | What the palette shows, at most 120 characters. Translate it with `tf.t` |
-| `handler` | `() => void \| Promise<void>`, with ten seconds to finish |
+| `handler` | `(input) => unknown`, with ten seconds to finish. `input` is `null` when the user runs it |
 | `options.id` | A short id, unique within the tile: a lowercase letter, then lowercase letters, digits or hyphens. Made from the title when left out, which breaks when the title is translated, so **always give one** |
 | `options.key` | A default shortcut: one string for every platform, or `{ mac, other }` |
+| `options.input` | What AI agents may pass the command, in up to 300 characters (`"{ title, column? }: the card to add"`). Leave it out for a command that takes no data |
 
 Shortcuts are modifiers (`Ctrl`, `Alt`, `Shift`, `Meta`) and one key, joined by `+`: `"Ctrl+Alt+N"`, `{ mac: "Alt+Meta+H", other: "Ctrl+Alt+H" }`. `Meta` is ⌘ on macOS. Keys are physical keys, so they work on any keyboard layout: `A`–`Z`, `0`–`9`, `F1`–`F12`, and names such as `ArrowUp`, `Enter`, `Tab`, `Comma`, `BracketLeft` and `Space`. Every shortcut needs `Ctrl`, `Alt` or `Meta` (or is a function key), so it can never swallow typing. Users can change the shortcut in Settings → Keyboard, where tile commands have their own group. Tiles never see key presses; a shortcut runs the command.
+
+#### Commands AI agents call with data
+
+AI agents in the user's panes (Claude Code, Codex and others) can run a tile's commands through Tilefold's `tile_run` tool, after the user allows it once. A command with `options.input` also takes data from them, and what its handler returns goes back to the agent. So a tile can be a board, list or form that the user and an agent both work on:
+
+```js
+const cards = [];
+tf.command(tf.t("cmd-add-card"), (card) => {
+  if (!card || typeof card.title !== "string") throw new Error("give a card a title");
+  cards.push({ title: card.title.slice(0, 200), column: card.column ?? "todo" });
+  void tf.panel?.show({ title: "Board", rows: cards.map((c, i) => ({ id: String(i), label: c.title, detail: c.column })) });
+  return { cards };
+}, { id: "add-card", input: "{ title, column? }: the card to add" });
+```
+
+- Agents see each command's id, title and `input` text with `tile_list`, then call `tile_run` with `command` and `input`. Describe the input so an agent gets it right the first time.
+- The handler gets the agent's input as its argument: any JSON value, at most 16 KB. Check it like any data from outside; the agent decides what it sends. A thrown error goes back to the agent as the reason.
+- Return plain data: text, numbers, true/false, lists and objects (dates become text, functions are dropped), at most 64 KB as JSON. A command run from the palette gets `null` and its return value is ignored.
+- A command without `options.input` never gets input: Tilefold refuses it before anything runs.
+- Adding `options.input` to a command asks the user to approve the tile again, since agents can then send it data. Changing only the description doesn't.
+- Needs Tilefold 0.1.14 or later; an older Tilefold ignores `input` and runs the command with `null`.
 
 ### tf.setting(key, default, description, options?)
 

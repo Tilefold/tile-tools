@@ -14,6 +14,9 @@
  *
  * Modified 2026-10-17 (panel rows per tab): a panel row's `page`.
  *
+ * Modified 2026-10-20 (agent input): a command's `input`, its handler's
+ * argument and return value.
+ *
  * Last updated by: Tilefold
  */
 
@@ -311,8 +314,17 @@ export type TileErrorName =
 
 /** The object a tile's default export receives. */
 export interface Tf {
-  /** Adds a palette command; the handler has 10 seconds. Always give an `id`. */
-  command(title: string, handler: () => unknown, options?: { id?: string; key?: Shortcut }): void;
+  /**
+   * Adds a palette command; the handler has 10 seconds. Always give an `id`.
+   * With `input` (what it takes, up to 300 characters), AI agents may run it
+   * with data: the handler gets it (`null` from the palette), and what it
+   * returns, as plain JSON of at most 64 KB, goes back to the agent.
+   */
+  command(
+    title: string,
+    handler: (input: unknown) => unknown,
+    options?: { id?: string; key?: Shortcut; input?: string },
+  ): void;
   /** Adds a setting: a switch, number box, text box or (with choices) a drop-down. */
   setting(
     key: string,
