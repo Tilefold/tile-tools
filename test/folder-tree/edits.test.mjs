@@ -11,9 +11,9 @@
  * edit; New folder likewise; the window renames, moves (by drag) and
  * trashes, and asks Tilefold, which asks the user, before the Trash;
  * refusals are notices in the user's language; the panel tints the chosen
- * row and offers the file actions as rows above the tree, naming the folder
- * they work in; nothing is recorded with a name; and an older Tilefold says
- * what it needs. Also the pure helpers: free names and finding an entry's folder.
+ * row, and folders, files and the empty space get right-click menus whose
+ * items act on what was clicked; nothing is recorded with a name; and an
+ * older Tilefold says what it needs. Also the pure helpers: free names and finding an entry's folder.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -149,41 +149,52 @@ describe("Folder Tree changing files", () => {
   });
 });
 
-describe("Folder Tree's file actions in the panel", () => {
-  const labels = (host) =>
-    host.panel.content.rows.filter((r) => r.id.startsWith("action:")).map((r) => r.label);
+describe("Folder Tree's right-click menus", () => {
+  const items = (host, name) =>
+    host.panel.content.menus[name].map((e) => (e.separator ? "—" : e.label));
 
-  it("offers New file and New folder where the user last clicked", async () => {
+  it("give folders, files and the empty space their own menus", async () => {
     const host = await start();
     await host.command("toggle");
-    expect(labels(host)).toEqual(["＋ New file in app", "＋ New folder in app"]);
-    await click(host, "src", "expand");
-    expect(labels(host)).toEqual([
-      "＋ New file in src",
-      "＋ New folder in src",
-      "✎ Rename src…",
-      "🗑 Move src to Trash",
-    ]);
-    await click(host, "README.md");
-    expect(labels(host)[0]).toBe("＋ New file in app");
-    expect(labels(host)[3]).toBe("🗑 Move README.md to Trash");
+    const c = host.panel.content;
+    expect(c.rows.some((r) => r.id.startsWith("action:"))).toBe(false);
+    expect(rowOf(host, "src").menu).toBe("dir");
+    expect(rowOf(host, "README.md").menu).toBe("file");
+    expect(c.menu).toBe("space");
+    expect(items(host, "dir")).toEqual(["New file", "New folder", "—", "Rename…", "Move to Trash"]);
+    expect(items(host, "file")).toEqual(["Open", "Edit", "—", "Rename…", "Move to Trash"]);
+    expect(items(host, "space")).toEqual(["New file", "New folder"]);
+    expect(c.menus.dir.at(-1).tone).toBe("error");
   });
 
-  it("runs each action on the chosen row, without changing the choice", async () => {
+  it("act on the row that was right-clicked", async () => {
     const host = await start();
     await host.command("toggle");
-    await click(host, "src", "expand");
-    await click(host, "＋ New file in src");
+    await host.menu("/work/app/src", "new-file");
     expect(host.changes).toEqual([["create", "/work/app/src/untitled.md"]]);
     expect(host.editing).toEqual(["/work/app/src/untitled.md"]);
-    await click(host, "＋ New folder in src");
+    await host.menu("/work/app/src", "new-folder");
     expect(host.changes.at(-1)).toEqual(["mkdir", "/work/app/src/untitled folder"]);
-    expect(labels(host)[2]).toBe("✎ Rename src…");
-    await click(host, "✎ Rename src…");
-    expect(host.page.posted.at(-1)).toEqual({ type: "rename", id: "/work/app/src" });
+    // An item the row's menu doesn't have never reaches the tile.
+    await host.menu("/work/app/README.md", "new-folder");
+    expect(host.changes).toHaveLength(2);
+    await host.menu("/work/app/README.md", "open");
+    expect(host.opened.at(-1)).toBe("/work/app/README.md");
+    await host.menu("/work/app/README.md", "edit");
+    expect(host.editing.at(-1)).toBe("/work/app/README.md");
+    expect(rowOf(host, "README.md").tone).toBe("accent");
+    await host.menu("/work/app/README.md", "rename");
+    expect(host.page.posted.at(-1)).toEqual({ type: "rename", id: "/work/app/README.md" });
     host.trashAnswer = false;
-    await click(host, "🗑 Move src to Trash");
+    await host.menu("/work/app/src", "trash");
     expect(host.trashAsked).toEqual(["src"]);
+  });
+
+  it("make new files in the tree's own folder from the empty space", async () => {
+    const host = await start();
+    await host.command("toggle");
+    await host.menu(null, "new-file");
+    expect(host.changes).toEqual([["create", "/work/app/untitled 2.md"]]);
   });
 
   it("are left out where Tilefold can't change files", async () => {
@@ -191,7 +202,8 @@ describe("Folder Tree's file actions in the panel", () => {
       folders: { cwd: "/work/app", roots: ["/work/app"], files: FILES },
     });
     await host.command("toggle");
-    expect(labels(host)).toEqual([]);
+    expect(host.panel.content.menus).toBeUndefined();
+    expect(rowOf(host, "src").menu).toBeUndefined();
   });
 });
 

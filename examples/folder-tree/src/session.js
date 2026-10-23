@@ -298,7 +298,6 @@ export function createFolderTree(tf) {
         recentOpen: action === "expand" || (action === "activate" && !ui.recentOpen),
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
-    if (target.kind === "action") return runAction(target.action);
     return undefined;
   };
 
@@ -310,12 +309,18 @@ export function createFolderTree(tf) {
     return tf.page.post({ type: "rename", id });
   };
 
-  /** A file action row from the panel, on the chosen row. */
-  const runAction = (action) => {
-    if (action === "new-file") return edits.newFile(selected);
-    if (action === "new-folder") return edits.newFolder(selected);
-    if (action === "rename") return renameChosen();
-    if (action === "trash") return selected ? edits.trash(selected) : undefined;
+  /** A choice from a right-click menu on row `id` (null: the empty space). */
+  const fromMenu = async (id, item) => {
+    const target = id ? targets.get(id) : null;
+    if (id && !target) return undefined;
+    // The row right-clicked becomes the chosen one, as a click would.
+    if (id) selected = id;
+    if (item === "new-file") return edits.newFile(id);
+    if (item === "new-folder") return edits.newFolder(id);
+    if (item === "open") return act(id, "activate", "menu");
+    if (item === "edit") return edits.edit(id);
+    if (item === "rename") return renameChosen();
+    if (item === "trash") return edits.trash(id);
     return undefined;
   };
 
@@ -365,6 +370,9 @@ export function createFolderTree(tf) {
     refresh: () => (shown || pageOpen ? start(tree.root) : undefined),
     /** A click (or key) on a row of the panel. */
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
+    /** A choice from a panel row's right-click menu. */
+    menuChosen: ({ row, item } = {}) =>
+      typeof item === "string" ? fromMenu(typeof row === "string" ? row : null, item) : undefined,
     /** A message from the window. */
     async message({ message } = {}) {
       const m = message ?? {};

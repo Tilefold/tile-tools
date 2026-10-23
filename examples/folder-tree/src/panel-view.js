@@ -20,13 +20,14 @@
  * tested directly; `targets` maps each clickable row to what it opens.
  *
  * Modified 2026-10-23 (changing files): the row the user last chose is
- *   tinted, and the file actions (panel-actions.js) sit above the tree.
+ *   tinted, and folders, files and the empty space have right-click menus
+ *   for changing files (panel-actions.js).
  *
  * Last updated by: Tilefold
  */
 import { activeFiles, age, hotFolders, recentFiles, TONES } from "./activity.js";
 import { treeRows } from "./model.js";
-import { actionRows } from "./panel-actions.js";
+import { panelMenus, ROW_MENU } from "./panel-actions.js";
 import { basename, shownPath } from "./paths.js";
 import { folderName } from "./tree.js";
 
@@ -138,9 +139,13 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
   for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
   const hot = hotFolders(active, root);
 
+  const menus = panelMenus(t, opts.canEdit === true);
   const decorate = (row, where) => {
     const marks = activityMarks(row, where);
-    return where.path === selected && !marks.tone ? { ...marks, tone: "accent" } : marks;
+    const menu = menus && ROW_MENU[where.kind] ? { menu: ROW_MENU[where.kind] } : {};
+    return where.path === selected && !marks.tone
+      ? { ...marks, ...menu, tone: "accent" }
+      : { ...marks, ...menu };
   };
   const activityMarks = (row, { kind, path, open }) => {
     if (kind === "dir") {
@@ -190,15 +195,6 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
     }
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
-  const actions = actionRows({
-    t,
-    tree,
-    chosen: (selected && built.targets.get(selected)) ?? null,
-    canEdit: opts.canEdit === true,
-    clamp,
-  });
-  rows.push(...actions.rows);
-  for (const [id, target] of actions.targets) targets.set(id, target);
   rows.push(...built.rows);
 
   const footer = recentFooter(t, activity, root, now, {
@@ -213,6 +209,7 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
       ...(subtitle ? { subtitle } : {}),
       rows,
       ...(footer.rows.length ? { footer: { rows: footer.rows } } : {}),
+      ...(menus && root ? { menus, menu: "space" } : {}),
     },
     targets,
     live: active.length > 0,

@@ -83,6 +83,36 @@ The keyboard works as in a tree: Up and Down move between rows, Right and Left s
 
 Nothing opens or closes until you show the panel again: keep the state in your tile, and redraw after each change.
 
+## 4. Right-click menus
+
+From **Tilefold 0.1.16**, rows can have a right-click menu. Name up to 8 menus in `menus`, each a list of up to 12 lines: items (`id`, `label` of up to 64 characters, and `tone: "error"` for something like Move to Trash) and `{ separator: true }`. A row opens the menu it names with `menu`, and the panel's own `menu` is for a right-click on the empty space under the rows.
+
+```js
+await tf.panel.show({
+  title: "app",
+  rows: [
+    { id: "src", label: "src", icon: "folder", expandable: true, menu: "dir" },
+    { id: "src/main.rs", label: "main.rs", icon: "file", depth: 1, menu: "file" },
+  ],
+  menus: {
+    dir: [
+      { id: "new-file", label: "New file" },
+      { separator: true },
+      { id: "trash", label: "Move to Trash", tone: "error" },
+    ],
+    file: [{ id: "open", label: "Open" }],
+    space: [{ id: "new-file", label: "New file" }],
+  },
+  menu: "space",
+});
+
+tf.on("panel.menu", ({ row, item }) => {
+  // row: the row's id, or null for the empty space; item: the item's id
+});
+```
+
+Tilefold draws the menu, like the rows, at the pointer. The user also opens it with the ContextMenu key or Shift+F10 on a row, moves with the arrow keys, chooses with Enter and closes it with Escape. Only an item of the menu the row really opens reaches your tile. Older Tilefolds ignore `menus` and `menu`, so keep every action reachable another way too, such as a click or a command. Folder Tree's menus add, rename and trash files.
+
 ## Limits
 
 At most 5,000 rows, 30 `show` calls a second, a title of 120 characters and a subtitle of 512. Malformed content fails with `TypeError` and the reason; too many updates with `RateLimitError`. `tf.panel` is missing before Tilefold 0.1.9:

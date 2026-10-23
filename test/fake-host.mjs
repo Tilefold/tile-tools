@@ -58,7 +58,9 @@
  *
  * Modified 2026-10-23 (changing files): `folders.write` adds the file
  *   changes (fake-files.mjs); opens ready to edit are kept in
- *   `host.editing`; folders may be empty (`host.dirs`).
+ *   `host.editing`; folders may be empty (`host.dirs`). Panels may have
+ *   right-click menus (fake-panel-menus.mjs); `host.menu(row, item)` plays
+ *   a choice.
  *
  * Last updated by: Tilefold
  */
@@ -66,6 +68,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addFileWrites } from "./fake-files.mjs";
+import { checkPanelMenus, chooseFromMenu } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
@@ -453,6 +456,7 @@ const panelRowOk = (r) =>
  */
 function addPanel(tf, host, named) {
   host.panel = { content: null, shows: 0 };
+  host.menu = (row, item) => chooseFromMenu(host, row, item);
   tf.panel = {
     async show(content) {
       const ids = new Set();
@@ -471,6 +475,7 @@ function addPanel(tf, host, named) {
           ids.add(r.id);
         }
       }
+      checkPanelMenus(content, named);
       host.panel.content = structuredClone(content);
       host.panel.shows += 1;
       return true;

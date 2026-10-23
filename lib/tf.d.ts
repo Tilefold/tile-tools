@@ -18,7 +18,8 @@
  * argument and return value.
  *
  * Modified 2026-10-23 (changing files): `fs.create`, `mkdir`, `rename`,
- * `move` and `trash`, `viewer.open`'s `edit`, and their error names.
+ * `move` and `trash`, `viewer.open`'s `edit`, and their error names; panel
+ * right-click menus and the `panel.menu` event.
  *
  * Last updated by: Tilefold
  */
@@ -47,6 +48,7 @@ export type TileEvent =
   | "pane.list"
   | "panel.click"
   | "panel.closed"
+  | "panel.menu"
   | "browser.navigated"
   | "browser.closed";
 
@@ -104,6 +106,8 @@ export interface TileEventPayloads {
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
   /** The tile's panel was closed by the user, or replaced by another tile's. */
   "panel.closed": { by: "user" | "replaced" };
+  /** A right-click menu's choice: the row (null for the empty space) and the item (Tilefold 0.1.16). */
+  "panel.menu": { row: string | null; item: string };
   /**
    * The tile's browser finished loading a page, or its title changed (needs
    * browser). `page` names which of the tile's pages, for a named one.
@@ -149,7 +153,8 @@ export interface PanelRow {
    * `tf.browser.page(name)`), or "" for the first page. Each tab's panel
    * then lists only the rows for the pages docked there (Tilefold 0.1.11).
    */
-  page?: string;
+  page?: string; /** The menu (one of the panel's `menus`) a right-click on the row opens (Tilefold 0.1.16). */
+  menu?: string;
 }
 
 /** The page a tile's browser window shows. */
@@ -189,7 +194,17 @@ export interface PanelContent {
    * ignore it). Ids are unique across `rows` and the footer.
    */
   footer?: { rows: PanelRow[] };
+  /**
+   * Right-click menus rows name with `menu` (Tilefold 0.1.16; older ones
+   * ignore them): at most 8, each at most 12 lines. Tilefold draws them.
+   */
+  menus?: Record<string, PanelMenuEntry[]>;
+  /** The menu for a right-click on the empty space under the rows. */
+  menu?: string;
 }
+
+/** One line of a panel menu: an item (id 1–32 lowercase letters, digits, dashes) or a line. */
+export type PanelMenuEntry = { id: string; label: string; tone?: "error" } | { separator: true };
 
 /** One name in a folder listing. */
 export interface FolderEntry {

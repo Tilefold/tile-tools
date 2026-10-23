@@ -37,7 +37,7 @@
  * Built into main.js with `npx @tilefold/tile-tools build`.
  *
  * Modified 2026-10-23 (changing files): New file, New folder, Rename and
- *   Move to Trash commands.
+ *   Move to Trash commands, and the panel's right-click menus (panel.menu).
  *
  * Last updated by: Tilefold
  */
@@ -488,37 +488,28 @@ function pageStrings(t, hookCommand) {
 }
 
 // src/panel-actions.js
-var ACTION_IDS = {
-  "action:new-file": "new-file",
-  "action:new-folder": "new-folder",
-  "action:rename": "rename",
-  "action:trash": "trash"
-};
-function targetFolder(tree, target) {
-  if (target?.kind === "dir") return folderName(target.path);
-  if (target) return folderName(parentKey(tree, target.path) ?? tree.root);
-  return folderName(tree.root);
-}
-function actionRows({ t, tree, chosen, canEdit: canEdit2, clamp: clamp2 }) {
-  const rows = [];
-  const targets = /* @__PURE__ */ new Map();
-  if (!canEdit2 || !tree.root) return { rows, targets };
-  const add = (id, label, extra) => {
-    rows.push({ id, label: clamp2(label, 256), ...extra });
-    targets.set(id, { kind: "action", action: ACTION_IDS[id] });
+var ROW_MENU = { dir: "dir", file: "file", link: "file" };
+function panelMenus(t, canEdit2) {
+  if (!canEdit2) return null;
+  const item = (id, key, extra = {}) => ({ id, label: t(key), ...extra });
+  const trash = item("trash", "page-trash", { tone: "error" });
+  return {
+    dir: [
+      item("new-file", "page-new-file"),
+      item("new-folder", "page-new-folder"),
+      { separator: true },
+      item("rename", "menu-rename"),
+      trash
+    ],
+    file: [
+      item("open", "menu-open"),
+      item("edit", "page-edit"),
+      { separator: true },
+      item("rename", "menu-rename"),
+      trash
+    ],
+    space: [item("new-file", "page-new-file"), item("new-folder", "page-new-folder")]
   };
-  const folder = targetFolder(tree, chosen);
-  add("action:new-file", `\uFF0B ${t("panel-new-file", { folder })}`, { icon: "none", tone: "accent" });
-  add("action:new-folder", `\uFF0B ${t("panel-new-folder", { folder })}`, {
-    icon: "none",
-    tone: "accent"
-  });
-  if (chosen && (chosen.kind === "dir" || chosen.kind === "file" || chosen.kind === "link")) {
-    const name = folderName(chosen.path);
-    add("action:rename", `\u270E ${t("panel-rename", { name })}`, { icon: "none" });
-    add("action:trash", `\u{1F5D1} ${t("panel-trash", { name })}`, { icon: "none", tone: "error" });
-  }
-  return { rows, targets };
 }
 
 // src/panel-view.js
@@ -599,9 +590,11 @@ function panelView({ tree, events, now, t, opts, selected = null }) {
   const latest = /* @__PURE__ */ new Map();
   for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
   const hot = hotFolders(active, root);
+  const menus = panelMenus(t, opts.canEdit === true);
   const decorate = (row, where) => {
     const marks = activityMarks(row, where);
-    return where.path === selected && !marks.tone ? { ...marks, tone: "accent" } : marks;
+    const menu = menus && ROW_MENU[where.kind] ? { menu: ROW_MENU[where.kind] } : {};
+    return where.path === selected && !marks.tone ? { ...marks, ...menu, tone: "accent" } : { ...marks, ...menu };
   };
   const activityMarks = (row, { kind, path, open }) => {
     if (kind === "dir") {
@@ -650,15 +643,6 @@ ${path}`, 512)
     }
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
-  const actions = actionRows({
-    t,
-    tree,
-    chosen: (selected && built.targets.get(selected)) ?? null,
-    canEdit: opts.canEdit === true,
-    clamp
-  });
-  rows.push(...actions.rows);
-  for (const [id, target] of actions.targets) targets.set(id, target);
   rows.push(...built.rows);
   const footer = recentFooter(t, activity, root, now, {
     open: opts.recentOpen,
@@ -671,7 +655,8 @@ ${path}`, 512)
       title: root ? folderName(root) : t("title-no-folder"),
       ...subtitle ? { subtitle } : {},
       rows,
-      ...footer.rows.length ? { footer: { rows: footer.rows } } : {}
+      ...footer.rows.length ? { footer: { rows: footer.rows } } : {},
+      ...menus && root ? { menus, menu: "space" } : {}
     },
     targets,
     live: active.length > 0
@@ -1098,7 +1083,6 @@ function createFolderTree(tf) {
         recentOpen: action === "expand" || action === "activate" && !ui.recentOpen
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
-    if (target.kind === "action") return runAction(target.action);
     return void 0;
   };
   const renameChosen = async () => {
@@ -1107,11 +1091,16 @@ function createFolderTree(tf) {
     await api.openWindow();
     return tf.page.post({ type: "rename", id });
   };
-  const runAction = (action) => {
-    if (action === "new-file") return edits.newFile(selected);
-    if (action === "new-folder") return edits.newFolder(selected);
-    if (action === "rename") return renameChosen();
-    if (action === "trash") return selected ? edits.trash(selected) : void 0;
+  const fromMenu = async (id, item) => {
+    const target = id ? targets.get(id) : null;
+    if (id && !target) return void 0;
+    if (id) selected = id;
+    if (item === "new-file") return edits.newFile(id);
+    if (item === "new-folder") return edits.newFolder(id);
+    if (item === "open") return act(id, "activate", "menu");
+    if (item === "edit") return edits.edit(id);
+    if (item === "rename") return renameChosen();
+    if (item === "trash") return edits.trash(id);
     return void 0;
   };
   const ensureRoot = async (root) => {
@@ -1156,6 +1145,8 @@ function createFolderTree(tf) {
     refresh: () => shown || pageOpen ? start(tree.root) : void 0,
     /** A click (or key) on a row of the panel. */
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
+    /** A choice from a panel row's right-click menu. */
+    menuChosen: ({ row, item } = {}) => typeof item === "string" ? fromMenu(typeof row === "string" ? row : null, item) : void 0,
     /** A message from the window. */
     async message({ message } = {}) {
       const m = message ?? {};
@@ -1262,6 +1253,7 @@ var main_default = (tf) => {
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
+  tf.on("panel.menu", (e) => tree?.menuChosen(e));
   tf.on("page.message", (e) => tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());

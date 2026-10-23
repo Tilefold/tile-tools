@@ -37,7 +37,7 @@
  * Built into main.js with `npx @tilefold/tile-tools build`.
  *
  * Modified 2026-10-23 (changing files): New file, New folder, Rename and
- *   Move to Trash commands.
+ *   Move to Trash commands, and the panel's right-click menus (panel.menu).
  *
  * Last updated by: Tilefold
  */
@@ -85,6 +85,7 @@ export default (tf) => {
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
+  tf.on("panel.menu", (e) => tree?.menuChosen(e));
   tf.on("page.message", (e) => tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());
