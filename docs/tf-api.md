@@ -101,6 +101,8 @@ The setting's current value, at once (not a promise): the user's value when it f
 
 Listens to an event. `handler(payload)` has half a second to finish. A tile may register at most 50 commands, 50 settings and 50 listeners.
 
+A listener that runs too long five times in ten minutes is skipped for the rest of the session, and a command has ten seconds. So when a handler starts something that waits for the user, such as `tf.fs.trash` (Tilefold asks first) or `tf.panel.edit`, start it without returning or awaiting it: `tf.on("panel.menu", (e) => void act(e))`.
+
 | Event | When | Payload |
 |---|---|---|
 | `app.ready` | Tilefold has started and loaded its tiles; also after **Reload tiles** and after the user changes the language, when tiles are loaded again | `{}` |
@@ -118,6 +120,7 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `pane.cwd` | The focused pane's folder changed: another pane or tab, or a `cd` (needs `pane.cwd`; Tilefold 0.1.9) | `{ path }`, `null` when none is known |
 | `pane.list` | A pane opened, closed, was renamed, moved folder or took focus (needs `pane.list`; Tilefold 0.1.11) | `{ panes }`: `[{ session, name, folder, focused }]` |
 | `panel.click` | A row of the tile's docked panel was clicked (needs `window.panel`; Tilefold 0.1.9) | `{ row, action }`, action `activate`, `expand` or `collapse` |
+| `panel.menu` | An item of a panel row's right-click menu was chosen (Tilefold 0.1.16) | `{ row, item }`, row `null` for the empty space |
 | `panel.closed` | The user closed the tile's panel, or another tile's panel replaced it | `{ by }`, `user` or `replaced` |
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |

@@ -37,7 +37,8 @@
  * Built into main.js with `npx @tilefold/tile-tools build`.
  *
  * Modified 2026-10-23 (changing files): New file, New folder, Rename and
- *   Move to Trash commands, and the panel's right-click menus (panel.menu).
+ *   Move to Trash commands, and the panel's right-click menus (panel.menu);
+ *   handlers that wait for the user aren't waited for.
  *
  * Last updated by: Tilefold
  */
@@ -75,18 +76,20 @@ export default (tf) => {
   tf.command(tf.t("cmd-new-folder"), () => (tree ? tree.newFolder() : unsupported()), {
     id: "new-folder",
   });
-  tf.command(tf.t("cmd-rename"), () => (tree ? tree.renameSelected() : unsupported()), {
+  // Renaming and the Trash wait for the user: started, never waited for here,
+  // so a slow answer can't count as a command or listener running too long.
+  tf.command(tf.t("cmd-rename"), () => void (tree ? tree.renameSelected() : unsupported()), {
     id: "rename",
   });
-  tf.command(tf.t("cmd-trash"), () => (tree ? tree.trashSelected() : unsupported()), {
+  tf.command(tf.t("cmd-trash"), () => void (tree ? tree.trashSelected() : unsupported()), {
     id: "trash",
   });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
-  tf.on("panel.menu", (e) => tree?.menuChosen(e));
-  tf.on("page.message", (e) => tree?.message(e));
+  tf.on("panel.menu", (e) => void tree?.menuChosen(e));
+  tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());
 };

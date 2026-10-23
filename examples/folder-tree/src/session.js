@@ -23,6 +23,10 @@
  * unexpected also goes to the tile's log. Showing, hiding, the window and
  * opened files are recorded in the activity log (never a path).
  *
+ * Handlers that wait for the user (the Trash question, renaming) are
+ * started by main.js without being waited for, so a slow answer never
+ * counts as a slow listener or command.
+ *
  * From Tilefold 0.1.16 (`fs.write`) it also changes files (edits.js): the
  * row the user last chose in either view is the target, tinted in the
  * panel, for New file, New folder, Rename and Move to Trash; the window
@@ -301,10 +305,27 @@ export function createFolderTree(tf) {
     return undefined;
   };
 
-  /** Renaming happens in the window, where there is a text field. */
+  /**
+   * Renames the chosen row: in place in the panel where Tilefold can
+   * (`tf.panel.edit`, Tilefold 0.1.16), with the name selected up to its
+   * extension; otherwise in the window, which has a text field of its own.
+   */
   const renameChosen = async () => {
     if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
     const id = selected;
+    const target = targets.get(id);
+    if (shown && target && target.path === id && typeof tf.panel.edit === "function") {
+      const name = id.split(/[\\/]/).filter(Boolean).pop() ?? "";
+      const dot = target.kind === "dir" ? -1 : name.lastIndexOf(".");
+      let typed;
+      try {
+        typed = await tf.panel.edit(id, { value: name, selectTo: dot > 0 ? dot : name.length });
+      } catch {
+        typed = undefined;
+      }
+      if (typed === null) return undefined;
+      if (typeof typed === "string") return edits.rename(id, typed.trim());
+    }
     await api.openWindow();
     return tf.page.post({ type: "rename", id });
   };

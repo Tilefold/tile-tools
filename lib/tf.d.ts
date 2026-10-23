@@ -19,7 +19,7 @@
  *
  * Modified 2026-10-23 (changing files): `fs.create`, `mkdir`, `rename`,
  * `move` and `trash`, `viewer.open`'s `edit`, and their error names; panel
- * right-click menus and the `panel.menu` event.
+ * right-click menus, the `panel.menu` event and `panel.edit`.
  *
  * Last updated by: Tilefold
  */
@@ -459,6 +459,13 @@ export interface Tf {
   readonly panel?: {
     show(content: PanelContent): Promise<boolean>;
     hide(): Promise<null>;
+    /**
+     * Turns a row's label into a text field in place (Tilefold 0.1.16;
+     * missing before): resolves to the text typed (Enter), or null when the
+     * user cancels (Escape, clicking away) or the row goes away. `selectTo`
+     * is where the first selection ends (the name without its extension).
+     */
+    edit?(row: string, options?: { value?: string; selectTo?: number }): Promise<string | null>;
   };
   /**
    * Needs pane.cwd. The folder the focused pane is in, or null; the

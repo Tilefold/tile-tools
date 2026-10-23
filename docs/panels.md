@@ -113,6 +113,20 @@ tf.on("panel.menu", ({ row, item }) => {
 
 Tilefold draws the menu, like the rows, at the pointer. The user also opens it with the ContextMenu key or Shift+F10 on a row, moves with the arrow keys, chooses with Enter and closes it with Escape. Only an item of the menu the row really opens reaches your tile. Older Tilefolds ignore `menus` and `menu`, so keep every action reachable another way too, such as a click or a command. Folder Tree's menus add, rename and trash files.
 
+## 5. Edit a row in place
+
+From **Tilefold 0.1.16**, `tf.panel.edit(row, { value?, selectTo? })` turns a row's label into a text field in place, as Finder does for a rename. It resolves to the text the user typed when they press Enter, or `null` when they press Escape, click away, or the row goes away. `value` is the text it starts with (the label by default), and `selectTo` is where the first selection ends, so `"notes"` of `notes.md` can be selected and the extension kept. One edit runs at a time; a new one cancels the last.
+
+```js
+tf.on("panel.menu", ({ row, item }) => {
+  if (item !== "rename") return;
+  // Not awaited: the user takes their time, and listeners have half a second.
+  void tf.panel.edit(row, { selectTo: 5 }).then((name) => {
+    if (name) return tf.fs.rename(row, name);
+  });
+});
+```
+
 ## Limits
 
 At most 5,000 rows, 30 `show` calls a second, a title of 120 characters and a subtitle of 512. Malformed content fails with `TypeError` and the reason; too many updates with `RateLimitError`. `tf.panel` is missing before Tilefold 0.1.9:

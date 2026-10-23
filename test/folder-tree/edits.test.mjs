@@ -183,10 +183,25 @@ describe("Folder Tree's right-click menus", () => {
     await host.menu("/work/app/README.md", "edit");
     expect(host.editing.at(-1)).toBe("/work/app/README.md");
     expect(rowOf(host, "README.md").tone).toBe("accent");
+    expect(host.page.opens).toEqual([]);
+    // Rename edits the row in place, the name selected up to its extension.
     await host.menu("/work/app/README.md", "rename");
-    expect(host.page.posted.at(-1)).toEqual({ type: "rename", id: "/work/app/README.md" });
+    expect(host.panel.editing).toMatchObject({
+      row: "/work/app/README.md",
+      options: { value: "README.md", selectTo: 6 },
+    });
+    await host.typeName("NOTES.md");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(host.changes.at(-1)).toEqual(["rename", "/work/app/README.md", "/work/app/NOTES.md"]);
+    expect(rowOf(host, "NOTES.md")).toBeDefined();
+    // Cancelling changes nothing.
+    await host.menu("/work/app/NOTES.md", "rename");
+    await host.typeName(null);
+    expect(host.changes.at(-1)[0]).toBe("rename");
+    expect(host.changes.filter((c) => c[0] === "rename")).toHaveLength(1);
     host.trashAnswer = false;
     await host.menu("/work/app/src", "trash");
+    await vi.advanceTimersByTimeAsync(0);
     expect(host.trashAsked).toEqual(["src"]);
   });
 

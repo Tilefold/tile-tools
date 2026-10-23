@@ -60,7 +60,8 @@
  *   changes (fake-files.mjs); opens ready to edit are kept in
  *   `host.editing`; folders may be empty (`host.dirs`). Panels may have
  *   right-click menus (fake-panel-menus.mjs); `host.menu(row, item)` plays
- *   a choice.
+ *   a choice. `tf.panel.edit` waits in `host.panel.editing` until
+ *   `host.typeName(text)` answers.
  *
  * Last updated by: Tilefold
  */
@@ -457,6 +458,16 @@ const panelRowOk = (r) =>
 function addPanel(tf, host, named) {
   host.panel = { content: null, shows: 0 };
   host.menu = (row, item) => chooseFromMenu(host, row, item);
+  // tf.panel.edit (Tilefold 0.1.16): the edit waits in host.panel.editing
+  // until host.typeName(text) answers it (null: the user cancelled).
+  host.panel.editing = null;
+  host.typeName = async (text) => {
+    const ed = host.panel.editing;
+    host.panel.editing = null;
+    ed?.resolve(text);
+    // Let the tile's follow-up (a rename, a redraw) run; no timers, so fake ones work too.
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+  };
   tf.panel = {
     async show(content) {
       const ids = new Set();
@@ -483,6 +494,17 @@ function addPanel(tf, host, named) {
     async hide() {
       host.panel.content = null;
       return null;
+    },
+    edit(row, options = {}) {
+      const rows = [
+        ...(host.panel.content?.rows ?? []),
+        ...(host.panel.content?.footer?.rows ?? []),
+      ];
+      if (!rows.some((r) => r.id === row)) return Promise.reject(named("NotFoundError", "row"));
+      host.panel.editing?.resolve(null);
+      return new Promise((resolve) => {
+        host.panel.editing = { row, options: { ...options }, resolve };
+      });
     },
   };
 }
