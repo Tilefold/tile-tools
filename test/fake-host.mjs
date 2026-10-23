@@ -56,11 +56,16 @@
  *
  * Modified 2026-10-20 (agent input): commands' input and results.
  *
+ * Modified 2026-10-23 (changing files): `folders.write` adds the file
+ *   changes (fake-files.mjs); opens ready to edit are kept in
+ *   `host.editing`; folders may be empty (`host.dirs`).
+ *
  * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
+import { addFileWrites } from "./fake-files.mjs";
 import { pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
@@ -303,7 +308,12 @@ const parentOf = (path) => {
 };
 
 /** `tf.pane`, `tf.fs` and `tf.viewer` over a list of files, with Tilefold's rules. */
-function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, panes }, named) {
+function addFolders(
+  tf,
+  host,
+  { cwd = null, roots = [], files = [], links = {}, panes, write = false },
+  named,
+) {
   host.cwd = cwd;
   host.panes = panes ? structuredClone(panes) : null;
   host.roots = roots;
@@ -311,6 +321,8 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
   host.files = [...files];
   host.links = { ...links };
   host.opened = [];
+  host.editing = [];
+  host.dirs = [];
   /** A path with a link at its start followed, as Tilefold resolves it. */
   const resolve = (path) => {
     for (const [link, target] of Object.entries(host.links)) {
@@ -320,7 +332,7 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
   };
   const dirs = () => {
     const out = new Set();
-    for (const f of host.files) {
+    for (const f of [...host.files, ...host.dirs.map((d) => `${d}/.`)]) {
       for (let d = parentOf(f); ; d = parentOf(d)) {
         out.add(d);
         if (d === "/") break;
@@ -355,13 +367,15 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
     },
   };
   tf.viewer = {
-    async open(raw) {
+    async open(raw, options) {
       const path = check(raw);
       if (!host.files.includes(path)) throw named("NotAFileError", "not a file");
       host.opened.push(path);
+      if (options?.edit === true) host.editing.push(path);
       return null;
     },
   };
+  if (write) addFileWrites(tf, host, { dirs, check, named, parentOf });
 }
 
 /**

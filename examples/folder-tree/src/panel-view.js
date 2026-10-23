@@ -18,6 +18,11 @@
  * A Tilefold older than 0.1.11 ignores the colours, pulses and footer and
  * shows the tree. Text comes from `t`, times are passed in, so it is
  * tested directly; `targets` maps each clickable row to what it opens.
+ *
+ * Modified 2026-10-23 (changing files): the row the user last chose is
+ *   tinted.
+ *
+ * Last updated by: Tilefold
  */
 import { activeFiles, age, hotFolders, recentFiles, TONES } from "./activity.js";
 import { treeRows } from "./model.js";
@@ -120,9 +125,11 @@ function recentFooter(t, events, root, now, { open, all }) {
 /**
  * The panel for `tree` and `events` at `now`. `opts`: activeMs, recentMs,
  * showActivity, filters ({ showHidden, skip }), recentOpen, recentAll.
+ * `selected`, the row the user last chose, is tinted when activity doesn't
+ * colour it already.
  * Returns { content, targets, live } (live: something is happening now).
  */
-export function panelView({ tree, events, now, t, opts }) {
+export function panelView({ tree, events, now, t, opts, selected = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
@@ -130,7 +137,11 @@ export function panelView({ tree, events, now, t, opts }) {
   for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
   const hot = hotFolders(active, root);
 
-  const decorate = (row, { kind, path, open }) => {
+  const decorate = (row, where) => {
+    const marks = activityMarks(row, where);
+    return where.path === selected && !marks.tone ? { ...marks, tone: "accent" } : marks;
+  };
+  const activityMarks = (row, { kind, path, open }) => {
     if (kind === "dir") {
       const count = hot.get(path);
       if (!count || open) return {};

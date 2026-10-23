@@ -26,7 +26,7 @@ npx @tilefold/tile-tools build
 | `pipeline-board` | Your CI pipelines on a card, with a sign-in | 0.1.6 |
 | `tuneboard` | A music player card with a sign-in and a page of its own | 0.1.7 |
 | `watchpane` | A YouTube player over your panes, with a control dock under it that you can drag anywhere and a list of videos beside it (in a small window of its own before Tilefold 0.1.11) | 0.1.10 |
-| `folder-tree` | The folder you're working in, as a tree docked beside your panes, with what your coding agents are reading and changing in it and the recent files pinned at the bottom; also in a window of its own. Agents report through hooks in `hooks/` ([README](folder-tree/README.md)) | 0.1.9 (activity colours and pinned Recent: 0.1.11) |
+| `folder-tree` | The folder you're working in, as a tree docked beside your panes, with what your coding agents are reading and changing in it and the recent files pinned at the bottom; also in a window of its own. Agents report through hooks in `hooks/`. Adds, renames, moves and trashes files, and opens new ones ready to edit ([README](folder-tree/README.md)) | 0.1.9 (activity colours and pinned Recent: 0.1.11; changing files: 0.1.16) |
 | `web-view` | The web app you're building, in a browser beside your panes: one page per address (say one per localhost port, or a range such as 3000-3010), which your AI agents can open, read and test ([README](web-view/README.md)) | 0.1.11 |
 
 Each tile's commands are in the command palette under its name, and its settings in **Settings → Tiles**.

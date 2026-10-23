@@ -22,6 +22,17 @@
  * opening a file are a notice, in the user's language; anything
  * unexpected also goes to the tile's log. Showing, hiding, the window and
  * opened files are recorded in the activity log (never a path).
+ *
+ * From Tilefold 0.1.16 (`fs.write`) it also changes files (edits.js): the
+ * row the user last chose in either view is the target, tinted in the
+ * panel, for New file, New folder, Rename and Move to Trash; the window
+ * sends { type: "select" | "new-file" | "new-folder" | "rename" | "move" |
+ * "trash" | "edit", id, name?, to? }, each checked before it is used.
+ *
+ * Modified 2026-10-23 (changing files): the chosen row, the file changes
+ *   (edits.js) and the window's messages for them.
+ *
+ * Last updated by: Tilefold
  */
 import { namedByPane, toEvents, withShownPaths } from "./activity.js";
 import {
@@ -33,6 +44,7 @@ import {
   withError,
   withListing,
 } from "./model.js";
+import { canEdit, createEdits } from "./edits.js";
 import { pageStrings, pageView } from "./page-view.js";
 import { panelView } from "./panel-view.js";
 import { createScanner } from "./scan.js";
@@ -46,6 +58,12 @@ export const AGE_REDRAW_MS = 10_000;
 export const HOOK_COMMAND = "node hooks/install.mjs";
 /** Where the Recent section's open/all choice is kept. */
 const UI_KEY = "ui";
+/** Longest id or name a window message may carry. */
+const MAX_ARG = 4096;
+
+/** `value` when it is a usable string argument, else null. */
+const arg = (value) =>
+  typeof value === "string" && value.length > 0 && value.length <= MAX_ARG ? value : null;
 
 /** The message for an error from Tilefold, by its name. */
 const ERROR_KEYS = {
@@ -72,6 +90,8 @@ export function createFolderTree(tf) {
   let seen = "";
   let lastDraw = 0;
   let timer = null;
+  /** The row the user last chose (a folder or file), the target of changes. */
+  let selected = null;
   const ui = { recentOpen: true, recentAll: false };
 
   /** A short message for an error, in the user's language. */
@@ -90,6 +110,7 @@ export function createFolderTree(tf) {
       showHidden: tf.settings.get("showHidden") === true,
       skip: parseSkip(tf.settings.get("skipFolders")),
     },
+    canEdit: canEdit(tf),
     ...ui,
   });
 
@@ -98,7 +119,7 @@ export function createFolderTree(tf) {
     const now = Date.now();
     lastDraw = now;
     const next = new Map();
-    const args = { tree, events, now, t: (k, a) => tf.t(k, a), opts: options() };
+    const args = { tree, events, now, t: (k, a) => tf.t(k, a), opts: options(), selected };
     if (shown) {
       const view = panelView(args);
       for (const [id, target] of view.targets) next.set(id, target);
@@ -185,6 +206,24 @@ export function createFolderTree(tf) {
     await draw();
   };
 
+  /** Lists a loaded folder again without a loading note (after a change). */
+  const relist = async (key) => {
+    if (!key || !isLoaded(tree, key)) return draw();
+    try {
+      tree = withListing(tree, key, await tf.fs.list(key));
+    } catch (err) {
+      tree = withError(tree, key, explain(err));
+    }
+    return draw();
+  };
+
+  const edits = createEdits(tf, {
+    tree: () => tree,
+    target: (id) => targets.get(id),
+    relist,
+    explain,
+  });
+
   /** Starts again from `root`, with its activity. */
   const start = async (root) => {
     tree = emptyTree(root);
@@ -245,11 +284,14 @@ export function createFolderTree(tf) {
     const target = targets.get(id);
     if (!target) return undefined;
     if (target.kind === "dir") {
+      selected = id;
       const open = action === "expand" || (action === "activate" && !tree.open.includes(id));
       return toggle(target.path, open);
     }
     if (target.kind === "file" || target.kind === "link") {
-      return openFile(target.path, target.kind === "link", from);
+      selected = targets.has(target.path) ? target.path : selected;
+      await openFile(target.path, target.kind === "link", from);
+      return draw();
     }
     if (target.kind === "recent")
       return setUi({
@@ -318,8 +360,34 @@ export function createFolderTree(tf) {
         return act(m.id, m.open ? "expand" : "collapse", "window");
       }
       if (m.type === "open" && typeof m.id === "string") return act(m.id, "activate", "window");
+      const id = arg(m.id);
+      if (m.type === "select" && id && targets.has(id)) {
+        selected = id;
+        return draw();
+      }
+      if (m.type === "new-file") return edits.newFile(id ?? selected);
+      if (m.type === "new-folder") return edits.newFolder(id ?? selected);
+      if (m.type === "rename" && id && arg(m.name)) return edits.rename(id, m.name);
+      if (m.type === "move" && id) return edits.move(id, arg(m.to));
+      if (m.type === "trash" && id) return edits.trash(id);
+      if (m.type === "edit" && id) return edits.edit(id);
       return undefined;
     },
+    /** Palette commands: a new file or folder where the user last chose. */
+    newFile: () => edits.newFile(selected),
+    newFolder: () => edits.newFolder(selected),
+    /** Palette command: the last chosen row goes to the Trash (Tilefold asks). */
+    trashSelected: () =>
+      selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
+    /** Palette command: renaming happens in the window, where there is a text field. */
+    async renameSelected() {
+      if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
+      const id = selected;
+      await this.openWindow();
+      return tf.page.post({ type: "rename", id });
+    },
+    /** Whether this Tilefold lets the tile change files. */
+    canEdit: () => canEdit(tf),
     /** The focused pane's folder changed. */
     async paneChanged(path) {
       if (path === tree.root) return undefined;

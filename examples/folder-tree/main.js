@@ -27,11 +27,19 @@
  *   0.1.11): every pane's folder and the name the user gave it;
  * - `tf.fs.list` for one level of names, never file contents (`fs.list`);
  * - `tf.viewer.open` to show a file (`viewer.open`);
- * - a page in a window of its own (`tf.page`, `page`).
+ * - a page in a window of its own (`tf.page`, `page`);
+ * - from Tilefold 0.1.16, new files and folders, renames, moves and the
+ *   Trash (`tf.fs.create`, `mkdir`, `rename`, `move`, `trash`; `fs.write`),
+ *   with new files opened ready to edit (`tf.viewer.open(path, { edit })`).
  * On Tilefold 0.1.9 and 0.1.10 the panel shows the tree without the
  * colours and the pinned Recent list; the window has everything.
  *
  * Built into main.js with `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-10-23 (changing files): New file, New folder, Rename and
+ *   Move to Trash commands.
+ *
+ * Last updated by: Tilefold
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
 // src/paths.js
@@ -206,6 +214,13 @@ function withError(tree, path, message) {
 var opened = (tree, path) => ({ ...tree, open: adding(tree.open, path) });
 var closed = (tree, path) => ({ ...tree, open: without(tree.open, path) });
 var isLoaded = (tree, path) => path in tree.folders;
+function parentKey(tree, path) {
+  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? "";
+  for (const [key, level] of Object.entries(tree.folders)) {
+    if (level.path && childPath(level.path, name) === path) return key;
+  }
+  return null;
+}
 function treeRows(tree, { strings, filters, decorate = null }) {
   const rows = [];
   const targets = /* @__PURE__ */ new Map();
@@ -245,6 +260,116 @@ function treeRows(tree, { strings, filters, decorate = null }) {
   return { rows, targets };
 }
 
+// src/edits.js
+var EDIT_ERROR_KEYS = {
+  AlreadyExistsError: "error-exists",
+  InvalidNameError: "error-bad-name",
+  ProtectedPathError: "error-protected",
+  PermissionDeniedError: "error-no-write",
+  PathNotAllowedError: "error-not-allowed",
+  NotFoundError: "error-not-found",
+  RateLimitError: "error-busy"
+};
+var MAX_TRIES = 200;
+function freeName(taken, name) {
+  const lower = new Set([...taken].map((n) => n.toLowerCase()));
+  if (!lower.has(name.toLowerCase())) return name;
+  const dot = name.lastIndexOf(".");
+  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+  for (let i = 2; i < MAX_TRIES; i++) {
+    const next = `${stem} ${i}${ext}`;
+    if (!lower.has(next.toLowerCase())) return next;
+  }
+  return null;
+}
+var canEdit = (tf) => typeof tf.fs?.create === "function";
+function createEdits(tf, host) {
+  const folderOf = (id) => {
+    const tree = host.tree();
+    const target = id ? host.target(id) : null;
+    if (target?.kind === "dir") return target.path;
+    if (target) return parentKey(tree, target.path) ?? tree.root;
+    return tree.root;
+  };
+  const fail = (err) => {
+    const key = EDIT_ERROR_KEYS[err?.name];
+    return tf.toast(key ? tf.t(key) : host.explain(err));
+  };
+  const guarded = async (change) => {
+    if (!canEdit(tf)) return tf.toast(tf.t("needs-tilefold-edit"));
+    try {
+      return await change();
+    } catch (err) {
+      return fail(err);
+    }
+  };
+  const create = (id, kind) => guarded(async () => {
+    const key = folderOf(id);
+    if (!key) return tf.toast(tf.t("error-no-folder"));
+    const dir = host.tree().folders[key]?.path ?? key;
+    const listing = await tf.fs.list(dir);
+    const name = freeName(
+      listing.entries.map((e) => e.name),
+      tf.t(kind === "dir" ? "new-folder-name" : "new-file-name")
+    );
+    if (!name) return tf.toast(tf.t("error-exists"));
+    const path = kind === "dir" ? await tf.fs.mkdir(dir, name) : await tf.fs.create(dir, name);
+    await host.relist(key);
+    await tf.audit(kind === "dir" ? "folder-created" : "file-created", {});
+    if (kind !== "dir") await tf.viewer.open(path, { edit: true });
+    return path;
+  });
+  return {
+    /** A new file in the folder for row `id`, opened ready to edit. */
+    newFile: (id) => create(id, "file"),
+    /** A new folder in the folder for row `id`. */
+    newFolder: (id) => create(id, "dir"),
+    /** Renames row `id` to `name` (in the same folder). */
+    rename: (id, name) => guarded(async () => {
+      const target = host.target(id);
+      if (!target || typeof name !== "string" || !name.trim()) return void 0;
+      if (name === basename(target.path)) return target.path;
+      const path = await tf.fs.rename(target.path, name);
+      await host.relist(parentKey(host.tree(), target.path) ?? host.tree().root);
+      await tf.audit("renamed", {});
+      return path;
+    }),
+    /** Moves row `id` into the folder row `to` (or the tree's own folder). */
+    move: (id, to) => guarded(async () => {
+      const target = host.target(id);
+      const into = folderOf(to);
+      if (!target || !into) return void 0;
+      const from = parentKey(host.tree(), target.path);
+      if (from === into || into === target.path) return void 0;
+      const dir = host.tree().folders[into]?.path ?? into;
+      const path = await tf.fs.move(target.path, dir);
+      if (from) await host.relist(from);
+      await host.relist(into);
+      await tf.audit("moved", {});
+      return path;
+    }),
+    /** Moves row `id` to the Trash, once the user agrees (Tilefold asks). */
+    trash: (id) => guarded(async () => {
+      const target = host.target(id);
+      if (!target) return void 0;
+      const from = parentKey(host.tree(), target.path);
+      const gone = await tf.fs.trash(target.path);
+      if (!gone) return false;
+      if (from) await host.relist(from);
+      await tf.audit("trashed", { kind: target.kind === "dir" ? "dir" : "file" });
+      return true;
+    }),
+    /** Opens file row `id` in the viewer ready to edit. */
+    edit: (id) => guarded(async () => {
+      const target = host.target(id);
+      if (!target || target.kind === "dir") return void 0;
+      await tf.viewer.open(target.path, { edit: true });
+      await tf.audit("file-opened", { from: "edit" });
+      return target.path;
+    })
+  };
+}
+
 // src/page-view.js
 var PAGE_RECENT = 100;
 var PAGE_NOW = 8;
@@ -260,7 +385,7 @@ function pageEvent(e, root, prefix) {
     ts: e.ts
   };
 }
-function pageView({ tree, events, now, t, opts }) {
+function pageView({ tree, events, now, t, opts, selected = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
@@ -307,7 +432,9 @@ function pageView({ tree, events, now, t, opts }) {
       tree: rows,
       recent: recent.map((e) => pageEvent(e, root, "recent:")),
       panes: paneCount(recent),
-      activity: opts.showActivity
+      activity: opts.showActivity,
+      selected: selected && targets.has(selected) ? selected : null,
+      canEdit: opts.canEdit === true
     },
     targets
   };
@@ -336,6 +463,15 @@ function pageStrings(t, hookCommand) {
       d: t("page-doing-d")
     },
     ago: { s: t("ago-s", { n }), m: t("ago-m", { n }), h: t("ago-h", { n }), d: t("ago-d", { n }) },
+    edit: {
+      newFile: t("page-new-file"),
+      newFolder: t("page-new-folder"),
+      rename: t("page-rename"),
+      edit: t("page-edit"),
+      trash: t("page-trash"),
+      nameLabel: t("page-name-label"),
+      tools: t("page-tools")
+    },
     setup: {
       title: t("setup-title"),
       intro: t("setup-intro"),
@@ -422,14 +558,18 @@ function recentFooter(t, events, root, now, { open, all }) {
   }
   return { rows, targets };
 }
-function panelView({ tree, events, now, t, opts }) {
+function panelView({ tree, events, now, t, opts, selected = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
   const latest = /* @__PURE__ */ new Map();
   for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
   const hot = hotFolders(active, root);
-  const decorate = (row, { kind, path, open }) => {
+  const decorate = (row, where) => {
+    const marks = activityMarks(row, where);
+    return where.path === selected && !marks.tone ? { ...marks, tone: "accent" } : marks;
+  };
+  const activityMarks = (row, { kind, path, open }) => {
     if (kind === "dir") {
       const count = hot.get(path);
       if (!count || open) return {};
@@ -727,6 +867,8 @@ var POLL_MS = 2e3;
 var AGE_REDRAW_MS = 1e4;
 var HOOK_COMMAND = "node hooks/install.mjs";
 var UI_KEY = "ui";
+var MAX_ARG = 4096;
+var arg = (value) => typeof value === "string" && value.length > 0 && value.length <= MAX_ARG ? value : null;
 var ERROR_KEYS = {
   PathNotAllowedError: "error-not-allowed",
   NotFoundError: "error-not-found",
@@ -744,6 +886,7 @@ function createFolderTree(tf) {
   let seen = "";
   let lastDraw = 0;
   let timer = null;
+  let selected = null;
   const ui = { recentOpen: true, recentAll: false };
   const explain = (err) => {
     const key = ERROR_KEYS[err?.name];
@@ -758,13 +901,14 @@ function createFolderTree(tf) {
       showHidden: tf.settings.get("showHidden") === true,
       skip: parseSkip(tf.settings.get("skipFolders"))
     },
+    canEdit: canEdit(tf),
     ...ui
   });
   const draw = async () => {
     const now = Date.now();
     lastDraw = now;
     const next = /* @__PURE__ */ new Map();
-    const args = { tree, events, now, t: (k, a) => tf.t(k, a), opts: options() };
+    const args = { tree, events, now, t: (k, a) => tf.t(k, a), opts: options(), selected };
     if (shown) {
       const view = panelView(args);
       for (const [id, target] of view.targets) next.set(id, target);
@@ -832,6 +976,21 @@ function createFolderTree(tf) {
     }
     await draw();
   };
+  const relist = async (key) => {
+    if (!key || !isLoaded(tree, key)) return draw();
+    try {
+      tree = withListing(tree, key, await tf.fs.list(key));
+    } catch (err) {
+      tree = withError(tree, key, explain(err));
+    }
+    return draw();
+  };
+  const edits = createEdits(tf, {
+    tree: () => tree,
+    target: (id) => targets.get(id),
+    relist,
+    explain
+  });
   const start = async (root) => {
     tree = emptyTree(root);
     found = [];
@@ -882,11 +1041,14 @@ function createFolderTree(tf) {
     const target = targets.get(id);
     if (!target) return void 0;
     if (target.kind === "dir") {
+      selected = id;
       const open = action === "expand" || action === "activate" && !tree.open.includes(id);
       return toggle(target.path, open);
     }
     if (target.kind === "file" || target.kind === "link") {
-      return openFile(target.path, target.kind === "link", from);
+      selected = targets.has(target.path) ? target.path : selected;
+      await openFile(target.path, target.kind === "link", from);
+      return draw();
     }
     if (target.kind === "recent")
       return setUi({
@@ -950,8 +1112,33 @@ function createFolderTree(tf) {
         return act(m.id, m.open ? "expand" : "collapse", "window");
       }
       if (m.type === "open" && typeof m.id === "string") return act(m.id, "activate", "window");
+      const id = arg(m.id);
+      if (m.type === "select" && id && targets.has(id)) {
+        selected = id;
+        return draw();
+      }
+      if (m.type === "new-file") return edits.newFile(id ?? selected);
+      if (m.type === "new-folder") return edits.newFolder(id ?? selected);
+      if (m.type === "rename" && id && arg(m.name)) return edits.rename(id, m.name);
+      if (m.type === "move" && id) return edits.move(id, arg(m.to));
+      if (m.type === "trash" && id) return edits.trash(id);
+      if (m.type === "edit" && id) return edits.edit(id);
       return void 0;
     },
+    /** Palette commands: a new file or folder where the user last chose. */
+    newFile: () => edits.newFile(selected),
+    newFolder: () => edits.newFolder(selected),
+    /** Palette command: the last chosen row goes to the Trash (Tilefold asks). */
+    trashSelected: () => selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
+    /** Palette command: renaming happens in the window, where there is a text field. */
+    async renameSelected() {
+      if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
+      const id = selected;
+      await this.openWindow();
+      return tf.page.post({ type: "rename", id });
+    },
+    /** Whether this Tilefold lets the tile change files. */
+    canEdit: () => canEdit(tf),
     /** The focused pane's folder changed. */
     async paneChanged(path) {
       if (path === tree.root) return void 0;
@@ -1005,6 +1192,18 @@ var main_default = (tf) => {
   });
   tf.command(tf.t("cmd-refresh"), () => tree ? tree.refresh() : unsupported(), {
     id: "refresh"
+  });
+  tf.command(tf.t("cmd-new-file"), () => tree ? tree.newFile() : unsupported(), {
+    id: "new-file"
+  });
+  tf.command(tf.t("cmd-new-folder"), () => tree ? tree.newFolder() : unsupported(), {
+    id: "new-folder"
+  });
+  tf.command(tf.t("cmd-rename"), () => tree ? tree.renameSelected() : unsupported(), {
+    id: "rename"
+  });
+  tf.command(tf.t("cmd-trash"), () => tree ? tree.trashSelected() : unsupported(), {
+    id: "trash"
   });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));

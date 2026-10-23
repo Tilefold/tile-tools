@@ -10,6 +10,19 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 - **Recent**, pinned to the bottom, shows the newest five. **Show all** lets it grow upward to half the panel, scrolling inside; **Show fewer** shrinks it back. Folder Tree remembers which you chose.
 - **Folder Tree: Open window** shows the same in a window of its own.
 
+## Changing files
+
+From Tilefold 0.1.16, Folder Tree can also add, rename, move and trash files and folders, and you edit files right in the document viewer.
+
+- **Choose where:** click a folder or file in the tree; the panel tints it. Changes happen in that folder (or the file's folder), or in the tree's own folder when nothing is chosen.
+- **Folder Tree: New file** makes `untitled.md` (or `untitled 2.md`, …) there and opens it in the document viewer ready to type; save with ⌘S. **Folder Tree: New folder** makes `untitled folder`.
+- **Folder Tree: Rename** opens the window with the name ready to change. **Folder Tree: Move to Trash** moves the chosen file or folder to the Trash; Tilefold asks you first, and you can put it back from the Trash in Finder.
+- **In the window** (Folder Tree: Open window): the **New file**, **New folder**, **Rename**, **Edit** and **Move to Trash** buttons above the tree; rename in place (Enter keeps the name, Escape doesn't); drag a file or folder onto another folder to move it, or onto the **Files** heading to move it to the tree's folder; **F2** renames and **⌘⌫** (or Delete) moves to the Trash.
+- Nothing is ever replaced: a name that's taken is refused. Folders inside `.git`, and the folder a pane is in itself, can't be changed.
+- Folder Tree still never reads or writes what's in a file; you type in Tilefold's document viewer. The activity log records each change by kind only, never a name.
+
+On an older Tilefold the tree works as before, and these commands say they need Tilefold 0.1.16.
+
 The colours, pulses, pinned Recent list, every pane and pane names need Tilefold 0.1.11. On 0.1.9 and 0.1.10 the panel shows the tree only, and only the focused pane's agents; the window has the rest.
 
 ## Showing what your agents do
@@ -54,4 +67,4 @@ The **Folder Tree: Set up agent activity** command shows the same steps in the w
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-14 by Tilefold
+Last updated: 2026-10-23 by Tilefold

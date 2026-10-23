@@ -17,6 +17,9 @@
  * Modified 2026-10-20 (agent input): a command's `input`, its handler's
  * argument and return value.
  *
+ * Modified 2026-10-23 (changing files): `fs.create`, `mkdir`, `rename`,
+ * `move` and `trash`, `viewer.open`'s `edit`, and their error names.
+ *
  * Last updated by: Tilefold
  */
 
@@ -310,7 +313,10 @@ export type TileErrorName =
   | "NotFoundError"
   | "NotADirectoryError"
   | "NotAFileError"
-  | "UnreadableError";
+  | "UnreadableError"
+  | "AlreadyExistsError"
+  | "InvalidNameError"
+  | "ProtectedPathError";
 
 /** The object a tile's default export receives. */
 export interface Tf {
@@ -456,12 +462,33 @@ export interface Tf {
    * panes is in: names and kinds only, never file contents. Missing before
    * Tilefold 0.1.9.
    */
-  readonly fs?: { list(path: string): Promise<FolderListing> };
+  readonly fs?: {
+    list(path: string): Promise<FolderListing>;
+    /**
+     * Needs fs.write. Changes inside a pane's folder, each resolving to
+     * the entry's new path: an empty file, a folder, a new name in the same
+     * folder, a move to another folder (optionally renamed). Never over
+     * another entry, never inside `.git`, never a pane's own folder. The
+     * tile never reads or writes what is in a file. Missing before
+     * Tilefold 0.1.16.
+     */
+    create?(dir: string, name: string): Promise<string>;
+    mkdir?(dir: string, name: string): Promise<string>;
+    rename?(path: string, name: string): Promise<string>;
+    move?(path: string, toDir: string, name?: string): Promise<string>;
+    /**
+     * Needs fs.write. Moves an entry to the Trash after Tilefold asks the
+     * user: true when it went, false when they said no. Missing before
+     * Tilefold 0.1.16.
+     */
+    trash?(path: string): Promise<boolean>;
+  };
   /**
    * Needs viewer.open. Shows a file from inside a pane's folder in
-   * Tilefold's document viewer. Missing before Tilefold 0.1.9.
+   * Tilefold's document viewer; `{ edit: true }` (Tilefold 0.1.16) opens it
+   * ready to edit. Missing before Tilefold 0.1.9.
    */
-  readonly viewer?: { open(path: string): Promise<null> };
+  readonly viewer?: { open(path: string, options?: { edit?: boolean }): Promise<null> };
 }
 
 /**
