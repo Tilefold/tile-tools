@@ -60,7 +60,7 @@
  *   changes (fake-files.mjs); opens ready to edit are kept in
  *   `host.editing`; folders may be empty (`host.dirs`). Panels may have
  *   right-click menus (fake-panel-menus.mjs); `host.menu(row, item)` plays
- *   a choice. `tf.panel.edit` waits in `host.panel.editing` until
+ *   a choice and `host.doubleClick(row)` a double-click. `tf.panel.edit` waits in `host.panel.editing` until
  *   `host.typeName(text)` answers.
  *
  * Last updated by: Tilefold
@@ -69,7 +69,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addFileWrites } from "./fake-files.mjs";
-import { checkPanelMenus, chooseFromMenu } from "./fake-panel-menus.mjs";
+import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
@@ -458,6 +458,7 @@ const panelRowOk = (r) =>
 function addPanel(tf, host, named) {
   host.panel = { content: null, shows: 0 };
   host.menu = (row, item) => chooseFromMenu(host, row, item);
+  host.doubleClick = (row) => doubleClick(host, row);
   // tf.panel.edit (Tilefold 0.1.16): the edit waits in host.panel.editing
   // until host.typeName(text) answers it (null: the user cancelled).
   host.panel.editing = null;

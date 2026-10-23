@@ -38,7 +38,8 @@
  *
  * Modified 2026-10-23 (changing files): New file, New folder, Rename and
  *   Move to Trash commands, and the panel's right-click menus (panel.menu);
- *   handlers that wait for the user aren't waited for.
+ *   handlers that wait for the user aren't waited for. A double-click on a
+ *   file renames it in place (panel.dblclick, and in the window).
  *
  * Last updated by: Tilefold
  */
@@ -1105,6 +1106,13 @@ function createFolderTree(tf) {
     await api.openWindow();
     return tf.page.post({ type: "rename", id });
   };
+  const doubled = (id) => {
+    const target = targets.get(id);
+    const file = target && (target.kind === "file" || target.kind === "link");
+    if (!file || target.path !== id) return void 0;
+    selected = id;
+    return renameChosen();
+  };
   const fromMenu = async (id, item) => {
     const target = id ? targets.get(id) : null;
     if (id && !target) return void 0;
@@ -1159,6 +1167,8 @@ function createFolderTree(tf) {
     refresh: () => shown || pageOpen ? start(tree.root) : void 0,
     /** A click (or key) on a row of the panel. */
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
+    /** A double-click on a row of the panel. */
+    doubled: ({ row } = {}) => typeof row === "string" ? doubled(row) : void 0,
     /** A choice from a panel row's right-click menu. */
     menuChosen: ({ row, item } = {}) => typeof item === "string" ? fromMenu(typeof row === "string" ? row : null, item) : void 0,
     /** A message from the window. */
@@ -1268,6 +1278,7 @@ var main_default = (tf) => {
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
+  tf.on("panel.dblclick", (e) => void tree?.doubled(e));
   tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());

@@ -12,7 +12,8 @@
  * trashes, and asks Tilefold, which asks the user, before the Trash;
  * refusals are notices in the user's language; the panel tints the chosen
  * row, and folders, files and the empty space get right-click menus whose
- * items act on what was clicked; nothing is recorded with a name; and an
+ * items act on what was clicked; a double-click on a file renames it in
+ * place while folders only open and close; nothing is recorded with a name; and an
  * older Tilefold says what it needs. Also the pure helpers: free names and finding an entry's folder.
  */
 import { fileURLToPath } from "node:url";
@@ -203,6 +204,32 @@ describe("Folder Tree's right-click menus", () => {
     await host.menu("/work/app/src", "trash");
     await vi.advanceTimersByTimeAsync(0);
     expect(host.trashAsked).toEqual(["src"]);
+  });
+
+  it("rename a double-clicked file in place, after its clicks opened it", async () => {
+    const host = await start();
+    await host.command("toggle");
+    await host.doubleClick("/work/app/README.md");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(host.opened.at(-1)).toBe("/work/app/README.md");
+    expect(host.panel.editing).toMatchObject({
+      row: "/work/app/README.md",
+      options: { value: "README.md", selectTo: 6 },
+    });
+    await host.typeName("NOTES.md");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(host.changes).toEqual([["rename", "/work/app/README.md", "/work/app/NOTES.md"]]);
+    expect(host.page.opens).toEqual([]);
+  });
+
+  it("only open and close a double-clicked folder", async () => {
+    const host = await start();
+    await host.command("toggle");
+    await host.doubleClick("/work/app/src");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(host.panel.editing).toBeNull();
+    expect(host.page.opens).toEqual([]);
+    expect(host.changes).toEqual([]);
   });
 
   it("make new files in the tree's own folder from the empty space", async () => {

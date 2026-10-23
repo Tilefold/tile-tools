@@ -19,7 +19,8 @@
  *
  * Modified 2026-10-23 (changing files): `fs.create`, `mkdir`, `rename`,
  * `move` and `trash`, `viewer.open`'s `edit`, and their error names; panel
- * right-click menus, the `panel.menu` event and `panel.edit`.
+ * right-click menus, the `panel.menu` and `panel.dblclick` events and
+ * `panel.edit`.
  *
  * Last updated by: Tilefold
  */
@@ -49,6 +50,7 @@ export type TileEvent =
   | "panel.click"
   | "panel.closed"
   | "panel.menu"
+  | "panel.dblclick"
   | "browser.navigated"
   | "browser.closed";
 
@@ -108,6 +110,8 @@ export interface TileEventPayloads {
   "panel.closed": { by: "user" | "replaced" };
   /** A right-click menu's choice: the row (null for the empty space) and the item (Tilefold 0.1.16). */
   "panel.menu": { row: string | null; item: string };
+  /** A row of the panel was double-clicked, after its two `panel.click` events (Tilefold 0.1.16). */
+  "panel.dblclick": { row: string };
   /**
    * The tile's browser finished loading a page, or its title changed (needs
    * browser). `page` names which of the tile's pages, for a named one.

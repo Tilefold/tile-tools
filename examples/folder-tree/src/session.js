@@ -16,7 +16,9 @@
  * the focused one, and calls each agent by the name the user gave its
  * pane. Tilefold lets it reach only folders the user's panes are in.
  *
- * Clicks arrive from the panel as `panel.click` ({ row, action }) and from
+ * Clicks arrive from the panel as `panel.click` ({ row, action }), a
+ * double-click on a file as `panel.dblclick` ({ row }, Tilefold 0.1.16:
+ * renames it in place), and from
  * the window as `page.message` ({ type: "toggle" | "open", id }); both use
  * the same row ids. Errors listing a folder show inside the tree; errors
  * opening a file are a notice, in the user's language; anything
@@ -330,6 +332,18 @@ export function createFolderTree(tf) {
     return tf.page.post({ type: "rename", id });
   };
 
+  /**
+   * A double-click on row `id`: a file (or link) in the tree is renamed in
+   * place. Its two clicks already opened it; folders only open and close.
+   */
+  const doubled = (id) => {
+    const target = targets.get(id);
+    const file = target && (target.kind === "file" || target.kind === "link");
+    if (!file || target.path !== id) return undefined;
+    selected = id;
+    return renameChosen();
+  };
+
   /** A choice from a right-click menu on row `id` (null: the empty space). */
   const fromMenu = async (id, item) => {
     const target = id ? targets.get(id) : null;
@@ -391,6 +405,8 @@ export function createFolderTree(tf) {
     refresh: () => (shown || pageOpen ? start(tree.root) : undefined),
     /** A click (or key) on a row of the panel. */
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
+    /** A double-click on a row of the panel. */
+    doubled: ({ row } = {}) => (typeof row === "string" ? doubled(row) : undefined),
     /** A choice from a panel row's right-click menu. */
     menuChosen: ({ row, item } = {}) =>
       typeof item === "string" ? fromMenu(typeof row === "string" ? row : null, item) : undefined,

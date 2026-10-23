@@ -12,11 +12,14 @@
  * place (Enter sends the new name, Escape sends nothing) and the tree isn't
  * redrawn under it; the tile can ask for a rename before the row is drawn;
  * dropping a row on a folder or the Files heading moves it; F2 and ⌘⌫ work
- * on the chosen row; and names only ever arrive as text.
+ * on the chosen row; a double-click on a file renames it (counted by row,
+ * so a redraw between the clicks doesn't lose it) and opens it only once;
+ * and names only ever arrive as text.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath, URL as NodeURL } from "node:url";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { DOUBLE_MS } from "../../examples/folder-tree/page-src/tools.js";
 
 // jsdom has its own URL; Node's is the one fileURLToPath takes.
 const PAGE = fileURLToPath(new NodeURL("../../examples/folder-tree/page/", import.meta.url));
@@ -165,6 +168,40 @@ describe("Folder Tree window tools", () => {
     field.value = "other.md";
     field.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(sent).toHaveLength(1);
+  });
+
+  it("rename a double-clicked file in place, opening it only once", async () => {
+    await post(state());
+    button("/work/app/README.md").click();
+    // The tile's answer to the first click redraws the tree between the clicks.
+    await post(state({ selected: "/work/app/README.md" }));
+    button("/work/app/README.md").click();
+    expect(sent).toEqual([{ type: "open", id: "/work/app/README.md" }]);
+    const field = document.querySelector("input.rename");
+    expect(field.value).toBe("README.md");
+    field.value = "NOTES.md";
+    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(sent.at(-1)).toEqual({ type: "rename", id: "/work/app/README.md", name: "NOTES.md" });
+  });
+
+  it("treat slow clicks, or clicks on two files or on a folder, as plain clicks", async () => {
+    const now = vi.spyOn(Date, "now");
+    try {
+      await post(state());
+      now.mockReturnValue(10_000);
+      button("/work/app/README.md").click();
+      now.mockReturnValue(10_000 + DOUBLE_MS);
+      button("/work/app/README.md").click();
+      button("/work/app/<b>x</b>.md").click();
+      button("/work/app/README.md").click();
+      button("/work/app/src").click();
+      button("/work/app/src").click();
+      expect(document.querySelector("input.rename")).toBeNull();
+      expect(sent.filter((m) => m.type === "open")).toHaveLength(4);
+      expect(sent.filter((m) => m.type === "toggle")).toHaveLength(2);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("start a rename the tile asked for, once the row is drawn", async () => {

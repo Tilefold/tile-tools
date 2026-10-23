@@ -11,13 +11,20 @@
  * place (Enter keeps the new name, Escape or leaving the field keeps the
  * old one); dragging a file or folder onto a folder, or onto the Files
  * heading for the tree's own folder, moves it; F2 renames and ⌘⌫ / Delete
- * moves the chosen row to the Trash (Tilefold asks first). Everything goes
+ * moves the chosen row to the Trash (Tilefold asks first). A double-click
+ * on a file renames it in place: the second click on the same file within
+ * DOUBLE_MS starts the rename instead of opening it again. It is counted by
+ * row id, not left to the browser, since the first click's redraw replaces
+ * the row's element. Everything goes
  * to the tile as a message; the tile and Tilefold check it all again.
  * Names are only ever set with `textContent` and the field's value.
  */
 
 /** The drag type that carries a row id between rows of this window. */
 const DRAG_TYPE = "application/x-folder-tree-row";
+
+/** Two clicks on the same file within this many milliseconds are a double-click. */
+export const DOUBLE_MS = 500;
 
 /**
  * The tools for one window. `send(message)` posts to the tile, `el(tag,
@@ -29,6 +36,8 @@ export function createTools({ send, el, $ }) {
   /** The row being renamed, and one the tile asked to rename before it was drawn. */
   let renaming = null;
   let pendingRename = null;
+  /** The last click on a file row (to tell a double-click). */
+  let lastClick = { id: null, at: 0 };
 
   const chosen = () => state?.selected ?? null;
   const rowOf = (id) => state?.tree.find((r) => r.id === id) ?? null;
@@ -125,6 +134,18 @@ export function createTools({ send, el, $ }) {
       if (r.id === chosen()) button.classList.add("chosen");
       button.setAttribute("aria-selected", String(r.id === chosen()));
       if (!on() || r.muted || r.kind === "note") return;
+      if (r.kind === "file" || r.kind === "link") {
+        // Added before the window's own click listener, so a second click
+        // can keep it from opening the file again.
+        button.addEventListener("click", (e) => {
+          const now = Date.now();
+          const again = lastClick.id === r.id && now - lastClick.at < DOUBLE_MS;
+          lastClick = again ? { id: null, at: 0 } : { id: r.id, at: now };
+          if (!again) return;
+          e.stopImmediatePropagation();
+          startRename(r.id);
+        });
+      }
       button.draggable = true;
       button.addEventListener("dragstart", (e) => {
         e.dataTransfer?.setData(DRAG_TYPE, r.id);

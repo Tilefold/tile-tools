@@ -46,11 +46,13 @@
 
   // page-src/tools.js
   var DRAG_TYPE = "application/x-folder-tree-row";
+  var DOUBLE_MS = 500;
   function createTools({ send: send2, el: el2, $: $2 }) {
     let state2 = null;
     let strings2 = null;
     let renaming = null;
     let pendingRename = null;
+    let lastClick = { id: null, at: 0 };
     const chosen = () => state2?.selected ?? null;
     const rowOf = (id) => state2?.tree.find((r) => r.id === id) ?? null;
     const on = () => Boolean(state2?.canEdit);
@@ -138,6 +140,16 @@
         if (r.id === chosen()) button.classList.add("chosen");
         button.setAttribute("aria-selected", String(r.id === chosen()));
         if (!on() || r.muted || r.kind === "note") return;
+        if (r.kind === "file" || r.kind === "link") {
+          button.addEventListener("click", (e) => {
+            const now = Date.now();
+            const again = lastClick.id === r.id && now - lastClick.at < DOUBLE_MS;
+            lastClick = again ? { id: null, at: 0 } : { id: r.id, at: now };
+            if (!again) return;
+            e.stopImmediatePropagation();
+            startRename(r.id);
+          });
+        }
         button.draggable = true;
         button.addEventListener("dragstart", (e) => {
           e.dataTransfer?.setData(DRAG_TYPE, r.id);

@@ -127,6 +127,16 @@ tf.on("panel.menu", ({ row, item }) => {
 });
 ```
 
+## 6. Double-clicks
+
+From **Tilefold 0.1.16**, a double-click on a row also reaches your tile as `panel.dblclick` with the row's id. It comes after the two `panel.click` events the clicks themselves send, so whatever a click does has already happened. Folder Tree opens a file on a click and renames it in place on a double-click. Older Tilefolds never send it, so keep the action reachable another way too.
+
+```js
+tf.on("panel.dblclick", ({ row }) => {
+  void tf.panel.edit(row).then((name) => name && tf.fs.rename(row, name));
+});
+```
+
 ## Limits
 
 At most 5,000 rows, 30 `show` calls a second, a title of 120 characters and a subtitle of 512. Malformed content fails with `TypeError` and the reason; too many updates with `RateLimitError`. `tf.panel` is missing before Tilefold 0.1.9:

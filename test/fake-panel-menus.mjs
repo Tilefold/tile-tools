@@ -12,6 +12,8 @@
  * row's `menu`, and the panel's own, must name one of them. `choose(row,
  * item)` plays the user picking an item, and only passes on an item of the
  * menu that row (null: the empty space) opens, as Tilefold does.
+ * `doubleClick(row)` plays a double-click: the two `panel.click` events,
+ * then `panel.dblclick`, only for a row of the shown panel.
  */
 
 const NAME = /^[a-z][a-z0-9-]{0,31}$/;
@@ -59,4 +61,16 @@ export function chooseFromMenu(host, row, item) {
   const items = (content.menus ?? {})[name] ?? [];
   if (!items.some((e) => e.id === item)) return undefined;
   return host.emit("panel.menu", { row, item });
+}
+
+/** Plays a double-click on `row`: two clicks, then `panel.dblclick`, as Tilefold sends them. */
+export async function doubleClick(host, row) {
+  const content = host.panel.content;
+  const rows = [...(content?.rows ?? []), ...(content?.footer?.rows ?? [])];
+  const found = rows.find((r) => r.id === row);
+  if (!found) return;
+  const action = found.expandable ? (found.expanded ? "collapse" : "expand") : "activate";
+  await host.emit("panel.click", { row, action });
+  await host.emit("panel.click", { row, action });
+  await host.emit("panel.dblclick", { row });
 }
