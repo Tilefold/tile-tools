@@ -79,3 +79,7 @@ page-edit = Изменить
 page-trash = Переместить в Корзину
 page-name-label = Новое имя
 page-tools = Инструменты файлов
+panel-new-file = Новый файл в { $folder }
+panel-new-folder = Новая папка в { $folder }
+panel-rename = Переименовать { $name }…
+panel-trash = Переместить { $name } в Корзину

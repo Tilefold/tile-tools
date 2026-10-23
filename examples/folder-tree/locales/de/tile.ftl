@@ -79,3 +79,7 @@ page-edit = Bearbeiten
 page-trash = In den Papierkorb
 page-name-label = Neuer Name
 page-tools = Dateiwerkzeuge
+panel-new-file = Neue Datei in { $folder }
+panel-new-folder = Neuer Ordner in { $folder }
+panel-rename = { $name } umbenennen …
+panel-trash = { $name } in den Papierkorb legen

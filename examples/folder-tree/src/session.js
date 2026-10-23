@@ -298,6 +298,24 @@ export function createFolderTree(tf) {
         recentOpen: action === "expand" || (action === "activate" && !ui.recentOpen),
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
+    if (target.kind === "action") return runAction(target.action);
+    return undefined;
+  };
+
+  /** Renaming happens in the window, where there is a text field. */
+  const renameChosen = async () => {
+    if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
+    const id = selected;
+    await api.openWindow();
+    return tf.page.post({ type: "rename", id });
+  };
+
+  /** A file action row from the panel, on the chosen row. */
+  const runAction = (action) => {
+    if (action === "new-file") return edits.newFile(selected);
+    if (action === "new-folder") return edits.newFolder(selected);
+    if (action === "rename") return renameChosen();
+    if (action === "trash") return selected ? edits.trash(selected) : undefined;
     return undefined;
   };
 
@@ -315,7 +333,7 @@ export function createFolderTree(tf) {
     }
   });
 
-  return {
+  const api = {
     /** Shows the panel, or hides it when it is shown. */
     async toggleShown() {
       if (shown) {
@@ -380,12 +398,7 @@ export function createFolderTree(tf) {
     trashSelected: () =>
       selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
     /** Palette command: renaming happens in the window, where there is a text field. */
-    async renameSelected() {
-      if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
-      const id = selected;
-      await this.openWindow();
-      return tf.page.post({ type: "rename", id });
-    },
+    renameSelected: () => renameChosen(),
     /** Whether this Tilefold lets the tile change files. */
     canEdit: () => canEdit(tf),
     /** The focused pane's folder changed. */
@@ -419,4 +432,5 @@ export function createFolderTree(tf) {
     /** Reads the markers now (tests; the timer does it every two seconds). */
     poll,
   };
+  return api;
 }

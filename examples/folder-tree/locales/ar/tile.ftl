@@ -79,3 +79,7 @@ page-edit = تحرير
 page-trash = نقل إلى سلة المهملات
 page-name-label = اسم جديد
 page-tools = أدوات الملفات
+panel-new-file = ملف جديد في { $folder }
+panel-new-folder = مجلد جديد في { $folder }
+panel-rename = إعادة تسمية { $name }…
+panel-trash = نقل { $name } إلى سلة المهملات

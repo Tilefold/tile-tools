@@ -79,3 +79,7 @@ page-edit = Editar
 page-trash = Mover para o Lixo
 page-name-label = Novo nome
 page-tools = Ferramentas de arquivos
+panel-new-file = Novo arquivo em { $folder }
+panel-new-folder = Nova pasta em { $folder }
+panel-rename = Renomear { $name }…
+panel-trash = Mover { $name } para o Lixo

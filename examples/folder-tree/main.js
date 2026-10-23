@@ -487,6 +487,40 @@ function pageStrings(t, hookCommand) {
   };
 }
 
+// src/panel-actions.js
+var ACTION_IDS = {
+  "action:new-file": "new-file",
+  "action:new-folder": "new-folder",
+  "action:rename": "rename",
+  "action:trash": "trash"
+};
+function targetFolder(tree, target) {
+  if (target?.kind === "dir") return folderName(target.path);
+  if (target) return folderName(parentKey(tree, target.path) ?? tree.root);
+  return folderName(tree.root);
+}
+function actionRows({ t, tree, chosen, canEdit: canEdit2, clamp: clamp2 }) {
+  const rows = [];
+  const targets = /* @__PURE__ */ new Map();
+  if (!canEdit2 || !tree.root) return { rows, targets };
+  const add = (id, label, extra) => {
+    rows.push({ id, label: clamp2(label, 256), ...extra });
+    targets.set(id, { kind: "action", action: ACTION_IDS[id] });
+  };
+  const folder = targetFolder(tree, chosen);
+  add("action:new-file", `\uFF0B ${t("panel-new-file", { folder })}`, { icon: "none", tone: "accent" });
+  add("action:new-folder", `\uFF0B ${t("panel-new-folder", { folder })}`, {
+    icon: "none",
+    tone: "accent"
+  });
+  if (chosen && (chosen.kind === "dir" || chosen.kind === "file" || chosen.kind === "link")) {
+    const name = folderName(chosen.path);
+    add("action:rename", `\u270E ${t("panel-rename", { name })}`, { icon: "none" });
+    add("action:trash", `\u{1F5D1} ${t("panel-trash", { name })}`, { icon: "none", tone: "error" });
+  }
+  return { rows, targets };
+}
+
 // src/panel-view.js
 var PANEL_RECENT = 5;
 var RECENT_LIMIT = 100;
@@ -616,6 +650,15 @@ ${path}`, 512)
     }
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
+  const actions = actionRows({
+    t,
+    tree,
+    chosen: (selected && built.targets.get(selected)) ?? null,
+    canEdit: opts.canEdit === true,
+    clamp
+  });
+  rows.push(...actions.rows);
+  for (const [id, target] of actions.targets) targets.set(id, target);
   rows.push(...built.rows);
   const footer = recentFooter(t, activity, root, now, {
     open: opts.recentOpen,
@@ -1055,6 +1098,20 @@ function createFolderTree(tf) {
         recentOpen: action === "expand" || action === "activate" && !ui.recentOpen
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
+    if (target.kind === "action") return runAction(target.action);
+    return void 0;
+  };
+  const renameChosen = async () => {
+    if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
+    const id = selected;
+    await api.openWindow();
+    return tf.page.post({ type: "rename", id });
+  };
+  const runAction = (action) => {
+    if (action === "new-file") return edits.newFile(selected);
+    if (action === "new-folder") return edits.newFolder(selected);
+    if (action === "rename") return renameChosen();
+    if (action === "trash") return selected ? edits.trash(selected) : void 0;
     return void 0;
   };
   const ensureRoot = async (root) => {
@@ -1067,7 +1124,7 @@ function createFolderTree(tf) {
       ui.recentAll = saved.recentAll === true;
     }
   });
-  return {
+  const api = {
     /** Shows the panel, or hides it when it is shown. */
     async toggleShown() {
       if (shown) {
@@ -1131,12 +1188,7 @@ function createFolderTree(tf) {
     /** Palette command: the last chosen row goes to the Trash (Tilefold asks). */
     trashSelected: () => selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
     /** Palette command: renaming happens in the window, where there is a text field. */
-    async renameSelected() {
-      if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
-      const id = selected;
-      await this.openWindow();
-      return tf.page.post({ type: "rename", id });
-    },
+    renameSelected: () => renameChosen(),
     /** Whether this Tilefold lets the tile change files. */
     canEdit: () => canEdit(tf),
     /** The focused pane's folder changed. */
@@ -1168,6 +1220,7 @@ function createFolderTree(tf) {
     /** Reads the markers now (tests; the timer does it every two seconds). */
     poll
   };
+  return api;
 }
 
 // src/main.js

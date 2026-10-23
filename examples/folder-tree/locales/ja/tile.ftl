@@ -79,3 +79,7 @@ page-edit = 編集
 page-trash = ゴミ箱に入れる
 page-name-label = 新しい名前
 page-tools = ファイルツール
+panel-new-file = { $folder } に新規ファイル
+panel-new-folder = { $folder } に新規フォルダ
+panel-rename = { $name } の名前を変更…
+panel-trash = { $name } をゴミ箱に入れる

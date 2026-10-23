@@ -79,3 +79,7 @@ page-edit = 편집
 page-trash = 휴지통으로 이동
 page-name-label = 새 이름
 page-tools = 파일 도구
+panel-new-file = { $folder }에 새 파일
+panel-new-folder = { $folder }에 새 폴더
+panel-rename = { $name } 이름 변경…
+panel-trash = { $name } 휴지통으로 이동

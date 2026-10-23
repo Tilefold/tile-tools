@@ -79,3 +79,7 @@ page-edit = संपादित करें
 page-trash = ट्रैश में डालें
 page-name-label = नया नाम
 page-tools = फ़ाइल टूल
+panel-new-file = { $folder } में नई फ़ाइल
+panel-new-folder = { $folder } में नया फ़ोल्डर
+panel-rename = { $name } का नाम बदलें…
+panel-trash = { $name } को ट्रैश में डालें

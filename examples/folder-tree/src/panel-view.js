@@ -20,12 +20,13 @@
  * tested directly; `targets` maps each clickable row to what it opens.
  *
  * Modified 2026-10-23 (changing files): the row the user last chose is
- *   tinted.
+ *   tinted, and the file actions (panel-actions.js) sit above the tree.
  *
  * Last updated by: Tilefold
  */
 import { activeFiles, age, hotFolders, recentFiles, TONES } from "./activity.js";
 import { treeRows } from "./model.js";
+import { actionRows } from "./panel-actions.js";
 import { basename, shownPath } from "./paths.js";
 import { folderName } from "./tree.js";
 
@@ -189,6 +190,15 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
     }
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
+  const actions = actionRows({
+    t,
+    tree,
+    chosen: (selected && built.targets.get(selected)) ?? null,
+    canEdit: opts.canEdit === true,
+    clamp,
+  });
+  rows.push(...actions.rows);
+  for (const [id, target] of actions.targets) targets.set(id, target);
   rows.push(...built.rows);
 
   const footer = recentFooter(t, activity, root, now, {

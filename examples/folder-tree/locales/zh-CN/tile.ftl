@@ -79,3 +79,7 @@ page-edit = 编辑
 page-trash = 移到废纸篓
 page-name-label = 新名称
 page-tools = 文件工具
+panel-new-file = 在 { $folder } 中新建文件
+panel-new-folder = 在 { $folder } 中新建文件夹
+panel-rename = 重命名 { $name }…
+panel-trash = 将 { $name } 移到废纸篓
