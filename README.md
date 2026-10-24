@@ -19,6 +19,7 @@ Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types 
 - Using it from a script
 - Developing it
 - Reporting issues
+- Contact
 - License
 - Test cases (TCs)
 - Known blockers
@@ -209,6 +210,19 @@ CI runs the tests on Node.js 22, 24 and 26 on Linux, macOS and Windows. The rule
 
 This repository's Issues tab is the tracker for the Tilefold app as well as for Tile Tools and the example tiles. Each issue starts from a form (a bug or an idea, for the app or for Tile Tools and the examples), and the form sets its labels. Security problems go to the private **Report a vulnerability** form on the Security tab. You can write in any language. [Reporting issues and ideas](docs/reporting-issues.md) explains the forms and the labels.
 
+## Contact
+
+Tilefold is built and run in the United States.
+
+| For               | Write to              |
+| ----------------- | --------------------- |
+| General questions | info@tilefold.com     |
+| Privacy           | privacy@tilefold.com  |
+| Security problems | security@tilefold.com |
+| Help with the app | support@tilefold.com  |
+
+Bugs and ideas go to the Issues tab, and security problems can also go to the private **Report a vulnerability** form on the Security tab.
+
 ## License
 
 MIT. Tile Tools, its documentation and its examples are open source so tile authors can use them in their own projects and CI. Copy an example and make it your own.
@@ -243,4 +257,4 @@ Run with `npm test` (1366 tests in 63 files, all passing on 2026-10-20).
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-10-20 by Tilefold
+Last updated: 2026-10-24 by Tilefold
