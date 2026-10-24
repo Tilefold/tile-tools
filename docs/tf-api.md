@@ -122,7 +122,8 @@ A listener that runs too long five times in ten minutes is skipped for the rest 
 | `panel.click` | A row of the tile's docked panel was clicked (needs `window.panel`; Tilefold 0.1.9) | `{ row, action }`, action `activate`, `expand` or `collapse` |
 | `panel.menu` | An item of a panel row's right-click menu was chosen (Tilefold 0.1.16) | `{ row, item }`, row `null` for the empty space |
 | `panel.dblclick` | A panel row was double-clicked, after the two `panel.click` events its clicks send (Tilefold 0.1.16) | `{ row }` |
-| `panel.closed` | The user closed the tile's panel, or another tile's panel replaced it | `{ by }`, `user` or `replaced` |
+| `panel.closed` | The user closed the tile's panel, another tile's panel replaced it, or the user left the tab a `perTab` panel is open on | `{ by }`, `user`, `replaced` or `tab` |
+| `panel.opened` | The user came back to a tab a `perTab` panel is open on (Tilefold 0.1.16) | `{ by }`, `tab` |
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
 

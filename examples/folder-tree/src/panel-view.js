@@ -21,7 +21,8 @@
  *
  * Modified 2026-10-23 (changing files): the row the user last chose is
  *   tinted, and folders, files and the empty space have right-click menus
- *   for changing files (panel-actions.js).
+ *   for changing files (panel-actions.js). The panel belongs to the tabs
+ *   it is opened on (`perTab`, Tilefold 0.1.16; older ones show it on all).
  *
  * Last updated by: Tilefold
  */
@@ -210,6 +211,7 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
       rows,
       ...(footer.rows.length ? { footer: { rows: footer.rows } } : {}),
       ...(menus && root ? { menus, menu: "space" } : {}),
+      perTab: true,
     },
     targets,
     live: active.length > 0,

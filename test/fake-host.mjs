@@ -60,7 +60,9 @@
  *   changes (fake-files.mjs); opens ready to edit are kept in
  *   `host.editing`; folders may be empty (`host.dirs`). Panels may have
  *   right-click menus (fake-panel-menus.mjs); `host.menu(row, item)` plays
- *   a choice and `host.doubleClick(row)` a double-click. `tf.panel.edit` waits in `host.panel.editing` until
+ *   a choice and `host.doubleClick(row)` a double-click; `host.leaveTab()`
+ *   and `host.backToTab()` play leaving and coming back to the tab a
+ *   `perTab` panel is open on. `tf.panel.edit` waits in `host.panel.editing` until
  *   `host.typeName(text)` answers.
  *
  * Last updated by: Tilefold
@@ -459,6 +461,9 @@ function addPanel(tf, host, named) {
   host.panel = { content: null, shows: 0 };
   host.menu = (row, item) => chooseFromMenu(host, row, item);
   host.doubleClick = (row) => doubleClick(host, row);
+  // A perTab panel (Tilefold 0.1.16) stays docked on its tab while the user is away.
+  host.leaveTab = () => host.emit("panel.closed", { by: "tab" });
+  host.backToTab = () => host.emit("panel.opened", { by: "tab" });
   // tf.panel.edit (Tilefold 0.1.16): the edit waits in host.panel.editing
   // until host.typeName(text) answers it (null: the user cancelled).
   host.panel.editing = null;

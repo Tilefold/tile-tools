@@ -137,6 +137,31 @@ tf.on("panel.dblclick", ({ row }) => {
 });
 ```
 
+## 7. A panel per tab
+
+By default a tile's panel shows on every tab. From **Tilefold 0.1.16**, add `perTab: true` and it belongs to the tabs the user opens it on instead, which suits a panel about the pane in front, such as Folder Tree's.
+
+- A `show` while the panel isn't open on the active tab opens it there too; `hide`, or the user's ×, takes it off the active tab only. Off the last tab, it goes.
+- When the user moves to a tab where it isn't open, your tile hears `panel.closed` with `{ by: "tab" }`. Stop refreshing it, as for any close.
+- When they come back to a tab where it is open, your tile hears `panel.opened` with `{ by: "tab" }`. Show it again, for what is in front now.
+
+```js
+let shown = false;
+const draw = () => tf.panel.show({ title: "Here", rows: rowsFor(current), perTab: true });
+
+tf.command("Show or hide", () => {
+  shown = !shown;
+  return shown ? draw() : tf.panel.hide();
+});
+tf.on("panel.closed", () => (shown = false));
+tf.on("panel.opened", () => {
+  shown = true;
+  void draw();
+});
+```
+
+Older Tilefolds ignore `perTab` and show the panel on every tab, and never send `panel.opened`.
+
 ## Limits
 
 At most 5,000 rows, 30 `show` calls a second, a title of 120 characters and a subtitle of 512. Malformed content fails with `TypeError` and the reason; too many updates with `RateLimitError`. `tf.panel` is missing before Tilefold 0.1.9:

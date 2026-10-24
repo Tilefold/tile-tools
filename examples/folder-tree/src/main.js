@@ -39,7 +39,8 @@
  * Modified 2026-10-23 (changing files): New file, New folder, Rename and
  *   Move to Trash commands, and the panel's right-click menus (panel.menu);
  *   handlers that wait for the user aren't waited for. A double-click on a
- *   file renames it in place (panel.dblclick, and in the window).
+ *   file renames it in place (panel.dblclick, and in the window). The
+ *   panel belongs to the tabs it is opened on (panel.opened on coming back).
  *
  * Last updated by: Tilefold
  */
@@ -89,6 +90,7 @@ export default (tf) => {
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
+  tf.on("panel.opened", () => void tree?.reopened());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
   tf.on("panel.dblclick", (e) => void tree?.doubled(e));
   tf.on("page.message", (e) => void tree?.message(e));

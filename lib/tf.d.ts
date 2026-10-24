@@ -20,7 +20,7 @@
  * Modified 2026-10-23 (changing files): `fs.create`, `mkdir`, `rename`,
  * `move` and `trash`, `viewer.open`'s `edit`, and their error names; panel
  * right-click menus, the `panel.menu` and `panel.dblclick` events and
- * `panel.edit`.
+ * `panel.edit`; panels per tab (`perTab`, the `panel.opened` event).
  *
  * Last updated by: Tilefold
  */
@@ -49,6 +49,7 @@ export type TileEvent =
   | "pane.list"
   | "panel.click"
   | "panel.closed"
+  | "panel.opened"
   | "panel.menu"
   | "panel.dblclick"
   | "browser.navigated"
@@ -107,7 +108,9 @@ export interface TileEventPayloads {
   /** A row of the tile's docked panel was clicked (needs window.panel). */
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
   /** The tile's panel was closed by the user, or replaced by another tile's. */
-  "panel.closed": { by: "user" | "replaced" };
+  "panel.closed": { by: "user" | "replaced" | "tab" };
+  /** A `perTab` panel is open again: the user came back to a tab it is open on (Tilefold 0.1.16). */
+  "panel.opened": { by: "tab" };
   /** A right-click menu's choice: the row (null for the empty space) and the item (Tilefold 0.1.16). */
   "panel.menu": { row: string | null; item: string };
   /** A row of the panel was double-clicked, after its two `panel.click` events (Tilefold 0.1.16). */
@@ -205,6 +208,12 @@ export interface PanelContent {
   menus?: Record<string, PanelMenuEntry[]>;
   /** The menu for a right-click on the empty space under the rows. */
   menu?: string;
+  /**
+   * True: the panel belongs to the tabs the user opens it on, not every
+   * tab (Tilefold 0.1.16; older ones ignore it). Leaving such a tab is
+   * `panel.closed` with `by: "tab"`, coming back is `panel.opened`.
+   */
+  perTab?: boolean;
 }
 
 /** One line of a panel menu: an item (id 1–32 lowercase letters, digits, dashes) or a line. */

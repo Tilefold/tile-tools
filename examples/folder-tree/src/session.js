@@ -36,7 +36,10 @@
  * "trash" | "edit", id, name?, to? }, each checked before it is used.
  *
  * Modified 2026-10-23 (changing files): the chosen row, the file changes
- *   (edits.js) and the window's messages for them.
+ *   (edits.js) and the window's messages for them. The panel belongs to
+ *   the tabs it is opened on: leaving such a tab is `panel.closed`
+ *   ({ by: "tab" }), so the tree rests there, and coming back is
+ *   `panel.opened`, which shows it again for that tab's pane.
  *
  * Last updated by: Tilefold
  */
@@ -464,10 +467,18 @@ export function createFolderTree(tf) {
     },
     /** A setting changed: draw again with it. */
     settingChanged: () => draw(),
-    /** The user closed the panel (or another tile's took its place). */
+    /** The user closed the panel, left its tab, or another tile's took its place. */
     closed() {
       shown = false;
       pace();
+    },
+    /** The user came back to a tab the panel is open on: show it for that tab. */
+    async reopened() {
+      if (shown) return undefined;
+      shown = true;
+      pace();
+      await loadPanes();
+      return ensureRoot(await tf.pane.cwd());
     },
     /** The window was closed. */
     pageClosed() {
