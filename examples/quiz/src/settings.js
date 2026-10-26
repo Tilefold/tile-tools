@@ -15,11 +15,15 @@
 import { APPEARANCES, appearanceOf } from "./appearance.js";
 import { CORNERS, cornerOf } from "./scene.js";
 
-/** The ways the quiz can show. */
-export const SHOW_AS = ["card", "panel"];
+/** The ways the quiz can show (docked beside the panes from Tilefold 0.1.20). */
+export const SHOW_AS = ["card", "side", "panel"];
 
 /** The label of each way to show it. */
-const SHOW_AS_KEYS = { card: "setting-show-as-card", panel: "setting-show-as-panel" };
+const SHOW_AS_KEYS = {
+  card: "setting-show-as-card",
+  side: "setting-show-as-side",
+  panel: "setting-show-as-panel",
+};
 
 /** The label of each corner. */
 const CORNER_KEYS = {
@@ -68,9 +72,11 @@ const read = (settings, key) => {
   }
 };
 
-/** How the quiz shows: "card" (the default) or "panel". */
-export const showAsSetting = (settings) =>
-  read(settings, "showAs") === "panel" ? "panel" : "card";
+/** How the quiz shows: "card" (the default), "side" or "panel". */
+export const showAsSetting = (settings) => {
+  const value = read(settings, "showAs");
+  return value === "panel" || value === "side" ? value : "card";
+};
 
 /** The card's corner. */
 export const cornerSetting = (settings) => cornerOf(read(settings, "corner"));

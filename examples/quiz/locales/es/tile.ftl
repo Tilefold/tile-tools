@@ -56,3 +56,6 @@ list-count = Preguntas: { $count }
 list-best = Preguntas: { $count } · mejor: { $best }
 list-hint = Para crear cuestionarios con tus propios archivos, pídeselo al agente de IA de un panel, por ejemplo: "Crea cuestionarios con los archivos de ./notes usando el tile Quiz."
 page-resize = Arrastra para cambiar el tamaño del cuestionario
+setting-show-as-side = Acoplado junto a los paneles
+page-dock = Acoplar junto a los paneles
+page-float = Flotar sobre los paneles

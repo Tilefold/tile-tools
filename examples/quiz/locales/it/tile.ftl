@@ -56,3 +56,6 @@ list-count = Domande: { $count }
 list-best = Domande: { $count } · migliore: { $best }
 list-hint = Per creare quiz dai tuoi file, chiedilo all'agente IA in un riquadro, per esempio: "Crea dei quiz dai file in ./notes con il tile Quiz."
 page-resize = Trascina per ridimensionare il quiz
+setting-show-as-side = Agganciato accanto ai riquadri
+page-dock = Aggancia accanto ai riquadri
+page-float = Fai fluttuare sopra i riquadri

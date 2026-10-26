@@ -56,3 +56,6 @@ list-count = Questions : { $count }
 list-best = Questions : { $count } · meilleur : { $best }
 list-hint = Pour créer des quiz à partir de vos propres fichiers, demandez à l'agent IA d'un volet, par exemple : « Crée des quiz à partir des fichiers de ./notes avec la tuile Quiz. »
 page-resize = Faites glisser pour redimensionner le quiz
+setting-show-as-side = Ancré à côté des volets
+page-dock = Ancrer à côté des volets
+page-float = Faire flotter au-dessus des volets

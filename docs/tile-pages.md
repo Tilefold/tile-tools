@@ -150,3 +150,50 @@ The **Watchpane** example docks YouTube's player this way, with its controls dra
 
 A docked page doesn't need `origin: "https"`: a page of the tile's own, with no website in it, docks just the same. The **Quiz** example (`examples/quiz`) is one: a borderless card floating over the panes, with a grip drawn as overlay items above it to drag it by.
 
+## 8. Dock the page beside the panes
+
+From **Tilefold 0.1.20**, a page can also go **in the dock beside the panes**, on the right, where the pages of Tilefold's browser go. The panes make room for it, and Tilefold draws a bar above it with the tile's name, the tab menu, **Undock** and **Close**. The user resizes it by its edge and shows it on one tab or every tab, like any page in the dock.
+
+```js
+await tf.page.open({ side: true });                          // into the dock
+await tf.page.open({ dock: spot });                          // back out, floating over the panes
+tf.on("page.undocked", () => void tf.page.open({ dock: spot })); // the user pressed Undock
+```
+
+Opened without `side`, a page in the dock moves back out: to the `dock` spot you give, or a window of its own. When the user presses **Undock**, the docked page closes and the tile hears `page.undocked`: show it again where it should go. Moving a page between the dock and a window **loads it again**, so keep the page's state (where the user is, what they chose) in the tile, and send it again when the page says hello. A page with a web address (`origin: "https"`) can't dock there yet, and `side` can't be given with a `dock` spot. Docking and undocking are recorded as `tile.page.dock` and `tile.page.undock`.
+
+`side` is new in 0.1.20 and an older Tilefold ignores it, opening the page in a window instead. Check for `tf.theme`, which came with it:
+
+```js
+const canSide = typeof tf.theme === "function";
+```
+
+AI agents' browser tools never see a tile's own page in the dock.
+
+## 9. Draw the page in Tilefold's colors
+
+From **Tilefold 0.1.20**, every tile page, in a window, floating or docked, gets Tilefold's theme as **CSS variables** on its root, set before the page's own scripts run and again whenever the user changes the theme, switches between light and dark, or their system does. `color-scheme` is set to `light` or `dark` too.
+
+| Variable | What it is |
+|---|---|
+| `--tf-pane` | A pane's background: use it to look like one of the user's panes |
+| `--tf-surface`, `--tf-surface-raised`, `--tf-surface-hover`, `--tf-canvas` | Other backgrounds |
+| `--tf-border`, `--tf-border-strong` | Borders |
+| `--tf-text`, `--tf-text-secondary`, `--tf-text-muted` | Text |
+| `--tf-accent`, `--tf-accent-soft`, `--tf-on-accent` | The accent, a faint one, and text on it |
+| `--tf-success`, `--tf-error`, `--tf-warning`, `--tf-info` | Status colors |
+| `--tf-focus-ring` | Focus outlines |
+
+Give each a fallback for older Tilefolds:
+
+```css
+body { background: var(--tf-pane, #1d1f27); color: var(--tf-text, #e8e9f0); }
+button { background: var(--tf-accent, #5b5bd6); color: var(--tf-on-accent, #fff); }
+```
+
+The page's scripts read the same with `window.tilefold.theme` (`{ mode, name, colors }`, or `null` on an older Tilefold) and hear changes with `window.tilefold.onTheme(fn)`, which returns a function that stops listening. The tile itself asks with `tf.theme()` and hears `theme.changed` (needs no permission). Only these colors and light or dark go out, nothing else about the window.
+
+The **Quiz** example does both: its card docks beside the panes with a button, comes back out with another (or Tilefold's Undock), and is drawn in Tilefold's colors.
+
+Copyright (c) 2026 Tilefold. Released under the MIT License.
+

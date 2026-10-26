@@ -5,39 +5,44 @@
  *
  * Quiz — the tile
  *
- * Runs the quiz library and shows it the way the user chose:
+ * Runs the quiz library and shows it where the user wants it (place.js):
  *
- * - On a card (the default): the quiz page docked in Tilefold's window,
- *   borderless, with a grip above it to drag it by (card.js). On a
- *   Tilefold that can't dock pages (before 0.1.11) the page opens in a
- *   window of its own instead.
+ * - On a card (the default): the quiz page floating over the panes,
+ *   borderless, with a grip above it (card.js). Before Tilefold 0.1.11,
+ *   which can't float pages, the page opens in a window of its own.
+ * - Docked beside the panes (Tilefold 0.1.20): the page in the dock on the
+ *   right, where the panes make room for it. The card's dock button puts it
+ *   there; the docked page's float button, or Tilefold's own Undock, puts it
+ *   back on a card. Moving reloads the page, which then says hello again.
  * - In a panel beside the panes: rows Tilefold draws in the user's theme.
- *   Also the fallback when tile pages are missing (before 0.1.7).
+ *   Also the fallback without tile pages (before 0.1.7).
  *
  * Two screens: the list of quizzes (the built-in one and those AI agents
  * made from the user's files, agent.js), and the quiz being taken. The
- * quizzes live here, never in the page: the page only draws the view it
- * is sent and says what the user clicked, so the card and the panel always
- * agree. Progress is kept per quiz, so every quiz resumes where it was left.
+ * quizzes live here, never in the page: the page only draws the view it is
+ * sent and says what the user clicked, so every place shows the same.
+ * Progress is kept per quiz. How the card looks is look.js's: Tilefold's
+ * theme where Tilefold tells it, else its own light or dark.
  *
  * Messages with the page: it says `hello` (with the system's light or dark)
- * when it loads and gets `setup` (its language, labels and appearance) and
+ * when it loads and gets `setup` (its language, labels, look and place) and
  * `show` (the view); it sends `pick`, `next`, `again`, `list`, `open-quiz`,
- * `theme` (switch light or dark), `scheme` (the system's changed), `move`
- * and `resize` (the user dragging the card's top bar or corner) and `close`. What the user does is recorded in the tile's activity log, as
- * one-word actions (Tilefold records them as tile.<id>.<action>): `opened`,
- * `answered` (which quiz and question, and whether it was right), `finished`,
- * `restarted`, `closed`, `theme-switched`.
+ * `theme`, `scheme`, `place` (to the card or the dock), `move` and `resize`
+ * (dragging the card's top bar or corner) and `close`. What happens is
+ * recorded in the tile's log as one-word actions (tile.<id>.<action>):
+ * `opened`, `moved`, `answered`, `finished`, `restarted`, `closed`,
+ * `theme-switched`.
  *
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
  */
 import { createAgentCommands, AGENT_COMMANDS } from "./agent.js";
-import { appearanceOf, effectiveTheme, flipped, schemeOf } from "./appearance.js";
 import { createCard } from "./card.js";
 import { BUILTIN_ID, visible, withBest, withBuiltin } from "./library.js";
+import { createLook } from "./look.js";
+import { isMovable, placeOf, showsAt } from "./place.js";
 import { nextQuestion, pickChoice, startQuiz } from "./quiz.js";
-import { COMMANDS, appearanceSetting, cornerSetting, showAsSetting } from "./settings.js";
+import { COMMANDS, cornerSetting, showAsSetting } from "./settings.js";
 import { createStore } from "./store.js";
 import {
   ROW,
@@ -61,6 +66,7 @@ export function runQuiz(tf) {
       .then(() => tf.audit(action, details))
       .catch(warn);
   const store = createStore(tf);
+  const look = createLook(tf, store);
 
   let loaded = false;
   /** The library's index, the built-in quiz included. */
@@ -68,18 +74,19 @@ export function runQuiz(tf) {
   /** The quiz being taken and where the user is in it, or null on the list. */
   let quiz = null;
   let state = null;
-  /** Where the quiz shows now: "card", "window", "panel", or null when closed. */
+  /** Where the quiz shows now: "card", "side", "window", "panel", or null when closed. */
   let where = null;
-  /** Light or dark: switched by the user (kept), and the system's as the page saw it. */
-  let switched = null;
-  let system = null;
+  /** The card or the dock, as the user last moved it (until the setting changes). */
+  let chosen = null;
 
-  const theme = () => effectiveTheme(appearanceSetting(tf.settings), switched, system);
-  const canDock = () => typeof tf.page?.dock === "function" && !!tf.overlay;
-  const card = canDock()
+  const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
+  // Docking beside the panes came with Tilefold's theme for tiles (0.1.20).
+  const canSide = () => !!tf.page && typeof tf.theme === "function";
+  const card = canFloat()
     ? createCard(tf, {
         corner: () => cornerSetting(tf.settings),
-        theme,
+        theme: () => look.mode(),
+        colors: () => look.colors(),
         label: () => tf.t("grip-label"),
         warn,
       })
@@ -95,16 +102,10 @@ export function runQuiz(tf) {
   const select = async (id) => {
     const entry = visible(index).find((e) => e.id === id);
     const q = entry ? await store.quiz(id) : null;
-    if (!q) {
-      quiz = null;
-      state = null;
-      await store.saveCurrent(null);
-      return false;
-    }
     quiz = q;
-    state = await store.progress(id, q.questions.length);
-    await store.saveCurrent(id);
-    return true;
+    state = q ? await store.progress(id, q.questions.length) : null;
+    await store.saveCurrent(q ? id : null);
+    return !!q;
   };
 
   /** Reads what was kept, once. */
@@ -114,7 +115,8 @@ export function runQuiz(tf) {
     index = await loadIndex();
     const current = await store.current();
     if (current) await select(current);
-    switched = await store.appearance();
+    chosen = await store.placement();
+    await look.load();
     await card?.load();
   };
 
@@ -146,25 +148,42 @@ export function runQuiz(tf) {
     await render();
   };
 
-  /** Opens the quiz the way the setting says, falling back as needed. */
-  const open = async () => {
-    await load();
-    const wanted = showAsSetting(tf.settings);
-    if (where) {
-      // Already open the right way: bring it up to date.
-      if ((where === "panel" ? "panel" : "card") === wanted) return render();
-      await close(false);
-    }
-    if ((wanted === "panel" || !tf.page) && tf.panel) {
-      where = "panel";
-      await render();
-    } else if (tf.page && card) {
+  /** Shows the page on the floating card (or in a window where it can't float). */
+  const toCard = async () => {
+    if (card) {
       await tf.page.open({ dock: await card.pageSpot() });
       where = "card";
       await card.show();
-    } else if (tf.page) {
+    } else {
       await tf.page.open();
       where = "window";
+    }
+  };
+
+  /** Shows the page docked beside the panes. */
+  const toSide = async () => {
+    await card?.hide();
+    await tf.page.open({ side: true });
+    where = "side";
+  };
+
+  /** Opens the quiz where it should go, or moves it there; falls back as needed. */
+  const open = async () => {
+    await load();
+    const place = placeOf(showAsSetting(tf.settings), chosen, canSide());
+    if (where && showsAt(where, place)) return render();
+    // Between the card and the dock the page moves (Tilefold reloads it there).
+    if (where && where !== "panel" && isMovable(place)) {
+      await (place === "side" ? toSide() : toCard());
+      audit("moved", { to: where });
+      return;
+    }
+    if (where) await close(false);
+    if ((place === "panel" || !tf.page) && tf.panel) {
+      where = "panel";
+      await render();
+    } else if (tf.page) {
+      await (place === "side" ? toSide() : toCard());
     } else {
       await tf.toast(tf.t("toast-needs-tilefold"));
       return;
@@ -185,6 +204,15 @@ export function runQuiz(tf) {
     if (record) audit("closed", { as: was });
   };
 
+  /** The user moved the quiz to the card or the dock: remembered, then done. */
+  const moveTo = async (place) => {
+    if (!isMovable(place) || (place === "side" && !canSide())) return;
+    await load();
+    chosen = place;
+    await store.savePlacement(place);
+    await open();
+  };
+
   /** Shows the list of quizzes, opening the quiz if it's closed. */
   const showList = async () => {
     await load();
@@ -194,7 +222,6 @@ export function runQuiz(tf) {
     await store.saveCurrent(null);
     if (where) await render();
     else await open();
-    await card?.redraw();
   };
 
   /** Takes quiz `id` from the list. */
@@ -203,7 +230,6 @@ export function runQuiz(tf) {
     if (!(await select(String(id)))) return render();
     if (where) await render();
     else await open();
-    await card?.redraw();
   };
 
   /** Starts the quiz being taken over (the built-in one from the list). */
@@ -237,46 +263,51 @@ export function runQuiz(tf) {
     if (after.done) audit("finished", { quiz: quiz.id, score: after.score, total: after.total });
   };
 
-  /** Draws the card light or dark, now. */
-  const applyTheme = async () => {
-    if (where === "card" || where === "window") await post({ do: "theme", theme: theme() });
+  /** Draws the card as it looks now (light or dark, Tilefold's colors). */
+  const applyLook = async () => {
+    if (where && where !== "panel") await post({ do: "theme", theme: look.mode() });
     await card?.redraw();
   };
 
-  /** Switches between light and dark, and remembers it. */
+  /** Switches between light and dark (on a Tilefold whose theme doesn't decide). */
   const switchTheme = async () => {
     await load();
-    switched = flipped(theme());
-    await store.saveAppearance(switched);
-    audit("theme-switched", { to: switched });
-    await applyTheme();
+    if (look.follows()) return;
+    audit("theme-switched", { to: await look.switchMode() });
+    await applyLook();
   };
 
   /** A message from the page. */
   const hear = async (m) => {
     if (!m || typeof m !== "object") return;
     if (m.type === "hello") {
-      system = schemeOf(m.scheme) ?? system;
+      look.systemIs(m.scheme);
       await post({
         do: "setup",
         lang: tf.t("page-lang"),
         dir: tf.t("page-dir"),
-        theme: theme(),
-        // Only a docked card moves and resizes from the page; a window has its own frame.
+        theme: look.mode(),
+        // Tilefold's theme draws the page: its own light and dark step aside.
+        themed: look.follows(),
+        // Only the floating card moves and resizes from the page.
         docked: where === "card",
+        // Which way it can move: to the dock from the card, back from the dock.
+        place: where === "card" && canSide() ? "card" : where === "side" ? "side" : null,
         labels: {
           close: tf.t("page-close"),
           list: tf.t("list-back"),
           theme: tf.t("page-theme"),
           resize: tf.t("page-resize"),
+          dock: tf.t("page-dock"),
+          float: tf.t("page-float"),
         },
       });
       await card?.redraw();
       return render();
     }
     if (m.type === "scheme") {
-      system = schemeOf(m.scheme) ?? system;
-      return applyTheme();
+      look.systemIs(m.scheme);
+      return applyLook();
     }
     if (m.type === "pick") return pick(Number(m.choice));
     if (m.type === "next") return next();
@@ -284,6 +315,7 @@ export function runQuiz(tf) {
     if (m.type === "list") return showList();
     if (m.type === "open-quiz") return openQuiz(m.id);
     if (m.type === "theme") return switchTheme();
+    if (m.type === "place") return moveTo(m.to);
     if (m.type === "move") return card?.pageMove(m);
     if (m.type === "resize") return card?.pageResize(m);
     if (m.type === "close") return close();
@@ -355,12 +387,28 @@ export function runQuiz(tf) {
   tf.on(
     "page.closed",
     background(async () => {
-      // Closed from elsewhere (the page window's close button, the tile turned off).
-      if (where === "card" || where === "window") {
+      // Closed from elsewhere (the window's or the dock's close button, the tile turned off).
+      if (where && where !== "panel") {
+        const was = where;
         where = null;
         await card?.hide();
-        audit("closed", { as: "page" });
+        audit("closed", { as: was });
       }
+    }),
+  );
+  tf.on(
+    "page.undocked",
+    // The user pressed Undock on the dock's bar: back on the card.
+    background(async () => {
+      if (where === "side") where = null;
+      await moveTo("card");
+    }),
+  );
+  tf.on(
+    "theme.changed",
+    background(async (e) => {
+      look.tilefoldChanged(e);
+      await applyLook();
     }),
   );
   tf.on(
@@ -393,27 +441,19 @@ export function runQuiz(tf) {
   /** The settings as last seen, to tell what changed. */
   let corner = cornerSetting(tf.settings);
   let showAs = showAsSetting(tf.settings);
-  let appearance = appearanceSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
-      const now = {
-        corner: cornerSetting(tf.settings),
-        showAs: showAsSetting(tf.settings),
-        appearance: appearanceOf(appearanceSetting(tf.settings)),
-      };
+      await load();
+      const now = { corner: cornerSetting(tf.settings), showAs: showAsSetting(tf.settings) };
       if (now.showAs !== showAs) {
+        // A choice in Settings wins over the user's last move.
         showAs = now.showAs;
+        chosen = null;
+        await store.savePlacement(null);
         if (where) await open();
       }
-      if (now.appearance !== appearance) {
-        // A choice in Settings wins over the last switch.
-        appearance = now.appearance;
-        await load();
-        switched = null;
-        await store.saveAppearance(null);
-        await applyTheme();
-      }
+      if (await look.settingChanged()) await applyLook();
       if (now.corner !== corner) {
         corner = now.corner;
         // Choosing a corner puts a dragged card back in the pane.

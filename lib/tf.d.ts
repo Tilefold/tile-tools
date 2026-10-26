@@ -17,6 +17,9 @@
  * Modified 2026-10-20 (agent input): a command's `input`, its handler's
  * argument and return value.
  *
+ * Modified 2026-10-26 (Tilefold 0.1.20): `tf.page.open({ side })`,
+ *   `tf.theme()`, and the `page.undocked` and `theme.changed` events.
+ *
  * Last updated by: Tilefold
  */
 
@@ -40,12 +43,28 @@ export type TileEvent =
   | "overlay.hidden"
   | "page.closed"
   | "page.message"
+  | "page.undocked"
+  | "theme.changed"
   | "pane.cwd"
   | "pane.list"
   | "panel.click"
   | "panel.closed"
   | "browser.navigated"
   | "browser.closed";
+
+/** How Tilefold is drawn (`tf.theme()`, "theme.changed"; Tilefold 0.1.20). */
+export interface TileTheme {
+  mode: "light" | "dark";
+  /** The theme's name ("mosaic", "paper"…). */
+  name: string;
+  /**
+   * CSS colors by name: pane (a pane's background), surface, surfaceRaised,
+   * surfaceHover, canvas, border, borderStrong, text, textSecondary,
+   * textMuted, accent, accentSoft, onAccent, success, error, warning, info,
+   * focusRing. A page sees each as `--tf-<name>` (`--tf-text-muted`).
+   */
+  colors: Record<string, string>;
+}
 
 /** One of the user's panes, as tf.pane.list() and the "pane.list" event give it. */
 export interface PaneInfo {
@@ -93,6 +112,10 @@ export interface TileEventPayloads {
   "page.closed": Record<string, never>;
   /** Plain JSON the tile's page sent with `window.tilefold.post`. */
   "page.message": { message: unknown };
+  /** The user moved the page out of the dock beside the panes (Tilefold 0.1.20): show it again where it should go. */
+  "page.undocked": Record<string, never>;
+  /** Tilefold's theme changed: light or dark, another theme, or the system's appearance (Tilefold 0.1.20). */
+  "theme.changed": TileTheme;
   /** The focused pane's folder changed (needs pane.cwd); null when none is known. */
   "pane.cwd": { path: string | null };
   /** A pane opened, closed, was renamed, moved folder or took focus (needs pane.list). */
@@ -388,6 +411,14 @@ export interface Tf {
   /** Needs ai.ask. Each question is shown to the user first. */
   readonly ai?: { ask(question: AiAsk): Promise<AiAnswer> };
   /**
+   * How Tilefold is drawn now: light or dark, the theme's name, and its
+   * colors (`pane` is a pane's background), or null before it is known.
+   * "theme.changed" tells when it changes. Needs no permission; missing
+   * before Tilefold 0.1.20. A tile's page gets the same as CSS variables
+   * (`--tf-pane`, `--tf-text`…) and `window.tilefold.theme`.
+   */
+  readonly theme?: () => Promise<TileTheme | null>;
+  /**
    * Needs page. The tile's own web page (its page/ folder) in a window of
    * its own, or hidden ({ visible: false }) for one that only plays sound;
    * with `keepRunning: true` closing its window only hides it, and an open
@@ -397,8 +428,12 @@ export interface Tf {
    * self-contained document. `dock` (Tilefold 0.1.11) shows the page
    * docked in Tilefold's window at that spot (content CSS pixels, 120 to
    * 2,000 a side) instead of in a window of its own; `dock()` moves it
-   * there, and is missing before 0.1.11. `post` sends plain JSON to the
-   * open page. Missing on a Tilefold without tile pages.
+   * there, and is missing before 0.1.11. `side: true` (Tilefold 0.1.20)
+   * docks the page beside the panes, where they make room, among the pages
+   * of Tilefold's browser; opened without it, a page there moves back out
+   * (to `dock` or a window). Moving a page between the two loads it again,
+   * and "page.undocked" says the user moved it out. `post` sends plain JSON
+   * to the open page. Missing on a Tilefold without tile pages.
    */
   readonly page?: {
     open(options?: {
@@ -406,6 +441,7 @@ export interface Tf {
       keepRunning?: boolean;
       origin?: "https";
       dock?: Rect;
+      side?: boolean;
     }): Promise<null>;
     dock?(spot: Rect): Promise<null>;
     close(): Promise<null>;

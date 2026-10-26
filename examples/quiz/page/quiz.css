@@ -6,39 +6,40 @@
  * Quiz page — styles
  *
  * The card fills its borderless page: no frame of its own beyond a hairline,
- * light or dark as the tile says (`data-theme` on the page, which follows
- * the Appearance setting or the user's switch), and a color for right and
- * wrong answers that never stands alone (the result line says it in words
- * too).
+ * in Tilefold's own colors where Tilefold gives its theme (0.1.20: the
+ * `--tf-*` variables, `--tf-pane` a pane's background), else light or dark
+ * as the tile says (`data-theme`, which follows the Appearance setting or
+ * the user's switch). A color for right and wrong answers never stands
+ * alone: the result line says it in words too.
  */
 :root {
   color-scheme: light;
-  --bg: #ffffff;
-  --fg: #1d1f27;
-  --muted: #5d6273;
-  --line: #d9dbe3;
-  --choice: #f3f4f8;
-  --choice-hover: #e8eaf2;
-  --accent: #5b5bd6;
-  --right: #1f8a4c;
-  --right-bg: #e3f5ea;
-  --wrong: #c2413b;
-  --wrong-bg: #fbe7e6;
+  --bg: var(--tf-pane, #ffffff);
+  --fg: var(--tf-text, #1d1f27);
+  --muted: var(--tf-text-muted, #5d6273);
+  --line: var(--tf-border, #d9dbe3);
+  --choice: var(--tf-surface-raised, #f3f4f8);
+  --choice-hover: var(--tf-surface-hover, #e8eaf2);
+  --accent: var(--tf-accent, #5b5bd6);
+  --on-accent: var(--tf-on-accent, #ffffff);
+  --right: var(--tf-success, #1f8a4c);
+  --right-bg: color-mix(in srgb, var(--right) 14%, var(--bg));
+  --wrong: var(--tf-error, #c2413b);
+  --wrong-bg: color-mix(in srgb, var(--wrong) 14%, var(--bg));
 }
 
+/* Its own dark, for a Tilefold that doesn't give its theme (before 0.1.20). */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1d1f27;
-  --fg: #e8e9f0;
-  --muted: #a0a5b8;
-  --line: #343747;
-  --choice: #272a35;
-  --choice-hover: #30333f;
-  --accent: #8b8bf0;
-  --right: #5ccf8b;
-  --right-bg: #1f3a2b;
-  --wrong: #ef8580;
-  --wrong-bg: #42262a;
+  --bg: var(--tf-pane, #1d1f27);
+  --fg: var(--tf-text, #e8e9f0);
+  --muted: var(--tf-text-muted, #a0a5b8);
+  --line: var(--tf-border, #343747);
+  --choice: var(--tf-surface-raised, #272a35);
+  --choice-hover: var(--tf-surface-hover, #30333f);
+  --accent: var(--tf-accent, #8b8bf0);
+  --right: var(--tf-success, #5ccf8b);
+  --wrong: var(--tf-error, #ef8580);
 }
 
 * {
@@ -259,7 +260,7 @@ body[data-docked] .resize {
   border-radius: 8px;
   padding: 7px 14px;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   cursor: pointer;

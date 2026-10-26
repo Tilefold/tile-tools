@@ -56,3 +56,6 @@ list-count = Fragen: { $count }
 list-best = Fragen: { $count } · beste: { $best }
 list-hint = Um Quizze aus deinen eigenen Dateien zu erstellen, frag den KI-Agenten in einem Bereich, zum Beispiel: „Erstelle mit dem Quiz-Tile Quizze aus den Dateien in ./notes.“
 page-resize = Ziehen, um die Größe des Quiz zu ändern
+setting-show-as-side = Neben den Bereichen angedockt
+page-dock = Neben den Bereichen andocken
+page-float = Über den Bereichen schweben lassen

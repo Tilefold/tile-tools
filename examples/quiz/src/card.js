@@ -44,6 +44,7 @@ const amount = (n) => (Number.isFinite(n) ? Math.round(n) : 0);
  * @param {{
  *   corner: () => string,
  *   theme: () => "light" | "dark",
+ *   colors?: () => Record<string, string> | null,
  *   label: () => string,
  *   warn: (err: unknown) => void,
  * }} o
@@ -80,7 +81,7 @@ export function createCard(tf, o) {
 
   /** The grip's overlay items at the card's spot. */
   const items = (s) => {
-    const images = gripImages(s.card.w, s.grip, o.theme());
+    const images = gripImages(s.card.w, s.grip, o.theme(), o.colors?.() ?? null);
     return s.grip.map((r, i) => ({
       id: `grip-${i}`,
       image: images[i],

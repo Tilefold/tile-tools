@@ -56,3 +56,6 @@ list-count = 問題数: { $count }
 list-best = 問題数: { $count } · 最高: { $best }
 list-hint = 自分のファイルからクイズを作るには、ペインの AI エージェントに頼んでください。たとえば「./notes のファイルから Quiz タイルでクイズを作って」。
 page-resize = ドラッグしてクイズのサイズを変更
+setting-show-as-side = ペインの横にドッキング
+page-dock = ペインの横にドッキング
+page-float = ペインの上に浮かせる

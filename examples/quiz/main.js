@@ -285,18 +285,6 @@ function createAgentCommands(tf, o) {
   };
 }
 
-// src/appearance.js
-var APPEARANCES = ["auto", "light", "dark"];
-var appearanceOf = (value) => APPEARANCES.includes(value) ? value : "auto";
-function effectiveTheme(setting, switched, system) {
-  if (switched) return switched;
-  const s = appearanceOf(setting);
-  if (s !== "auto") return s;
-  return system === "dark" ? "dark" : "light";
-}
-var flipped = (theme) => theme === "dark" ? "light" : "dark";
-var schemeOf = (value) => value === "dark" || value === "light" ? value : null;
-
 // src/position.js
 var FALLBACK_CONTENT = { w: 800, h: 600 };
 function contentOf(layout) {
@@ -443,8 +431,16 @@ var COLORS = Object.freeze({
   dark: Object.freeze({ bar: "#262833", border: "#4a4e5e", dots: "#8d92a8" }),
   light: Object.freeze({ bar: "#f3f4f8", border: "#c9ccd8", dots: "#8a8fa3" })
 });
-function drawing(width, theme) {
-  const c = theme === "light" ? COLORS.light : COLORS.dark;
+function gripColors(theme, tilefold) {
+  const own = theme === "light" ? COLORS.light : COLORS.dark;
+  if (!tilefold) return own;
+  return {
+    bar: tilefold.surfaceRaised ?? tilefold.pane ?? own.bar,
+    border: tilefold.border ?? own.border,
+    dots: tilefold.textMuted ?? own.dots
+  };
+}
+function drawing(width, c) {
   const mid = width / 2;
   const dots = [-12, -6, 0, 6, 12].map((d) => `<circle cx="${mid + d}" cy="${GRIP_H / 2}" r="1.5" fill="${c.dots}"/>`).join("");
   return `<rect x="0.5" y="0.5" width="${width - 1}" height="${GRIP_H - 1}" rx="${GRIP_H / 2}" fill="${c.bar}" fill-opacity="0.96" stroke="${c.border}"/>` + dots;
@@ -453,8 +449,8 @@ function piece(body, from, w) {
   const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${GRIP_H}" viewBox="${from} 0 ${w} ${GRIP_H}">${body}</svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(doc);
 }
-function gripImages(width, pieces, theme = "dark") {
-  const body = drawing(width, theme);
+function gripImages(width, pieces, theme = "dark", tilefold = null) {
+  const body = drawing(width, gripColors(theme, tilefold));
   return pieces.map((p) => piece(body, p.from, p.w));
 }
 
@@ -481,7 +477,7 @@ function createCard(tf, o) {
   };
   const spots = async () => cardSpots(await currentLayout(), o.corner(), position, size);
   const items = (s) => {
-    const images = gripImages(s.card.w, s.grip, o.theme());
+    const images = gripImages(s.card.w, s.grip, o.theme(), o.colors?.() ?? null);
     return s.grip.map((r, i) => ({
       id: `grip-${i}`,
       image: images[i],
@@ -641,37 +637,25 @@ function createCard(tf, o) {
   };
 }
 
-// src/quiz.js
-function startQuiz(total) {
-  return { index: 0, picked: null, score: 0, done: false, total };
+// src/appearance.js
+var APPEARANCES = ["auto", "light", "dark"];
+var appearanceOf = (value) => APPEARANCES.includes(value) ? value : "auto";
+function effectiveTheme(setting, switched, system) {
+  if (switched) return switched;
+  const s = appearanceOf(setting);
+  if (s !== "auto") return s;
+  return system === "dark" ? "dark" : "light";
 }
-var within = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
-function restoreQuiz(value, total) {
-  const s = (
-    /** @type {any} */
-    value
-  );
-  const ok = s && typeof s === "object" && s.total === total && within(s.index, 0, Math.max(0, total - 1)) && within(s.score, 0, total) && (s.picked === null || within(s.picked, 0, 63)) && typeof s.done === "boolean";
-  if (!ok) return startQuiz(total);
-  return { index: s.index, picked: s.picked, score: s.score, done: s.done, total };
-}
-function pickChoice(state, questions, choice) {
-  const q = questions[state.index];
-  if (state.done || state.picked !== null || !q || !within(choice, 0, q.choices.length - 1)) {
-    return { state, correct: null };
-  }
-  const correct = choice === q.answer;
-  return { state: { ...state, picked: choice, score: state.score + (correct ? 1 : 0) }, correct };
-}
-function nextQuestion(state) {
-  if (state.done || state.picked === null) return state;
-  if (state.index + 1 >= state.total) return { ...state, done: true };
-  return { ...state, index: state.index + 1, picked: null };
-}
+var flipped = (theme) => theme === "dark" ? "light" : "dark";
+var schemeOf = (value) => value === "dark" || value === "light" ? value : null;
 
 // src/settings.js
-var SHOW_AS = ["card", "panel"];
-var SHOW_AS_KEYS = { card: "setting-show-as-card", panel: "setting-show-as-panel" };
+var SHOW_AS = ["card", "side", "panel"];
+var SHOW_AS_KEYS = {
+  card: "setting-show-as-card",
+  side: "setting-show-as-side",
+  panel: "setting-show-as-panel"
+};
 var CORNER_KEYS = {
   "bottom-right": "setting-corner-bottom-right",
   "bottom-left": "setting-corner-bottom-left",
@@ -709,15 +693,117 @@ var read = (settings, key) => {
     return void 0;
   }
 };
-var showAsSetting = (settings) => read(settings, "showAs") === "panel" ? "panel" : "card";
+var showAsSetting = (settings) => {
+  const value = read(settings, "showAs");
+  return value === "panel" || value === "side" ? value : "card";
+};
 var cornerSetting = (settings) => cornerOf(read(settings, "corner"));
 var appearanceSetting = (settings) => appearanceOf(read(settings, "appearance"));
+
+// src/look.js
+function readTilefoldTheme(value) {
+  const t = (
+    /** @type {any} */
+    value
+  );
+  if (!t || typeof t !== "object" || !t.colors || typeof t.colors !== "object") return null;
+  const colors = {};
+  for (const [key, color] of Object.entries(t.colors)) {
+    if (typeof color === "string" && /^[A-Za-z0-9 #(),.%/+-]{1,64}$/.test(color)) {
+      colors[key] = color;
+    }
+  }
+  return { mode: t.mode === "light" ? "light" : "dark", colors };
+}
+function createLook(tf, store) {
+  let switched = null;
+  let system = null;
+  let tilefold = null;
+  let appearance = appearanceOf(appearanceSetting(tf.settings));
+  return {
+    /** Reads what was kept, and Tilefold's theme where there is one. */
+    async load() {
+      switched = await store.appearance();
+      if (typeof tf.theme === "function") {
+        tilefold = readTilefoldTheme(await tf.theme().catch(() => null));
+      }
+    },
+    /** Whether the card follows Tilefold's theme (Tilefold 0.1.20). */
+    follows: () => tilefold !== null,
+    /** Light or dark, now. */
+    mode: () => tilefold ? tilefold.mode : effectiveTheme(appearanceSetting(tf.settings), switched, system),
+    /** Tilefold's colors, or null on an older Tilefold. */
+    colors: () => tilefold ? tilefold.colors : null,
+    /** Tilefold's theme changed. */
+    tilefoldChanged(value) {
+      tilefold = readTilefoldTheme(value) ?? tilefold;
+    },
+    /** The page saw the system's light or dark (it may have changed). */
+    systemIs(value) {
+      system = schemeOf(value) ?? system;
+    },
+    /** Flips light and dark and remembers it; returns what it is now. */
+    async switchMode() {
+      switched = flipped(this.mode());
+      await store.saveAppearance(switched);
+      return switched;
+    },
+    /** The settings changed: a new Appearance wins over the last switch. Returns whether it did. */
+    async settingChanged() {
+      const now = appearanceOf(appearanceSetting(tf.settings));
+      if (now === appearance) return false;
+      appearance = now;
+      switched = null;
+      await store.saveAppearance(null);
+      return true;
+    }
+  };
+}
+
+// src/place.js
+var isMovable = (place) => place === "card" || place === "side";
+function placeOf(setting, chosen, canSide) {
+  if (setting === "panel") return "panel";
+  const place = chosen ?? (setting === "side" ? "side" : "card");
+  return place === "side" && !canSide ? "card" : place;
+}
+var readChosen = (value) => value === "card" || value === "side" ? value : null;
+var showsAt = (where, place) => (where === "window" ? "card" : where) === place;
+
+// src/quiz.js
+function startQuiz(total) {
+  return { index: 0, picked: null, score: 0, done: false, total };
+}
+var within = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
+function restoreQuiz(value, total) {
+  const s = (
+    /** @type {any} */
+    value
+  );
+  const ok = s && typeof s === "object" && s.total === total && within(s.index, 0, Math.max(0, total - 1)) && within(s.score, 0, total) && (s.picked === null || within(s.picked, 0, 63)) && typeof s.done === "boolean";
+  if (!ok) return startQuiz(total);
+  return { index: s.index, picked: s.picked, score: s.score, done: s.done, total };
+}
+function pickChoice(state, questions, choice) {
+  const q = questions[state.index];
+  if (state.done || state.picked !== null || !q || !within(choice, 0, q.choices.length - 1)) {
+    return { state, correct: null };
+  }
+  const correct = choice === q.answer;
+  return { state: { ...state, picked: choice, score: state.score + (correct ? 1 : 0) }, correct };
+}
+function nextQuestion(state) {
+  if (state.done || state.picked === null) return state;
+  if (state.index + 1 >= state.total) return { ...state, done: true };
+  return { ...state, index: state.index + 1, picked: null };
+}
 
 // src/store.js
 var KEYS = Object.freeze({
   index: "quizzes",
   current: "current",
   appearance: "appearance",
+  placement: "placement",
   quiz: (id) => `quiz:${id}`,
   progress: (id) => `progress:${id}`
 });
@@ -749,7 +835,11 @@ function createStore(tf) {
       const a = await get(KEYS.appearance);
       return a === "light" || a === "dark" ? a : null;
     },
-    saveAppearance: (a) => a ? set(KEYS.appearance, a) : tf.store.delete(KEYS.appearance)
+    saveAppearance: (a) => a ? set(KEYS.appearance, a) : tf.store.delete(KEYS.appearance),
+    async placement() {
+      return readChosen(await get(KEYS.placement));
+    },
+    savePlacement: (p) => p ? set(KEYS.placement, p) : tf.store.delete(KEYS.placement)
   };
 }
 
@@ -885,18 +975,19 @@ function runQuiz(tf) {
   });
   const audit = (action, details) => void Promise.resolve().then(() => tf.audit(action, details)).catch(warn);
   const store = createStore(tf);
+  const look = createLook(tf, store);
   let loaded = false;
   let index = [];
   let quiz = null;
   let state = null;
   let where = null;
-  let switched = null;
-  let system = null;
-  const theme = () => effectiveTheme(appearanceSetting(tf.settings), switched, system);
-  const canDock = () => typeof tf.page?.dock === "function" && !!tf.overlay;
-  const card = canDock() ? createCard(tf, {
+  let chosen = null;
+  const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
+  const canSide = () => !!tf.page && typeof tf.theme === "function";
+  const card = canFloat() ? createCard(tf, {
     corner: () => cornerSetting(tf.settings),
-    theme,
+    theme: () => look.mode(),
+    colors: () => look.colors(),
     label: () => tf.t("grip-label"),
     warn
   }) : null;
@@ -908,16 +999,10 @@ function runQuiz(tf) {
   const select = async (id) => {
     const entry = visible(index).find((e) => e.id === id);
     const q = entry ? await store.quiz(id) : null;
-    if (!q) {
-      quiz = null;
-      state = null;
-      await store.saveCurrent(null);
-      return false;
-    }
     quiz = q;
-    state = await store.progress(id, q.questions.length);
-    await store.saveCurrent(id);
-    return true;
+    state = q ? await store.progress(id, q.questions.length) : null;
+    await store.saveCurrent(q ? id : null);
+    return !!q;
   };
   const load = async () => {
     if (loaded) return;
@@ -925,7 +1010,8 @@ function runQuiz(tf) {
     index = await loadIndex();
     const current = await store.current();
     if (current) await select(current);
-    switched = await store.appearance();
+    chosen = await store.placement();
+    await look.load();
     await card?.load();
   };
   const post = async (message) => {
@@ -949,23 +1035,36 @@ function runQuiz(tf) {
     await store.saveProgress(quiz.id, state);
     await render();
   };
-  const open = async () => {
-    await load();
-    const wanted = showAsSetting(tf.settings);
-    if (where) {
-      if ((where === "panel" ? "panel" : "card") === wanted) return render();
-      await close(false);
-    }
-    if ((wanted === "panel" || !tf.page) && tf.panel) {
-      where = "panel";
-      await render();
-    } else if (tf.page && card) {
+  const toCard = async () => {
+    if (card) {
       await tf.page.open({ dock: await card.pageSpot() });
       where = "card";
       await card.show();
-    } else if (tf.page) {
+    } else {
       await tf.page.open();
       where = "window";
+    }
+  };
+  const toSide = async () => {
+    await card?.hide();
+    await tf.page.open({ side: true });
+    where = "side";
+  };
+  const open = async () => {
+    await load();
+    const place = placeOf(showAsSetting(tf.settings), chosen, canSide());
+    if (where && showsAt(where, place)) return render();
+    if (where && where !== "panel" && isMovable(place)) {
+      await (place === "side" ? toSide() : toCard());
+      audit("moved", { to: where });
+      return;
+    }
+    if (where) await close(false);
+    if ((place === "panel" || !tf.page) && tf.panel) {
+      where = "panel";
+      await render();
+    } else if (tf.page) {
+      await (place === "side" ? toSide() : toCard());
     } else {
       await tf.toast(tf.t("toast-needs-tilefold"));
       return;
@@ -983,6 +1082,13 @@ function runQuiz(tf) {
     }
     if (record) audit("closed", { as: was });
   };
+  const moveTo = async (place) => {
+    if (!isMovable(place) || place === "side" && !canSide()) return;
+    await load();
+    chosen = place;
+    await store.savePlacement(place);
+    await open();
+  };
   const showList = async () => {
     await load();
     index = await loadIndex();
@@ -991,14 +1097,12 @@ function runQuiz(tf) {
     await store.saveCurrent(null);
     if (where) await render();
     else await open();
-    await card?.redraw();
   };
   const openQuiz = async (id) => {
     await load();
     if (!await select(String(id))) return render();
     if (where) await render();
     else await open();
-    await card?.redraw();
   };
   const restart = async () => {
     await load();
@@ -1024,41 +1128,46 @@ function runQuiz(tf) {
     await update(after);
     if (after.done) audit("finished", { quiz: quiz.id, score: after.score, total: after.total });
   };
-  const applyTheme = async () => {
-    if (where === "card" || where === "window") await post({ do: "theme", theme: theme() });
+  const applyLook = async () => {
+    if (where && where !== "panel") await post({ do: "theme", theme: look.mode() });
     await card?.redraw();
   };
   const switchTheme = async () => {
     await load();
-    switched = flipped(theme());
-    await store.saveAppearance(switched);
-    audit("theme-switched", { to: switched });
-    await applyTheme();
+    if (look.follows()) return;
+    audit("theme-switched", { to: await look.switchMode() });
+    await applyLook();
   };
   const hear = async (m) => {
     if (!m || typeof m !== "object") return;
     if (m.type === "hello") {
-      system = schemeOf(m.scheme) ?? system;
+      look.systemIs(m.scheme);
       await post({
         do: "setup",
         lang: tf.t("page-lang"),
         dir: tf.t("page-dir"),
-        theme: theme(),
-        // Only a docked card moves and resizes from the page; a window has its own frame.
+        theme: look.mode(),
+        // Tilefold's theme draws the page: its own light and dark step aside.
+        themed: look.follows(),
+        // Only the floating card moves and resizes from the page.
         docked: where === "card",
+        // Which way it can move: to the dock from the card, back from the dock.
+        place: where === "card" && canSide() ? "card" : where === "side" ? "side" : null,
         labels: {
           close: tf.t("page-close"),
           list: tf.t("list-back"),
           theme: tf.t("page-theme"),
-          resize: tf.t("page-resize")
+          resize: tf.t("page-resize"),
+          dock: tf.t("page-dock"),
+          float: tf.t("page-float")
         }
       });
       await card?.redraw();
       return render();
     }
     if (m.type === "scheme") {
-      system = schemeOf(m.scheme) ?? system;
-      return applyTheme();
+      look.systemIs(m.scheme);
+      return applyLook();
     }
     if (m.type === "pick") return pick(Number(m.choice));
     if (m.type === "next") return next();
@@ -1066,6 +1175,7 @@ function runQuiz(tf) {
     if (m.type === "list") return showList();
     if (m.type === "open-quiz") return openQuiz(m.id);
     if (m.type === "theme") return switchTheme();
+    if (m.type === "place") return moveTo(m.to);
     if (m.type === "move") return card?.pageMove(m);
     if (m.type === "resize") return card?.pageResize(m);
     if (m.type === "close") return close();
@@ -1126,11 +1236,27 @@ function runQuiz(tf) {
   tf.on(
     "page.closed",
     background(async () => {
-      if (where === "card" || where === "window") {
+      if (where && where !== "panel") {
+        const was = where;
         where = null;
         await card?.hide();
-        audit("closed", { as: "page" });
+        audit("closed", { as: was });
       }
+    })
+  );
+  tf.on(
+    "page.undocked",
+    // The user pressed Undock on the dock's bar: back on the card.
+    background(async () => {
+      if (where === "side") where = null;
+      await moveTo("card");
+    })
+  );
+  tf.on(
+    "theme.changed",
+    background(async (e) => {
+      look.tilefoldChanged(e);
+      await applyLook();
     })
   );
   tf.on(
@@ -1162,26 +1288,18 @@ function runQuiz(tf) {
   );
   let corner = cornerSetting(tf.settings);
   let showAs = showAsSetting(tf.settings);
-  let appearance = appearanceSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
-      const now = {
-        corner: cornerSetting(tf.settings),
-        showAs: showAsSetting(tf.settings),
-        appearance: appearanceOf(appearanceSetting(tf.settings))
-      };
+      await load();
+      const now = { corner: cornerSetting(tf.settings), showAs: showAsSetting(tf.settings) };
       if (now.showAs !== showAs) {
         showAs = now.showAs;
+        chosen = null;
+        await store.savePlacement(null);
         if (where) await open();
       }
-      if (now.appearance !== appearance) {
-        appearance = now.appearance;
-        await load();
-        switched = null;
-        await store.saveAppearance(null);
-        await applyTheme();
-      }
+      if (await look.settingChanged()) await applyLook();
       if (now.corner !== corner) {
         corner = now.corner;
         if (await card?.reset("corner")) return;

@@ -13,18 +13,22 @@
  * - `progress:<id>`: where the user is in that quiz;
  * - `current`: the quiz shown last, or nothing for the list of quizzes;
  * - `appearance`: light or dark, when the user switched it with the
- *   command or the card's button (a choice in Settings clears it).
+ *   command or the card's button (a choice in Settings clears it);
+ * - `placement`: the card or the dock beside the panes, when the user moved
+ *   the quiz between them (a choice in Settings clears it).
  *
  * Every read is checked, so a damaged value falls back to a fresh start
  * instead of breaking the tile.
  */
 import { BUILTIN_ID, builtinQuiz, readIndex, readQuiz } from "./library.js";
+import { readChosen } from "./place.js";
 import { restoreQuiz } from "./quiz.js";
 
 export const KEYS = Object.freeze({
   index: "quizzes",
   current: "current",
   appearance: "appearance",
+  placement: "placement",
   quiz: (id) => `quiz:${id}`,
   progress: (id) => `progress:${id}`,
 });
@@ -64,5 +68,10 @@ export function createStore(tf) {
       return a === "light" || a === "dark" ? a : null;
     },
     saveAppearance: (a) => (a ? set(KEYS.appearance, a) : tf.store.delete(KEYS.appearance)),
+
+    async placement() {
+      return readChosen(await get(KEYS.placement));
+    },
+    savePlacement: (p) => (p ? set(KEYS.placement, p) : tf.store.delete(KEYS.placement)),
   };
 }

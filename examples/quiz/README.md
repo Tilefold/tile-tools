@@ -6,13 +6,17 @@ Quizzes on a borderless card floating over your panes: a short quiz about workin
 
 - **Quiz: Start or show** opens the card where you left it: the list of quizzes, or the quiz you were taking. **Quiz: Show all quizzes** goes to the list.
 - In a quiz, click an answer, or press its number or letter (1–4, A–D); **Enter** goes on to the next question, and **Escape** closes the card. On the list, 1–9 open a quiz. Click into the card first, as a card over your panes doesn't take the keyboard on its own.
-- The card's top bar has **☰** (back to the list), **☾/☀** (switch light or dark) and **×** (close).
+- The card's top bar has **☰** (back to the list), **⇥** (dock it beside the panes), **☾/☀** (light or dark, before Tilefold 0.1.20) and **×** (close).
 - **Quiz: Start over** begins the quiz again from its first question. Each quiz keeps its own progress, even across a restart of Tilefold.
 - **Moving and resizing the card:** it starts in a corner of the pane you're working in and follows you when you switch panes. Drag its top bar (or the thin grip above it) to put it anywhere in the window, and drag its bottom-right corner (◢) to make it bigger or smaller, from 280 × 240 up to 900 × 1000 pixels. It stays where and as big as you left it, even after a restart; **Quiz: Put the card back in the pane** or choosing another corner returns it to the pane's corner.
 
-## Light or dark
+## Docked beside the panes
 
-The card follows your system's appearance. **Quiz: Switch light or dark**, or the **☾/☀** button, flips it and remembers your choice. To fix it for good, choose **Light** or **Dark** under **Appearance of the card** in **Settings → Tiles → Quiz**; choosing there wins over the last switch. (A tile can't see Tilefold's own theme, so **Automatic** follows the system, not Tilefold.)
+From Tilefold 0.1.20 the quiz can sit in the dock beside your panes, on the right, where Web View's pages go: your panes make room for it. Press **⇥** on the card's top bar to dock it, and **⇤** on the docked quiz (or Tilefold's **Undock** on the dock's bar) to float it over your panes again. The quiz remembers where you put it; choosing **Show the quiz** in Settings wins over that. Moving it reloads the card, and it comes back at the same question.
+
+## In your theme's colors
+
+From Tilefold 0.1.20 the card is drawn in your Tilefold theme: a pane's background, its text, borders and accent, and it follows when you change the theme or switch between light and dark. On an older Tilefold the card has its own light and dark: **Quiz: Switch light or dark** or the **☾/☀** button flips it, and **Appearance of the card** in **Settings → Tiles → Quiz** fixes it (choosing there wins over the last switch); **Automatic** follows your system.
 
 ## Quizzes from your own files
 
@@ -37,11 +41,11 @@ The library holds up to 50 quizzes. Quizzes are written in whatever language you
 
 In **Settings → Tiles → Quiz**:
 
-- **Show the quiz:** on a card over the panes (the default), or in a panel beside the panes, where the list, the questions and the answers are rows drawn in your theme.
+- **Show the quiz:** on a card over the panes (the default), docked beside the panes (Tilefold 0.1.20), or in a panel beside the panes, where the list, the questions and the answers are rows drawn in your theme.
 - **Corner of the pane for the card:** where the card starts.
-- **Appearance of the card:** Automatic, Light or Dark.
+- **Appearance of the card** (before Tilefold 0.1.20): Automatic, Light or Dark.
 
-The floating card needs Tilefold 0.1.11, and agents' quizzes 0.1.14. From 0.1.7 to 0.1.10 the quiz opens in a window of its own, and the panel needs 0.1.9.
+The floating card needs Tilefold 0.1.11, agents' quizzes 0.1.14, and docking beside the panes and your theme's colors 0.1.20. From 0.1.7 to 0.1.10 the quiz opens in a window of its own, and the panel needs 0.1.9.
 
 ## How it's built
 

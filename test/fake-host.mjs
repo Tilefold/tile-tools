@@ -56,6 +56,11 @@
  *
  * Modified 2026-10-20 (agent input): commands' input and results.
  *
+ * Modified 2026-10-26 (Tilefold 0.1.20): `page: "side"` also docks a page
+ *   beside the panes (`host.page.side`; `host.undock()` plays the user
+ *   undocking it), and `theme` adds `tf.theme()` (`host.theme`;
+ *   `host.setTheme(theme)` plays a change, firing `theme.changed`).
+ *
  * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
@@ -158,6 +163,13 @@ export async function startTile(dir, opts = {}) {
         throw new Error(`The result of "${id}" is larger than the 64 KB an agent can get.`);
       }
       return JSON.parse(json);
+    },
+    /** Plays the user pressing Undock on a page docked beside the panes (Tilefold 0.1.20). */
+    async undock() {
+      if (!host.page?.side) throw new Error("the page is not docked beside the panes");
+      host.page.side = false;
+      host.page.open = false;
+      await host.emit("page.undocked", {});
     },
     async setSetting(key, value) {
       values.set(key, value);
@@ -284,7 +296,20 @@ export async function startTile(dir, opts = {}) {
   };
 
   if (opts.folders) addFolders(tf, host, opts.folders, named);
-  if (opts.page) addPage(tf, host, { dock: opts.page === "dock" });
+  if (opts.page) {
+    addPage(tf, host, {
+      dock: opts.page === "dock" || opts.page === "side",
+      side: opts.page === "side",
+    });
+  }
+  if (opts.theme !== undefined) {
+    host.theme = structuredClone(opts.theme);
+    tf.theme = async () => structuredClone(host.theme);
+    host.setTheme = async (theme) => {
+      host.theme = structuredClone(theme);
+      await host.emit("theme.changed", structuredClone(theme));
+    };
+  }
   if (opts.panel) addPanel(tf, host, named);
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
 
@@ -369,11 +394,39 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
  * (Tilefold 0.1.11) a page can be docked in the window: `host.page.dock`
  * is its spot (null for a window of its own), and `dock()` moves it.
  */
-function addPage(tf, host, { dock = false } = {}) {
-  host.page = { open: false, opens: [], closes: 0, posted: [], dock: null, docks: [] };
+function addPage(tf, host, { dock = false, side = false } = {}) {
+  host.page = {
+    open: false,
+    opens: [],
+    closes: 0,
+    posted: [],
+    dock: null,
+    docks: [],
+    side: false,
+  };
   tf.page = {
     async open(options = {}) {
-      if (!host.page.open) host.page.dock = dock && options.dock ? { ...options.dock } : null;
+      // Beside the panes (Tilefold 0.1.20), as Tilefold checks it.
+      if (side && options.side === true) {
+        if (options.dock)
+          throw Object.assign(new TypeError("give a spot (dock) or side, not both"));
+        if (options.origin === "https") {
+          throw Object.assign(
+            new Error("a page with a web address can't dock beside the panes yet"),
+            {
+              name: "PageError",
+            },
+          );
+        }
+        host.page.side = true;
+        host.page.dock = null;
+      } else if (side && host.page.side) {
+        // Moving out of the dock: to its spot, or a window of its own.
+        host.page.side = false;
+        host.page.dock = options.dock ? { ...options.dock } : null;
+      } else if (!host.page.open) {
+        host.page.dock = dock && options.dock ? { ...options.dock } : null;
+      }
       host.page.open = true;
       host.page.opens.push(options);
       return null;
@@ -381,6 +434,7 @@ function addPage(tf, host, { dock = false } = {}) {
     async close() {
       host.page.open = false;
       host.page.dock = null;
+      host.page.side = false;
       host.page.closes += 1;
       return null;
     },

@@ -84,12 +84,16 @@ describe("the quiz on a card", () => {
       lang: "en",
       dir: "ltr",
       theme: "light",
+      themed: false,
       docked: true,
+      place: null,
       labels: {
         close: "Close the quiz",
         list: "All quizzes",
         theme: "Switch light or dark",
         resize: "Drag to resize the quiz",
+        dock: "Dock beside the panes",
+        float: "Float over the panes",
       },
     });
     expect(lastView(host)).toMatchObject({
@@ -178,7 +182,7 @@ describe("the quiz on a card", () => {
     host.page.open = false;
     await host.emit("page.closed", {});
     expect(host.overlay).toBeNull();
-    expect(host.audits).toContainEqual({ action: "closed", details: { as: "page" } });
+    expect(host.audits).toContainEqual({ action: "closed", details: { as: "card" } });
   });
 });
 
