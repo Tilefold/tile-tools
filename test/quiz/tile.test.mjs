@@ -8,29 +8,52 @@
  *
  * The built tile, driven as Tilefold would drive it: the quiz opens on a
  * borderless card (its page docked over the focused pane, with a grip to
- * drag it), answers come back from the page, progress is saved and
- * resumed, dragging the grip moves the page and keeps the spot, the panel
- * shows the same quiz as rows, and older Tilefolds get a window or a
- * notice instead. What the user does is recorded, and nothing they typed.
+ * drag it) at the list of quizzes; a quiz taken from the list is answered
+ * from the page, its progress is kept and resumed, and finishing keeps the
+ * best score. Dragging the grip moves the page and keeps the spot; the
+ * card switches between light and dark; the panel shows the same as rows;
+ * older Tilefolds get a window or a notice instead. Every action recorded
+ * is one word, as Tilefold requires, and nothing the user typed.
  */
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { cardSpots } from "../../examples/quiz/src/scene.js";
 import { ONE_PANE, startTile } from "../fake-host.mjs";
 
 const DIR = fileURLToPath(new URL("../../examples/quiz/", import.meta.url));
 const SPOT = cardSpots(ONE_PANE, "bottom-right", null);
 
-const start = (opts = {}) => startTile(DIR, { page: "dock", panel: true, ...opts });
+/** Every host a test started, to check what it recorded afterwards. */
+const hosts = [];
+const start = async (opts = {}) => {
+  const host = await startTile(DIR, { page: "dock", panel: true, ...opts });
+  hosts.push(host);
+  return host;
+};
+
+afterEach(() => {
+  // Tilefold refuses a tile action with a dot: each is one word.
+  for (const host of hosts.splice(0)) {
+    for (const a of host.audits) expect(a.action).toMatch(/^[a-z][a-z0-9-]*$/);
+  }
+});
 
 /** The last view the tile sent the page. */
 const lastView = (host) => host.page.posted.filter((m) => m.do === "show").at(-1)?.view;
 
-/** The page loads and says hello. */
-const hello = (host) => host.emit("page.message", { message: { type: "hello" } });
+/** The page loads and says hello, with the system's light or dark. */
+const hello = (host, scheme = "light") =>
+  host.emit("page.message", { message: { type: "hello", scheme } });
 
 /** The user clicks something on the page. */
 const say = (host, message) => host.emit("page.message", { message });
+
+/** Opens the card and takes the built-in quiz. */
+async function takeBuiltin(host) {
+  await host.command("open");
+  await hello(host);
+  await say(host, { type: "open-quiz", id: "terminal" });
+}
 
 /** The actions recorded, in order. */
 const actions = (host) => host.audits.map((a) => a.action);
@@ -44,10 +67,10 @@ describe("the quiz on a card", () => {
     expect(host.item("grip-l")).toMatchObject({ ...SPOT.gripL, hit: true, cursor: "grab" });
     expect(host.item("grip-r")).toMatchObject({ ...SPOT.gripR, hit: true, cursor: "grab" });
     expect(host.item("grip-l").label).toBe("Drag to move the quiz");
-    expect(host.audits).toContainEqual({ action: "quiz.opened", details: { as: "card" } });
+    expect(host.audits).toContainEqual({ action: "opened", details: { as: "card" } });
   });
 
-  it("sends the page its language and the first question when it loads", async () => {
+  it("sends the page its language, labels and appearance, then the list of quizzes", async () => {
     const host = await start();
     await host.command("open");
     await hello(host);
@@ -55,77 +78,80 @@ describe("the quiz on a card", () => {
       do: "setup",
       lang: "en",
       dir: "ltr",
-      title: "Terminal quiz",
-      close: "Close the quiz",
+      theme: "light",
+      labels: { close: "Close the quiz", list: "All quizzes", theme: "Switch light or dark" },
     });
     expect(lastView(host)).toMatchObject({
-      done: false,
-      progress: "Question 1 of 6",
-      question: "Which character sends one command's output into another command?",
+      screen: "list",
+      title: "Quizzes",
+      quizzes: [{ id: "terminal", title: "Terminal quiz", detail: "Questions: 6" }],
     });
   });
 
-  it("marks an answer, records whether it was right, and saves the progress", async () => {
+  it("takes a quiz from the list, at its first question", async () => {
     const host = await start();
-    await host.command("open");
-    await hello(host);
+    await takeBuiltin(host);
+    expect(lastView(host)).toMatchObject({
+      screen: "quiz",
+      title: "Terminal quiz",
+      progress: "Question 1 of 6",
+      question: "Which character sends one command's output into another command?",
+    });
+    expect(host.store.get("current")).toBe("terminal");
+  });
+
+  it("marks an answer, records whether it was right, and keeps the progress", async () => {
+    const host = await start();
+    await takeBuiltin(host);
     await say(host, { type: "pick", choice: 1 });
     const v = lastView(host);
     expect(v.choices.map((c) => c.mark)).toEqual(["right", "wrong", "none", "none"]);
     expect(v).toMatchObject({ result: "Not quite.", next: "Next question" });
     expect(host.audits).toContainEqual({
-      action: "quiz.answered",
-      details: { question: "pipe", correct: false },
+      action: "answered",
+      details: { quiz: "terminal", question: 1, correct: false },
     });
-    expect(host.store.get("progress")).toMatchObject({ index: 0, picked: 1, score: 0 });
+    expect(host.store.get("progress:terminal")).toMatchObject({ index: 0, picked: 1, score: 0 });
     // A second pick for the same question changes nothing.
     await say(host, { type: "pick", choice: 0 });
-    expect(host.store.get("progress")).toMatchObject({ picked: 1, score: 0 });
+    expect(host.store.get("progress:terminal")).toMatchObject({ picked: 1, score: 0 });
   });
 
-  it("goes through every question to the score, once, and starts over", async () => {
+  it("goes through every question to the score, keeps the best, and starts over", async () => {
     const host = await start();
-    await host.command("open");
-    await hello(host);
-    const answers = [0, 1, 2, 0, 2, 0];
-    for (const choice of answers) {
+    await takeBuiltin(host);
+    for (const choice of [0, 1, 2, 0, 2, 0]) {
       await say(host, { type: "pick", choice });
       await say(host, { type: "next" });
     }
-    expect(lastView(host)).toEqual({
-      done: true,
-      score: "You got 6 of 6 right.",
-      again: "Start over",
-    });
+    expect(lastView(host)).toMatchObject({ done: true, score: "You got 6 of 6 right." });
     await say(host, { type: "next" });
-    expect(actions(host).filter((a) => a === "quiz.finished")).toHaveLength(1);
-    expect(host.audits.find((a) => a.action === "quiz.finished").details).toEqual({
-      score: 6,
-      total: 6,
-    });
+    expect(actions(host).filter((a) => a === "finished")).toHaveLength(1);
+    expect(host.store.get("quizzes").find((e) => e.id === "terminal").best).toBe(6);
     await say(host, { type: "again" });
     expect(lastView(host)).toMatchObject({ done: false, progress: "Question 1 of 6" });
-    expect(actions(host)).toContain("quiz.restarted");
+    expect(host.audits).toContainEqual({ action: "restarted", details: { quiz: "terminal" } });
+    await say(host, { type: "list" });
+    expect(lastView(host).quizzes[0].detail).toBe("Questions: 6 · best: 6");
   });
 
-  it("resumes saved progress", async () => {
+  it("resumes the quiz being taken, where it was left", async () => {
     const saved = { index: 2, picked: null, score: 2, done: false, total: 6 };
-    const host = await start({ store: { progress: saved } });
+    const host = await start({ store: { current: "terminal", "progress:terminal": saved } });
     await host.command("open");
     await hello(host);
     expect(lastView(host).progress).toBe("Question 3 of 6");
   });
 
-  it("closes from its own button, keeping the progress", async () => {
+  it("closes from its own button, keeping everything", async () => {
     const host = await start();
-    await host.command("open");
-    await hello(host);
+    await takeBuiltin(host);
     await say(host, { type: "pick", choice: 0 });
     await say(host, { type: "close" });
     expect(host.page.open).toBe(false);
     expect(host.overlay).toBeNull();
-    expect(host.store.get("progress")).toMatchObject({ picked: 0 });
-    expect(host.audits).toContainEqual({ action: "quiz.closed", details: { as: "card" } });
+    expect(host.store.get("progress:terminal")).toMatchObject({ picked: 0 });
+    expect(host.audits).toContainEqual({ action: "closed", details: { as: "card" } });
   });
 
   it("closes with the tile's overlays when the user hides them", async () => {
@@ -141,7 +167,41 @@ describe("the quiz on a card", () => {
     host.page.open = false;
     await host.emit("page.closed", {});
     expect(host.overlay).toBeNull();
-    expect(host.audits).toContainEqual({ action: "quiz.closed", details: { as: "page" } });
+    expect(host.audits).toContainEqual({ action: "closed", details: { as: "page" } });
+  });
+});
+
+describe("light or dark", () => {
+  it("follows the system the page reports, on the card and its grip", async () => {
+    const host = await start();
+    await host.command("open");
+    await hello(host, "dark");
+    expect(host.page.posted[0].theme).toBe("dark");
+    expect(decodeURIComponent(host.item("grip-l").image)).toContain("#262833");
+    await say(host, { type: "scheme", scheme: "light" });
+    expect(host.page.posted.at(-1)).toEqual({ do: "theme", theme: "light" });
+    expect(decodeURIComponent(host.item("grip-l").image)).toContain("#f3f4f8");
+  });
+
+  it("switches with the command or the card's button, and remembers it", async () => {
+    const host = await start();
+    await host.command("open");
+    await hello(host, "light");
+    await host.command("theme");
+    expect(host.page.posted.at(-1)).toEqual({ do: "theme", theme: "dark" });
+    expect(host.store.get("appearance")).toBe("dark");
+    await say(host, { type: "theme" });
+    expect(host.page.posted.at(-1)).toEqual({ do: "theme", theme: "light" });
+    expect(host.audits).toContainEqual({ action: "theme-switched", details: { to: "light" } });
+  });
+
+  it("uses the setting, which wins over the last switch", async () => {
+    const host = await start({ store: { appearance: "light" } });
+    await host.command("open");
+    await hello(host, "light");
+    await host.setSetting("appearance", "dark");
+    expect(host.page.posted.at(-1)).toEqual({ do: "theme", theme: "dark" });
+    expect(host.store.has("appearance")).toBe(false);
   });
 });
 
@@ -150,27 +210,15 @@ describe("moving the card", () => {
     const host = await start();
     await host.command("open");
     const from = SPOT.gripL;
-    await host.emit("overlay.pointer", { item: "grip-l", type: "dragstart", x: from.x, y: from.y });
-    await host.emit("overlay.pointer", {
-      item: "grip-l",
-      type: "drag",
-      x: from.x - 300,
-      y: from.y - 200,
-    });
+    const at = { x: from.x - 300, y: from.y - 200 };
+    await host.emit("overlay.pointer", { item: "grip-l", type: "dragstart", ...from });
+    await host.emit("overlay.pointer", { item: "grip-l", type: "drag", ...at });
     expect(host.page.dock).toMatchObject({ x: SPOT.page.x - 300, y: SPOT.page.y - 200 });
-    expect(host.item("grip-l")).toMatchObject({ x: from.x - 300, y: from.y - 200 });
+    expect(host.item("grip-l")).toMatchObject(at);
     expect(host.store.has("position")).toBe(false);
-    await host.emit("overlay.pointer", {
-      item: "grip-r",
-      type: "drop",
-      x: from.x - 300,
-      y: from.y - 200,
-    });
-    expect(host.store.get("position")).toEqual({
-      fx: expect.any(Number),
-      fy: expect.any(Number),
-    });
-    expect(host.audits).toContainEqual({ action: "card.moved", details: { via: "drag" } });
+    await host.emit("overlay.pointer", { item: "grip-r", type: "drop", ...at });
+    expect(host.store.get("position")).toEqual({ fx: expect.any(Number), fy: expect.any(Number) });
+    expect(host.audits).toContainEqual({ action: "card-moved", details: { via: "drag" } });
   });
 
   it("goes back to the pane's corner with the command", async () => {
@@ -180,7 +228,7 @@ describe("moving the card", () => {
     await host.command("put-back");
     expect(host.page.dock).toEqual(SPOT.page);
     expect(host.store.has("position")).toBe(false);
-    expect(host.audits).toContainEqual({ action: "card.reset", details: { via: "command" } });
+    expect(host.audits).toContainEqual({ action: "card-reset", details: { via: "command" } });
   });
 
   it("follows the focused pane as the layout changes", async () => {
@@ -210,34 +258,31 @@ describe("moving the card", () => {
 });
 
 describe("the quiz in a panel", () => {
-  it("shows the question and choices as rows, and answers from a click", async () => {
+  it("lists the quizzes, then shows a question's choices as rows and answers a click", async () => {
     const host = await start({ settings: { showAs: "panel" } });
     await host.command("open");
     expect(host.page.open).toBe(false);
-    expect(host.panel.content.title).toBe("Terminal quiz");
+    expect(host.panel.content.title).toBe("Quizzes");
+    expect(host.panel.content.rows.map((r) => r.id)).toEqual(["quiz:terminal"]);
+    await host.emit("panel.click", { row: "quiz:terminal", action: "activate" });
     expect(host.panel.content.subtitle).toBe("Question 1 of 6");
-    expect(host.panel.content.rows.map((r) => r.id)).toEqual([
-      "question",
-      "choice-0",
-      "choice-1",
-      "choice-2",
-      "choice-3",
-    ]);
     await host.emit("panel.click", { row: "choice-0", action: "activate" });
     const ids = host.panel.content.rows.map((r) => r.id);
     expect(ids).toContain("result");
     expect(ids).toContain("why");
     await host.emit("panel.click", { row: "next", action: "activate" });
     expect(host.panel.content.subtitle).toBe("Question 2 of 6");
-    expect(host.audits).toContainEqual({ action: "quiz.opened", details: { as: "panel" } });
+    await host.emit("panel.click", { row: "list", action: "activate" });
+    expect(host.panel.content.title).toBe("Quizzes");
+    expect(host.audits).toContainEqual({ action: "opened", details: { as: "panel" } });
   });
 
   it("forgets the panel when the user closes it", async () => {
     const host = await start({ settings: { showAs: "panel" } });
     await host.command("open");
     await host.emit("panel.closed", { by: "user" });
-    await host.emit("panel.click", { row: "choice-0", action: "activate" });
-    expect(host.store.has("progress")).toBe(false);
+    await host.emit("panel.click", { row: "quiz:terminal", action: "activate" });
+    expect(host.store.has("current")).toBe(false);
   });
 
   it("moves between the card and the panel when the setting changes", async () => {
@@ -260,7 +305,7 @@ describe("older Tilefolds", () => {
     expect(host.page.open).toBe(true);
     expect(host.page.dock).toBeNull();
     expect(host.overlay).toBeNull();
-    expect(host.audits).toContainEqual({ action: "quiz.opened", details: { as: "window" } });
+    expect(host.audits).toContainEqual({ action: "opened", details: { as: "window" } });
   });
 
   it("use the panel without tile pages, and say so with neither", async () => {
@@ -276,8 +321,7 @@ describe("older Tilefolds", () => {
 describe("its strings", () => {
   it("arrive in the user's language", async () => {
     const host = await start({ locale: "de" });
-    await host.command("open");
-    await hello(host);
+    await takeBuiltin(host);
     expect(host.page.posted[0].lang).toBe("de");
     expect(lastView(host).question).not.toMatch(/Which character/);
   });

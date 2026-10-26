@@ -6,11 +6,13 @@
  * Quiz page — styles
  *
  * The card fills its borderless page: no frame of its own beyond a hairline,
- * light or dark with the system, and a color for right and wrong answers
- * that never stands alone (the result line says it in words too).
+ * light or dark as the tile says (`data-theme` on the page, which follows
+ * the Appearance setting or the user's switch), and a color for right and
+ * wrong answers that never stands alone (the result line says it in words
+ * too).
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #ffffff;
   --fg: #1d1f27;
   --muted: #5d6273;
@@ -24,20 +26,19 @@
   --wrong-bg: #fbe7e6;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1d1f27;
-    --fg: #e8e9f0;
-    --muted: #a0a5b8;
-    --line: #343747;
-    --choice: #272a35;
-    --choice-hover: #30333f;
-    --accent: #8b8bf0;
-    --right: #5ccf8b;
-    --right-bg: #1f3a2b;
-    --wrong: #ef8580;
-    --wrong-bg: #42262a;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1d1f27;
+  --fg: #e8e9f0;
+  --muted: #a0a5b8;
+  --line: #343747;
+  --choice: #272a35;
+  --choice-hover: #30333f;
+  --accent: #8b8bf0;
+  --right: #5ccf8b;
+  --right-bg: #1f3a2b;
+  --wrong: #ef8580;
+  --wrong-bg: #42262a;
 }
 
 * {
@@ -60,7 +61,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 12px 14px;
+  padding: 10px 14px 12px;
   border: 1px solid var(--line);
   overflow: auto;
 }
@@ -68,47 +69,45 @@ body {
 header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 4px;
   margin-bottom: 6px;
 }
 
 .progress {
+  flex: 1;
   color: var(--muted);
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.close {
+.icon {
   border: 0;
   background: none;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 6px;
 }
 
-.close:hover {
+.icon:hover {
   background: var(--choice);
+  color: var(--fg);
 }
 
-.question {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 0 0 10px;
-}
-
+.quizzes,
 .choices {
   display: grid;
   gap: 6px;
 }
 
+.quiz,
 .choice {
   display: flex;
-  align-items: center;
-  gap: 10px;
   width: 100%;
-  padding: 7px 10px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: var(--choice);
@@ -118,6 +117,20 @@ header {
   cursor: pointer;
 }
 
+.quiz {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+}
+
+.choice {
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+}
+
+.quiz:hover,
 .choice:hover:not(:disabled) {
   background: var(--choice-hover);
 }
@@ -126,11 +139,32 @@ header {
   cursor: default;
 }
 
+.quiz:focus-visible,
 .choice:focus-visible,
 .primary:focus-visible,
-.close:focus-visible {
+.icon:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+.quiz-title {
+  font-weight: 600;
+}
+
+.quiz-detail,
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hint {
+  margin: 10px 0 0;
+}
+
+.question {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 10px;
 }
 
 .letter {
@@ -140,11 +174,7 @@ header {
 }
 
 .text {
-  font:
-    13px ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+  overflow-wrap: anywhere;
 }
 
 .mark-right {
@@ -202,10 +232,8 @@ header {
   margin: auto 0;
 }
 
-.done[hidden],
-.answer[hidden],
-#asking[hidden] {
-  display: none;
+[hidden] {
+  display: none !important;
 }
 
 .score {
@@ -215,6 +243,7 @@ header {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .quiz,
   .choice {
     transition: background-color 120ms ease;
   }

@@ -4,12 +4,12 @@
   Author: Tilefold
   Released under the MIT License.
 
-  Quiz's page: the borderless card with one question at a time, its
-  choices, whether the answer was right and why, and the score at the end.
-  All text arrives from the tile in the user's language; main.js is built
-  from page-src/.
+  Quiz's page: the borderless card with the list of quizzes, or one
+  question at a time with its choices, whether the answer was right and
+  why, and the score at the end. All text arrives from the tile in the
+  user's language; main.js is built from page-src/.
 -->
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -20,10 +20,16 @@
   <body>
     <main class="card">
       <header>
+        <button id="back" class="icon" type="button" hidden>☰</button>
         <span id="progress" class="progress"></span>
-        <button id="close" class="close" type="button">×</button>
+        <button id="theme" class="icon" type="button">☾</button>
+        <button id="close" class="icon" type="button">×</button>
       </header>
-      <section id="asking">
+      <section id="list" hidden>
+        <div id="quizzes" class="quizzes"></div>
+        <p id="hint" class="hint"></p>
+      </section>
+      <section id="asking" hidden>
         <h1 id="question" class="question"></h1>
         <div id="choices" class="choices"></div>
         <div id="answer" class="answer" hidden>

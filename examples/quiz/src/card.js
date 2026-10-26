@@ -14,7 +14,8 @@
  *
  * The run module opens and closes the page; this module only says where
  * it goes (`pageSpot`) and moves it (`tf.page.dock`). Moves and resets are
- * recorded in the tile's activity log (`card.moved`, `card.reset`).
+ * recorded in the tile's activity log (`card-moved`, `card-reset`: a tile's
+ * action is one word, which Tilefold records as tile.<id>.<action>).
  */
 import { gripImages } from "./grip.js";
 import { contentOf, createDrag, readPosition } from "./position.js";
@@ -31,6 +32,7 @@ export const GRIP_ITEMS = ["grip-l", "grip-r"];
  *   corner: () => string,
  *   title: () => string,
  *   rtl: () => boolean,
+ *   theme: () => "light" | "dark",
  *   label: () => string,
  *   warn: (err: unknown) => void,
  * }} o
@@ -61,7 +63,7 @@ export function createCard(tf, o) {
 
   /** The grip's overlay items at the card's spot. */
   const items = (s) => {
-    const images = gripImages(o.title(), o.rtl());
+    const images = gripImages(o.title(), o.rtl(), o.theme());
     const grip = (id, r, image) => ({
       id,
       image,
@@ -122,7 +124,7 @@ export function createCard(tf, o) {
       await tf.overlay.hide();
     },
 
-    /** Redraws in the user's language or corner, after a setting changed. */
+    /** Redraws in the user's language, corner or appearance, after a change. */
     redraw: draw,
 
     /** Follows a new window layout. */
@@ -153,7 +155,7 @@ export function createCard(tf, o) {
         position = at;
         await draw();
         await tf.store.set(POSITION_KEY, position);
-        void audit("card.moved", { via: "drag" });
+        void audit("card-moved", { via: "drag" });
       }
     },
 
@@ -163,7 +165,7 @@ export function createCard(tf, o) {
       if (!position) return false;
       position = null;
       await tf.store.delete(POSITION_KEY);
-      void audit("card.reset", { via });
+      void audit("card-reset", { via });
       await draw();
       return true;
     },

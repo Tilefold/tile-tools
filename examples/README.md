@@ -27,7 +27,7 @@ npx @tilefold/tile-tools build
 | `tuneboard` | A music player card with a sign-in and a page of its own | 0.1.7 |
 | `watchpane` | A YouTube player over your panes, with a control dock under it that you can drag anywhere and a list of videos beside it (in a small window of its own before Tilefold 0.1.11) | 0.1.10 |
 | `folder-tree` | The folder you're working in, as a tree docked beside your panes, with what your coding agents are reading and changing in it and the recent files pinned at the bottom; also in a window of its own. Agents report through hooks in `hooks/` ([README](folder-tree/README.md)) | 0.1.9 (activity colours and pinned Recent: 0.1.11) |
-| `quiz` | A short terminal quiz on a borderless card floating over your panes, which you drag by its grip, or in a panel beside them; it keeps your progress and score ([README](quiz/README.md)) | 0.1.11 (a window of its own from 0.1.7, the panel from 0.1.9) |
+| `quiz` | Quizzes on a borderless card floating over your panes (drag it by its grip; light or dark), or in a panel beside them: a terminal quiz to start, and quizzes the AI agent in a pane makes from your own files; each keeps its progress and best score ([README](quiz/README.md)) | 0.1.11 (agents' quizzes 0.1.14; a window of its own from 0.1.7, the panel from 0.1.9) |
 | `web-view` | The web app you're building, in a browser beside your panes: one page per address (say one per localhost port, or a range such as 3000-3010), which your AI agents can open, read and test ([README](web-view/README.md)) | 0.1.11 |
 
 Each tile's commands are in the command palette under its name, and its settings in **Settings → Tiles**.

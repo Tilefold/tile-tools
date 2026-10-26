@@ -3,16 +3,18 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Quiz — a short terminal quiz on a borderless card
+ * Quiz — quizzes on a borderless card
  *
- * Asks a few multiple-choice questions about working in a terminal, one at
- * a time, says whether each answer was right and why, and keeps score. It
- * shows on a borderless card floating over the panes, which the user drags
- * by its grip, or in a panel beside the panes (Settings → Tiles → Quiz).
- * Progress is kept, so the quiz resumes where it was left.
+ * Multiple-choice quizzes, one question at a time: says whether each answer
+ * was right and why, keeps score and the best score. A short terminal quiz
+ * comes with it; AI agents in the user's panes add more, made from the
+ * user's own files. It shows on a borderless card floating over the panes,
+ * light or dark, which the user drags by its grip, or in a panel beside the
+ * panes (Settings → Tiles → Quiz). Each quiz resumes where it was left.
  *
- * Needs Tilefold 0.1.11 for the floating card; 0.1.7 to 0.1.10 open the
- * quiz in a window of its own, or in the panel from 0.1.9.
+ * Needs Tilefold 0.1.11 for the floating card and 0.1.14 for agents'
+ * quizzes; 0.1.7 to 0.1.10 open the quiz in a window of its own, or in the
+ * panel from 0.1.9.
  *
  * Built into main.js with `npx @tilefold/tile-tools build`.
  */

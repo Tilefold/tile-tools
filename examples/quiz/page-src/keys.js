@@ -6,8 +6,9 @@
  * Quiz page — keys
  *
  * What a key press on the card does, so the quiz works without the mouse:
- * 1–9 or A–I pick that choice while the question is open; Enter goes on
- * once it's answered (or starts over at the end); Escape closes the card.
+ * on the list of quizzes, 1–9 open that quiz; in a quiz, 1–9 or A–I pick
+ * that choice while the question is open, Enter goes on once it's answered
+ * (or starts over at the end); Escape closes the card.
  * Keys typed with Ctrl, Alt or ⌘ are left alone. Pure: no page calls.
  */
 
@@ -22,6 +23,11 @@ export function keyAction(e, view) {
   if (!e || e.ctrlKey || e.altKey || e.metaKey) return null;
   if (e.key === "Escape") return { type: "close" };
   if (!view) return null;
+  if (view.screen === "list") {
+    const n = /^[1-9]$/.test(String(e.key)) ? Number(e.key) - 1 : -1;
+    const quiz = Array.isArray(view.quizzes) ? view.quizzes[n] : undefined;
+    return quiz ? { type: "open-quiz", id: quiz.id } : null;
+  }
   if (view.done) return e.key === "Enter" ? { type: "again" } : null;
   if (view.picked !== null && view.picked !== undefined) {
     return e.key === "Enter" ? { type: "next" } : null;

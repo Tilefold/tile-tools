@@ -16,7 +16,17 @@
 import { describe, expect, it } from "vitest";
 import { QUESTIONS } from "../../examples/quiz/src/questions.js";
 import { nextQuestion, pickChoice, restoreQuiz, startQuiz } from "../../examples/quiz/src/quiz.js";
-import { ROW, cardView, choiceOfRow, markOf, panelView } from "../../examples/quiz/src/view.js";
+import {
+  ROW,
+  cardView,
+  choiceOfRow,
+  listCardView,
+  listPanelView,
+  markOf,
+  panelView,
+  quizOfRow,
+} from "../../examples/quiz/src/view.js";
+import { builtinQuiz, withBuiltin } from "../../examples/quiz/src/library.js";
 import { keyAction } from "../../examples/quiz/page-src/keys.js";
 import { fitTitle, gripImages, xml } from "../../examples/quiz/src/grip.js";
 import {
@@ -46,6 +56,8 @@ const QS = [
   { id: "a", text: "qa", why: "wa", choices: ["x", "y", "z"], answer: 1 },
   { id: "b", text: "qb", why: "wb", choices: ["p", "q"], answer: 0 },
 ];
+/** A quiz an agent made of them: its texts are shown as written. */
+const QUIZ = { id: "mine", title: "My quiz", questions: QS };
 
 describe("the questions", () => {
   it("each have choices, a valid answer and their own string keys", () => {
@@ -111,7 +123,7 @@ describe("the quiz", () => {
 
 describe("the card's view", () => {
   it("shows the question and unmarked choices before a pick", () => {
-    const v = cardView(startQuiz(2), QS, t);
+    const v = cardView(startQuiz(2), QUIZ, t);
     expect(v).toMatchObject({
       done: false,
       question: "qa",
@@ -128,15 +140,17 @@ describe("the card's view", () => {
   });
 
   it("marks the answer and a wrong pick, and says why and what's next", () => {
-    const v = cardView(pickChoice(startQuiz(2), QS, 2).state, QS, t);
+    const v = cardView(pickChoice(startQuiz(2), QS, 2).state, QUIZ, t);
     expect(v.choices.map((c) => c.mark)).toEqual(["none", "right", "wrong"]);
     expect(v).toMatchObject({ result: "quiz-wrong", correct: false, why: "wa", next: "quiz-next" });
   });
 
   it("offers the score after the last question, then the score and start over", () => {
     const last = pickChoice(nextQuestion(pickChoice(startQuiz(2), QS, 1).state), QS, 0).state;
-    expect(cardView(last, QS, t)).toMatchObject({ result: "quiz-right", next: "quiz-finish" });
-    expect(cardView(nextQuestion(last), QS, t)).toEqual({
+    expect(cardView(last, QUIZ, t)).toMatchObject({ result: "quiz-right", next: "quiz-finish" });
+    expect(cardView(nextQuestion(last), QUIZ, t)).toEqual({
+      screen: "quiz",
+      title: "My quiz",
       done: true,
       score: 'quiz-score:{"score":2,"total":2}',
       again: "quiz-again",
@@ -150,17 +164,24 @@ describe("the card's view", () => {
 
 describe("the panel's rows", () => {
   it("lists the question and a row per choice, with ids that come back on click", () => {
-    const p = panelView(startQuiz(2), QS, t);
-    expect(p.title).toBe("quiz-title");
+    const p = panelView(startQuiz(2), QUIZ, t);
+    expect(p.title).toBe("My quiz");
     expect(p.subtitle).toBe('quiz-progress:{"n":1,"total":2}');
-    expect(p.rows.map((r) => r.id)).toEqual([ROW.question, "choice-0", "choice-1", "choice-2"]);
-    expect(p.rows[1].label).toBe("A. x");
+    expect(p.rows.map((r) => r.id)).toEqual([
+      ROW.list,
+      ROW.question,
+      "choice-0",
+      "choice-1",
+      "choice-2",
+    ]);
+    expect(p.rows[1].label).toBe("qa");
+    expect(p.rows[2].label).toBe("A. x");
     expect(choiceOfRow("choice-2")).toBe(2);
     expect(choiceOfRow("next")).toBeNull();
   });
 
   it("colors the answer and a wrong pick, mutes the rest, and adds why and next", () => {
-    const p = panelView(pickChoice(startQuiz(2), QS, 0).state, QS, t);
+    const p = panelView(pickChoice(startQuiz(2), QS, 0).state, QUIZ, t);
     const byId = Object.fromEntries(p.rows.map((r) => [r.id, r]));
     expect(byId["choice-0"].tone).toBe("error");
     expect(byId["choice-1"].tone).toBe("success");
@@ -172,24 +193,63 @@ describe("the panel's rows", () => {
 
   it("ends with the score and a row to start over", () => {
     const done = { index: 1, picked: 0, score: 1, done: true, total: 2 };
-    const p = panelView(done, QS, t);
+    const p = panelView(done, QUIZ, t);
     expect(p.subtitle).toBe("quiz-over");
-    expect(p.rows.map((r) => r.id)).toEqual([ROW.score, ROW.again]);
+    expect(p.rows.map((r) => r.id)).toEqual([ROW.list, ROW.score, ROW.again]);
+  });
+
+  it("translates the built-in quiz's texts, and shows an agent's as written", () => {
+    const builtin = builtinQuiz();
+    const p = panelView(startQuiz(builtin.questions.length), builtin, t);
+    expect(p.title).toBe("quiz-title");
+    expect(p.rows[1].label).toBe("q-pipe");
+    expect(cardView(startQuiz(2), QUIZ, (k) => `T(${k})`).question).toBe("qa");
+  });
+
+  it("cuts an agent's long texts to fit a row", () => {
+    const long = {
+      ...QUIZ,
+      questions: [{ ...QS[0], text: "w".repeat(240), choices: ["c".repeat(300), "d"] }],
+    };
+    const p = panelView(startQuiz(1), long, t);
+    for (const r of p.rows) expect(r.label.length).toBeLessThanOrEqual(256);
   });
 
   it("keeps every label within Tilefold's 256 characters, with the real strings", () => {
     const long = (key) => `${key} `.repeat(4);
     for (let i = 0; i < QUESTIONS.length; i++) {
       const s = { index: i, picked: 0, score: 0, done: false, total: QUESTIONS.length };
-      for (const r of panelView(s, QUESTIONS, long).rows)
+      for (const r of panelView(s, builtinQuiz(), long).rows)
         expect(r.label.length).toBeLessThanOrEqual(256);
     }
   });
 });
 
+describe("the list of quizzes", () => {
+  const entries = withBuiltin([{ id: "bio-1", title: "Bio", count: 4, added: "", best: 3 }]);
+
+  it("lists each quiz on the card, with its size and best score", () => {
+    const v = listCardView(entries, t);
+    expect(v).toMatchObject({ screen: "list", title: "list-title", hint: "list-hint" });
+    expect(v.quizzes).toEqual([
+      { id: "terminal", title: "quiz-title", detail: 'list-count:{"count":6}' },
+      { id: "bio-1", title: "Bio", detail: 'list-best:{"count":4,"best":3}' },
+    ]);
+  });
+
+  it("lists each quiz in the panel, with a note on making more", () => {
+    const p = listPanelView(entries, t);
+    expect(p.rows.map((r) => r.id)).toEqual(["quiz:terminal", "quiz:bio-1"]);
+    expect(quizOfRow("quiz:bio-1")).toBe("bio-1");
+    expect(quizOfRow("choice-1")).toBeNull();
+    expect(p.footer.rows[0]).toMatchObject({ id: ROW.hint, muted: true });
+    for (const r of p.rows) expect(r.trail.length).toBeLessThanOrEqual(32);
+  });
+});
+
 describe("the page's keys", () => {
-  const open = cardView(startQuiz(2), QS, t);
-  const answered = cardView(pickChoice(startQuiz(2), QS, 1).state, QS, t);
+  const open = cardView(startQuiz(2), QUIZ, t);
+  const answered = cardView(pickChoice(startQuiz(2), QS, 1).state, QUIZ, t);
 
   it("pick with a number or a letter while the question is open", () => {
     expect(keyAction({ key: "2" }, open)).toEqual({ type: "pick", choice: 1 });
@@ -203,6 +263,13 @@ describe("the page's keys", () => {
     expect(keyAction({ key: "1" }, answered)).toBeNull();
     expect(keyAction({ key: "Enter" }, { done: true })).toEqual({ type: "again" });
     expect(keyAction({ key: "Escape" }, null)).toEqual({ type: "close" });
+  });
+
+  it("open a quiz from the list with its number", () => {
+    const list = { screen: "list", quizzes: [{ id: "terminal" }, { id: "bio-1" }] };
+    expect(keyAction({ key: "2" }, list)).toEqual({ type: "open-quiz", id: "bio-1" });
+    expect(keyAction({ key: "3" }, list)).toBeNull();
+    expect(keyAction({ key: "a" }, list)).toBeNull();
   });
 
   it("leave shortcuts with Ctrl, Alt or ⌘ alone", () => {
@@ -222,6 +289,11 @@ describe("the grip", () => {
     expect(decodeURIComponent(right)).toContain(`viewBox="${GRIP_HALF} 0`);
     expect(decodeURIComponent(left)).toContain("Quiz &lt;&amp;&gt;");
     expect(decodeURIComponent(left)).not.toContain("<script");
+  });
+
+  it("is drawn light or dark, like the card", () => {
+    expect(decodeURIComponent(gripImages("Q", false, "light").left)).toContain("#f3f4f8");
+    expect(decodeURIComponent(gripImages("Q", false, "dark").left)).toContain("#262833");
   });
 
   it("shortens a long title, and puts it at the right for right-to-left", () => {

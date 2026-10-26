@@ -6,11 +6,13 @@
  * Quiz — settings and commands
  *
  * What the user can choose in Settings → Tiles: how the quiz shows (on a
- * borderless card floating over the panes, or in a panel beside them) and
- * which corner of the pane the card starts in. And the commands the tile
- * adds to the palette, each with a fixed id so its shortcut survives a
- * change of language.
+ * borderless card floating over the panes, or in a panel beside them),
+ * which corner of the pane the card starts in, and whether the card is
+ * light, dark or follows the system. And the commands the tile adds to the
+ * palette, each with a fixed id so its shortcut survives a change of
+ * language (the commands AI agents use are in agent.js).
  */
+import { APPEARANCES, appearanceOf } from "./appearance.js";
 import { CORNERS, cornerOf } from "./scene.js";
 
 /** The ways the quiz can show. */
@@ -27,11 +29,20 @@ const CORNER_KEYS = {
   "top-left": "setting-corner-top-left",
 };
 
+/** The label of each appearance. */
+const APPEARANCE_KEYS = {
+  auto: "setting-appearance-auto",
+  light: "setting-appearance-light",
+  dark: "setting-appearance-dark",
+};
+
 /** The palette commands: their id and title key. */
 export const COMMANDS = [
   { id: "open", title: "cmd-open" },
+  { id: "list", title: "cmd-list" },
   { id: "close", title: "cmd-close" },
   { id: "restart", title: "cmd-restart" },
+  { id: "theme", title: "cmd-theme" },
   { id: "put-back", title: "cmd-put-back" },
 ];
 
@@ -43,22 +54,26 @@ export function registerSettings(tf) {
   tf.setting("corner", "bottom-right", tf.t("setting-corner"), {
     choices: CORNERS.map((value) => ({ value, label: tf.t(CORNER_KEYS[value]) })),
   });
+  tf.setting("appearance", "auto", tf.t("setting-appearance"), {
+    choices: APPEARANCES.map((value) => ({ value, label: tf.t(APPEARANCE_KEYS[value]) })),
+  });
 }
+
+/** Reads a setting; a missing one is undefined. */
+const read = (settings, key) => {
+  try {
+    return settings.get(key);
+  } catch {
+    return undefined;
+  }
+};
 
 /** How the quiz shows: "card" (the default) or "panel". */
-export function showAsSetting(settings) {
-  try {
-    return settings.get("showAs") === "panel" ? "panel" : "card";
-  } catch {
-    return "card";
-  }
-}
+export const showAsSetting = (settings) =>
+  read(settings, "showAs") === "panel" ? "panel" : "card";
 
 /** The card's corner. */
-export function cornerSetting(settings) {
-  try {
-    return cornerOf(settings.get("corner"));
-  } catch {
-    return "bottom-right";
-  }
-}
+export const cornerSetting = (settings) => cornerOf(read(settings, "corner"));
+
+/** The card's appearance setting: "auto", "light" or "dark". */
+export const appearanceSetting = (settings) => appearanceOf(read(settings, "appearance"));
