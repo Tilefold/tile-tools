@@ -58,6 +58,7 @@ body {
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -70,7 +71,47 @@ header {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-bottom: 6px;
+  margin: -10px -14px 6px;
+  padding: 8px 14px 4px;
+  user-select: none;
+}
+
+/* A docked card moves by its top bar and resizes by its corner. */
+body[data-docked] header {
+  cursor: grab;
+}
+
+body.dragging,
+body.dragging * {
+  cursor: grabbing !important;
+}
+
+.resize {
+  display: none;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(
+    135deg,
+    transparent 0 50%,
+    var(--muted) 50% 56%,
+    transparent 56% 66%,
+    var(--muted) 66% 72%,
+    transparent 72%
+  );
+  opacity: 0.6;
+}
+
+body[data-docked] .resize {
+  display: block;
+}
+
+.resize:hover {
+  opacity: 1;
 }
 
 .progress {

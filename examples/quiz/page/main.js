@@ -9,7 +9,11 @@
  * list of quizzes, or a question with its choices marked, whether the
  * answer was right and why, the next step, or the score at the end. It
  * tells the tile what the user clicked or pressed, and whether the system
- * is light or dark. It keeps no quiz of its own: the tile decides
+ * is light or dark. On a docked card it also follows drags of its own top
+ * bar (to move the card) and of its bottom-right corner (to resize it),
+ * and reports how far the pointer went since the press: a docked page
+ * keeps the pointer, so only the page can see those drags. The distance is
+ * measured on the screen, which doesn't move when the card does. It keeps no quiz of its own: the tile decides
  * everything, so the card and the panel always agree. All text arrives
  * from the tile in the user's language.
  *
@@ -44,6 +48,7 @@
   var $ = (id) => document.getElementById(id);
   var darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
   var view = null;
+  var docked = false;
   var send = (message) => {
     if (bridge) bridge.post(message).catch(() => {
     });
@@ -117,6 +122,39 @@
     $(id).title = text || "";
     $(id).setAttribute("aria-label", text || "");
   }
+  function follow(el2, type, [xName, yName], skip = () => false) {
+    let from = null;
+    let pending = null;
+    let frame = 0;
+    const report = (e, phase) => send({ type, phase, [xName]: e.screenX - from.x, [yName]: e.screenY - from.y });
+    const end = (e) => {
+      if (!from) return;
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      report(e, "end");
+      from = null;
+      document.body.classList.remove("dragging");
+    };
+    el2.addEventListener("pointerdown", (e) => {
+      if (!docked || e.button !== 0 || skip(e)) return;
+      e.preventDefault();
+      from = { x: e.screenX, y: e.screenY };
+      el2.setPointerCapture(e.pointerId);
+      document.body.classList.add("dragging");
+      send({ type, phase: "start" });
+    });
+    el2.addEventListener("pointermove", (e) => {
+      if (!from) return;
+      pending = e;
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (from && pending) report(pending, "move");
+      });
+    });
+    el2.addEventListener("pointerup", end);
+    el2.addEventListener("pointercancel", end);
+  }
   function setup(m) {
     document.documentElement.lang = m.lang || "en";
     document.documentElement.dir = m.dir === "rtl" ? "rtl" : "ltr";
@@ -124,6 +162,9 @@
     label("close", labels.close);
     label("back", labels.list);
     label("theme", labels.theme);
+    label("resize", labels.resize);
+    docked = m.docked === true;
+    document.body.toggleAttribute("data-docked", docked);
     applyTheme(m.theme);
   }
   if (bridge) {
@@ -139,6 +180,8 @@
   $("back").addEventListener("click", () => send({ type: "list" }));
   $("theme").addEventListener("click", () => send({ type: "theme" }));
   $("close").addEventListener("click", () => send({ type: "close" }));
+  follow(document.querySelector("header"), "move", ["dx", "dy"], (e) => !!e.target.closest("button"));
+  follow($("resize"), "resize", ["dw", "dh"]);
   darkScheme.addEventListener("change", () => send({ type: "scheme", scheme: scheme() }));
   document.addEventListener("keydown", (e) => {
     const action = keyAction(e, view);

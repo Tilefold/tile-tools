@@ -55,3 +55,4 @@ list-back = 모든 퀴즈
 list-count = 문제 수: { $count }
 list-best = 문제 수: { $count } · 최고: { $best }
 list-hint = 내 파일로 퀴즈를 만들려면 창의 AI 에이전트에게 요청하세요. 예: "Quiz 타일로 ./notes의 파일에서 퀴즈를 만들어 줘."
+page-resize = 끌어서 퀴즈 크기 조절

@@ -28,16 +28,21 @@ import {
 } from "../../examples/quiz/src/view.js";
 import { builtinQuiz, withBuiltin } from "../../examples/quiz/src/library.js";
 import { keyAction } from "../../examples/quiz/page-src/keys.js";
-import { fitTitle, gripImages, xml } from "../../examples/quiz/src/grip.js";
+import { gripImages } from "../../examples/quiz/src/grip.js";
 import {
-  CARD,
-  GRIP_HALF,
+  GRIP_GAP,
+  GRIP_H,
+  GRIP_PIECE,
   MARGIN,
-  PAGE_H,
-  PAGE_W,
+  MAX_PAGE,
+  MIN_PAGE,
+  PAGE,
   areaOf,
+  cardOf,
   cardSpots,
   cornerOf,
+  gripPieces,
+  readSize,
   settle,
 } from "../../examples/quiz/src/scene.js";
 import {
@@ -279,56 +284,84 @@ describe("the page's keys", () => {
 });
 
 describe("the grip", () => {
-  it("is two SVG halves of one drawing, with the title escaped", () => {
-    const { left, right } = gripImages("Quiz <&>");
-    for (const url of [left, right]) {
-      expect(url.startsWith("data:image/svg+xml;charset=utf-8,")).toBe(true);
-      expect(decodeURIComponent(url)).toContain(`width="${GRIP_HALF}"`);
+  it("is one drawing cut into pieces no wider than an overlay item", () => {
+    const pieces = gripPieces({ x: 100, y: 50 }, 600);
+    expect(pieces).toHaveLength(3);
+    expect(pieces.map((p) => p.w).reduce((a, b) => a + b)).toBe(600);
+    for (const p of pieces) {
+      expect(p.w).toBeLessThanOrEqual(GRIP_PIECE);
+      expect(p).toMatchObject({ y: 50, h: GRIP_H });
     }
-    expect(decodeURIComponent(left)).toContain('viewBox="0 0');
-    expect(decodeURIComponent(right)).toContain(`viewBox="${GRIP_HALF} 0`);
-    expect(decodeURIComponent(left)).toContain("Quiz &lt;&amp;&gt;");
-    expect(decodeURIComponent(left)).not.toContain("<script");
+    expect(pieces[1].x).toBe(pieces[0].x + pieces[0].w);
+    const images = gripImages(600, pieces, "dark");
+    expect(images).toHaveLength(3);
+    expect(decodeURIComponent(images[1])).toContain(`viewBox="${pieces[1].from} 0`);
+    for (const url of images) {
+      expect(url.startsWith("data:image/svg+xml;charset=utf-8,")).toBe(true);
+      expect(decodeURIComponent(url)).not.toContain("<script");
+    }
   });
 
   it("is drawn light or dark, like the card", () => {
-    expect(decodeURIComponent(gripImages("Q", false, "light").left)).toContain("#f3f4f8");
-    expect(decodeURIComponent(gripImages("Q", false, "dark").left)).toContain("#262833");
+    const pieces = gripPieces({ x: 0, y: 0 }, 300);
+    expect(decodeURIComponent(gripImages(300, pieces, "light")[0])).toContain("#f3f4f8");
+    expect(decodeURIComponent(gripImages(300, pieces, "dark")[0])).toContain("#262833");
   });
 
-  it("shortens a long title, and puts it at the right for right-to-left", () => {
-    expect(fitTitle("A very long quiz title indeed")).toHaveLength(18);
-    expect(decodeURIComponent(gripImages("Q", true).left)).toContain('text-anchor="end"');
-    expect(xml('"')).toBe("&quot;");
+  it("is a single piece on a narrow card", () => {
+    expect(gripPieces({ x: 0, y: 0 }, 200)).toEqual([{ x: 0, y: 0, w: 200, h: GRIP_H, from: 0 }]);
+  });
+});
+
+describe("the card's size", () => {
+  it("starts at the default size, and stays between the smallest and largest", () => {
+    expect(readSize(null)).toEqual(PAGE);
+    expect(readSize({ w: 10, h: 10 })).toEqual(MIN_PAGE);
+    const big = { content: { w: 5000, h: 5000 }, panes: [] };
+    expect(readSize({ w: 9000, h: 9000 }, big)).toEqual(MAX_PAGE);
+    expect(readSize({ w: 500.4, h: 400.6 }, big)).toEqual({ w: 500, h: 401 });
+    expect(readSize({ w: "x" })).toEqual(PAGE);
+  });
+
+  it("never outgrows the window", () => {
+    const small = { content: { w: 600, h: 500 }, panes: [] };
+    const s = readSize({ w: 900, h: 900 }, small);
+    expect(s.w).toBe(600 - 2 * MARGIN);
+    expect(s.h).toBe(500 - GRIP_H - GRIP_GAP - 2 * MARGIN);
   });
 });
 
 describe("where the card goes", () => {
-  it("sits in the focused pane's corner, above its Composer", () => {
+  it("sits in the focused pane's corner, above its Composer, with the grip on top", () => {
     const s = cardSpots(ONE_PANE, "bottom-right", null);
+    const card = cardOf(PAGE);
     const composer = ONE_PANE.panes[0].composer;
     expect(s.card).toEqual({
-      x: 1200 - MARGIN - CARD.w,
-      y: composer.y - MARGIN - CARD.h,
-      w: CARD.w,
-      h: CARD.h,
+      x: 1200 - MARGIN - card.w,
+      y: composer.y - MARGIN - card.h,
+      w: card.w,
+      h: card.h,
     });
-    expect(s.page).toEqual({ x: s.card.x, y: s.card.y + CARD.h - PAGE_H, w: PAGE_W, h: PAGE_H });
-    expect(s.gripL.x + s.gripL.w).toBe(s.gripR.x);
-    expect(s.gripL.w).toBeLessThanOrEqual(256);
+    expect(s.page).toEqual({ x: s.card.x, y: s.card.y + GRIP_H + GRIP_GAP, ...PAGE });
+    expect(s.grip[0]).toMatchObject({ x: s.card.x, y: s.card.y });
     expect(cardSpots(ONE_PANE, "top-left", null).card).toMatchObject({ x: MARGIN, y: 40 + MARGIN });
   });
 
-  it("stays where it was dropped, inside the window", () => {
-    const s = cardSpots(ONE_PANE, "bottom-right", { fx: 0, fy: 0 });
-    expect(s.card).toMatchObject({ x: 0, y: 40 });
+  it("takes the page's size, and stays where it was dropped, inside the window", () => {
+    const s = cardSpots(ONE_PANE, "bottom-right", { fx: 0, fy: 0 }, { w: 500, h: 420 });
+    expect(s.card).toMatchObject({ x: 0, y: 40, w: 500 });
+    expect(s.page).toMatchObject({ w: 500, h: 420 });
+    expect(s.grip).toHaveLength(2);
   });
 
   it("keeps off a Composer row and out of the bars above the panes", () => {
+    const card = cardOf(PAGE);
     const composer = ONE_PANE.panes[0].composer;
-    expect(settle(ONE_PANE, { x: 10, y: composer.y - 10 }).y).toBe(composer.y - MARGIN - CARD.h);
-    expect(settle(ONE_PANE, { x: 10, y: 0 }).y).toBe(40);
-    expect(settle(ONE_PANE, { x: 5000, y: 100 }).x).toBe(1200 - CARD.w);
+    expect(settle(ONE_PANE, { x: 10, y: composer.y - 10 }, card).y).toBe(
+      composer.y - MARGIN - card.h,
+    );
+    expect(settle(ONE_PANE, { x: 10, y: 0 }, card).y).toBe(40);
+    expect(settle(ONE_PANE, { x: 5000, y: 100 }, card).x).toBe(1200 - card.w);
   });
 
   it("uses the whole window without panes, and the default corner for anything unknown", () => {

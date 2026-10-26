@@ -8,7 +8,7 @@ Quizzes on a borderless card floating over your panes: a short quiz about workin
 - In a quiz, click an answer, or press its number or letter (1–4, A–D); **Enter** goes on to the next question, and **Escape** closes the card. On the list, 1–9 open a quiz. Click into the card first, as a card over your panes doesn't take the keyboard on its own.
 - The card's top bar has **☰** (back to the list), **☾/☀** (switch light or dark) and **×** (close).
 - **Quiz: Start over** begins the quiz again from its first question. Each quiz keeps its own progress, even across a restart of Tilefold.
-- **Moving the card:** it starts in a corner of the pane you're working in and follows you when you switch panes. Drag the bar above it (its grip) to put it anywhere in the window; it stays there until you run **Quiz: Put the card back in the pane** or choose another corner.
+- **Moving and resizing the card:** it starts in a corner of the pane you're working in and follows you when you switch panes. Drag its top bar (or the thin grip above it) to put it anywhere in the window, and drag its bottom-right corner (◢) to make it bigger or smaller, from 280 × 240 up to 900 × 1000 pixels. It stays where and as big as you left it, even after a restart; **Quiz: Put the card back in the pane** or choosing another corner returns it to the pane's corner.
 
 ## Light or dark
 
@@ -45,7 +45,7 @@ The floating card needs Tilefold 0.1.11, and agents' quizzes 0.1.14. From 0.1.7 
 
 ## How it's built
 
-The quizzes live in the tile (`src/quiz.js`, `src/library.js`, kept with `src/store.js`); the card's page (`page-src/`) only draws what the tile sends it and says what you clicked, and the panel gets rows for the same state (`src/view.js`), so both always agree. The card is the page docked in Tilefold's window, which has no frame, with its grip drawn as overlay items above it (`src/card.js`, `src/scene.js`): a docked page keeps the pointer, so the page itself can't be what you drag. The agents' commands are in `src/agent.js`.
+The quizzes live in the tile (`src/quiz.js`, `src/library.js`, kept with `src/store.js`); the card's page (`page-src/`) only draws what the tile sends it and says what you clicked, and the panel gets rows for the same state (`src/view.js`), so both always agree. The card is the page docked in Tilefold's window, which has no frame, with a thin grip drawn as overlay items above it (`src/card.js`, `src/scene.js`). A docked page keeps the pointer, so Tilefold never sees a drag that starts on it: the page follows drags of its own top bar and corner, measured on the screen (which doesn't move with the card), and tells the tile how far they went; the tile moves and resizes the page with `tf.page.dock`. The agents' commands are in `src/agent.js`.
 
 What happens is recorded in the tile's log in **Settings → Tiles**: opening and closing, each answer (which quiz and question, and whether it was right), finishing, starting over, switching light or dark, moving the card, and quizzes added, removed or brought back (their id and size, never their text).
 

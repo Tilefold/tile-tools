@@ -5,70 +5,53 @@
  *
  * Quiz — the grip's picture
  *
- * The bar above the card that the user drags it by: a rounded bar with the
- * quiz's title at the left and a row of grip dots in the middle, the sign
- * that it moves. It is drawn once, as one SVG drawing, and shown as two
- * overlay items, each a view of one half of it (an item is at most 256
- * pixels wide). It is drawn light or dark, like the card under it. An SVG
- * shown as an image can't run scripts or load anything. Pure: no Tilefold
- * calls.
+ * The thin bar above the card that the user can drag it by (as well as by
+ * the card's own top bar): a rounded bar with a row of grip dots in the
+ * middle, the sign that it moves. It is drawn once, as one SVG drawing as
+ * wide as the card, and shown as several overlay items, each a view of one
+ * piece of it (an item is at most 256 pixels wide). It is drawn light or
+ * dark, like the card under it. An SVG shown as an image can't run scripts
+ * or load anything. Pure: no Tilefold calls.
  */
-import { GRIP_H, GRIP_HALF, PAGE_W } from "./scene.js";
+import { GRIP_H } from "./scene.js";
 
 /** The grip's colors, matching the card's in each appearance. */
 export const COLORS = Object.freeze({
-  dark: Object.freeze({ bar: "#262833", border: "#4a4e5e", dots: "#8d92a8", text: "#e8e9f0" }),
-  light: Object.freeze({ bar: "#f3f4f8", border: "#c9ccd8", dots: "#8a8fa3", text: "#1d1f27" }),
+  dark: Object.freeze({ bar: "#262833", border: "#4a4e5e", dots: "#8d92a8" }),
+  light: Object.freeze({ bar: "#f3f4f8", border: "#c9ccd8", dots: "#8a8fa3" }),
 });
 
-/** Text made safe inside SVG markup. */
-export const xml = (s) =>
-  String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-
-/** The title, shortened to fit the left half beside the dots. */
-export const fitTitle = (title, max = 18) => {
-  const s = String(title).trim();
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
-};
-
-/** The whole bar's drawing (both halves), `PAGE_W` × `GRIP_H`. */
-function drawing(title, rtl, theme) {
+/** The whole bar's drawing, `width` × `GRIP_H`. */
+function drawing(width, theme) {
   const c = theme === "light" ? COLORS.light : COLORS.dark;
+  const mid = width / 2;
   const dots = [-12, -6, 0, 6, 12]
-    .map((d) => `<circle cx="${PAGE_W / 2 + d}" cy="${GRIP_H / 2}" r="1.6" fill="${c.dots}"/>`)
+    .map((d) => `<circle cx="${mid + d}" cy="${GRIP_H / 2}" r="1.5" fill="${c.dots}"/>`)
     .join("");
-  const x = rtl ? PAGE_W - 12 : 12;
-  const anchor = rtl ? "end" : "start";
   return (
-    `<rect x="0.5" y="0.5" width="${PAGE_W - 1}" height="${GRIP_H - 1}" rx="${GRIP_H / 2}" ` +
+    `<rect x="0.5" y="0.5" width="${width - 1}" height="${GRIP_H - 1}" rx="${GRIP_H / 2}" ` +
     `fill="${c.bar}" fill-opacity="0.96" stroke="${c.border}"/>` +
-    dots +
-    `<text x="${x}" y="${GRIP_H / 2 + 4}" text-anchor="${anchor}" fill="${c.text}" ` +
-    `font-family="-apple-system, system-ui, sans-serif" font-size="11" font-weight="600">` +
-    `${xml(fitTitle(title))}</text>`
+    dots
   );
 }
 
-/** One half of the drawing as a `data:image/svg+xml` URL. */
-function half(body, left) {
-  const x = left ? 0 : GRIP_HALF;
+/** One piece of the drawing, from `from` and `w` wide, as a data URL. */
+function piece(body, from, w) {
   const doc =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${GRIP_HALF}" height="${GRIP_H}" ` +
-    `viewBox="${x} 0 ${GRIP_HALF} ${GRIP_H}">${body}</svg>`;
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${GRIP_H}" ` +
+    `viewBox="${from} 0 ${w} ${GRIP_H}">${body}</svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(doc);
 }
 
 /**
- * The grip's two halves, for a title in the user's language (`rtl` puts
- * it at the right, for right-to-left languages), light or dark.
+ * The grip's pictures, one per piece (as `gripPieces` cut it), light or dark.
  *
- * @returns {{ left: string, right: string }}
+ * @param {number} width the whole grip's width
+ * @param {{ from: number, w: number }[]} pieces
+ * @param {"light" | "dark"} theme
+ * @returns {string[]}
  */
-export function gripImages(title, rtl = false, theme = "dark") {
-  const body = drawing(title, rtl, theme);
-  return { left: half(body, true), right: half(body, false) };
+export function gripImages(width, pieces, theme = "dark") {
+  const body = drawing(width, theme);
+  return pieces.map((p) => piece(body, p.from, p.w));
 }

@@ -55,3 +55,4 @@ list-back = All quizzes
 list-count = Questions: { $count }
 list-best = Questions: { $count } · best: { $best }
 list-hint = To make quizzes from your own files, ask the AI agent in a pane, for example: "Make quizzes from the files in ./notes with the Quiz tile."
+page-resize = Drag to resize the quiz

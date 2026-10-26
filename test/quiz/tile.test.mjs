@@ -10,7 +10,8 @@
  * borderless card (its page docked over the focused pane, with a grip to
  * drag it) at the list of quizzes; a quiz taken from the list is answered
  * from the page, its progress is kept and resumed, and finishing keeps the
- * best score. Dragging the grip moves the page and keeps the spot; the
+ * best score. Dragging the card's top bar or its grip moves the page and
+ * keeps the spot, and dragging its corner resizes it and keeps the size; the
  * card switches between light and dark; the panel shows the same as rows;
  * older Tilefolds get a window or a notice instead. Every action recorded
  * is one word, as Tilefold requires, and nothing the user typed.
@@ -64,9 +65,13 @@ describe("the quiz on a card", () => {
     await host.command("open");
     expect(host.page.open).toBe(true);
     expect(host.page.dock).toEqual(SPOT.page);
-    expect(host.item("grip-l")).toMatchObject({ ...SPOT.gripL, hit: true, cursor: "grab" });
-    expect(host.item("grip-r")).toMatchObject({ ...SPOT.gripR, hit: true, cursor: "grab" });
-    expect(host.item("grip-l").label).toBe("Drag to move the quiz");
+    expect(host.overlay.items).toHaveLength(SPOT.grip.length);
+    SPOT.grip.forEach((r, i) => {
+      const { from, ...rect } = r;
+      void from;
+      expect(host.item(`grip-${i}`)).toMatchObject({ ...rect, hit: true, cursor: "grab" });
+    });
+    expect(host.item("grip-0").label).toBe("Drag to move the quiz");
     expect(host.audits).toContainEqual({ action: "opened", details: { as: "card" } });
   });
 
@@ -79,7 +84,13 @@ describe("the quiz on a card", () => {
       lang: "en",
       dir: "ltr",
       theme: "light",
-      labels: { close: "Close the quiz", list: "All quizzes", theme: "Switch light or dark" },
+      docked: true,
+      labels: {
+        close: "Close the quiz",
+        list: "All quizzes",
+        theme: "Switch light or dark",
+        resize: "Drag to resize the quiz",
+      },
     });
     expect(lastView(host)).toMatchObject({
       screen: "list",
@@ -177,10 +188,10 @@ describe("light or dark", () => {
     await host.command("open");
     await hello(host, "dark");
     expect(host.page.posted[0].theme).toBe("dark");
-    expect(decodeURIComponent(host.item("grip-l").image)).toContain("#262833");
+    expect(decodeURIComponent(host.item("grip-0").image)).toContain("#262833");
     await say(host, { type: "scheme", scheme: "light" });
     expect(host.page.posted.at(-1)).toEqual({ do: "theme", theme: "light" });
-    expect(decodeURIComponent(host.item("grip-l").image)).toContain("#f3f4f8");
+    expect(decodeURIComponent(host.item("grip-0").image)).toContain("#f3f4f8");
   });
 
   it("switches with the command or the card's button, and remembers it", async () => {
@@ -209,16 +220,89 @@ describe("moving the card", () => {
   it("moves the page with the grip while dragging, and keeps the spot only on the drop", async () => {
     const host = await start();
     await host.command("open");
-    const from = SPOT.gripL;
+    const from = { x: SPOT.grip[0].x, y: SPOT.grip[0].y };
     const at = { x: from.x - 300, y: from.y - 200 };
-    await host.emit("overlay.pointer", { item: "grip-l", type: "dragstart", ...from });
-    await host.emit("overlay.pointer", { item: "grip-l", type: "drag", ...at });
+    await host.emit("overlay.pointer", { item: "grip-0", type: "dragstart", ...from });
+    await host.emit("overlay.pointer", { item: "grip-0", type: "drag", ...at });
     expect(host.page.dock).toMatchObject({ x: SPOT.page.x - 300, y: SPOT.page.y - 200 });
-    expect(host.item("grip-l")).toMatchObject(at);
+    expect(host.item("grip-0")).toMatchObject(at);
     expect(host.store.has("position")).toBe(false);
-    await host.emit("overlay.pointer", { item: "grip-r", type: "drop", ...at });
+    await host.emit("overlay.pointer", { item: "grip-1", type: "drop", ...at });
     expect(host.store.get("position")).toEqual({ fx: expect.any(Number), fy: expect.any(Number) });
-    expect(host.audits).toContainEqual({ action: "card-moved", details: { via: "drag" } });
+    expect(host.audits).toContainEqual({ action: "card-moved", details: { via: "grip" } });
+  });
+
+  it("moves by the card's own top bar, as the page reports the drag", async () => {
+    const host = await start();
+    await host.command("open");
+    await hello(host);
+    await say(host, { type: "move", phase: "start" });
+    await say(host, { type: "move", phase: "move", dx: -250, dy: -150 });
+    expect(host.page.dock).toMatchObject({ x: SPOT.page.x - 250, y: SPOT.page.y - 150 });
+    expect(host.item("grip-0")).toMatchObject({ x: SPOT.card.x - 250, y: SPOT.card.y - 150 });
+    expect(host.store.has("position")).toBe(false);
+    await say(host, { type: "move", phase: "end", dx: -260, dy: -150 });
+    expect(host.page.dock).toMatchObject({ x: SPOT.page.x - 260 });
+    expect(host.store.get("position")).toEqual({ fx: expect.any(Number), fy: expect.any(Number) });
+    expect(host.audits).toContainEqual({ action: "card-moved", details: { via: "card" } });
+  });
+
+  it("ignores a page drag that never started, or a bad one", async () => {
+    const host = await start();
+    await host.command("open");
+    await say(host, { type: "move", phase: "move", dx: 50, dy: 50 });
+    await say(host, { type: "move", phase: "sideways", dx: 50, dy: 50 });
+    await say(host, { type: "resize", phase: "end", dw: 50, dh: 50 });
+    expect(host.page.docks).toHaveLength(0);
+  });
+
+  it("resizes by its corner from the top-left, and keeps the size", async () => {
+    const host = await start({ store: { position: { fx: 0, fy: 0 } } });
+    await host.command("open");
+    await hello(host);
+    const before = { ...host.page.dock };
+    await say(host, { type: "resize", phase: "start" });
+    await say(host, { type: "resize", phase: "move", dw: 120, dh: -40 });
+    expect(host.page.dock).toEqual({
+      x: before.x,
+      y: before.y,
+      w: before.w + 120,
+      h: before.h - 40,
+    });
+    expect(host.overlay.items.map((i) => i.id)).toEqual(["grip-0", "grip-1"]);
+    await say(host, { type: "resize", phase: "end", dw: 200, dh: -40 });
+    expect(host.page.dock).toMatchObject({ x: before.x, w: before.w + 200 });
+    // The grip grows with the card: three pieces for 560 pixels.
+    expect(host.overlay.items).toHaveLength(3);
+    expect(host.store.get("size")).toEqual({ w: before.w + 200, h: before.h - 40 });
+    expect(host.audits).toContainEqual({
+      action: "card-resized",
+      details: { w: before.w + 200, h: before.h - 40 },
+    });
+  });
+
+  it("stays inside the window when it grows against an edge", async () => {
+    const host = await start();
+    await host.command("open");
+    await say(host, { type: "resize", phase: "start" });
+    await say(host, { type: "resize", phase: "end", dw: 120, dh: 0 });
+    const dock = host.page.dock;
+    expect(dock.w).toBe(SPOT.page.w + 120);
+    expect(dock.x + dock.w).toBeLessThanOrEqual(ONE_PANE.content.w);
+  });
+
+  it("keeps the size between the smallest and the largest", async () => {
+    const host = await start();
+    await host.command("open");
+    await say(host, { type: "resize", phase: "start" });
+    await say(host, { type: "resize", phase: "end", dw: -1000, dh: -1000 });
+    expect(host.page.dock).toMatchObject({ w: 280, h: 240 });
+  });
+
+  it("comes back at the size it was left", async () => {
+    const host = await start({ store: { size: { w: 500, h: 420 } } });
+    await host.command("open");
+    expect(host.page.dock).toMatchObject({ w: 500, h: 420 });
   });
 
   it("goes back to the pane's corner with the command", async () => {
@@ -249,7 +333,7 @@ describe("moving the card", () => {
   it("ignores pointer events that aren't a drag of the grip", async () => {
     const host = await start();
     await host.command("open");
-    await host.emit("overlay.pointer", { item: "grip-l", type: "drag", x: 10, y: 10 });
+    await host.emit("overlay.pointer", { item: "grip-0", type: "drag", x: 10, y: 10 });
     await host.emit("overlay.pointer", { item: "other", type: "dragstart", x: 10, y: 10 });
     await host.emit("overlay.pointer", { item: "other", type: "drop", x: 10, y: 10 });
     expect(host.page.docks).toHaveLength(0);

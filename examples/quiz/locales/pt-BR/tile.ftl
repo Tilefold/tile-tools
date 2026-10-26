@@ -55,3 +55,4 @@ list-back = Todos os quizzes
 list-count = Perguntas: { $count }
 list-best = Perguntas: { $count } · melhor: { $best }
 list-hint = Para criar quizzes a partir dos seus arquivos, peça ao agente de IA de um painel, por exemplo: "Crie quizzes a partir dos arquivos em ./notes com o tile Quiz."
+page-resize = Arraste para redimensionar o quiz

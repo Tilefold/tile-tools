@@ -55,3 +55,4 @@ list-back = Alle Quizze
 list-count = Fragen: { $count }
 list-best = Fragen: { $count } · beste: { $best }
 list-hint = Um Quizze aus deinen eigenen Dateien zu erstellen, frag den KI-Agenten in einem Bereich, zum Beispiel: „Erstelle mit dem Quiz-Tile Quizze aus den Dateien in ./notes.“
+page-resize = Ziehen, um die Größe des Quiz zu ändern

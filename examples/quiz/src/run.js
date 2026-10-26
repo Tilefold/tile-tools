@@ -23,8 +23,8 @@
  * Messages with the page: it says `hello` (with the system's light or dark)
  * when it loads and gets `setup` (its language, labels and appearance) and
  * `show` (the view); it sends `pick`, `next`, `again`, `list`, `open-quiz`,
- * `theme` (switch light or dark), `scheme` (the system's changed) and
- * `close`. What the user does is recorded in the tile's activity log, as
+ * `theme` (switch light or dark), `scheme` (the system's changed), `move`
+ * and `resize` (the user dragging the card's top bar or corner) and `close`. What the user does is recorded in the tile's activity log, as
  * one-word actions (Tilefold records them as tile.<id>.<action>): `opened`,
  * `answered` (which quiz and question, and whether it was right), `finished`,
  * `restarted`, `closed`, `theme-switched`.
@@ -47,7 +47,6 @@ import {
   listPanelView,
   panelView,
   quizOfRow,
-  say,
 } from "./view.js";
 
 /** @param {any} tf */
@@ -80,8 +79,6 @@ export function runQuiz(tf) {
   const card = canDock()
     ? createCard(tf, {
         corner: () => cornerSetting(tf.settings),
-        title: () => (quiz ? say(quiz, tf.t, quiz.title) : tf.t("list-title")),
-        rtl: () => tf.t("page-dir") === "rtl",
         theme,
         label: () => tf.t("grip-label"),
         warn,
@@ -265,7 +262,14 @@ export function runQuiz(tf) {
         lang: tf.t("page-lang"),
         dir: tf.t("page-dir"),
         theme: theme(),
-        labels: { close: tf.t("page-close"), list: tf.t("list-back"), theme: tf.t("page-theme") },
+        // Only a docked card moves and resizes from the page; a window has its own frame.
+        docked: where === "card",
+        labels: {
+          close: tf.t("page-close"),
+          list: tf.t("list-back"),
+          theme: tf.t("page-theme"),
+          resize: tf.t("page-resize"),
+        },
       });
       await card?.redraw();
       return render();
@@ -280,6 +284,8 @@ export function runQuiz(tf) {
     if (m.type === "list") return showList();
     if (m.type === "open-quiz") return openQuiz(m.id);
     if (m.type === "theme") return switchTheme();
+    if (m.type === "move") return card?.pageMove(m);
+    if (m.type === "resize") return card?.pageResize(m);
     if (m.type === "close") return close();
   };
 

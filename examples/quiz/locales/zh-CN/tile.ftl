@@ -55,3 +55,4 @@ list-back = 所有测验
 list-count = 题数：{ $count }
 list-best = 题数：{ $count } · 最佳：{ $best }
 list-hint = 要用你自己的文件制作测验，请让窗格中的 AI 智能体来做，例如：“用 Quiz 磁贴根据 ./notes 中的文件制作测验。”
+page-resize = 拖动以调整测验大小

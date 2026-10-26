@@ -352,13 +352,31 @@ function createDrag() {
 // src/scene.js
 var CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"];
 var MARGIN = 12;
-var PAGE_W = 360;
-var PAGE_H = 340;
-var GRIP_H = 22;
+var PAGE = Object.freeze({ w: 360, h: 340 });
+var MIN_PAGE = Object.freeze({ w: 280, h: 240 });
+var MAX_PAGE = Object.freeze({ w: 900, h: 1e3 });
+var GRIP_H = 14;
 var GRIP_GAP = 2;
-var GRIP_HALF = PAGE_W / 2;
-var CARD = { w: PAGE_W, h: GRIP_H + GRIP_GAP + PAGE_H };
+var GRIP_PIECE = 256;
+var cardOf = (page) => ({ w: page.w, h: GRIP_H + GRIP_GAP + page.h });
 var cornerOf = (corner) => CORNERS.includes(corner) ? corner : "bottom-right";
+var clamp = (n, lo, hi) => Math.round(Math.min(hi, Math.max(lo, n)));
+function readSize(value, layout) {
+  const v = (
+    /** @type {any} */
+    value
+  );
+  const ok = v && Number.isFinite(v.w) && Number.isFinite(v.h);
+  const content = contentOf(layout);
+  const maxW = Math.max(MIN_PAGE.w, Math.min(MAX_PAGE.w, content.w - 2 * MARGIN));
+  const maxH = Math.max(
+    MIN_PAGE.h,
+    Math.min(MAX_PAGE.h, content.h - GRIP_H - GRIP_GAP - 2 * MARGIN)
+  );
+  const w = ok ? v.w : PAGE.w;
+  const h = ok ? v.h : PAGE.h;
+  return { w: clamp(w, MIN_PAGE.w, maxW), h: clamp(h, MIN_PAGE.h, maxH) };
+}
 var rectOrNull = (r) => r && [r.x, r.y, r.w, r.h].every(Number.isFinite) && r.w > 0 && r.h > 0 ? r : null;
 var overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 function areaOf(layout) {
@@ -377,86 +395,96 @@ function keepOut(layout) {
   const zones = panes.map((p) => rectOrNull(p.composer)).filter(Boolean);
   return { top, zones };
 }
-function settle(layout, o) {
+function settle(layout, o, size) {
   const content = contentOf(layout);
   const { top, zones } = keepOut(layout);
-  const maxY = Math.max(top, content.h - CARD.h);
+  const maxY = Math.max(top, content.h - size.h);
   let y = Math.min(maxY, Math.max(top, o.y));
   for (let pass = 0; pass <= zones.length; pass++) {
-    const hit = zones.find((z) => overlaps({ x: o.x, y, w: CARD.w, h: CARD.h }, z));
+    const hit = zones.find((z) => overlaps({ x: o.x, y, w: size.w, h: size.h }, z));
     if (!hit) break;
-    const above = hit.y - MARGIN - CARD.h;
+    const above = hit.y - MARGIN - size.h;
     y = above >= top ? above : Math.min(maxY, hit.y + hit.h + MARGIN);
   }
-  const x = Math.min(Math.max(0, content.w - CARD.w), Math.max(0, o.x));
+  const x = Math.min(Math.max(0, content.w - size.w), Math.max(0, o.x));
   return { x: Math.round(x), y: Math.round(y) };
 }
-function cornerOrigin(area, corner) {
+function cornerOrigin(area, corner, size) {
   const left = corner.endsWith("left");
   const topCorner = corner.startsWith("top");
   return {
-    x: left ? area.x + MARGIN : area.x + area.w - MARGIN - CARD.w,
-    y: topCorner ? area.y + MARGIN : area.y + area.h - MARGIN - CARD.h
+    x: left ? area.x + MARGIN : area.x + area.w - MARGIN - size.w,
+    y: topCorner ? area.y + MARGIN : area.y + area.h - MARGIN - size.h
   };
 }
-function cardSpots(layout, corner, position) {
-  const at = position ? placeAt(contentOf(layout), CARD.w, CARD.h, position) : cornerOrigin(areaOf(layout), cornerOf(corner));
-  const o = settle(layout, at);
+function gripPieces(o, width) {
+  const count = Math.max(1, Math.ceil(width / GRIP_PIECE));
+  const pieces = [];
+  for (let i = 0; i < count; i++) {
+    const x = Math.round(width * i / count);
+    const next = Math.round(width * (i + 1) / count);
+    pieces.push({ x: o.x + x, y: o.y, w: next - x, h: GRIP_H, from: x });
+  }
+  return pieces;
+}
+function cardSpots(layout, corner, position, page = PAGE) {
+  const size = cardOf(page);
+  const at = position ? placeAt(contentOf(layout), size.w, size.h, position) : cornerOrigin(areaOf(layout), cornerOf(corner), size);
+  const o = settle(layout, at, size);
   return {
-    card: { x: o.x, y: o.y, w: CARD.w, h: CARD.h },
-    gripL: { x: o.x, y: o.y, w: GRIP_HALF, h: GRIP_H },
-    gripR: { x: o.x + GRIP_HALF, y: o.y, w: GRIP_HALF, h: GRIP_H },
-    page: { x: o.x, y: o.y + GRIP_H + GRIP_GAP, w: PAGE_W, h: PAGE_H }
+    card: { x: o.x, y: o.y, w: size.w, h: size.h },
+    grip: gripPieces(o, size.w),
+    page: { x: o.x, y: o.y + GRIP_H + GRIP_GAP, w: page.w, h: page.h }
   };
 }
 
 // src/grip.js
 var COLORS = Object.freeze({
-  dark: Object.freeze({ bar: "#262833", border: "#4a4e5e", dots: "#8d92a8", text: "#e8e9f0" }),
-  light: Object.freeze({ bar: "#f3f4f8", border: "#c9ccd8", dots: "#8a8fa3", text: "#1d1f27" })
+  dark: Object.freeze({ bar: "#262833", border: "#4a4e5e", dots: "#8d92a8" }),
+  light: Object.freeze({ bar: "#f3f4f8", border: "#c9ccd8", dots: "#8a8fa3" })
 });
-var xml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-var fitTitle = (title, max = 18) => {
-  const s = String(title).trim();
-  return s.length > max ? `${s.slice(0, max - 1)}\u2026` : s;
-};
-function drawing(title, rtl, theme) {
+function drawing(width, theme) {
   const c = theme === "light" ? COLORS.light : COLORS.dark;
-  const dots = [-12, -6, 0, 6, 12].map((d) => `<circle cx="${PAGE_W / 2 + d}" cy="${GRIP_H / 2}" r="1.6" fill="${c.dots}"/>`).join("");
-  const x = rtl ? PAGE_W - 12 : 12;
-  const anchor = rtl ? "end" : "start";
-  return `<rect x="0.5" y="0.5" width="${PAGE_W - 1}" height="${GRIP_H - 1}" rx="${GRIP_H / 2}" fill="${c.bar}" fill-opacity="0.96" stroke="${c.border}"/>` + dots + `<text x="${x}" y="${GRIP_H / 2 + 4}" text-anchor="${anchor}" fill="${c.text}" font-family="-apple-system, system-ui, sans-serif" font-size="11" font-weight="600">${xml(fitTitle(title))}</text>`;
+  const mid = width / 2;
+  const dots = [-12, -6, 0, 6, 12].map((d) => `<circle cx="${mid + d}" cy="${GRIP_H / 2}" r="1.5" fill="${c.dots}"/>`).join("");
+  return `<rect x="0.5" y="0.5" width="${width - 1}" height="${GRIP_H - 1}" rx="${GRIP_H / 2}" fill="${c.bar}" fill-opacity="0.96" stroke="${c.border}"/>` + dots;
 }
-function half(body, left) {
-  const x = left ? 0 : GRIP_HALF;
-  const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${GRIP_HALF}" height="${GRIP_H}" viewBox="${x} 0 ${GRIP_HALF} ${GRIP_H}">${body}</svg>`;
+function piece(body, from, w) {
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${GRIP_H}" viewBox="${from} 0 ${w} ${GRIP_H}">${body}</svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(doc);
 }
-function gripImages(title, rtl = false, theme = "dark") {
-  const body = drawing(title, rtl, theme);
-  return { left: half(body, true), right: half(body, false) };
+function gripImages(width, pieces, theme = "dark") {
+  const body = drawing(width, theme);
+  return pieces.map((p) => piece(body, p.from, p.w));
 }
 
 // src/card.js
 var POSITION_KEY = "position";
-var GRIP_ITEMS = ["grip-l", "grip-r"];
+var SIZE_KEY = "size";
+var isGrip = (id) => /^grip-\d+$/.test(String(id));
+var PHASES = ["start", "move", "end"];
+var amount = (n) => Number.isFinite(n) ? Math.round(n) : 0;
 function createCard(tf, o) {
   let layout = null;
   let position = null;
+  let size = readSize(null);
   let shown = false;
+  let drawnIds = "";
   let lastPage = "";
   const drag = createDrag();
+  let pageDrag = null;
+  let pageSize = null;
   const audit = (action, details) => Promise.resolve().then(() => tf.audit(action, details)).catch(o.warn);
   const currentLayout = async () => {
     if (!layout) layout = await tf.overlay.layout();
     return layout;
   };
-  const spots = async () => cardSpots(await currentLayout(), o.corner(), position);
+  const spots = async () => cardSpots(await currentLayout(), o.corner(), position, size);
   const items = (s) => {
-    const images = gripImages(o.title(), o.rtl(), o.theme());
-    const grip = (id, r, image) => ({
-      id,
-      image,
+    const images = gripImages(s.card.w, s.grip, o.theme());
+    return s.grip.map((r, i) => ({
+      id: `grip-${i}`,
+      image: images[i],
       x: r.x,
       y: r.y,
       w: r.w,
@@ -464,8 +492,7 @@ function createCard(tf, o) {
       hit: true,
       cursor: "grab",
       label: o.label()
-    });
-    return [grip("grip-l", s.gripL, images.left), grip("grip-r", s.gripR, images.right)];
+    }));
   };
   const dockPage = (spot) => {
     const key = JSON.stringify(spot);
@@ -476,13 +503,23 @@ function createCard(tf, o) {
   const draw = async () => {
     if (!shown) return;
     const s = await spots();
-    await tf.overlay.update({ items: items(s) });
+    const scene = items(s);
+    const ids = scene.map((i) => i.id).join();
+    if (ids === drawnIds) await tf.overlay.update({ items: scene });
+    else await tf.overlay.show({ items: scene });
+    drawnIds = ids;
     dockPage(s.page);
   };
+  const pin = (card) => {
+    const content = contentOf(layout);
+    const next = cardOf(size);
+    position = positionFor(content, next.w, next.h, card.x, card.y);
+  };
   return {
-    /** Reads the dropped position kept from an earlier session. */
+    /** Reads the place and size kept from an earlier session. */
     async load() {
       position = readPosition(await tf.store.get(POSITION_KEY));
+      size = readSize(await tf.store.get(SIZE_KEY), await currentLayout());
     },
     /** Where the page goes now (to open it docked there). */
     async pageSpot() {
@@ -491,16 +528,21 @@ function createCard(tf, o) {
     /** Draws the grip; the page was just opened at `pageSpot()`. */
     async show() {
       const s = await spots();
-      await tf.overlay.show({ items: items(s) });
+      const scene = items(s);
+      await tf.overlay.show({ items: scene });
       shown = true;
+      drawnIds = scene.map((i) => i.id).join();
       lastPage = JSON.stringify(s.page);
     },
     /** Takes the grip away (the page is closing or closed). */
     async hide() {
       drag.cancel();
+      pageDrag = null;
+      pageSize = null;
       if (!shown) return;
       shown = false;
       lastPage = "";
+      drawnIds = "";
       await tf.overlay.hide();
     },
     /** Redraws in the user's language, corner or appearance, after a change. */
@@ -508,18 +550,20 @@ function createCard(tf, o) {
     /** Follows a new window layout. */
     async moved(next) {
       if (next && typeof next === "object") layout = next;
-      if (!drag.active()) await draw();
+      size = readSize(size, layout);
+      if (!drag.active() && !pageDrag && !pageSize) await draw();
     },
     /** Handles a pointer event on the overlay: drags by the grip. */
     async pointer(e) {
       if (!shown || !e || typeof e !== "object") return;
       const content = contentOf(await currentLayout());
-      if (e.type === "dragstart" && GRIP_ITEMS.includes(e.item)) {
+      const card = cardOf(size);
+      if (e.type === "dragstart" && isGrip(e.item)) {
         drag.start(e.x, e.y, (await spots()).card);
         return;
       }
       if (e.type === "drag") {
-        const at = drag.move(e.x, e.y, content, CARD.w, CARD.h);
+        const at = drag.move(e.x, e.y, content, card.w, card.h);
         if (at) {
           position = at;
           await draw();
@@ -527,17 +571,63 @@ function createCard(tf, o) {
         return;
       }
       if (e.type === "drop") {
-        const at = drag.end(e.x, e.y, content, CARD.w, CARD.h);
+        const at = drag.end(e.x, e.y, content, card.w, card.h);
         if (!at) return;
         position = at;
         await draw();
         await tf.store.set(POSITION_KEY, position);
-        void audit("card-moved", { via: "drag" });
+        void audit("card-moved", { via: "grip" });
+      }
+    },
+    /** The page's top bar was dragged by `dx`,`dy` since the press. */
+    async pageMove(m) {
+      if (!shown || !m || !PHASES.includes(m.phase)) return;
+      if (m.phase === "start") {
+        pageDrag = (await spots()).card;
+        return;
+      }
+      if (!pageDrag) return;
+      const card = cardOf(size);
+      const content = contentOf(await currentLayout());
+      position = positionFor(
+        content,
+        card.w,
+        card.h,
+        pageDrag.x + amount(m.dx),
+        pageDrag.y + amount(m.dy)
+      );
+      await draw();
+      if (m.phase === "end") {
+        pageDrag = null;
+        await tf.store.set(POSITION_KEY, position);
+        void audit("card-moved", { via: "card" });
+      }
+    },
+    /** The page's corner was dragged by `dw`,`dh` since the press. */
+    async pageResize(m) {
+      if (!shown || !m || !PHASES.includes(m.phase)) return;
+      if (m.phase === "start") {
+        pageSize = { size, at: (await spots()).card };
+        return;
+      }
+      if (!pageSize) return;
+      size = readSize(
+        { w: pageSize.size.w + amount(m.dw), h: pageSize.size.h + amount(m.dh) },
+        await currentLayout()
+      );
+      pin(pageSize.at);
+      await draw();
+      if (m.phase === "end") {
+        pageSize = null;
+        await tf.store.set(SIZE_KEY, size);
+        await tf.store.set(POSITION_KEY, position);
+        void audit("card-resized", { w: size.w, h: size.h });
       }
     },
     /** Puts the card back in the pane's corner; false if it was there already. */
     async reset(via) {
       drag.cancel();
+      pageDrag = null;
       if (!position) return false;
       position = null;
       await tf.store.delete(POSITION_KEY);
@@ -806,8 +896,6 @@ function runQuiz(tf) {
   const canDock = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   const card = canDock() ? createCard(tf, {
     corner: () => cornerSetting(tf.settings),
-    title: () => quiz ? say(quiz, tf.t, quiz.title) : tf.t("list-title"),
-    rtl: () => tf.t("page-dir") === "rtl",
     theme,
     label: () => tf.t("grip-label"),
     warn
@@ -956,7 +1044,14 @@ function runQuiz(tf) {
         lang: tf.t("page-lang"),
         dir: tf.t("page-dir"),
         theme: theme(),
-        labels: { close: tf.t("page-close"), list: tf.t("list-back"), theme: tf.t("page-theme") }
+        // Only a docked card moves and resizes from the page; a window has its own frame.
+        docked: where === "card",
+        labels: {
+          close: tf.t("page-close"),
+          list: tf.t("list-back"),
+          theme: tf.t("page-theme"),
+          resize: tf.t("page-resize")
+        }
       });
       await card?.redraw();
       return render();
@@ -971,6 +1066,8 @@ function runQuiz(tf) {
     if (m.type === "list") return showList();
     if (m.type === "open-quiz") return openQuiz(m.id);
     if (m.type === "theme") return switchTheme();
+    if (m.type === "move") return card?.pageMove(m);
+    if (m.type === "resize") return card?.pageResize(m);
     if (m.type === "close") return close();
   };
   const clicked = async (e) => {

@@ -55,3 +55,4 @@ list-back = すべてのクイズ
 list-count = 問題数: { $count }
 list-best = 問題数: { $count } · 最高: { $best }
 list-hint = 自分のファイルからクイズを作るには、ペインの AI エージェントに頼んでください。たとえば「./notes のファイルから Quiz タイルでクイズを作って」。
+page-resize = ドラッグしてクイズのサイズを変更
