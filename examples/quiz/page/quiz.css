@@ -1,0 +1,221 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Quiz page — styles
+ *
+ * The card fills its borderless page: no frame of its own beyond a hairline,
+ * light or dark with the system, and a color for right and wrong answers
+ * that never stands alone (the result line says it in words too).
+ */
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1d1f27;
+  --muted: #5d6273;
+  --line: #d9dbe3;
+  --choice: #f3f4f8;
+  --choice-hover: #e8eaf2;
+  --accent: #5b5bd6;
+  --right: #1f8a4c;
+  --right-bg: #e3f5ea;
+  --wrong: #c2413b;
+  --wrong-bg: #fbe7e6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1f27;
+    --fg: #e8e9f0;
+    --muted: #a0a5b8;
+    --line: #343747;
+    --choice: #272a35;
+    --choice-hover: #30333f;
+    --accent: #8b8bf0;
+    --right: #5ccf8b;
+    --right-bg: #1f3a2b;
+    --wrong: #ef8580;
+    --wrong-bg: #42262a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    14px/1.4 -apple-system,
+    system-ui,
+    sans-serif;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  overflow: auto;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.progress {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.close {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.close:hover {
+  background: var(--choice);
+}
+
+.question {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.choices {
+  display: grid;
+  gap: 6px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--choice);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.choice:hover:not(:disabled) {
+  background: var(--choice-hover);
+}
+
+.choice:disabled {
+  cursor: default;
+}
+
+.choice:focus-visible,
+.primary:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.letter {
+  color: var(--muted);
+  font-weight: 600;
+  min-width: 1em;
+}
+
+.text {
+  font:
+    13px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.mark-right {
+  background: var(--right-bg);
+  border-color: var(--right);
+}
+
+.mark-wrong {
+  background: var(--wrong-bg);
+  border-color: var(--wrong);
+}
+
+.choice:disabled.mark-none {
+  opacity: 0.55;
+}
+
+.answer {
+  margin-top: 10px;
+}
+
+.result {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.result.right {
+  color: var(--right);
+}
+
+.result.wrong {
+  color: var(--wrong);
+}
+
+.why {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.primary {
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 14px;
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: auto 0;
+}
+
+.done[hidden],
+.answer[hidden],
+#asking[hidden] {
+  display: none;
+}
+
+.score {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .choice {
+    transition: background-color 120ms ease;
+  }
+}

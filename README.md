@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1366%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-17-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1435%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-18-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -163,7 +163,7 @@ The entry exports only its default function; exporting other names is an error, 
 
 ## Examples
 
-`examples/` holds sixteen tiles, from a few lines to full tiles with their own test suites: games, cards that call web services, sign-ins, Claude, tile pages, a docked folder tree. Each one ships its built `main.js`, so you can copy its folder into your tiles folder and try it at once. [examples/README.md](examples/README.md) lists them, with what each one shows, the Tilefold it needs and how to set up the ones that use an account.
+`examples/` holds eighteen tiles, from a few lines to full tiles with their own test suites: games, cards that call web services, sign-ins, Claude, tile pages, a docked folder tree, a quiz on a borderless card. Each one ships its built `main.js`, so you can copy its folder into your tiles folder and try it at once. [examples/README.md](examples/README.md) lists them, with what each one shows, the Tilefold it needs and how to set up the ones that use an account.
 
 ## What can be bundled
 
@@ -219,14 +219,14 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1366 tests in 63 files, all passing on 2026-10-20).
+Run with `npm test` (1435 tests in 65 files, all passing on 2026-10-26).
 
 | Area | Covers |
 |---|---|
 | Rules | One default export, named exports and imports refused, size limit |
 | Bundling | Entry choice, local imports, npm packages, TypeScript, tree-shaking, the notice on top, export rewriting, errors with their place, minify, page scripts |
 | Commands and CLI | build, `--watch`, `--check`, validate, help, version, bad arguments and exit codes |
-| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command) against the fake host |
+| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Quiz also: its card docked over the pane with a grip to drag it, the panel, saved progress and older Tilefolds; Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command) against the fake host |
 | Fake host | The fake Tilefold behaves like the real one for settings, commands with an agent's input and their results, strings, storage, overlays, panels, pages, browsers (several pages per tile), sounds, network, keys, AI and folders |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
 | Issue tracker | The issue forms parse, set one area, one type and `status: triage` from `labels.json`, and list every example tile; blank issues off; the label sync creates and corrects labels without deleting any, and a dry run changes nothing |
@@ -235,7 +235,6 @@ Run with `npm test` (1366 tests in 63 files, all passing on 2026-10-20).
 ## Known blockers
 
 - Tile Tools 0.2.0 (the `tf` types, the docs and the examples) is prepared in this repository but not published; npm still has 0.1.0.
-- Tilefold 0.1.10 is the current release. The panel's footer, section headings, tones, badges, trailing text and pulses (in [docs/panels.md](docs/panels.md), and Folder Tree's agent activity in the panel) need Tilefold 0.1.11, which isn't released yet; older ones show the panel without them.
 - Most examples have been tried only against the fake host, not against their real service in a running Tilefold; [examples/README.md](examples/README.md) says which.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`).
@@ -243,4 +242,4 @@ Run with `npm test` (1366 tests in 63 files, all passing on 2026-10-20).
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-10-20 by Tilefold
+Last updated: 2026-10-26 by Tilefold

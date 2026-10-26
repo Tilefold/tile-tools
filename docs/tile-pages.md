@@ -148,3 +148,5 @@ await tf.page.open(docked ? { origin: "https", dock: spot } : { origin: "https" 
 
 The **Watchpane** example docks YouTube's player this way, with its controls drawn as overlay items in a dock right under it. When the user drags that dock (`overlay.pointer` drag events), Watchpane moves the page with `tf.page.dock` on every move, so the video follows. The page itself can't be the drag handle, because a docked web page keeps the pointer.
 
+A docked page doesn't need `origin: "https"`: a page of the tile's own, with no website in it, docks just the same. The **Quiz** example (`examples/quiz`) is one: a borderless card floating over the panes, with a grip drawn as overlay items above it to drag it by.
+

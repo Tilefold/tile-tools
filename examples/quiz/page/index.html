@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Tilefold
+  Author: Tilefold
+  Released under the MIT License.
+
+  Quiz's page: the borderless card with one question at a time, its
+  choices, whether the answer was right and why, and the score at the end.
+  All text arrives from the tile in the user's language; main.js is built
+  from page-src/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiz</title>
+    <link rel="stylesheet" href="quiz.css" />
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <main class="card">
+      <header>
+        <span id="progress" class="progress"></span>
+        <button id="close" class="close" type="button">×</button>
+      </header>
+      <section id="asking">
+        <h1 id="question" class="question"></h1>
+        <div id="choices" class="choices"></div>
+        <div id="answer" class="answer" hidden>
+          <p id="result" class="result" role="status" aria-live="polite"></p>
+          <p id="why" class="why"></p>
+          <button id="next" class="primary" type="button"></button>
+        </div>
+      </section>
+      <section id="done" class="done" hidden>
+        <p id="score" class="score" role="status" aria-live="polite"></p>
+        <button id="again" class="primary" type="button"></button>
+      </section>
+    </main>
+  </body>
+</html>
