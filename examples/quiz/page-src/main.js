@@ -14,7 +14,8 @@
  * and reports how far the pointer went since the press: a docked page
  * keeps the pointer, so only the page can see those drags. The distance is
  * measured on the screen, which doesn't move when the card does. Its place
- * button docks the card beside the panes, or floats the docked page again.
+ * button docks the card beside the panes, or floats the docked page again;
+ * a double-click on the floating card's top bar docks it too.
  * Where Tilefold gives its theme (0.1.20), the page is drawn in it: the
  * stylesheet reads Tilefold's colors (`--tf-pane`…) first. It keeps no quiz of its own: the tile decides
  * everything, so the card and the panel always agree. All text arrives
@@ -23,6 +24,7 @@
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
 import { keyAction } from "./keys.js";
+import { createDoubleTaps } from "./taps.js";
 
 const bridge = window.tilefold;
 const $ = (id) => document.getElementById(id);
@@ -202,6 +204,18 @@ $("theme").addEventListener("click", () => send({ type: "theme" }));
 $("place").addEventListener("click", () => moveTo && send({ type: "place", to: moveTo }));
 $("close").addEventListener("click", () => send({ type: "close" }));
 follow(document.querySelector("header"), "move", ["dx", "dy"], (e) => !!e.target.closest("button"));
+// A double-click on the floating card's top bar (not on its buttons) docks
+// the quiz beside the panes, as the place button does.
+const taps = createDoubleTaps();
+const onBar = (e) => docked && e.button === 0 && !e.target.closest("button");
+document.querySelector("header").addEventListener("pointerdown", (e) => {
+  if (onBar(e)) taps.down({ x: e.screenX, y: e.screenY });
+});
+document.querySelector("header").addEventListener("pointerup", (e) => {
+  if (!onBar(e)) return;
+  const double = taps.up({ x: e.screenX, y: e.screenY, time: e.timeStamp });
+  if (double && moveTo === "side") send({ type: "place", to: "side" });
+});
 follow($("resize"), "resize", ["dw", "dh"]);
 darkScheme.addEventListener("change", () => send({ type: "scheme", scheme: scheme() }));
 document.addEventListener("keydown", (e) => {

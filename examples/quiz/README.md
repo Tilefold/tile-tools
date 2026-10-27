@@ -12,7 +12,7 @@ Quizzes on a borderless card floating over your panes: a short quiz about workin
 
 ## Docked beside the panes
 
-From Tilefold 0.1.20 the quiz can sit in the dock beside your panes, on the right, where Web View's pages go: your panes make room for it. Press **⇥** on the card's top bar to dock it, and **⇤** on the docked quiz (or Tilefold's **Undock** on the dock's bar) to float it over your panes again. The quiz remembers where you put it; choosing **Show the quiz** in Settings wins over that. Moving it reloads the card, and it comes back at the same question.
+From Tilefold 0.1.20 the quiz can sit in the dock beside your panes, on the right, where Web View's pages go: your panes make room for it. Press **⇥** on the card's top bar (or double-click the top bar) to dock it, and **⇤** on the docked quiz (or Tilefold's **Undock** on the dock's bar) to float it over your panes again. The quiz remembers where you put it; choosing **Show the quiz** in Settings wins over that. Moving it reloads the card, and it comes back at the same question.
 
 ## In your theme's colors
 

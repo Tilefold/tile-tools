@@ -14,7 +14,8 @@
  * and reports how far the pointer went since the press: a docked page
  * keeps the pointer, so only the page can see those drags. The distance is
  * measured on the screen, which doesn't move when the card does. Its place
- * button docks the card beside the panes, or floats the docked page again.
+ * button docks the card beside the panes, or floats the docked page again;
+ * a double-click on the floating card's top bar docks it too.
  * Where Tilefold gives its theme (0.1.20), the page is drawn in it: the
  * stylesheet reads Tilefold's colors (`--tf-pane`…) first. It keeps no quiz of its own: the tile decides
  * everything, so the card and the panel always agree. All text arrives
@@ -44,6 +45,31 @@
     if (/^[1-9]$/.test(key)) choice = Number(key) - 1;
     else if (/^[a-i]$/i.test(key)) choice = key.toUpperCase().charCodeAt(0) - 65;
     return choice >= 0 && choice < count ? { type: "pick", choice } : null;
+  }
+
+  // page-src/taps.js
+  var DOUBLE_MS = 400;
+  var DOUBLE_PX = 4;
+  function createDoubleTaps() {
+    let pressed = null;
+    let last = null;
+    const near = (a, b) => Math.abs(a.x - b.x) <= DOUBLE_PX && Math.abs(a.y - b.y) <= DOUBLE_PX;
+    return {
+      down(at) {
+        pressed = { x: at.x, y: at.y };
+      },
+      up(at) {
+        const from = pressed;
+        pressed = null;
+        if (!from || !near(from, at)) {
+          last = null;
+          return false;
+        }
+        const double = !!last && at.time - last.time <= DOUBLE_MS && near(last, at);
+        last = double ? null : { x: at.x, y: at.y, time: at.time };
+        return double;
+      }
+    };
   }
 
   // page-src/main.js
@@ -191,6 +217,16 @@
   $("place").addEventListener("click", () => moveTo && send({ type: "place", to: moveTo }));
   $("close").addEventListener("click", () => send({ type: "close" }));
   follow(document.querySelector("header"), "move", ["dx", "dy"], (e) => !!e.target.closest("button"));
+  var taps = createDoubleTaps();
+  var onBar = (e) => docked && e.button === 0 && !e.target.closest("button");
+  document.querySelector("header").addEventListener("pointerdown", (e) => {
+    if (onBar(e)) taps.down({ x: e.screenX, y: e.screenY });
+  });
+  document.querySelector("header").addEventListener("pointerup", (e) => {
+    if (!onBar(e)) return;
+    const double = taps.up({ x: e.screenX, y: e.screenY, time: e.timeStamp });
+    if (double && moveTo === "side") send({ type: "place", to: "side" });
+  });
   follow($("resize"), "resize", ["dw", "dh"]);
   darkScheme.addEventListener("change", () => send({ type: "scheme", scheme: scheme() }));
   document.addEventListener("keydown", (e) => {
