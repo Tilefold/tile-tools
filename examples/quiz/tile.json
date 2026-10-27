@@ -1,0 +1,15 @@
+{
+  "id": "example.quiz",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "page": "to show the quiz on a borderless card over your panes (or in a window of its own on older Tilefolds)"
+    },
+    { "window.overlay": "to draw the grip you drag the quiz card by" },
+    {
+      "window.panel": "to show the quiz in a panel beside your panes, if you choose that in its settings"
+    }
+  ]
+}
