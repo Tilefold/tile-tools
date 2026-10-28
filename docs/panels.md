@@ -83,6 +83,85 @@ The keyboard works as in a tree: Up and Down move between rows, Right and Left s
 
 Nothing opens or closes until you show the panel again: keep the state in your tile, and redraw after each change.
 
+## 4. Right-click menus
+
+From **Tilefold 0.1.16**, rows can have a right-click menu. Name up to 8 menus in `menus`, each a list of up to 12 lines: items (`id`, `label` of up to 64 characters, and `tone: "error"` for something like Move to Trash) and `{ separator: true }`. A row opens the menu it names with `menu`, and the panel's own `menu` is for a right-click on the empty space under the rows.
+
+```js
+await tf.panel.show({
+  title: "app",
+  rows: [
+    { id: "src", label: "src", icon: "folder", expandable: true, menu: "dir" },
+    { id: "src/main.rs", label: "main.rs", icon: "file", depth: 1, menu: "file" },
+  ],
+  menus: {
+    dir: [
+      { id: "new-file", label: "New file" },
+      { separator: true },
+      { id: "trash", label: "Move to Trash", tone: "error" },
+    ],
+    file: [{ id: "open", label: "Open" }],
+    space: [{ id: "new-file", label: "New file" }],
+  },
+  menu: "space",
+});
+
+tf.on("panel.menu", ({ row, item }) => {
+  // row: the row's id, or null for the empty space; item: the item's id
+});
+```
+
+Tilefold draws the menu, like the rows, at the pointer. The user also opens it with the ContextMenu key or Shift+F10 on a row, moves with the arrow keys, chooses with Enter and closes it with Escape. Only an item of the menu the row really opens reaches your tile. Older Tilefolds ignore `menus` and `menu`, so keep every action reachable another way too, such as a click or a command. Folder Tree's menus add, rename and trash files.
+
+## 5. Edit a row in place
+
+From **Tilefold 0.1.16**, `tf.panel.edit(row, { value?, selectTo? })` turns a row's label into a text field in place, as Finder does for a rename. It resolves to the text the user typed when they press Enter, or `null` when they press Escape, click away, or the row goes away. `value` is the text it starts with (the label by default), and `selectTo` is where the first selection ends, so `"notes"` of `notes.md` can be selected and the extension kept. One edit runs at a time; a new one cancels the last.
+
+```js
+tf.on("panel.menu", ({ row, item }) => {
+  if (item !== "rename") return;
+  // Not awaited: the user takes their time, and listeners have half a second.
+  void tf.panel.edit(row, { selectTo: 5 }).then((name) => {
+    if (name) return tf.fs.rename(row, name);
+  });
+});
+```
+
+## 6. Double-clicks
+
+From **Tilefold 0.1.16**, a double-click on a row also reaches your tile as `panel.dblclick` with the row's id. It comes after the two `panel.click` events the clicks themselves send, so whatever a click does has already happened. Folder Tree opens a file on a click and renames it in place on a double-click. Older Tilefolds never send it, so keep the action reachable another way too.
+
+```js
+tf.on("panel.dblclick", ({ row }) => {
+  void tf.panel.edit(row).then((name) => name && tf.fs.rename(row, name));
+});
+```
+
+## 7. A panel per tab
+
+By default a tile's panel shows on every tab. From **Tilefold 0.1.16**, add `perTab: true` and it belongs to the tabs the user opens it on instead, which suits a panel about the pane in front, such as Folder Tree's.
+
+- A `show` while the panel isn't open on the active tab opens it there too; `hide`, or the user's ×, takes it off the active tab only. Off the last tab, it goes.
+- When the user moves to a tab where it isn't open, your tile hears `panel.closed` with `{ by: "tab" }`. Stop refreshing it, as for any close.
+- When they come back to a tab where it is open, your tile hears `panel.opened` with `{ by: "tab" }`. Show it again, for what is in front now.
+
+```js
+let shown = false;
+const draw = () => tf.panel.show({ title: "Here", rows: rowsFor(current), perTab: true });
+
+tf.command("Show or hide", () => {
+  shown = !shown;
+  return shown ? draw() : tf.panel.hide();
+});
+tf.on("panel.closed", () => (shown = false));
+tf.on("panel.opened", () => {
+  shown = true;
+  void draw();
+});
+```
+
+Older Tilefolds ignore `perTab` and show the panel on every tab, and never send `panel.opened`.
+
 ## Limits
 
 At most 5,000 rows, 30 `show` calls a second, a title of 120 characters and a subtitle of 512. Malformed content fails with `TypeError` and the reason; too many updates with `RateLimitError`. `tf.panel` is missing before Tilefold 0.1.9:

@@ -8,6 +8,10 @@
   the recent files pinned at the bottom (it grows upward to half the
   window when it shows them all). All text arrives from the tile in the
   user's language; main.js is built from page-src/.
+
+  Modified 2026-10-23 (changing files): the file tools above the tree.
+
+  Last updated by: Tilefold
 -->
 <html lang="en">
   <head>
@@ -15,6 +19,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Folder Tree</title>
     <link rel="stylesheet" href="tree.css" />
+    <link rel="stylesheet" href="tools.css" />
     <script type="module" src="main.js"></script>
   </head>
   <body>
@@ -32,7 +37,16 @@
         <ol id="now" class="cards"></ol>
       </section>
       <section class="tree-box">
-        <h2 id="files-title"></h2>
+        <div class="files-head">
+          <h2 id="files-title"></h2>
+          <div id="tools" class="tools" role="toolbar" hidden>
+            <button id="tool-new-file" class="ghost" type="button"></button>
+            <button id="tool-new-folder" class="ghost" type="button"></button>
+            <button id="tool-rename" class="ghost" type="button" disabled></button>
+            <button id="tool-edit" class="ghost" type="button" disabled></button>
+            <button id="tool-trash" class="ghost danger" type="button" disabled></button>
+          </div>
+        </div>
         <ul id="tree" class="tree" role="tree"></ul>
       </section>
     </main>

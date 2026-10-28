@@ -101,6 +101,8 @@ The setting's current value, at once (not a promise): the user's value when it f
 
 Listens to an event. `handler(payload)` has half a second to finish. A tile may register at most 50 commands, 50 settings and 50 listeners.
 
+A listener that runs too long five times in ten minutes is skipped for the rest of the session, and a command has ten seconds. So when a handler starts something that waits for the user, such as `tf.fs.trash` (Tilefold asks first) or `tf.panel.edit`, start it without returning or awaiting it: `tf.on("panel.menu", (e) => void act(e))`.
+
 | Event | When | Payload |
 |---|---|---|
 | `app.ready` | Tilefold has started and loaded its tiles; also after **Reload tiles** and after the user changes the language, when tiles are loaded again | `{}` |
@@ -115,10 +117,15 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `overlay.hidden` | The user hid this tile's overlay | `{ by: "user" }` |
 | `page.message` | The tile's page sent a message (`window.tilefold.post`) | `{ message }` |
 | `page.closed` | The tile's page closed, whatever closed it | `{}` |
+| `page.undocked` | The user moved the tile's page out of the dock beside the panes; show it again where it should go (Tilefold 0.1.20) | `{}` |
+| `theme.changed` | Tilefold's theme changed: another theme, light or dark, or the system's appearance (Tilefold 0.1.20) | `{ mode, name, colors }` |
 | `pane.cwd` | The focused pane's folder changed: another pane or tab, or a `cd` (needs `pane.cwd`; Tilefold 0.1.9) | `{ path }`, `null` when none is known |
 | `pane.list` | A pane opened, closed, was renamed, moved folder or took focus (needs `pane.list`; Tilefold 0.1.11) | `{ panes }`: `[{ session, name, folder, focused }]` |
 | `panel.click` | A row of the tile's docked panel was clicked (needs `window.panel`; Tilefold 0.1.9) | `{ row, action }`, action `activate`, `expand` or `collapse` |
-| `panel.closed` | The user closed the tile's panel, or another tile's panel replaced it | `{ by }`, `user` or `replaced` |
+| `panel.menu` | An item of a panel row's right-click menu was chosen (Tilefold 0.1.16) | `{ row, item }`, row `null` for the empty space |
+| `panel.dblclick` | A panel row was double-clicked, after the two `panel.click` events its clicks send (Tilefold 0.1.16) | `{ row }` |
+| `panel.closed` | The user closed the tile's panel, another tile's panel replaced it, or the user left the tab a `perTab` panel is open on | `{ by }`, `user`, `replaced` or `tab` |
+| `panel.opened` | The user came back to a tab a `perTab` panel is open on (Tilefold 0.1.16) | `{ by }`, `tab` |
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
 
@@ -204,7 +211,11 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 ## A web page of its own
 
-`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7); `tf.page.dock(spot)` moves a page docked in Tilefold's window (Tilefold 0.1.11). See [Tile pages](tile-pages.md).
+`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7); `tf.page.dock(spot)` moves a page docked in Tilefold's window (Tilefold 0.1.11), and `tf.page.open({ side: true })` docks it beside the panes (Tilefold 0.1.20). See [Tile pages](tile-pages.md).
+
+## Tilefold's theme
+
+`tf.theme()` resolves to how Tilefold is drawn: `{ mode, name, colors }`, with `mode` `"light"` or `"dark"`, the theme's `name`, and CSS `colors` by name (`pane` is a pane's background; the rest are `surface`, `surfaceRaised`, `surfaceHover`, `canvas`, `border`, `borderStrong`, `text`, `textSecondary`, `textMuted`, `accent`, `accentSoft`, `onAccent`, `success`, `error`, `warning`, `info`, `focusRing`). `theme.changed` carries the same when it changes. It needs no permission and is missing before Tilefold 0.1.20. A tile's page gets the same as CSS variables; see section 9 of [Tile pages](tile-pages.md).
 
 ## A docked panel
 
@@ -226,7 +237,7 @@ tf.on("browser.navigated", ({ url, page }) => tf.log(page ?? "main", url));
 
 ## Your folders
 
-`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). See [Folders](folders.md).
+`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). With `fs.write` (Tilefold 0.1.16), `tf.fs.create`, `mkdir`, `rename`, `move` and `trash` change files there, and `tf.viewer.open(path, { edit: true })` opens one ready to edit. See [Folders](folders.md).
 
 ## Asking Claude
 
@@ -249,7 +260,7 @@ A call the user hasn't allowed fails with `PermissionDeniedError`, which is also
 
 ## Checking for features
 
-A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, and `tf.browser` before Tilefold 0.1.11, so check before using them and tell the user to update:
+A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, `tf.browser` before Tilefold 0.1.11, and `tf.theme` before Tilefold 0.1.20, so check before using them and tell the user to update:
 
 ```js
 if (!tf.net) return tf.toast(tf.t("update-tilefold"));

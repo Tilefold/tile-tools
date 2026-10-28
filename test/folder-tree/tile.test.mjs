@@ -10,7 +10,8 @@
  * .foldertree folder: the panel shows "Now", the marked tree and "Recent"
  * as its footer; a new marker shows up at the next read, two seconds on;
  * "Show all" and closing Recent are remembered; clicking a recent file
- * opens it; reading stops when nothing is showing. The window gets its
+ * opens it; reading stops when nothing is showing; the panel belongs to
+ * its tab, resting while the user is on another and shown again on return. The window gets its
  * strings and the same state, its clicks open folders and files, and the
  * setup command opens it on the setup help. Activity can be turned off.
  */
@@ -178,6 +179,25 @@ describe("Folder Tree with agent activity", () => {
     host.files.push(marker("README.md", "e", 0));
     await host.advance(POLL_MS * 3);
     expect(host.panel.shows).toBe(shows);
+  });
+
+  it("belongs to its tab: rests while the user is away, and shows again on return", async () => {
+    const host = await start();
+    await host.command("toggle");
+    expect(host.panel.content.perTab).toBe(true);
+    await host.leaveTab();
+    const shows = host.panel.shows;
+    host.files.push(marker("README.md", "e", 0));
+    await host.advance(POLL_MS * 3);
+    expect(host.panel.shows).toBe(shows);
+    await host.backToTab();
+    expect(host.panel.shows).toBeGreaterThan(shows);
+    expect(host.panel.content.rows.some((r) => r.id === "/work/app/README.md")).toBe(true);
+    // Showing it again from the palette on another tab opens it there.
+    await host.leaveTab();
+    const before = host.panel.shows;
+    await host.command("toggle");
+    expect(host.panel.shows).toBeGreaterThan(before);
   });
 
   it("can leave activity out", async () => {

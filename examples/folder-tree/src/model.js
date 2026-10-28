@@ -15,7 +15,13 @@
  * so it is tested directly.
  *
  * Folders are kept by the path that was asked for; child paths are built
- * from the path Tilefold returned (links resolved).
+ * from the path Tilefold returned (links resolved). `parentKey` finds the
+ * folder an entry was listed in, for listing it again after a change.
+ *
+ * Modified 2026-10-23 (changing files): `parentKey`, the folder an entry
+ *   was listed in.
+ *
+ * Last updated by: Tilefold
  */
 import { visibleEntries } from "./tree.js";
 
@@ -67,6 +73,15 @@ export const opened = (tree, path) => ({ ...tree, open: adding(tree.open, path) 
 export const closed = (tree, path) => ({ ...tree, open: without(tree.open, path) });
 /** Whether `path` has been listed (or failed). */
 export const isLoaded = (tree, path) => path in tree.folders;
+
+/** The key of the listed folder that holds entry `path`, or null. */
+export function parentKey(tree, path) {
+  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? "";
+  for (const [key, level] of Object.entries(tree.folders)) {
+    if (level.path && childPath(level.path, name) === path) return key;
+  }
+  return null;
+}
 
 /**
  * The panel rows for the tree, and `targets`: row id → { kind, path } for

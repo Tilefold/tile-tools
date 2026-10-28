@@ -45,6 +45,7 @@ Every limit Tilefold puts on a tile, and every error name a `tf` call can fail w
 | `tf.panel.show` | 5,000 rows; title 120 characters, subtitle 512, labels 256, row ids 1,024 (unique), hints 512; 30 a second |
 | `tf.browser` | `http` and `https` addresses only, without a user name or password; 4,096 characters; one window or docked view per page; page names 1 to 32 lowercase letters, digits and dashes |
 | `tf.fs.list`, `tf.viewer.open` | Paths inside a folder one of the user's panes is in; path 4,096 characters; 2,000 entries a listing; 60 calls (both together) in any 10 seconds |
+| `tf.fs.create`, `mkdir`, `rename`, `move`, `trash` | Same folders, never inside `.git`, never a pane's own folder; names one segment of 255 bytes; 20 changes in any 10 seconds (Tilefold 0.1.16) |
 | Sign-in (`oauth2-pkce`) | 5 minutes in the browser |
 
 ## Errors
@@ -54,7 +55,7 @@ A failed call rejects (or throws) an `Error`. Tell errors apart by **`err.name`*
 | `name` | Thrown by | Means |
 |---|---|---|
 | `PermissionDeniedError` | Any call that needs a permission | The user hasn't allowed it, or the tile was turned off. Also recorded in the activity log |
-| `RateLimitError` | `tf.toast`, `tf.overlay`, `tf.sound.play`, `tf.net.fetch`, `tf.ai.ask`, `tf.panel.show`, `tf.fs.list`, `tf.viewer.open` | Too many calls; slow down |
+| `RateLimitError` | `tf.toast`, `tf.overlay`, `tf.sound.play`, `tf.net.fetch`, `tf.ai.ask`, `tf.panel.show`, `tf.fs.*`, `tf.viewer.open` | Too many calls; slow down |
 | `TypeError` | Any call | Bad arguments: a non-JSON store value, a malformed scene or clip, a body that isn't a string, a malformed or expired question |
 | `NotSupportedError` | `tf.overlay`, `tf.sound`, `tf.curtain` (lock), `tf.ai.ask`, `tf.pane.cwd`, `tf.viewer.open`, `tf.panel`, `tf.browser` | This Tilefold, or this platform, can't do it |
 | `LockNotSetUpError` | `tf.curtain.show({ lock: true })` | The user has no unlock method set up |
@@ -68,8 +69,11 @@ A failed call rejects (or throws) an `Error`. Tell errors apart by **`err.name`*
 | `AiDeclinedError` | `tf.ai.ask` | The user chose **Don't send** |
 | `BudgetExceededError` | `tf.ai.ask` | The tile used today's allowance |
 | `RefusedError` | `tf.ai.ask` | The model declined to answer |
-| `PathNotAllowedError` | `tf.fs.list`, `tf.viewer.open` | The path isn't inside a folder one of the user's panes is in (links are followed first), or isn't absolute |
-| `NotFoundError` | `tf.fs.list`, `tf.viewer.open` | Nothing is at that path |
+| `PathNotAllowedError` | `tf.fs.*`, `tf.viewer.open` | The path isn't inside a folder one of the user's panes is in (links are followed first), or isn't absolute; or a change would rename, move or trash a pane's own folder, or move a folder into itself |
+| `NotFoundError` | `tf.fs.*`, `tf.viewer.open` | Nothing is at that path |
+| `AlreadyExistsError` | `tf.fs.create`, `mkdir`, `rename`, `move` | Something already has that name; nothing is ever replaced |
+| `InvalidNameError` | `tf.fs.create`, `mkdir`, `rename`, `move` | The name is empty, longer than 255 bytes, has `/`, `:`, a control character or one that reverses text direction, or starts or ends with a space |
+| `ProtectedPathError` | `tf.fs.create`, `mkdir`, `rename`, `move`, `trash` | The path is inside a `.git` folder |
 | `BrowserError` | `tf.browser` | The address was refused (not `http` or `https`, or with a user name and password), or the window isn't open |
 | `NotADirectoryError` | `tf.fs.list` | The path is a file, not a folder |
 | `NotAFileError` | `tf.viewer.open` | The path is a folder, not a file |

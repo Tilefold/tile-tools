@@ -14,6 +14,13 @@
  * { type: "toggle", id, open } and { type: "open", id }; { type: "setup" }
  * opens the help for setting up the agent hooks. All text goes in with
  * `textContent`, never as HTML, so a file's name can't change the page.
+ *
+ * Modified 2026-10-23 (changing files): the file tools (tools.js): a
+ *   toolbar, renaming in place, dragging to move, F2 and ⌘⌫; the tree
+ *   isn't redrawn while a name is being typed; { type: "rename", id } from
+ *   the tile starts renaming.
+ *
+ * Last updated by: Tilefold
  */
 // Built by @tilefold/tile-tools from page-src/main.js. Edit the sources, then rebuild.
 (() => {
@@ -37,6 +44,151 @@
   var RECENT_FEW = 5;
   var shownRecent = (recent, all) => all ? recent : recent.slice(0, RECENT_FEW);
 
+  // page-src/tools.js
+  var DRAG_TYPE = "application/x-folder-tree-row";
+  var DOUBLE_MS = 500;
+  function createTools({ send: send2, el: el2, $: $2 }) {
+    let state2 = null;
+    let strings2 = null;
+    let renaming = null;
+    let pendingRename = null;
+    let lastClick = { id: null, at: 0 };
+    const chosen = () => state2?.selected ?? null;
+    const rowOf = (id) => state2?.tree.find((r) => r.id === id) ?? null;
+    const on = () => Boolean(state2?.canEdit);
+    const startRename = (id) => {
+      const row = rowOf(id);
+      const button = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      const name = button?.querySelector(".name");
+      if (!row || !name || !on()) return;
+      renaming = id;
+      const field = el2("input", "rename");
+      field.value = row.name;
+      field.setAttribute("aria-label", strings2.edit.nameLabel);
+      field.dir = "auto";
+      let done = false;
+      const finish = (keep) => {
+        if (done) return;
+        done = true;
+        renaming = null;
+        const next = field.value.trim();
+        if (keep && next && next !== row.name) send2({ type: "rename", id, name: next });
+        field.replaceWith(name);
+        button.focus();
+      };
+      field.addEventListener("keydown", (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") finish(true);
+        else if (e.key === "Escape") finish(false);
+      });
+      field.addEventListener("click", (e) => e.stopPropagation());
+      field.addEventListener("blur", () => finish(false));
+      name.replaceWith(field);
+      field.focus();
+      const dot2 = row.kind === "dir" ? -1 : row.name.lastIndexOf(".");
+      field.setSelectionRange(0, dot2 > 0 ? dot2 : row.name.length);
+    };
+    const dropOn = (target, to) => {
+      target.addEventListener("dragover", (e) => {
+        if (!on() || !e.dataTransfer?.types.includes(DRAG_TYPE)) return;
+        e.preventDefault();
+        target.classList.add("drop");
+      });
+      target.addEventListener("dragleave", () => target.classList.remove("drop"));
+      target.addEventListener("drop", (e) => {
+        target.classList.remove("drop");
+        const id = e.dataTransfer?.getData(DRAG_TYPE);
+        if (!id || id === to) return;
+        e.preventDefault();
+        send2({ type: "move", id, to });
+      });
+    };
+    return {
+      /** New strings from the tile. */
+      setStrings(next) {
+        strings2 = next;
+        const s = strings2.edit;
+        $2("tools").setAttribute("aria-label", s.tools);
+        for (const [id, key] of [
+          ["tool-new-file", "newFile"],
+          ["tool-new-folder", "newFolder"],
+          ["tool-rename", "rename"],
+          ["tool-edit", "edit"],
+          ["tool-trash", "trash"]
+        ]) {
+          $2(id).textContent = s[key];
+        }
+      },
+      /** A new state from the tile: the toolbar follows the chosen row. */
+      setState(next) {
+        state2 = next;
+        $2("tools").hidden = !on();
+        const row = rowOf(chosen());
+        const entry = row && row.kind !== "note";
+        $2("tool-rename").disabled = !entry;
+        $2("tool-trash").disabled = !entry;
+        $2("tool-edit").disabled = !(entry && row.kind === "file");
+        if (pendingRename && rowOf(pendingRename)) {
+          const id = pendingRename;
+          pendingRename = null;
+          queueMicrotask(() => startRename(id));
+        }
+      },
+      /** Marks a drawn tree row as chosen, draggable and a drop target. */
+      decorate(button, r) {
+        button.dataset.id = r.id;
+        if (r.id === chosen()) button.classList.add("chosen");
+        button.setAttribute("aria-selected", String(r.id === chosen()));
+        if (!on() || r.muted || r.kind === "note") return;
+        if (r.kind === "file" || r.kind === "link") {
+          button.addEventListener("click", (e) => {
+            const now = Date.now();
+            const again = lastClick.id === r.id && now - lastClick.at < DOUBLE_MS;
+            lastClick = again ? { id: null, at: 0 } : { id: r.id, at: now };
+            if (!again) return;
+            e.stopImmediatePropagation();
+            startRename(r.id);
+          });
+        }
+        button.draggable = true;
+        button.addEventListener("dragstart", (e) => {
+          e.dataTransfer?.setData(DRAG_TYPE, r.id);
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+        });
+        if (r.kind === "dir") dropOn(button, r.id);
+      },
+      /** The tile asks to rename `id` (from the palette). */
+      rename(id) {
+        if (rowOf(id)) startRename(id);
+        else pendingRename = id;
+      },
+      /** Wires the toolbar, the Files heading and the keys (once). */
+      wire() {
+        $2("tool-new-file").addEventListener("click", () => send2({ type: "new-file", id: chosen() }));
+        $2("tool-new-folder").addEventListener(
+          "click",
+          () => send2({ type: "new-folder", id: chosen() })
+        );
+        $2("tool-rename").addEventListener("click", () => chosen() && startRename(chosen()));
+        $2("tool-edit").addEventListener("click", () => send2({ type: "edit", id: chosen() }));
+        $2("tool-trash").addEventListener("click", () => send2({ type: "trash", id: chosen() }));
+        dropOn($2("files-title"), null);
+        $2("tree").addEventListener("keydown", (e) => {
+          if (!on() || renaming || !chosen()) return;
+          if (e.key === "F2") {
+            e.preventDefault();
+            startRename(chosen());
+          } else if (e.key === "Delete" || e.key === "Backspace" && e.metaKey) {
+            e.preventDefault();
+            send2({ type: "trash", id: chosen() });
+          }
+        });
+      },
+      /** True while a name is being typed (the tree isn't redrawn under it). */
+      busy: () => renaming !== null
+    };
+  }
+
   // page-src/main.js
   var bridge = window.tilefold;
   var $ = (id) => document.getElementById(id);
@@ -53,6 +205,7 @@
     if (text !== void 0) node.textContent = text;
     return node;
   }
+  var tools = createTools({ send, el, $ });
   function dot(action, live) {
     return el("span", `dot ${ACTION_CLASS[action] ?? "edit"}${live ? " live" : ""}`);
   }
@@ -97,6 +250,7 @@
       button.title = fill(strings.busy, r.hot);
       button.append(dot("e", true), el("span", "count", String(r.hot)));
     }
+    tools.decorate(button, r);
     if (!r.muted && r.kind !== "note") {
       button.addEventListener(
         "click",
@@ -118,6 +272,7 @@
     $("now-title").textContent = strings.now;
     $("files-title").textContent = strings.files;
     $("recent-title").textContent = strings.recent;
+    tools.setStrings(strings);
     const s = strings.setup;
     $("setup-open").textContent = s.open;
     $("setup-title").textContent = s.title;
@@ -141,7 +296,8 @@
     $("now").replaceChildren(
       ...state.now.length ? state.now.map((e) => fileLine(e, { live: true, card: true })) : [idleLine()]
     );
-    $("tree").replaceChildren(...state.tree.map(treeRow));
+    tools.setState(state);
+    if (!tools.busy()) $("tree").replaceChildren(...state.tree.map(treeRow));
     const box = $("recent-box");
     box.hidden = !state.activity;
     box.classList.toggle("all", showAll);
@@ -184,8 +340,11 @@
       draw();
     } else if (message?.type === "setup" && strings) {
       $("setup").showModal();
+    } else if (message?.type === "rename" && typeof message.id === "string") {
+      tools.rename(message.id);
     }
   });
+  tools.wire();
   setInterval(tick, 1e3);
   send({ type: "ready" });
 })();

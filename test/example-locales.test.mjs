@@ -11,6 +11,10 @@
  * every message's `{ $variables }`, uses only simple `key = text` lines,
  * and keeps the names that must not be translated (GitHub, Claude,
  * Tilefold, the host names the tile reaches, and the `tf.` calls).
+ *
+ * Modified 2026-10-26 (Quiz example): the Quiz ships all twelve languages.
+ *
+ * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -26,6 +30,7 @@ const EXAMPLES = [
   "github-inbox",
   "orbit-guard",
   "pipeline-board",
+  "quiz",
   "service-status",
   "shell-tips",
   "watchpane",
