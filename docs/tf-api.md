@@ -235,6 +235,10 @@ await api.open("localhost:3000", { docked: true });
 tf.on("browser.navigated", ({ url, page }) => tf.log(page ?? "main", url));
 ```
 
+## A screensaver theme
+
+`tf.screensaver.theme(id, name, draw)` adds a theme to Tilefold's screensaver, listed in Settings → Screensaver; `draw` gets a Canvas 2D context covering the window once per frame, with the time and the user's colors (`screensaver.theme`, which a tile may only ask for alone; Tilefold 0.1.12). See [Screensaver themes](screensaver-themes.md).
+
 ## Your folders
 
 `tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). With `fs.write` (Tilefold 0.1.16), `tf.fs.create`, `mkdir`, `rename`, `move` and `trash` change files there, and `tf.viewer.open(path, { edit: true })` opens one ready to edit. See [Folders](folders.md).
@@ -260,7 +264,7 @@ A call the user hasn't allowed fails with `PermissionDeniedError`, which is also
 
 ## Checking for features
 
-A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, `tf.browser` before Tilefold 0.1.11, and `tf.theme` before Tilefold 0.1.20, so check before using them and tell the user to update:
+A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, `tf.browser` before Tilefold 0.1.11, `tf.screensaver` before Tilefold 0.1.12, and `tf.theme` before Tilefold 0.1.20, so check before using them and tell the user to update:
 
 ```js
 if (!tf.net) return tf.toast(tf.t("update-tilefold"));

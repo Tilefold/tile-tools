@@ -13,6 +13,7 @@
  * also run against a small fake `tf`: its settings and commands register up
  * front with ids, and its commands do what the example promises.
  *
+ * Modified 2026-10-18 (screensaver themes): the screensaver-themes example.
  * Modified 2026-10-26 (Quiz example): the Quiz is listed; only folders
  *   with a tile.json count as examples.
  *
@@ -92,6 +93,7 @@ describe("examples", () => {
       "orbit-guard",
       "pipeline-board",
       "quiz",
+      "screensaver-themes",
       "service-status",
       "shell-tips",
       "tilefall",

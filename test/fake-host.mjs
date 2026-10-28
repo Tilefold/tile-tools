@@ -46,8 +46,15 @@
  * Tilefold). An address with an unsafe scheme is refused with
  * `BrowserError`, as in Tilefold.
  *
+ * `screensaver: true` adds `tf.screensaver` (Tilefold 0.1.12): themes are
+ * kept in `host.themes` by id, and `host.drawTheme(id, { width, height,
+ * frames, dt, colors })` plays a start's frames on a recording 2D context
+ * and returns it (see fake-screensaver.mjs).
+ *
  * Use with Vitest fake timers; `advance()` moves time on and drains the
  * promise jobs the tile's background handlers leave behind.
+ *
+ * Modified 2026-10-18 (screensaver themes): the `screensaver` option.
  *
  * `host.command(id, input?)` runs a command the way Tilefold does: from the
  * palette with `null`, or as an AI agent would with `input`, which only a
@@ -74,6 +81,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
+import { addScreensaver } from "./fake-screensaver.mjs";
 import { addFileWrites } from "./fake-files.mjs";
 import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
@@ -322,6 +330,7 @@ export async function startTile(dir, opts = {}) {
   }
   if (opts.panel) addPanel(tf, host, named);
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
+  if (opts.screensaver) addScreensaver(tf, host, named);
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;

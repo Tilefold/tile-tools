@@ -64,6 +64,7 @@ Each entry is either a plain string, `"window.curtain"`, or a one-key object wit
 | `fs.write` | Create, rename and move files and folders inside the panes' folders, and move them to the Trash after Tilefold asks the user; never file contents (`tf.fs.create`, `mkdir`, `rename`, `move`, `trash`; Tilefold 0.1.16) | high |
 | `window.panel` | Show a panel docked beside the panes, drawn by Tilefold from rows (`tf.panel`; Tilefold 0.1.9) | low |
 | `browser` | Open web pages, local ones included, in a browser window Tilefold draws; the tile steers it but can't read it (`tf.browser`; Tilefold 0.1.11) | high |
+| `screensaver.theme` | Draw themes for Tilefold's screensaver (`tf.screensaver`; Tilefold 0.1.12). A tile asking for it may ask for nothing else: no other permission, no `auth` | low |
 
 **Network permissions.** `net:api.example.com` allows exactly that host. `net:*.example.com` allows every subdomain of `example.com`, but not `example.com` itself; ask for both if you need both. Hosts are lowercase domain names with at least two labels (use punycode for international names). These are refused, and Tilefold shows them as **not allowed**:
 

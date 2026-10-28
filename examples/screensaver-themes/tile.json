@@ -1,0 +1,11 @@
+{
+  "id": "example.screensaver-themes",
+  "version": "0.1.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "screensaver.theme": "to draw falling green code and a starfield on Tilefold's screensaver"
+    }
+  ]
+}

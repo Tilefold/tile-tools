@@ -9,10 +9,11 @@
  *   export default (tf: Tf) => { ... };
  *
  * Types only: nothing here runs, and the build strips it away. `net`,
- * `auth`, `ai`, `page`, `panel`, `pane`, `fs`, `viewer` and `browser` are optional because an
- * older Tilefold doesn't have them; check before use.
+ * `auth`, `ai`, `page`, `panel`, `pane`, `fs`, `viewer`, `browser` and `screensaver` are
+ * optional because an older Tilefold doesn't have them; check before use.
  *
  * Modified 2026-10-17 (panel rows per tab): a panel row's `page`.
+ * Modified 2026-10-18 (screensaver themes): `tf.screensaver` and its frame.
  *
  * Modified 2026-10-20 (agent input): a command's `input`, its handler's
  * argument and return value.
@@ -341,6 +342,29 @@ export interface AiAnswer {
   usage: { inputTokens: number; outputTokens: number };
 }
 
+/** The user's Tilefold theme colors, as CSS color strings. */
+export interface ScreensaverColors {
+  background: string;
+  text: string;
+  accent: string;
+}
+
+/** What a screensaver theme's `draw` receives, once per frame. */
+export interface ScreensaverFrame {
+  /** A Canvas 2D context covering the window, scaled so sizes are in CSS pixels. */
+  ctx: OffscreenCanvasRenderingContext2D;
+  /** The window's size in CSS pixels. */
+  width: number;
+  height: number;
+  /** Milliseconds since this start of the theme. */
+  time: number;
+  /** Milliseconds since the last frame (0 on the first). */
+  dt: number;
+  /** The frame's number in this start, from 0. */
+  frame: number;
+  colors: ScreensaverColors;
+}
+
 /** Error names a `tf` call can fail with (`err.name`). */
 export type TileErrorName =
   | "PermissionDeniedError"
@@ -559,6 +583,18 @@ export interface Tf {
    * ready to edit. Missing before Tilefold 0.1.9.
    */
   readonly viewer?: { open(path: string, options?: { edit?: boolean }): Promise<null> };
+  /**
+   * Needs screensaver.theme, and a tile asking for it may ask for nothing
+   * else. Adds a theme to Tilefold's screensaver, listed in Settings →
+   * Screensaver; `draw` is called once per frame (at most 30 a second,
+   * only while the window can be seen) and gets no input and nothing from
+   * the screen. Ids are lowercase letters, digits and dashes; at most 12
+   * themes per tile. A `draw` that throws, or takes two seconds, ends the
+   * theme and Tilefold shows its own. Missing before Tilefold 0.1.12.
+   */
+  readonly screensaver?: {
+    theme(id: string, name: string, draw: (frame: ScreensaverFrame) => void): void;
+  };
 }
 
 /**
