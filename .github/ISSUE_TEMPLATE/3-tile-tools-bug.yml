@@ -30,6 +30,7 @@ body:
         - "Example: folder-tree"
         - "Example: girder-jump"
         - "Example: github-inbox"
+        - "Example: gomoku"
         - "Example: hello"
         - "Example: orbit-guard"
         - "Example: pipeline-board"

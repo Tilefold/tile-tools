@@ -16,6 +16,7 @@
  * Modified 2026-10-18 (screensaver themes): the screensaver-themes example.
  * Modified 2026-10-26 (Quiz example): the Quiz is listed; only folders
  *   with a tile.json count as examples.
+ * Modified 2026-10-28 (Gomoku example): Gomoku is listed.
  *
  * Last updated by: Tilefold
  */
@@ -89,6 +90,7 @@ describe("examples", () => {
       "folder-tree",
       "girder-jump",
       "github-inbox",
+      "gomoku",
       "hello",
       "orbit-guard",
       "pipeline-board",

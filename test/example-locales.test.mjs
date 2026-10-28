@@ -14,6 +14,7 @@
  *
  * Modified 2026-10-18 (screensaver themes): the screensaver-themes example.
  * Modified 2026-10-26 (Quiz example): the Quiz ships all twelve languages.
+ * Modified 2026-10-28 (Gomoku example): Gomoku ships all twelve languages.
  *
  * Last updated by: Tilefold
  */
@@ -29,6 +30,7 @@ const EXAMPLES = [
   "folder-tree",
   "girder-jump",
   "github-inbox",
+  "gomoku",
   "orbit-guard",
   "pipeline-board",
   "quiz",
