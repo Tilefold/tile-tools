@@ -129,7 +129,7 @@ export interface TileEventPayloads {
   "pane.list": { panes: PaneInfo[] };
   /** A row of the tile's docked panel was clicked (needs window.panel). */
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
-  /** The tile's panel was closed by the user, or replaced by another tile's. */
+  /** The tile's panel was closed by the user, left on another tab (perTab), or replaced: since Tilefold 0.1.21 panels sit side by side, and only a fourth one replaces the oldest. */
   "panel.closed": { by: "user" | "replaced" | "tab" };
   /** A `perTab` panel is open again: the user came back to a tab it is open on (Tilefold 0.1.16). */
   "panel.opened": { by: "tab" };

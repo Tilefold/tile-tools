@@ -27,7 +27,7 @@ await tf.panel.show({
 });
 ```
 
-Each `show` replaces the whole panel and brings it forward. `tf.panel.hide()` takes it away. One tile's panel is docked at a time: the one shown last.
+Each `show` replaces the whole panel; updating it keeps its place. `tf.panel.hide()` takes it away. Panels from several tiles sit side by side, in the order they first showed, each with its own width and close button; up to three fit, and a fourth replaces the oldest. (Before Tilefold 0.1.21, one tile's panel was docked at a time: the one shown last.)
 
 | Row field | |
 |---|---|
@@ -75,7 +75,8 @@ tf.on("panel.click", ({ row, action }) => {
   // "activate" for any other row (a click, Enter or Space)
 });
 tf.on("panel.closed", ({ by }) => {
-  // by: "user" (its close button), or "replaced" (another tile's panel took its place)
+  // by: "user" (its close button), "tab" (a perTab panel left on another tab),
+  // or "replaced" (a fourth panel opened and this was the oldest)
 });
 ```
 
