@@ -13,8 +13,13 @@
  * to their defaults; sounds make valid WAV clips and keep inside Tilefold's
  * limits; frames send only what changed; a board click does the right
  * thing for each status; and every example's default shortcuts are its own.
+ *
+ * Modified 2026-10-26 (Quiz example): only folders with a tile.json count
+ *   as examples.
+ *
+ * Last updated by: Tilefold
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { boardAction, diffItems } from "../examples/orbit-guard/src/tile/arcade.js";
 import { BUTTON, computeLayout } from "../examples/orbit-guard/src/tile/layout.js";
@@ -203,7 +208,11 @@ describe("arcade kit", () => {
     // Every other example: the chords in its built main.js, each counted once.
     const examples = readdirSync(new URL("../examples/", import.meta.url), { withFileTypes: true })
       .filter(
-        (d) => d.isDirectory() && !["orbit-guard", "brickfold", "girder-jump"].includes(d.name),
+        (d) =>
+          d.isDirectory() &&
+          // An example is a folder with a tile.json.
+          existsSync(new URL(`../examples/${d.name}/tile.json`, import.meta.url)) &&
+          !["orbit-guard", "brickfold", "girder-jump"].includes(d.name),
       )
       .map((d) => d.name);
     for (const other of examples) {

@@ -14,8 +14,16 @@
  * { type: "toggle", id, open } and { type: "open", id }; { type: "setup" }
  * opens the help for setting up the agent hooks. All text goes in with
  * `textContent`, never as HTML, so a file's name can't change the page.
+ *
+ * Modified 2026-10-23 (changing files): the file tools (tools.js): a
+ *   toolbar, renaming in place, dragging to move, F2 and ⌘⌫; the tree
+ *   isn't redrawn while a name is being typed; { type: "rename", id } from
+ *   the tile starts renaming.
+ *
+ * Last updated by: Tilefold
  */
 import { ACTION_CLASS, ago, fill, RECENT_FEW, shownRecent } from "./format.js";
+import { createTools } from "./tools.js";
 
 const bridge = window.tilefold;
 const $ = (id) => document.getElementById(id);
@@ -35,6 +43,8 @@ function el(tag, className, text) {
   if (text !== undefined) node.textContent = text;
   return node;
 }
+
+const tools = createTools({ send, el, $ });
 
 /** A dot in the action's colour, pulsing when `live`. */
 function dot(action, live) {
@@ -85,6 +95,7 @@ function treeRow(r) {
     button.title = fill(strings.busy, r.hot);
     button.append(dot("e", true), el("span", "count", String(r.hot)));
   }
+  tools.decorate(button, r);
   if (!r.muted && r.kind !== "note") {
     button.addEventListener("click", () =>
       r.expandable
@@ -111,6 +122,7 @@ function drawStrings() {
   $("now-title").textContent = strings.now;
   $("files-title").textContent = strings.files;
   $("recent-title").textContent = strings.recent;
+  tools.setStrings(strings);
   const s = strings.setup;
   $("setup-open").textContent = s.open;
   $("setup-title").textContent = s.title;
@@ -140,7 +152,9 @@ function draw() {
       ? state.now.map((e) => fileLine(e, { live: true, card: true }))
       : [idleLine()]),
   );
-  $("tree").replaceChildren(...state.tree.map(treeRow));
+  tools.setState(state);
+  // Never redraw the tree under a name being typed.
+  if (!tools.busy()) $("tree").replaceChildren(...state.tree.map(treeRow));
 
   const box = $("recent-box");
   box.hidden = !state.activity;
@@ -194,7 +208,10 @@ bridge?.onMessage((message) => {
     draw();
   } else if (message?.type === "setup" && strings) {
     $("setup").showModal();
+  } else if (message?.type === "rename" && typeof message.id === "string") {
+    tools.rename(message.id);
   }
 });
+tools.wire();
 setInterval(tick, 1000);
 send({ type: "ready" });

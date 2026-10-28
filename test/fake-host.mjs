@@ -56,12 +56,34 @@
  *
  * Modified 2026-10-18 (screensaver themes): the `screensaver` option.
  *
+ * `host.command(id, input?)` runs a command the way Tilefold does: from the
+ * palette with `null`, or as an AI agent would with `input`, which only a
+ * command registered with `options.input` accepts; it resolves to what the
+ * handler returned, as plain JSON (refused past 64 KB).
+ *
+ * Modified 2026-10-20 (agent input): commands' input and results.
+ *
+ * Modified 2026-10-23 (changing files): `folders.write` adds the file
+ *   changes (fake-files.mjs); opens ready to edit are kept in
+ *   `host.editing`; folders may be empty (`host.dirs`). Panels may have
+ *   right-click menus (fake-panel-menus.mjs); `host.menu(row, item)` plays
+ *   a choice and `host.doubleClick(row)` a double-click; `host.leaveTab()`
+ *   and `host.backToTab()` play leaving and coming back to the tab a
+ *   `perTab` panel is open on. `tf.panel.edit` waits in `host.panel.editing` until
+ *   `host.typeName(text)` answers.
+ * Modified 2026-10-26 (Tilefold 0.1.20): `page: "side"` also docks a page
+ *   beside the panes (`host.page.side`; `host.undock()` plays the user
+ *   undocking it), and `theme` adds `tf.theme()` (`host.theme`;
+ *   `host.setTheme(theme)` plays a change, firing `theme.changed`).
+ *
  * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addScreensaver } from "./fake-screensaver.mjs";
+import { addFileWrites } from "./fake-files.mjs";
+import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
@@ -137,11 +159,35 @@ export async function startTile(dir, opts = {}) {
       for (const run of handlers.get(event) ?? []) await run(payload);
       await drain();
     },
-    async command(id) {
+    /**
+     * Runs command `id` as Tilefold does: from the palette with no input
+     * (`null`), or as an AI agent would with `input`, which only a command
+     * registered with `options.input` accepts. Resolves to what the handler
+     * returned, as plain JSON data (undefined for none).
+     */
+    async command(id, input = null) {
       const run = commands.get(id);
       if (!run) throw new Error(`no command ${id}`);
-      await run();
+      const reg = host.regs.find((r) => r.kind === "command" && r.id === id);
+      if (input !== null && input !== undefined && !reg?.input) {
+        throw new Error(`The command "${id}" takes no input.`);
+      }
+      const value = await run(input ?? null);
       await drain();
+      if (value === undefined) return undefined;
+      const json = JSON.stringify(value);
+      if (json === undefined) return undefined;
+      if (new TextEncoder().encode(json).length > 64 * 1024) {
+        throw new Error(`The result of "${id}" is larger than the 64 KB an agent can get.`);
+      }
+      return JSON.parse(json);
+    },
+    /** Plays the user pressing Undock on a page docked beside the panes (Tilefold 0.1.20). */
+    async undock() {
+      if (!host.page?.side) throw new Error("the page is not docked beside the panes");
+      host.page.side = false;
+      host.page.open = false;
+      await host.emit("page.undocked", {});
     },
     async setSetting(key, value) {
       values.set(key, value);
@@ -166,7 +212,12 @@ export async function startTile(dir, opts = {}) {
       host.regs.push({ kind: "setting", key, default: def, description, ...options });
     },
     command(title, run, options = {}) {
-      host.regs.push({ kind: "command", title, id: options.id });
+      host.regs.push({
+        kind: "command",
+        title,
+        id: options.id,
+        ...(typeof options.input === "string" ? { input: options.input } : {}),
+      });
       commands.set(options.id, run);
     },
     on(event, run) {
@@ -263,7 +314,20 @@ export async function startTile(dir, opts = {}) {
   };
 
   if (opts.folders) addFolders(tf, host, opts.folders, named);
-  if (opts.page) addPage(tf, host, { dock: opts.page === "dock" });
+  if (opts.page) {
+    addPage(tf, host, {
+      dock: opts.page === "dock" || opts.page === "side",
+      side: opts.page === "side",
+    });
+  }
+  if (opts.theme !== undefined) {
+    host.theme = structuredClone(opts.theme);
+    tf.theme = async () => structuredClone(host.theme);
+    host.setTheme = async (theme) => {
+      host.theme = structuredClone(theme);
+      await host.emit("theme.changed", structuredClone(theme));
+    };
+  }
   if (opts.panel) addPanel(tf, host, named);
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
   if (opts.screensaver) addScreensaver(tf, host, named);
@@ -283,7 +347,12 @@ const parentOf = (path) => {
 };
 
 /** `tf.pane`, `tf.fs` and `tf.viewer` over a list of files, with Tilefold's rules. */
-function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, panes }, named) {
+function addFolders(
+  tf,
+  host,
+  { cwd = null, roots = [], files = [], links = {}, panes, write = false },
+  named,
+) {
   host.cwd = cwd;
   host.panes = panes ? structuredClone(panes) : null;
   host.roots = roots;
@@ -291,6 +360,8 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
   host.files = [...files];
   host.links = { ...links };
   host.opened = [];
+  host.editing = [];
+  host.dirs = [];
   /** A path with a link at its start followed, as Tilefold resolves it. */
   const resolve = (path) => {
     for (const [link, target] of Object.entries(host.links)) {
@@ -300,7 +371,7 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
   };
   const dirs = () => {
     const out = new Set();
-    for (const f of host.files) {
+    for (const f of [...host.files, ...host.dirs.map((d) => `${d}/.`)]) {
       for (let d = parentOf(f); ; d = parentOf(d)) {
         out.add(d);
         if (d === "/") break;
@@ -335,13 +406,15 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
     },
   };
   tf.viewer = {
-    async open(raw) {
+    async open(raw, options) {
       const path = check(raw);
       if (!host.files.includes(path)) throw named("NotAFileError", "not a file");
       host.opened.push(path);
+      if (options?.edit === true) host.editing.push(path);
       return null;
     },
   };
+  if (write) addFileWrites(tf, host, { dirs, check, named, parentOf });
 }
 
 /**
@@ -349,11 +422,39 @@ function addFolders(tf, host, { cwd = null, roots = [], files = [], links = {}, 
  * (Tilefold 0.1.11) a page can be docked in the window: `host.page.dock`
  * is its spot (null for a window of its own), and `dock()` moves it.
  */
-function addPage(tf, host, { dock = false } = {}) {
-  host.page = { open: false, opens: [], closes: 0, posted: [], dock: null, docks: [] };
+function addPage(tf, host, { dock = false, side = false } = {}) {
+  host.page = {
+    open: false,
+    opens: [],
+    closes: 0,
+    posted: [],
+    dock: null,
+    docks: [],
+    side: false,
+  };
   tf.page = {
     async open(options = {}) {
-      if (!host.page.open) host.page.dock = dock && options.dock ? { ...options.dock } : null;
+      // Beside the panes (Tilefold 0.1.20), as Tilefold checks it.
+      if (side && options.side === true) {
+        if (options.dock)
+          throw Object.assign(new TypeError("give a spot (dock) or side, not both"));
+        if (options.origin === "https") {
+          throw Object.assign(
+            new Error("a page with a web address can't dock beside the panes yet"),
+            {
+              name: "PageError",
+            },
+          );
+        }
+        host.page.side = true;
+        host.page.dock = null;
+      } else if (side && host.page.side) {
+        // Moving out of the dock: to its spot, or a window of its own.
+        host.page.side = false;
+        host.page.dock = options.dock ? { ...options.dock } : null;
+      } else if (!host.page.open) {
+        host.page.dock = dock && options.dock ? { ...options.dock } : null;
+      }
       host.page.open = true;
       host.page.opens.push(options);
       return null;
@@ -361,6 +462,7 @@ function addPage(tf, host, { dock = false } = {}) {
     async close() {
       host.page.open = false;
       host.page.dock = null;
+      host.page.side = false;
       host.page.closes += 1;
       return null;
     },
@@ -419,6 +521,21 @@ const panelRowOk = (r) =>
  */
 function addPanel(tf, host, named) {
   host.panel = { content: null, shows: 0 };
+  host.menu = (row, item) => chooseFromMenu(host, row, item);
+  host.doubleClick = (row) => doubleClick(host, row);
+  // A perTab panel (Tilefold 0.1.16) stays docked on its tab while the user is away.
+  host.leaveTab = () => host.emit("panel.closed", { by: "tab" });
+  host.backToTab = () => host.emit("panel.opened", { by: "tab" });
+  // tf.panel.edit (Tilefold 0.1.16): the edit waits in host.panel.editing
+  // until host.typeName(text) answers it (null: the user cancelled).
+  host.panel.editing = null;
+  host.typeName = async (text) => {
+    const ed = host.panel.editing;
+    host.panel.editing = null;
+    ed?.resolve(text);
+    // Let the tile's follow-up (a rename, a redraw) run; no timers, so fake ones work too.
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+  };
   tf.panel = {
     async show(content) {
       const ids = new Set();
@@ -437,6 +554,7 @@ function addPanel(tf, host, named) {
           ids.add(r.id);
         }
       }
+      checkPanelMenus(content, named);
       host.panel.content = structuredClone(content);
       host.panel.shows += 1;
       return true;
@@ -444,6 +562,17 @@ function addPanel(tf, host, named) {
     async hide() {
       host.panel.content = null;
       return null;
+    },
+    edit(row, options = {}) {
+      const rows = [
+        ...(host.panel.content?.rows ?? []),
+        ...(host.panel.content?.footer?.rows ?? []),
+      ];
+      if (!rows.some((r) => r.id === row)) return Promise.reject(named("NotFoundError", "row"));
+      host.panel.editing?.resolve(null);
+      return new Promise((resolve) => {
+        host.panel.editing = { row, options: { ...options }, resolve };
+      });
     },
   };
 }

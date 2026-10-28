@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = वेब व्यू (उदाहरण)
 tile-description = आप जो वेब ऐप बना रहे हैं, जैसे localhost:5173, उसे आपके पेन के पास एक ब्राउज़र विंडो में दिखाता है, और हाल में खोले गए पेज सूचीबद्ध करता है।
-setting-address = खोलने के लिए localhost के पोर्ट, कॉमा से अलग: हर पोर्ट localhost:PORT को अपने अलग पेज में खोलता है (5173, 3000)। staging.example.com जैसे पूरे पते भी चलते हैं।
+setting-address = खोलने के लिए localhost के पोर्ट, कॉमा से अलग: हर पोर्ट localhost:PORT को अपने अलग पेज में खोलता है (5173, 3000)। 3000-3010 जैसी रेंज उसके हर पोर्ट को खोलती है। staging.example.com जैसे पूरे पते भी चलते हैं।
 setting-docked = पेन के पास दिखाएँ (बंद: अपनी अलग विंडो में)
 setting-panel = हाल के पेज पेन के पास दिखाएँ
 cmd-open = वेब व्यू: खोलें

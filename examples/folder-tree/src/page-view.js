@@ -12,6 +12,12 @@
  * same as the panel's, so a click from either place is handled the same
  * way. Times stay as timestamps; the page shows their age itself and
  * keeps it ticking. Plain data in and out, so it is tested directly.
+ *
+ * Modified 2026-10-23 (changing files): the state says which row is
+ *   chosen and whether this Tilefold can change files; the strings carry
+ *   the file tools' labels.
+ *
+ * Last updated by: Tilefold
  */
 import { activeFiles, hotFolders, paneCount, recentFiles } from "./activity.js";
 import { treeRows } from "./model.js";
@@ -38,7 +44,7 @@ function pageEvent(e, root, prefix) {
 }
 
 /** The state for the page, and the targets of its clickable rows. */
-export function pageView({ tree, events, now, t, opts }) {
+export function pageView({ tree, events, now, t, opts, selected = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
@@ -86,6 +92,8 @@ export function pageView({ tree, events, now, t, opts }) {
       recent: recent.map((e) => pageEvent(e, root, "recent:")),
       panes: paneCount(recent),
       activity: opts.showActivity,
+      selected: selected && targets.has(selected) ? selected : null,
+      canEdit: opts.canEdit === true,
     },
     targets,
   };
@@ -116,6 +124,15 @@ export function pageStrings(t, hookCommand) {
       d: t("page-doing-d"),
     },
     ago: { s: t("ago-s", { n }), m: t("ago-m", { n }), h: t("ago-h", { n }), d: t("ago-d", { n }) },
+    edit: {
+      newFile: t("page-new-file"),
+      newFolder: t("page-new-folder"),
+      rename: t("page-rename"),
+      edit: t("page-edit"),
+      trash: t("page-trash"),
+      nameLabel: t("page-name-label"),
+      tools: t("page-tools"),
+    },
     setup: {
       title: t("setup-title"),
       intro: t("setup-intro"),

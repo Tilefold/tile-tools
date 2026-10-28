@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = 网页视图(示例)
 tile-description = 在窗格旁的浏览器窗口中显示你正在构建的网页应用(例如 localhost:5173),并列出最近打开的页面。
-setting-address = 要打开的 localhost 端口，用逗号分隔：每个端口在单独的页面中打开 localhost:端口（5173、3000）。也可以填写完整地址，如 staging.example.com。
+setting-address = 要打开的 localhost 端口，用逗号分隔：每个端口在单独的页面中打开 localhost:端口（5173、3000）。3000-3010 这样的范围会打开其中的每个端口。也可以填写完整地址，如 staging.example.com。
 setting-docked = 在窗格旁显示(关闭时:在单独的窗口中)
 setting-panel = 在窗格旁显示最近的页面
 cmd-open = 网页视图:打开

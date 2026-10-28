@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = Веб-просмотр (пример)
 tile-description = Показывает веб-приложение, которое вы создаёте, например localhost:5173, в окне браузера рядом с панелями и перечисляет недавно открытые страницы.
-setting-address = Порты localhost через запятую: каждый открывает localhost:ПОРТ на отдельной странице (5173, 3000). Полные адреса вроде staging.example.com тоже подходят.
+setting-address = Порты localhost через запятую: каждый открывает localhost:ПОРТ на отдельной странице (5173, 3000). Диапазон вроде 3000-3010 открывает каждый порт в нём. Полные адреса вроде staging.example.com тоже подходят.
 setting-docked = Показывать рядом с панелями (выкл.: в отдельном окне)
 setting-panel = Показывать недавние страницы рядом с панелями
 cmd-open = Веб-просмотр: Открыть

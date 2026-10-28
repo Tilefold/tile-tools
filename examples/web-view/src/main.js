@@ -15,7 +15,8 @@
  *
  * Several addresses (`localhost:5173, localhost:3000`) open several pages
  * at once, one per address: the first on the tile's first page, each other
- * on a page named after its port (`tf.browser.page("3000")`). Docked, they
+ * on a page named after its port (`tf.browser.page("3000")`). A range of
+ * ports (`3000-3010` or `3000~3010`) opens one page per port. Docked, they
  * stack beside the panes. Open, Move, Reload and Close act on every page;
  * Back and Forward on the first. The panel lists each page's recent
  * addresses on that page's tab, and a click opens one again in its page.
@@ -34,6 +35,8 @@
  * addresses keep their browser page, and the panel's rows say which.
  *
  * Modified 2026-10-18 (renamed): Web Preview is now Web View (example.web-view).
+ *
+ * Modified 2026-10-19 (port ranges): the address setting takes ranges of ports.
  *
  * Last updated by: Tilefold
  *

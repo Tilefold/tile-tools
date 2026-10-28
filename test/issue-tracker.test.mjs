@@ -10,8 +10,13 @@
  * labels.json defines, name every example tile, and keep private details and
  * blank issues out. The label sync script plans and applies label changes
  * correctly and never deletes a label.
+ *
+ * Modified 2026-10-26 (Quiz example): only folders with a tile.json count
+ *   as example tiles.
+ *
+ * Last updated by: Tilefold
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -34,8 +39,11 @@ const forms = FORM_FILES.map((file) => ({
 }));
 const wanted = readWantedLabels();
 const labelNames = new Set(wanted.map((l) => l.name));
-const exampleFolders = readdirSync(join(ROOT, "examples")).filter((name) =>
-  statSync(join(ROOT, "examples", name)).isDirectory(),
+// An example is a folder with a tile.json, as in the examples tests.
+const exampleFolders = readdirSync(join(ROOT, "examples")).filter(
+  (name) =>
+    statSync(join(ROOT, "examples", name)).isDirectory() &&
+    existsSync(join(ROOT, "examples", name, "tile.json")),
 );
 
 describe("labels.json", () => {

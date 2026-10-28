@@ -45,11 +45,33 @@ Adds a command to the palette.
 | Argument | |
 |---|---|
 | `title` | What the palette shows, at most 120 characters. Translate it with `tf.t` |
-| `handler` | `() => void \| Promise<void>`, with ten seconds to finish |
+| `handler` | `(input) => unknown`, with ten seconds to finish. `input` is `null` when the user runs it |
 | `options.id` | A short id, unique within the tile: a lowercase letter, then lowercase letters, digits or hyphens. Made from the title when left out, which breaks when the title is translated, so **always give one** |
 | `options.key` | A default shortcut: one string for every platform, or `{ mac, other }` |
+| `options.input` | What AI agents may pass the command, in up to 300 characters (`"{ title, column? }: the card to add"`). Leave it out for a command that takes no data |
 
 Shortcuts are modifiers (`Ctrl`, `Alt`, `Shift`, `Meta`) and one key, joined by `+`: `"Ctrl+Alt+N"`, `{ mac: "Alt+Meta+H", other: "Ctrl+Alt+H" }`. `Meta` is ⌘ on macOS. Keys are physical keys, so they work on any keyboard layout: `A`–`Z`, `0`–`9`, `F1`–`F12`, and names such as `ArrowUp`, `Enter`, `Tab`, `Comma`, `BracketLeft` and `Space`. Every shortcut needs `Ctrl`, `Alt` or `Meta` (or is a function key), so it can never swallow typing. Users can change the shortcut in Settings → Keyboard, where tile commands have their own group. Tiles never see key presses; a shortcut runs the command.
+
+#### Commands AI agents call with data
+
+AI agents in the user's panes (Claude Code, Codex and others) can run a tile's commands through Tilefold's `tile_run` tool, after the user allows it once. A command with `options.input` also takes data from them, and what its handler returns goes back to the agent. So a tile can be a board, list or form that the user and an agent both work on:
+
+```js
+const cards = [];
+tf.command(tf.t("cmd-add-card"), (card) => {
+  if (!card || typeof card.title !== "string") throw new Error("give a card a title");
+  cards.push({ title: card.title.slice(0, 200), column: card.column ?? "todo" });
+  void tf.panel?.show({ title: "Board", rows: cards.map((c, i) => ({ id: String(i), label: c.title, detail: c.column })) });
+  return { cards };
+}, { id: "add-card", input: "{ title, column? }: the card to add" });
+```
+
+- Agents see each command's id, title and `input` text with `tile_list`, then call `tile_run` with `command` and `input`. Describe the input so an agent gets it right the first time.
+- The handler gets the agent's input as its argument: any JSON value, at most 16 KB. Check it like any data from outside; the agent decides what it sends. A thrown error goes back to the agent as the reason.
+- Return plain data: text, numbers, true/false, lists and objects (dates become text, functions are dropped), at most 64 KB as JSON. A command run from the palette gets `null` and its return value is ignored.
+- A command without `options.input` never gets input: Tilefold refuses it before anything runs.
+- Adding `options.input` to a command asks the user to approve the tile again, since agents can then send it data. Changing only the description doesn't.
+- Needs Tilefold 0.1.14 or later; an older Tilefold ignores `input` and runs the command with `null`.
 
 ### tf.setting(key, default, description, options?)
 
@@ -79,6 +101,8 @@ The setting's current value, at once (not a promise): the user's value when it f
 
 Listens to an event. `handler(payload)` has half a second to finish. A tile may register at most 50 commands, 50 settings and 50 listeners.
 
+A listener that runs too long five times in ten minutes is skipped for the rest of the session, and a command has ten seconds. So when a handler starts something that waits for the user, such as `tf.fs.trash` (Tilefold asks first) or `tf.panel.edit`, start it without returning or awaiting it: `tf.on("panel.menu", (e) => void act(e))`.
+
 | Event | When | Payload |
 |---|---|---|
 | `app.ready` | Tilefold has started and loaded its tiles; also after **Reload tiles** and after the user changes the language, when tiles are loaded again | `{}` |
@@ -93,10 +117,15 @@ Listens to an event. `handler(payload)` has half a second to finish. A tile may 
 | `overlay.hidden` | The user hid this tile's overlay | `{ by: "user" }` |
 | `page.message` | The tile's page sent a message (`window.tilefold.post`) | `{ message }` |
 | `page.closed` | The tile's page closed, whatever closed it | `{}` |
+| `page.undocked` | The user moved the tile's page out of the dock beside the panes; show it again where it should go (Tilefold 0.1.20) | `{}` |
+| `theme.changed` | Tilefold's theme changed: another theme, light or dark, or the system's appearance (Tilefold 0.1.20) | `{ mode, name, colors }` |
 | `pane.cwd` | The focused pane's folder changed: another pane or tab, or a `cd` (needs `pane.cwd`; Tilefold 0.1.9) | `{ path }`, `null` when none is known |
 | `pane.list` | A pane opened, closed, was renamed, moved folder or took focus (needs `pane.list`; Tilefold 0.1.11) | `{ panes }`: `[{ session, name, folder, focused }]` |
 | `panel.click` | A row of the tile's docked panel was clicked (needs `window.panel`; Tilefold 0.1.9) | `{ row, action }`, action `activate`, `expand` or `collapse` |
-| `panel.closed` | The user closed the tile's panel, or another tile's panel replaced it | `{ by }`, `user` or `replaced` |
+| `panel.menu` | An item of a panel row's right-click menu was chosen (Tilefold 0.1.16) | `{ row, item }`, row `null` for the empty space |
+| `panel.dblclick` | A panel row was double-clicked, after the two `panel.click` events its clicks send (Tilefold 0.1.16) | `{ row }` |
+| `panel.closed` | The user closed the tile's panel, another tile's panel replaced it, or the user left the tab a `perTab` panel is open on | `{ by }`, `user`, `replaced` or `tab` |
+| `panel.opened` | The user came back to a tab a `perTab` panel is open on (Tilefold 0.1.16) | `{ by }`, `tab` |
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
 
@@ -182,7 +211,11 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 ## A web page of its own
 
-`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7); `tf.page.dock(spot)` moves a page docked in Tilefold's window (Tilefold 0.1.11). See [Tile pages](tile-pages.md).
+`tf.page.open(options?)`, `tf.page.close()` and `tf.page.post(message)` show the tile's own web page from its `page/` folder, in a window or hidden, and talk to it with messages (`page`, Tilefold 0.1.7); `tf.page.dock(spot)` moves a page docked in Tilefold's window (Tilefold 0.1.11), and `tf.page.open({ side: true })` docks it beside the panes (Tilefold 0.1.20). See [Tile pages](tile-pages.md).
+
+## Tilefold's theme
+
+`tf.theme()` resolves to how Tilefold is drawn: `{ mode, name, colors }`, with `mode` `"light"` or `"dark"`, the theme's `name`, and CSS `colors` by name (`pane` is a pane's background; the rest are `surface`, `surfaceRaised`, `surfaceHover`, `canvas`, `border`, `borderStrong`, `text`, `textSecondary`, `textMuted`, `accent`, `accentSoft`, `onAccent`, `success`, `error`, `warning`, `info`, `focusRing`). `theme.changed` carries the same when it changes. It needs no permission and is missing before Tilefold 0.1.20. A tile's page gets the same as CSS variables; see section 9 of [Tile pages](tile-pages.md).
 
 ## A docked panel
 
@@ -208,7 +241,7 @@ tf.on("browser.navigated", ({ url, page }) => tf.log(page ?? "main", url));
 
 ## Your folders
 
-`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). See [Folders](folders.md).
+`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). With `fs.write` (Tilefold 0.1.16), `tf.fs.create`, `mkdir`, `rename`, `move` and `trash` change files there, and `tf.viewer.open(path, { edit: true })` opens one ready to edit. See [Folders](folders.md).
 
 ## Asking Claude
 
@@ -231,7 +264,7 @@ A call the user hasn't allowed fails with `PermissionDeniedError`, which is also
 
 ## Checking for features
 
-A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, `tf.browser` before Tilefold 0.1.11, and `tf.screensaver` before Tilefold 0.1.12, so check before using them and tell the user to update:
+A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, `tf.browser` before Tilefold 0.1.11, `tf.screensaver` before Tilefold 0.1.12, and `tf.theme` before Tilefold 0.1.20, so check before using them and tell the user to update:
 
 ```js
 if (!tf.net) return tf.toast(tf.t("update-tilefold"));

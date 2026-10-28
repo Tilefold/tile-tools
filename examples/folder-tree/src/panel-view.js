@@ -18,9 +18,17 @@
  * A Tilefold older than 0.1.11 ignores the colours, pulses and footer and
  * shows the tree. Text comes from `t`, times are passed in, so it is
  * tested directly; `targets` maps each clickable row to what it opens.
+ *
+ * Modified 2026-10-23 (changing files): the row the user last chose is
+ *   tinted, and folders, files and the empty space have right-click menus
+ *   for changing files (panel-actions.js). The panel belongs to the tabs
+ *   it is opened on (`perTab`, Tilefold 0.1.16; older ones show it on all).
+ *
+ * Last updated by: Tilefold
  */
 import { activeFiles, age, hotFolders, recentFiles, TONES } from "./activity.js";
 import { treeRows } from "./model.js";
+import { panelMenus, ROW_MENU } from "./panel-actions.js";
 import { basename, shownPath } from "./paths.js";
 import { folderName } from "./tree.js";
 
@@ -120,9 +128,11 @@ function recentFooter(t, events, root, now, { open, all }) {
 /**
  * The panel for `tree` and `events` at `now`. `opts`: activeMs, recentMs,
  * showActivity, filters ({ showHidden, skip }), recentOpen, recentAll.
+ * `selected`, the row the user last chose, is tinted when activity doesn't
+ * colour it already.
  * Returns { content, targets, live } (live: something is happening now).
  */
-export function panelView({ tree, events, now, t, opts }) {
+export function panelView({ tree, events, now, t, opts, selected = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
@@ -130,7 +140,15 @@ export function panelView({ tree, events, now, t, opts }) {
   for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
   const hot = hotFolders(active, root);
 
-  const decorate = (row, { kind, path, open }) => {
+  const menus = panelMenus(t, opts.canEdit === true);
+  const decorate = (row, where) => {
+    const marks = activityMarks(row, where);
+    const menu = menus && ROW_MENU[where.kind] ? { menu: ROW_MENU[where.kind] } : {};
+    return where.path === selected && !marks.tone
+      ? { ...marks, ...menu, tone: "accent" }
+      : { ...marks, ...menu };
+  };
+  const activityMarks = (row, { kind, path, open }) => {
     if (kind === "dir") {
       const count = hot.get(path);
       if (!count || open) return {};
@@ -192,6 +210,8 @@ export function panelView({ tree, events, now, t, opts }) {
       ...(subtitle ? { subtitle } : {}),
       rows,
       ...(footer.rows.length ? { footer: { rows: footer.rows } } : {}),
+      ...(menus && root ? { menus, menu: "space" } : {}),
+      perTab: true,
     },
     targets,
     live: active.length > 0,

@@ -15,7 +15,8 @@
  *
  * Several addresses (`localhost:5173, localhost:3000`) open several pages
  * at once, one per address: the first on the tile's first page, each other
- * on a page named after its port (`tf.browser.page("3000")`). Docked, they
+ * on a page named after its port (`tf.browser.page("3000")`). A range of
+ * ports (`3000-3010` or `3000~3010`) opens one page per port. Docked, they
  * stack beside the panes. Open, Move, Reload and Close act on every page;
  * Back and Forward on the first. The panel lists each page's recent
  * addresses on that page's tab, and a click opens one again in its page.
@@ -35,30 +36,51 @@
  *
  * Modified 2026-10-18 (renamed): Web Preview is now Web View (example.web-view).
  *
+ * Modified 2026-10-19 (port ranges): the address setting takes ranges of ports.
+ *
  * Last updated by: Tilefold
  *
  * Build:  npx @tilefold/tile-tools build
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
 // src/addresses.js
-var MAX_PAGES = 6;
+var MAX_PAGES = 12;
 var MAX_NAME = 32;
 var PORT_ONLY = /^:?(\d{1,5})$/;
+var PORT_RANGE = /^(?:([^\s/:]+):|:)?(\d{1,5})[-~](\d{1,5})$/;
+var RANGE_SPACES = /(\d)\s*([-~])\s*(?=:?\d)/g;
+var isPort = (n) => Number.isInteger(n) && n >= 1 && n <= 65535;
 function expandAddress(text) {
   const port = PORT_ONLY.exec(text)?.[1];
-  if (port && Number(port) >= 1 && Number(port) <= 65535) return `localhost:${Number(port)}`;
+  if (port && isPort(Number(port))) return `localhost:${Number(port)}`;
   return text;
+}
+function expandPart(text, limit = MAX_PAGES) {
+  const range = PORT_RANGE.exec(text);
+  if (range) {
+    const [, host = "localhost", a, b] = range;
+    const from = Math.min(Number(a), Number(b));
+    const to = Math.max(Number(a), Number(b));
+    if (isPort(from) && isPort(to)) {
+      const out = [];
+      for (let port = from; port <= to && out.length < limit; port++) out.push(`${host}:${port}`);
+      return out;
+    }
+  }
+  const address = expandAddress(text);
+  return address ? [address] : [];
 }
 function readAddresses(value) {
   if (typeof value !== "string") return [];
   const seen = /* @__PURE__ */ new Set();
   const out = [];
-  for (const part of value.split(/[\s,]+/)) {
-    const address = expandAddress(part.trim());
-    if (!address || seen.has(address.toLowerCase())) continue;
-    seen.add(address.toLowerCase());
-    out.push(address);
-    if (out.length === MAX_PAGES) break;
+  for (const part of value.replace(RANGE_SPACES, "$1$2").split(/[\s,]+/)) {
+    for (const address of expandPart(part.trim(), MAX_PAGES - out.length)) {
+      if (seen.has(address.toLowerCase())) continue;
+      seen.add(address.toLowerCase());
+      out.push(address);
+    }
+    if (out.length >= MAX_PAGES) break;
   }
   return out;
 }

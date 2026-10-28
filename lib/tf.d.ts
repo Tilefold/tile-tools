@@ -15,6 +15,16 @@
  * Modified 2026-10-17 (panel rows per tab): a panel row's `page`.
  * Modified 2026-10-18 (screensaver themes): `tf.screensaver` and its frame.
  *
+ * Modified 2026-10-20 (agent input): a command's `input`, its handler's
+ * argument and return value.
+ *
+ * Modified 2026-10-23 (changing files): `fs.create`, `mkdir`, `rename`,
+ * `move` and `trash`, `viewer.open`'s `edit`, and their error names; panel
+ * right-click menus, the `panel.menu` and `panel.dblclick` events and
+ * `panel.edit`; panels per tab (`perTab`, the `panel.opened` event).
+ * Modified 2026-10-26 (Tilefold 0.1.20): `tf.page.open({ side })`,
+ *   `tf.theme()`, and the `page.undocked` and `theme.changed` events.
+ *
  * Last updated by: Tilefold
  */
 
@@ -38,12 +48,31 @@ export type TileEvent =
   | "overlay.hidden"
   | "page.closed"
   | "page.message"
+  | "page.undocked"
+  | "theme.changed"
   | "pane.cwd"
   | "pane.list"
   | "panel.click"
   | "panel.closed"
+  | "panel.opened"
+  | "panel.menu"
+  | "panel.dblclick"
   | "browser.navigated"
   | "browser.closed";
+
+/** How Tilefold is drawn (`tf.theme()`, "theme.changed"; Tilefold 0.1.20). */
+export interface TileTheme {
+  mode: "light" | "dark";
+  /** The theme's name ("mosaic", "paper"…). */
+  name: string;
+  /**
+   * CSS colors by name: pane (a pane's background), surface, surfaceRaised,
+   * surfaceHover, canvas, border, borderStrong, text, textSecondary,
+   * textMuted, accent, accentSoft, onAccent, success, error, warning, info,
+   * focusRing. A page sees each as `--tf-<name>` (`--tf-text-muted`).
+   */
+  colors: Record<string, string>;
+}
 
 /** One of the user's panes, as tf.pane.list() and the "pane.list" event give it. */
 export interface PaneInfo {
@@ -91,14 +120,24 @@ export interface TileEventPayloads {
   "page.closed": Record<string, never>;
   /** Plain JSON the tile's page sent with `window.tilefold.post`. */
   "page.message": { message: unknown };
+  /** The user moved the page out of the dock beside the panes (Tilefold 0.1.20): show it again where it should go. */
+  "page.undocked": Record<string, never>;
+  /** Tilefold's theme changed: light or dark, another theme, or the system's appearance (Tilefold 0.1.20). */
+  "theme.changed": TileTheme;
   /** The focused pane's folder changed (needs pane.cwd); null when none is known. */
   "pane.cwd": { path: string | null };
   /** A pane opened, closed, was renamed, moved folder or took focus (needs pane.list). */
   "pane.list": { panes: PaneInfo[] };
   /** A row of the tile's docked panel was clicked (needs window.panel). */
   "panel.click": { row: string; action: "activate" | "expand" | "collapse" };
-  /** The tile's panel was closed by the user, or replaced by another tile's. */
-  "panel.closed": { by: "user" | "replaced" };
+  /** The tile's panel was closed by the user, left on another tab (perTab), or replaced: since Tilefold 0.1.21 panels sit side by side, and only a fourth one replaces the oldest. */
+  "panel.closed": { by: "user" | "replaced" | "tab" };
+  /** A `perTab` panel is open again: the user came back to a tab it is open on (Tilefold 0.1.16). */
+  "panel.opened": { by: "tab" };
+  /** A right-click menu's choice: the row (null for the empty space) and the item (Tilefold 0.1.16). */
+  "panel.menu": { row: string | null; item: string };
+  /** A row of the panel was double-clicked, after its two `panel.click` events (Tilefold 0.1.16). */
+  "panel.dblclick": { row: string };
   /**
    * The tile's browser finished loading a page, or its title changed (needs
    * browser). `page` names which of the tile's pages, for a named one.
@@ -144,7 +183,8 @@ export interface PanelRow {
    * `tf.browser.page(name)`), or "" for the first page. Each tab's panel
    * then lists only the rows for the pages docked there (Tilefold 0.1.11).
    */
-  page?: string;
+  page?: string; /** The menu (one of the panel's `menus`) a right-click on the row opens (Tilefold 0.1.16). */
+  menu?: string;
 }
 
 /** The page a tile's browser window shows. */
@@ -184,7 +224,23 @@ export interface PanelContent {
    * ignore it). Ids are unique across `rows` and the footer.
    */
   footer?: { rows: PanelRow[] };
+  /**
+   * Right-click menus rows name with `menu` (Tilefold 0.1.16; older ones
+   * ignore them): at most 8, each at most 12 lines. Tilefold draws them.
+   */
+  menus?: Record<string, PanelMenuEntry[]>;
+  /** The menu for a right-click on the empty space under the rows. */
+  menu?: string;
+  /**
+   * True: the panel belongs to the tabs the user opens it on, not every
+   * tab (Tilefold 0.1.16; older ones ignore it). Leaving such a tab is
+   * `panel.closed` with `by: "tab"`, coming back is `panel.opened`.
+   */
+  perTab?: boolean;
 }
+
+/** One line of a panel menu: an item (id 1–32 lowercase letters, digits, dashes) or a line. */
+export type PanelMenuEntry = { id: string; label: string; tone?: "error" } | { separator: true };
 
 /** One name in a folder listing. */
 export interface FolderEntry {
@@ -331,12 +387,24 @@ export type TileErrorName =
   | "NotFoundError"
   | "NotADirectoryError"
   | "NotAFileError"
-  | "UnreadableError";
+  | "UnreadableError"
+  | "AlreadyExistsError"
+  | "InvalidNameError"
+  | "ProtectedPathError";
 
 /** The object a tile's default export receives. */
 export interface Tf {
-  /** Adds a palette command; the handler has 10 seconds. Always give an `id`. */
-  command(title: string, handler: () => unknown, options?: { id?: string; key?: Shortcut }): void;
+  /**
+   * Adds a palette command; the handler has 10 seconds. Always give an `id`.
+   * With `input` (what it takes, up to 300 characters), AI agents may run it
+   * with data: the handler gets it (`null` from the palette), and what it
+   * returns, as plain JSON of at most 64 KB, goes back to the agent.
+   */
+  command(
+    title: string,
+    handler: (input: unknown) => unknown,
+    options?: { id?: string; key?: Shortcut; input?: string },
+  ): void;
   /** Adds a setting: a switch, number box, text box or (with choices) a drop-down. */
   setting(
     key: string,
@@ -400,6 +468,14 @@ export interface Tf {
   /** Needs ai.ask. Each question is shown to the user first. */
   readonly ai?: { ask(question: AiAsk): Promise<AiAnswer> };
   /**
+   * How Tilefold is drawn now: light or dark, the theme's name, and its
+   * colors (`pane` is a pane's background), or null before it is known.
+   * "theme.changed" tells when it changes. Needs no permission; missing
+   * before Tilefold 0.1.20. A tile's page gets the same as CSS variables
+   * (`--tf-pane`, `--tf-text`…) and `window.tilefold.theme`.
+   */
+  readonly theme?: () => Promise<TileTheme | null>;
+  /**
    * Needs page. The tile's own web page (its page/ folder) in a window of
    * its own, or hidden ({ visible: false }) for one that only plays sound;
    * with `keepRunning: true` closing its window only hides it, and an open
@@ -409,8 +485,12 @@ export interface Tf {
    * self-contained document. `dock` (Tilefold 0.1.11) shows the page
    * docked in Tilefold's window at that spot (content CSS pixels, 120 to
    * 2,000 a side) instead of in a window of its own; `dock()` moves it
-   * there, and is missing before 0.1.11. `post` sends plain JSON to the
-   * open page. Missing on a Tilefold without tile pages.
+   * there, and is missing before 0.1.11. `side: true` (Tilefold 0.1.20)
+   * docks the page beside the panes, where they make room, among the pages
+   * of Tilefold's browser; opened without it, a page there moves back out
+   * (to `dock` or a window). Moving a page between the two loads it again,
+   * and "page.undocked" says the user moved it out. `post` sends plain JSON
+   * to the open page. Missing on a Tilefold without tile pages.
    */
   readonly page?: {
     open(options?: {
@@ -418,6 +498,7 @@ export interface Tf {
       keepRunning?: boolean;
       origin?: "https";
       dock?: Rect;
+      side?: boolean;
     }): Promise<null>;
     dock?(spot: Rect): Promise<null>;
     close(): Promise<null>;
@@ -450,6 +531,13 @@ export interface Tf {
   readonly panel?: {
     show(content: PanelContent): Promise<boolean>;
     hide(): Promise<null>;
+    /**
+     * Turns a row's label into a text field in place (Tilefold 0.1.16;
+     * missing before): resolves to the text typed (Enter), or null when the
+     * user cancels (Escape, clicking away) or the row goes away. `selectTo`
+     * is where the first selection ends (the name without its extension).
+     */
+    edit?(row: string, options?: { value?: string; selectTo?: number }): Promise<string | null>;
   };
   /**
    * Needs pane.cwd. The folder the focused pane is in, or null; the
@@ -468,12 +556,33 @@ export interface Tf {
    * panes is in: names and kinds only, never file contents. Missing before
    * Tilefold 0.1.9.
    */
-  readonly fs?: { list(path: string): Promise<FolderListing> };
+  readonly fs?: {
+    list(path: string): Promise<FolderListing>;
+    /**
+     * Needs fs.write. Changes inside a pane's folder, each resolving to
+     * the entry's new path: an empty file, a folder, a new name in the same
+     * folder, a move to another folder (optionally renamed). Never over
+     * another entry, never inside `.git`, never a pane's own folder. The
+     * tile never reads or writes what is in a file. Missing before
+     * Tilefold 0.1.16.
+     */
+    create?(dir: string, name: string): Promise<string>;
+    mkdir?(dir: string, name: string): Promise<string>;
+    rename?(path: string, name: string): Promise<string>;
+    move?(path: string, toDir: string, name?: string): Promise<string>;
+    /**
+     * Needs fs.write. Moves an entry to the Trash after Tilefold asks the
+     * user: true when it went, false when they said no. Missing before
+     * Tilefold 0.1.16.
+     */
+    trash?(path: string): Promise<boolean>;
+  };
   /**
    * Needs viewer.open. Shows a file from inside a pane's folder in
-   * Tilefold's document viewer. Missing before Tilefold 0.1.9.
+   * Tilefold's document viewer; `{ edit: true }` (Tilefold 0.1.16) opens it
+   * ready to edit. Missing before Tilefold 0.1.9.
    */
-  readonly viewer?: { open(path: string): Promise<null> };
+  readonly viewer?: { open(path: string, options?: { edit?: boolean }): Promise<null> };
   /**
    * Needs screensaver.theme, and a tile asking for it may ask for nothing
    * else. Adds a theme to Tilefold's screensaver, listed in Settings →

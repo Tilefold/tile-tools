@@ -27,11 +27,22 @@
  *   0.1.11): every pane's folder and the name the user gave it;
  * - `tf.fs.list` for one level of names, never file contents (`fs.list`);
  * - `tf.viewer.open` to show a file (`viewer.open`);
- * - a page in a window of its own (`tf.page`, `page`).
+ * - a page in a window of its own (`tf.page`, `page`);
+ * - from Tilefold 0.1.16, new files and folders, renames, moves and the
+ *   Trash (`tf.fs.create`, `mkdir`, `rename`, `move`, `trash`; `fs.write`),
+ *   with new files opened ready to edit (`tf.viewer.open(path, { edit })`).
  * On Tilefold 0.1.9 and 0.1.10 the panel shows the tree without the
  * colours and the pinned Recent list; the window has everything.
  *
  * Built into main.js with `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-10-23 (changing files): New file, New folder, Rename and
+ *   Move to Trash commands, and the panel's right-click menus (panel.menu);
+ *   handlers that wait for the user aren't waited for. A double-click on a
+ *   file renames it in place (panel.dblclick, and in the window). The
+ *   panel belongs to the tabs it is opened on (panel.opened on coming back).
+ *
+ * Last updated by: Tilefold
  */
 import { createFolderTree } from "./session.js";
 
@@ -60,11 +71,29 @@ export default (tf) => {
   tf.command(tf.t("cmd-refresh"), () => (tree ? tree.refresh() : unsupported()), {
     id: "refresh",
   });
+  // Changing files (Tilefold 0.1.16, fs.write): where the user last chose in the tree.
+  tf.command(tf.t("cmd-new-file"), () => (tree ? tree.newFile() : unsupported()), {
+    id: "new-file",
+  });
+  tf.command(tf.t("cmd-new-folder"), () => (tree ? tree.newFolder() : unsupported()), {
+    id: "new-folder",
+  });
+  // Renaming and the Trash wait for the user: started, never waited for here,
+  // so a slow answer can't count as a command or listener running too long.
+  tf.command(tf.t("cmd-rename"), () => void (tree ? tree.renameSelected() : unsupported()), {
+    id: "rename",
+  });
+  tf.command(tf.t("cmd-trash"), () => void (tree ? tree.trashSelected() : unsupported()), {
+    id: "trash",
+  });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
-  tf.on("page.message", (e) => tree?.message(e));
+  tf.on("panel.opened", () => void tree?.reopened());
+  tf.on("panel.menu", (e) => void tree?.menuChosen(e));
+  tf.on("panel.dblclick", (e) => void tree?.doubled(e));
+  tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());
 };

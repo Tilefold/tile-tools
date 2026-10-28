@@ -5,11 +5,13 @@
 #
 # Modified 2026-10-18 (renamed): Web Preview is now Web View.
 #
+# Modified 2026-10-19 (port ranges): the address setting mentions ranges.
+#
 # Last updated by: Tilefold
 
 tile-name = Web View (example)
 tile-description = Shows the web app you're building, such as localhost:5173, in a browser window next to your panes, and lists the pages you opened recently.
-setting-address = Ports on localhost to open, separated by commas: each opens localhost:PORT in a page of its own (5173, 3000). Full addresses such as staging.example.com work too.
+setting-address = Ports on localhost to open, separated by commas: each opens localhost:PORT in a page of its own (5173, 3000). A range such as 3000-3010 opens every port in it. Full addresses such as staging.example.com work too.
 setting-docked = Show beside the panes (off: in a window of its own)
 setting-panel = Show recent pages beside the panes
 cmd-open = Web View: Open

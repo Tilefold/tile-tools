@@ -4,11 +4,23 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 
 ## Using it
 
-- **Folder Tree: Show or hide** (⌃⌥T on macOS) docks the tree. Click a folder to open it, and a file to read it in the document viewer beside the tree. The tree follows you when you switch panes or `cd`.
+- **Folder Tree: Show or hide** (⌃⌥T on macOS) docks the tree. Click a folder to open it, and a file to read it in the document viewer beside the tree. The tree follows you when you switch panes or `cd`. From Tilefold 0.1.16 the panel belongs to the tab you show it on: other tabs stay clear until you show it there too, and it comes back when you return.
 - **Now**, at the top, lists the files agents are on at this moment, each pulsing: blue for reading, amber for editing, green for adding, red for deleting. It keeps its place and at least three rows' height even when no agent is busy, so the tree below doesn't jump.
 - **Every pane:** what agents do in all your panes shows together, not only in the pane you're in. A file outside the tree's folder shows after its pane's folder name (`game/src/hud.js`).
 - **Recent**, pinned to the bottom, shows the newest five. **Show all** lets it grow upward to half the panel, scrolling inside; **Show fewer** shrinks it back. Folder Tree remembers which you chose.
 - **Folder Tree: Open window** shows the same in a window of its own.
+
+## Changing files
+
+From Tilefold 0.1.16, Folder Tree can also add, rename, move and trash files and folders, and you edit files right in the document viewer.
+
+- **Right-click in the panel:** on a folder for **New file**, **New folder**, **Rename…** and **Move to Trash**; on a file for **Open**, **Edit**, **Rename…** and **Move to Trash**; on the empty space under the tree for a new file or folder in the tree's own folder. **New file** makes `untitled.md` (or `untitled 2.md`, …) and opens it in the document viewer ready to type (save with ⌘S); **New folder** makes `untitled folder`. The ContextMenu key or Shift+F10 opens the menu from the keyboard. The same are in the command palette as **Folder Tree: New file**, **New folder**, **Rename** and **Move to Trash**, which work on the row you last clicked.
+- **Rename** (or **double-click a file**) turns the name into a text field right in the tree, with the name selected up to its extension: Enter keeps the new name, Escape keeps the old one. **Move to Trash** moves the chosen file or folder to the Trash; Tilefold asks you first, and you can put it back from the Trash in Finder.
+- **In the window** (Folder Tree: Open window): the **New file**, **New folder**, **Rename**, **Edit** and **Move to Trash** buttons above the tree; rename in place, or by double-clicking a file (Enter keeps the name, Escape doesn't); drag a file or folder onto another folder to move it, or onto the **Files** heading to move it to the tree's folder; **F2** renames and **⌘⌫** (or Delete) moves to the Trash.
+- Nothing is ever replaced: a name that's taken is refused. Folders inside `.git`, and the folder a pane is in itself, can't be changed.
+- Folder Tree still never reads or writes what's in a file; you type in Tilefold's document viewer. The activity log records each change by kind only, never a name.
+
+On an older Tilefold the tree works as before, and these commands say they need Tilefold 0.1.16.
 
 The colours, pulses, pinned Recent list, every pane and pane names need Tilefold 0.1.11. On 0.1.9 and 0.1.10 the panel shows the tree only, and only the focused pane's agents; the window has the rest.
 
@@ -54,4 +66,4 @@ The **Folder Tree: Set up agent activity** command shows the same steps in the w
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-14 by Tilefold
+Last updated: 2026-10-23 by Tilefold

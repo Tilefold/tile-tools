@@ -14,10 +14,12 @@
  * front with ids, and its commands do what the example promises.
  *
  * Modified 2026-10-18 (screensaver themes): the screensaver-themes example.
+ * Modified 2026-10-26 (Quiz example): the Quiz is listed; only folders
+ *   with a tile.json count as examples.
  *
  * Last updated by: Tilefold
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,8 +28,10 @@ import { bundlePage, PAGE_OUTPUT } from "../lib/page.mjs";
 import { checkMain } from "../lib/rules.mjs";
 
 const EXAMPLES = fileURLToPath(new URL("../examples/", import.meta.url));
+// An example is a folder with a tile.json; anything else (a folder left
+// behind by another branch, say) isn't one.
 const folders = readdirSync(EXAMPLES, { withFileTypes: true })
-  .filter((d) => d.isDirectory())
+  .filter((d) => d.isDirectory() && existsSync(join(EXAMPLES, d.name, "tile.json")))
   .map((d) => d.name)
   .sort();
 
@@ -88,6 +92,7 @@ describe("examples", () => {
       "hello",
       "orbit-guard",
       "pipeline-board",
+      "quiz",
       "screensaver-themes",
       "service-status",
       "shell-tips",
