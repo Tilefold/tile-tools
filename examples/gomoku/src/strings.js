@@ -10,6 +10,11 @@
  * or `{ $cell }`, the page gets `{name}`, `{code}` or `{cell}` there and
  * fills it in itself (the name of the other player, the game code, the
  * point just played).
+ *
+ * Modified 2026-10-29 (playing an AI agent): the lobby's button, the
+ *   agent's name and turn, and the notice for the agent's move.
+ *
+ * Last updated by: Tilefold
  */
 
 /** The page's message keys. */
@@ -22,6 +27,8 @@ export const PAGE_KEYS = [
   "lobby-name",
   "lobby-name-hint",
   "lobby-new",
+  "lobby-agent",
+  "agent-name",
   "lobby-code",
   "lobby-code-hint",
   "lobby-join",
@@ -40,6 +47,7 @@ export const PAGE_KEYS = [
   "status-reconnecting",
   "status-your-turn",
   "status-their-turn",
+  "status-agent-turn",
   "status-away",
   "status-gone",
   "status-won",
@@ -77,4 +85,5 @@ export const NOTICE_KEYS = {
   left: "notice-left",
   rematch: "notice-rematch",
   over: "notice-over",
+  "agent-moved": "notice-agent-moved",
 };

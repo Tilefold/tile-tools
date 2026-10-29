@@ -13,6 +13,16 @@
  * The other player's moves become notices in the user's language; Leave
  * goes through the page when it's open and forgets the game otherwise.
  * Only one-word actions are recorded, never what the players typed.
+ *
+ * Modified 2026-10-29 (playing an AI agent): an agent's commands open the
+ *   board when it's closed, wait for it to be ready, pass the request to the
+ *   page and give back its answer (an answer with an error is thrown, as
+ *   the reason the agent sees); "Play a point" from the palette only opens
+ *   the board; only "Read the board" and "Play a point" take input; a page
+ *   that closes or never answers ends the request with a reason; agent
+ *   moves and games against an agent are recorded as one word.
+ *
+ * Last updated by: Tilefold
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -171,5 +181,90 @@ describe("leaving", () => {
     await host.command("leave");
     expect(host.store.get("game")).toBeNull();
     expect(host.audits.map((a) => a.action)).toEqual(["left"]);
+  });
+});
+
+/** Lets the tile's background work run. */
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** The last agent request the tile passed to the page. */
+const lastAsk = (host) => host.page.posted.filter((m) => m.do === "agent").at(-1);
+
+describe("an AI agent's commands", () => {
+  it("open the board, wait for it, and give back the page's answer", async () => {
+    const host = await start();
+    const run = host.command("board", { wait: true });
+    await tick();
+    expect(host.page.open).toBe(true);
+    // The page loads, gets its setup and says it's ready; then the request reaches it.
+    await say(host, { type: "hello" });
+    await say(host, { type: "ready" });
+    await tick();
+    const ask = lastAsk(host);
+    expect(ask).toMatchObject({ do: "agent", ask: "board", input: { wait: true } });
+    const board = { mode: "agent", phase: "playing", you: "white", yourTurn: true };
+    await say(host, { type: "agent", id: ask.id, reply: { board } });
+    expect(await run).toEqual({ board });
+  });
+
+  it("pass a move on, and give its refusal back as the reason", async () => {
+    const host = await start();
+    await host.command("open");
+    await say(host, { type: "hello" });
+    await say(host, { type: "ready" });
+    const run = host.command("move", { cell: "H8" });
+    await tick();
+    const ask = lastAsk(host);
+    expect(ask).toMatchObject({ ask: "play", input: { cell: "H8" } });
+    await say(host, { type: "agent", id: ask.id, reply: { error: "It isn't your turn." } });
+    await expect(run).rejects.toThrow("It isn't your turn.");
+    // Answers for requests nobody waits for are ignored.
+    await say(host, { type: "agent", id: "nope", reply: {} });
+  });
+
+  it("start a game against the agent", async () => {
+    const host = await start();
+    await host.command("open");
+    await say(host, { type: "hello" });
+    await say(host, { type: "ready" });
+    const run = host.command("versus");
+    await tick();
+    const ask = lastAsk(host);
+    expect(ask).toMatchObject({ ask: "versus", input: null });
+    await say(host, { type: "agent", id: ask.id, reply: { ok: true, board: { mode: "agent" } } });
+    expect(await run).toMatchObject({ ok: true });
+    await say(host, { type: "event", action: "agent-game" });
+    await say(host, { type: "event", action: "agent-moved" });
+    expect(host.audits.map((a) => a.action)).toEqual(["opened", "agent-game", "agent-moved"]);
+  });
+
+  it("only open the board for Play a point from the palette", async () => {
+    const host = await start();
+    await host.command("move");
+    expect(host.page.open).toBe(true);
+    expect(lastAsk(host)).toBeUndefined();
+  });
+
+  it("take input only where they say so", async () => {
+    const host = await start();
+    await expect(host.command("versus", { cell: "H8" })).rejects.toThrow(/takes no input/);
+    const inputs = Object.fromEntries(
+      host.regs.filter((r) => r.kind === "command").map((r) => [r.id, r.input ?? null]),
+    );
+    expect(inputs.board).toMatch(/wait/);
+    expect(inputs.move).toMatch(/H8/);
+    expect(inputs.versus).toBeNull();
+    expect(inputs.open).toBeNull();
+  });
+
+  it("end a request with a reason when the board closes before answering", async () => {
+    const host = await start();
+    await host.command("open");
+    await say(host, { type: "hello" });
+    await say(host, { type: "ready" });
+    const run = host.command("board", { wait: true });
+    await tick();
+    await host.command("close");
+    await expect(run).rejects.toThrow("The board was closed.");
   });
 });

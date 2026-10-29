@@ -11,6 +11,11 @@
  * its own piece of the grid lines (a cross, or half of one on an edge), and
  * its stone on top. Whose turn it is never shows by color alone: the
  * status line says it in words too.
+ *
+ * Modified 2026-10-29 (playing an AI agent): the lobby's "Play against an
+ *   agent" button, outlined in the accent color.
+ *
+ * Last updated by: Tilefold
  */
 :root {
   color-scheme: light dark;
@@ -152,6 +157,11 @@ button.primary {
 
 button.primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 88%, var(--fg));
+}
+
+button.versus {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 button.icon {

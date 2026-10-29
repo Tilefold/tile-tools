@@ -22,6 +22,15 @@
  * Leave command. All text arrives from the tile in the user's language;
  * labels hold `{name}`, `{code}` or `{cell}` where those go.
  *
+ * Modified 2026-10-29 (playing an AI agent): "Play against an agent" starts
+ *   a game on this board alone (versus.js), the other color played by an
+ *   agent in one of the user's panes through the tile's commands. The tile
+ *   passes the agent's requests as `agent` messages ({ id, ask: "board",
+ *   "play" or "versus", input }) and the page answers each with the board
+ *   as the agent reads it (agent-view.js), waiting up to WAIT_MS for the
+ *   agent's turn when asked to. In a game with another person, an agent may
+ *   read the board and play for the user on their turn.
+ *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
 import { createBoard } from "./board.js";
@@ -29,6 +38,11 @@ import { showCode } from "./code.js";
 import { cellName } from "./game.js";
 import { createMatch, NAME_MAX } from "./match.js";
 import { createRelay } from "./relay.js";
+import { agentBoard, parseCell } from "./agent-view.js";
+import { createVersus } from "./versus.js";
+
+/** Longest an agent's "wait for my turn" is held, in milliseconds (the tile's command has ten seconds). */
+export const WAIT_MS = 7000;
 
 const bridge = window.tilefold;
 const $ = (id) => document.getElementById(id);
@@ -58,7 +72,11 @@ const ERRORS = {
 /** This player's random id, kept by the tile. */
 let player = null;
 let match = null;
+/** The game against an agent, on this board alone. */
+let versus = null;
 let board = null;
+/** Agents' requests waiting for their turn: { check(), timer }. */
+const waiting = new Set();
 /** The view last drawn. */
 let view = null;
 /** The last thing told to the tile for its activity log, so each is said once. */
@@ -89,10 +107,13 @@ const event = (action) => {
   send({ type: "event", action });
 };
 
+/** The game being played: the one against the agent while it's open, else the match. */
+const active = () => (versus && versus.view().phase !== "lobby" ? versus : match);
+
 /** Something the other player did, as a notice, while the user is looking elsewhere. */
 function notice(n) {
   if (document.hasFocus()) return;
-  const cell = n.kind === "moved" ? cellName(n.x, n.y) : "";
+  const cell = n.kind === "moved" || n.kind === "agent-moved" ? cellName(n.x, n.y) : "";
   send({ type: "notice", kind: n.kind, name: n.name, cell });
 }
 
@@ -112,6 +133,7 @@ function status(v) {
       return L(r.resigned ? "result-they-resigned" : "status-won", { name });
     return L(r.resigned ? "result-you-resigned" : "status-lost", { name });
   }
+  if (v.mode === "agent") return v.myTurn ? L("status-your-turn") : L("status-agent-turn");
   if (v.opponent?.gone) return L("status-gone", { name });
   if (!v.opponent?.here) return L("status-away", { name });
   return v.myTurn ? L("status-your-turn") : L("status-their-turn", { name });
@@ -129,14 +151,17 @@ function playerLine(el, color, name, turn) {
 
 /** Draws `v`, the match's view. */
 function render(v) {
+  // A game against the agent draws over the match, which waits in its lobby meanwhile.
+  if (v.mode !== "agent" && versus && versus.view().phase !== "lobby") return;
   view = v;
+  for (const w of [...waiting]) w.check();
   const busy = v.phase === "connecting" && !v.room;
   $("conn").textContent = v.room && !v.online ? "●" : "";
   $("conn").title = v.room && !v.online ? L("status-reconnecting") : "";
 
   if (v.phase === "lobby" || busy) {
     screen("lobby");
-    for (const id of ["new", "join", "name", "code"]) $(id).disabled = busy;
+    for (const id of ["new", "join", "name", "code", "versus"]) $(id).disabled = busy;
     $("error").hidden = !v.error && !busy;
     $("error").textContent = busy
       ? L(v.offline ? "error-offline" : "status-connecting")
@@ -172,12 +197,15 @@ function render(v) {
   const over = v.phase === "over";
   $("rematch").hidden = !over || !!v.opponent?.gone;
   $("rematch").disabled = v.rematch.mine;
-  $("rematch").textContent = v.rematch.mine
-    ? L("rematch-waiting", { name: them })
-    : v.rematch.theirs
-      ? L("rematch-accept")
-      : L("action-rematch");
-  $("offer").hidden = !(over && v.rematch.theirs && !v.rematch.mine);
+  $("rematch").textContent =
+    v.mode === "agent"
+      ? L("action-rematch")
+      : v.rematch.mine
+        ? L("rematch-waiting", { name: them })
+        : v.rematch.theirs
+          ? L("rematch-accept")
+          : L("action-rematch");
+  $("offer").hidden = v.mode === "agent" || !(over && v.rematch.theirs && !v.rematch.mine);
   $("offer").textContent = L("rematch-offered", { name: them });
   if (over) {
     const r = v.result;
@@ -194,6 +222,7 @@ function applyLabels() {
     intro: "lobby-intro",
     "name-label": "lobby-name",
     new: "lobby-new",
+    versus: "lobby-agent",
     "code-label": "lobby-code",
     join: "lobby-join",
     "cancel-connect": "action-cancel",
@@ -247,14 +276,102 @@ function setup(m) {
     onSave: keep,
     onNotice: notice,
   });
+  versus = createVersus({
+    agentName: L("agent-name"),
+    onChange: render,
+    onSave: keep,
+    onNotice: notice,
+  });
   keep(m.saved ?? null);
-  if (m.saved) match.resume(m.saved);
+  if (m.saved?.mode === "agent") {
+    if (!versus.resume(m.saved)) render(match.view());
+  } else if (m.saved) match.resume(m.saved);
   else render(match.view());
+  send({ type: "ready" });
+}
+
+/** Leaves the game against the agent, so the match's lobby shows again. */
+function leaveVersus() {
+  versus.leave();
+  render(match.view());
+}
+
+/** Starts a game against the agent (the lobby's button, or the tile's command). */
+function startVersus() {
+  if (!versus || view?.room) return false;
+  versus.start($("name").value);
+  event("agent-game");
+  return true;
+}
+
+/** What the page answers an agent's request with, once it can. */
+function answerAgent(m) {
+  const reply = (extra = {}) =>
+    send({ type: "agent", id: m.id, reply: { ...extra, board: agentBoard(versusOrView()) } });
+  if (!versus)
+    return send({ type: "agent", id: m.id, reply: { error: "The board isn't ready yet." } });
+  if (m.ask === "versus") {
+    if (!startVersus())
+      return reply({ error: "A game with another person is open; it must end first." });
+    return reply({ ok: true });
+  }
+  if (m.ask === "play") {
+    const point = parseCell(m.input);
+    if (!point) return reply({ error: "Name a point such as H8: a column A-O and a row 1-15." });
+    const why = playForAgent(point[0], point[1]);
+    if (why) return reply({ error: AGENT_REFUSALS[why] ?? why });
+    send({ type: "event", action: "agent-moved" });
+    return reply({ ok: true, played: m.input.cell ?? m.input });
+  }
+  // "board": now, or once it's the agent's turn (or the game ends) when asked to wait.
+  const ready = () => {
+    const b = agentBoard(versusOrView());
+    return !(m.input && m.input.wait === true) || b.yourTurn || b.phase !== "playing";
+  };
+  if (ready()) return reply();
+  const w = {
+    check() {
+      if (!ready()) return;
+      clearTimeout(w.timer);
+      waiting.delete(w);
+      reply();
+    },
+  };
+  w.timer = setTimeout(() => {
+    waiting.delete(w);
+    reply({ waited: true });
+  }, WAIT_MS);
+  waiting.add(w);
+}
+
+/** The view an agent reads: the game against it while open, else the match's. */
+const versusOrView = () =>
+  versus && versus.view().phase !== "lobby" ? versus.view() : (match?.view() ?? null);
+
+/** Why an agent's move was refused, in words it can act on. */
+const AGENT_REFUSALS = {
+  "no-game": 'No game is open. Run Gomoku\'s "Play against an agent" command first.',
+  "not-your-turn": 'It isn\'t your turn. Read the board with { "wait": true } to wait for it.',
+  "not-playing": "The game isn't being played right now (it's over, or waiting for a player).",
+  taken: "That point already has a stone. Pick an empty one.",
+  "off-board": "That point isn't on the board.",
+  over: "The game is over.",
+};
+
+/** Plays (x, y) for the agent: its own color against the user, or the user's in a match. */
+function playForAgent(x, y) {
+  if (versus.view().phase !== "lobby") return versus.agentPlay(x, y);
+  const v = match.view();
+  if (v.phase === "lobby" || v.phase === "connecting") return "no-game";
+  if (v.phase !== "playing") return "not-playing";
+  if (!v.myTurn) return "not-your-turn";
+  return match.play(x, y) ? null : "taken";
 }
 
 /** Wires the page's buttons and fields. */
 function wire() {
-  board = createBoard($("board"), { onPlay: (x, y) => match?.play(x, y) });
+  board = createBoard($("board"), { onPlay: (x, y) => active()?.play(x, y) });
+  $("versus").addEventListener("click", () => startVersus());
   $("new").addEventListener("click", () => match?.create($("name").value));
   const join = () => match?.join($("code").value, $("name").value);
   $("join").addEventListener("click", join);
@@ -266,10 +383,11 @@ function wire() {
   $("copy").addEventListener("click", () => void copyCode());
   $("cancel").addEventListener("click", () => match?.leave());
   $("cancel-connect").addEventListener("click", () => match?.leave());
-  $("resign").addEventListener("click", () => match?.resign());
-  $("rematch").addEventListener("click", () => match?.rematch());
+  $("resign").addEventListener("click", () => active()?.resign());
+  $("rematch").addEventListener("click", () => active()?.rematch());
   $("leave").addEventListener("click", () => {
-    match?.leave();
+    if (active() === versus) leaveVersus();
+    else match?.leave();
     event("left");
   });
   $("close").addEventListener("click", () => send({ type: "close" }));
@@ -280,7 +398,11 @@ wire();
 bridge?.onMessage((m) => {
   if (!m || typeof m !== "object") return;
   if (m.do === "setup") setup(m);
-  if (m.do === "leave" && view?.room) {
+  if (m.do === "agent" && typeof m.id === "string") answerAgent(m);
+  if (m.do === "leave" && active() === versus) {
+    leaveVersus();
+    event("left");
+  } else if (m.do === "leave" && view?.room) {
     match.leave();
     event("left");
   }

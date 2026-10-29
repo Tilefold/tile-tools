@@ -8,6 +8,11 @@
   code), the code to send while waiting for the other player, and the
   board with whose turn it is. All text arrives from the tile in the
   user's language; main.js is built from page-src/.
+
+  Modified 2026-10-29 (playing an AI agent): the lobby's "Play against an
+    agent" button.
+
+  Last updated by: Tilefold
 -->
 <html lang="en">
   <head>
@@ -30,6 +35,7 @@
         <label id="name-label" for="name"></label>
         <input id="name" type="text" autocomplete="nickname" spellcheck="false" />
         <button id="new" class="primary" type="button"></button>
+        <button id="versus" class="versus" type="button"></button>
         <div class="join">
           <label id="code-label" for="code"></label>
           <div class="join-row">
