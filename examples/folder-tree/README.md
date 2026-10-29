@@ -5,9 +5,9 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 ## Using it
 
 - **Folder Tree: Show or hide** (⌃⌥T on macOS) docks the tree. Click a folder to open it, and a file to read it in the document viewer beside the tree. The tree follows you when you switch panes or `cd`. From Tilefold 0.1.16 the panel belongs to the tab you show it on: other tabs stay clear until you show it there too, and it comes back when you return.
-- **Now**, at the top, lists the files agents are on at this moment, each pulsing: blue for reading, amber for editing, green for adding, red for deleting. It keeps its place and at least three rows' height even when no agent is busy, so the tree below doesn't jump.
+- **Now**, at the top, lists the files agents are on at this moment, each pulsing: blue for reading, amber for editing, green for adding, red for deleting. It keeps its place and at least three rows' height, so the tree below doesn't jump, and the rows no busy file needs show what's been going on: the last thing an agent did (click it to open the file), which agents worked here in the last hour by their panes' names (or how long it has been quiet), and a tally of the hour's edits, additions and reads. Before you set up the hooks, it shows a row that opens their setup.
 - **Every pane:** what agents do in all your panes shows together, not only in the pane you're in. A file outside the tree's folder shows after its pane's folder name (`game/src/hud.js`).
-- **Recent**, pinned to the bottom, shows the newest five. **Show all** lets it grow upward to half the panel, scrolling inside; **Show fewer** shrinks it back. Folder Tree remembers which you chose.
+- **Recent**, pinned to the bottom, shows the newest five. It is always there while activity is shown, saying so until an agent has used a file in the folder. **Show all** lets it grow upward to half the panel, scrolling inside; **Show fewer** shrinks it back. Folder Tree remembers which you chose.
 - **Folder Tree: Open window** shows the same in a window of its own.
 
 ## Changing files
@@ -66,4 +66,4 @@ The **Folder Tree: Set up agent activity** command shows the same steps in the w
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-23 by Tilefold
+Last updated: 2026-10-28 by Tilefold

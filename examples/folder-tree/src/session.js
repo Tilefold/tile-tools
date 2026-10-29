@@ -40,6 +40,8 @@
  *   the tabs it is opened on: leaving such a tab is `panel.closed`
  *   ({ by: "tab" }), so the tree rests there, and coming back is
  *   `panel.opened`, which shows it again for that tab's pane.
+ * Modified 2026-10-28 (a livelier Now): the Now section's setup row opens
+ *   the hooks' guide.
  *
  * Last updated by: Tilefold
  */
@@ -307,6 +309,8 @@ export function createFolderTree(tf) {
         recentOpen: action === "expand" || (action === "activate" && !ui.recentOpen),
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
+    // The Now section's setup row, before any agent activity: the hooks' guide.
+    if (target.kind === "setup") return api.openWindow(true);
     return undefined;
   };
 
