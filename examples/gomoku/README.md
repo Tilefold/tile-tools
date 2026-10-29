@@ -20,7 +20,7 @@ If either of you loses the connection, the board says so and reconnects by itsel
 
 ## What the relay sees
 
-The relay passes the game's messages between the two boards: your names, the moves, and the code. It needs no account, and keeps nothing once a room has gone unused for a day. Tilefold's own activity log records only one-word actions, such as `created`, `won` or `left`, and never the names or codes.
+The relay passes the game's messages between the two boards: your names, the moves, and the code. It needs no account. Tilefold's relay keeps a record that the room exists (its code, the kind of game, and when it was used), and your name only while you're in the room; it never stores the moves. A room nobody has used for a day is closed, and its code stops working. Tilefold's own activity log records only one-word actions, such as `created`, `won` or `left`, and never the names or codes.
 
 ## Using your own relay
 
