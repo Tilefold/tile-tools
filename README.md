@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1578%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-19-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1681%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-20-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -14,6 +14,7 @@ Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types 
 - Commands
 - Tile layout
 - Examples
+- Room relay
 - What can be bundled
 - TypeScript
 - Using it from a script
@@ -123,6 +124,7 @@ The rules that matter most: register commands, settings and listeners at the top
 | [Folders](docs/folders.md) | Following the user's folder, listing it and opening files in the viewer |
 | [Asking Claude](docs/ai.md) | Questions to Claude with the user's key and confirmation |
 | [Screensaver themes](docs/screensaver-themes.md) | Themes for Tilefold's screensaver, drawn on a canvas, from a tile that asks for nothing else |
+| [Live tiles with other people](docs/room-relay.md) | The room relay's protocol, a page's side of it, and running your own relay |
 | [Limits and errors](docs/limits-and-errors.md) | Every limit and every error name in one place |
 | [Reporting issues and ideas](docs/reporting-issues.md) | Where to report Tilefold and Tile Tools bugs and ideas, the issue forms and the labels |
 
@@ -164,7 +166,17 @@ The entry exports only its default function; exporting other names is an error, 
 
 ## Examples
 
-`examples/` holds nineteen tiles, from a few lines to full tiles with their own test suites: games, cards that call web services, sign-ins, Claude, tile pages, a docked folder tree, a quiz on a borderless card, screensaver themes. Each one ships its built `main.js`, so you can copy its folder into your tiles folder and try it at once. [examples/README.md](examples/README.md) lists them, with what each one shows, the Tilefold it needs and how to set up the ones that use an account.
+`examples/` holds twenty tiles, from a few lines to full tiles with their own test suites: games, cards that call web services, sign-ins, Claude, tile pages, a docked folder tree, a quiz on a borderless card, screensaver themes, a two-player game through a room relay. Each one ships its built `main.js`, so you can copy its folder into your tiles folder and try it at once. [examples/README.md](examples/README.md) lists them, with what each one shows, the Tilefold it needs and how to set up the ones that use an account.
+
+## Room relay
+
+`relay/` is an open room relay: a small server that makes rooms with a code and passes messages between the people in each, for tiles that do something live together, such as Gomoku or a chat. It needs Node.js 22 or later and nothing installed:
+
+```sh
+node relay/server.mjs --port 8787
+```
+
+`relay/rooms.mjs` is the protocol itself, `relay/ws.mjs` a small WebSocket server on Node's own modules, and `relay/server.mjs` the command, with `GET /health` and a JSON-lines activity log that never holds names, codes or messages. Tiles reach a relay only over `wss://` on port 443, so a public one sits behind TLS. [Live tiles with other people](docs/room-relay.md) has the protocol, the page's side, and how to run and secure your own. The relay isn't part of the npm package.
 
 ## What can be bundled
 
@@ -220,14 +232,15 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1578 tests in 74 files, all passing on 2026-10-28).
+Run with `npm test` (1681 tests in 81 files, all passing on 2026-10-28).
 
 | Area | Covers |
 |---|---|
 | Rules | One default export, named exports and imports refused, size limit |
 | Bundling | Entry choice, local imports, npm packages, TypeScript, tree-shaking, the notice on top, export rewriting, errors with their place, minify, page scripts |
 | Commands and CLI | build, `--watch`, `--check`, validate, help, version, bad arguments and exit codes |
-| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Quiz also: its card docked over the pane, moved by its top bar or grip and resized by its corner, docked beside the panes and back, in Tilefold's theme or light or dark, the panel, saved progress, quizzes added by agents and checked, and older Tilefolds; Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command, adding, renaming, moving and trashing files, its panel per tab, and its window's file tools in a DOM) against the fake host |
+| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Gomoku also: five in a row in every direction, draws, refused moves, game codes, the relay client's reconnects and pings, two players through a fake relay with rematches and catching up after a drop, and its built page played by two windows; Quiz also: its card docked over the pane, moved by its top bar or grip and resized by its corner, docked beside the panes and back, in Tilefold's theme or light or dark, the panel, saved progress, quizzes added by agents and checked, and older Tilefolds; Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command, adding, renaming, moving and trashing files, its panel per tab, and its window's file tools in a DOM) against the fake host |
+| Room relay | Rooms, codes and names; joining in any case; messages to the others only; full rooms, wrong apps, unknown codes and malformed frames; one room per connection; seats freed on leave and close; the frame allowance and size limit; rooms expiring after a day unused; `authorize` and the token in the address; an activity log without names, codes or messages; WebSocket frames at every length, the RFC 6455 handshake, split messages, unmasked frames refused, the heartbeat closing silent clients, wrong paths and origins turned away, `/health`; the command's options; and a whole Gomoku game between two boards over a real relay, one board leaving and coming back mid-game |
 | Fake host | The fake Tilefold behaves like the real one for settings, commands with an agent's input and their results, strings, storage, overlays, panels (per tab too), pages, browsers (several pages per tile), screensaver themes, sounds, network, keys, AI, folders and file changes |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
 | Issue tracker | The issue forms parse, set one area, one type and `status: triage` from `labels.json`, and list every example tile; blank issues off; the label sync creates and corrects labels without deleting any, and a dry run changes nothing |
@@ -238,6 +251,7 @@ Run with `npm test` (1578 tests in 74 files, all passing on 2026-10-28).
 - Tile Tools 0.2.0 (the `tf` types, the docs and the examples) is prepared in this repository but not published; npm still has 0.1.0.
 - Most examples have been tried only against the fake host, not against their real service in a running Tilefold; [examples/README.md](examples/README.md) says which.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
+- Gomoku has been played through Tilefold's relay at `play.tilefold.com` from its own client code, and in a browser against a local relay, but not yet as a tile inside a running Tilefold.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`).
 - No `new` (scaffold a tile) command yet, and the command-line messages are English only.
 
