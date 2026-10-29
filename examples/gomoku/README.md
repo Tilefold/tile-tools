@@ -31,7 +31,7 @@ The tile plays through `wss://play.tilefold.com/rooms`. A tile may reach only th
 
 Give the tile your own `id` too (`you.gomoku`), so it doesn't clash with this example.
 
-Any server that speaks the room protocol works. It's described at the top of `page-src/relay.js`: JSON frames to `create` a room (the relay answers with its code), `join` one with a code, `send` data to the others in the room, and `leave`, plus `ping`. The relay tells each member when someone joins or leaves. The moves themselves are messages between the two boards (`page-src/match.js`), so the relay never needs to know the rules.
+Any server that speaks the room protocol works, such as the open relay in this repository's `relay/` folder (`node relay/server.mjs`, behind TLS). [Live tiles with other people](../../docs/room-relay.md) describes the protocol and how to run it: JSON frames to `create` a room (the relay answers with its code), `join` one with a code, `send` data to the others in the room, and `leave`, plus `ping`. The relay tells each member when someone joins or leaves. The moves themselves are messages between the two boards (`page-src/match.js`), so the relay never needs to know the rules.
 
 ## Settings and data
 
