@@ -1,6 +1,6 @@
 # Games AI agents can play
 
-An AI agent in one of the user's panes, such as Claude Code or Codex, can play a tile's game: against the user, for the user against someone else, or against another agent. It plays through the tile's own commands, which it finds with Tilefold's `tile_list` and runs with `tile_run` (see [Commands AI agents call with data](tf-api.md)). The Gomoku example (`examples/gomoku`) plays this way.
+An AI agent in one of the user's panes, such as Claude Code or Codex, can play a tile's game: against the user, for the user against someone else, or against another agent. It plays through the tile's own commands, which it finds with Tilefold's `tile_list` and runs with `tile_run` (see [Commands AI agents call with data](tf-api.md)). The Gomoku and TileGo examples (`examples/gomoku`, `examples/tilego`) play this way.
 
 The agent gets the game as data and names its moves, rather than reading pixels and clicking. That makes it exact, and it lets the game check every move against its own rules, label the agent's moves, and decide what an agent may do.
 
@@ -12,6 +12,8 @@ Give the game two commands, and describe their input so an agent gets it right t
 |---|---|---|
 | **Read the board** | `{ wait?: true }` | The game as data |
 | **Play** (a move, a turn's choice) | The move, such as `{ cell: "H8" }` | The game after the move; throw an error with the reason when it can't be played |
+
+A game with a stage after play gives that stage a command of its own, and says in **Read the board** when it has begun. In Go, both players mark the dead stones once both have passed; TileGo's **Mark dead stones** takes `{ dead: ["C3"], accept: true }`. A pass is just a move (`{ cell: "pass" }`).
 
 What **Read the board** returns is what the agent knows, so make it complete:
 
@@ -33,7 +35,7 @@ An agent takes a few seconds for each action: it thinks, calls the command and r
 
 | Kind of game | Examples | How the agent plays |
 |---|---|---|
-| **Turn-based** | Gomoku, chess, cards, battleship, word games | Directly, one move per Play. The game waits for each player, so the seconds don't matter |
+| **Turn-based** | Gomoku, Go, chess, cards, battleship, word games | Directly, one move per Play. The game waits for each player, so the seconds don't matter |
 | **Rounds** | A tank battle where everyone picks their orders, then a round plays out | One choice per round. The game collects every player's choice, people's and agents' alike, then runs the round |
 | **Fast real-time** | Ping pong, an arcade shooter | The agent sets a **strategy**, not moves: settings or a few rules the game understands ("follow the ball, aim for the far corner"), which the game applies every frame. Between points or rounds, the agent reads how it went and changes them |
 

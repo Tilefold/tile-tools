@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1720%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-20-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-1807%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-21-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -171,7 +171,7 @@ The entry exports only its default function; exporting other names is an error, 
 
 ## Room relay
 
-`relay/` is an open room relay: a small server that makes rooms with a code and passes messages between the people in each, for tiles that do something live together, such as Gomoku or a chat. It needs Node.js 22 or later and nothing installed:
+`relay/` is an open room relay: a small server that makes rooms with a code and passes messages between the people in each, for tiles that do something live together, such as Gomoku, TileGo or a chat. It needs Node.js 22 or later and nothing installed:
 
 ```sh
 node relay/server.mjs --port 8787
@@ -233,14 +233,14 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1720 tests in 83 files, all passing on 2026-10-28).
+Run with `npm test` (1807 tests in 89 files, all passing on 2026-10-28).
 
 | Area | Covers |
 |---|---|
 | Rules | One default export, named exports and imports refused, size limit |
 | Bundling | Entry choice, local imports, npm packages, TypeScript, tree-shaking, the notice on top, export rewriting, errors with their place, minify, page scripts |
 | Commands and CLI | build, `--watch`, `--check`, validate, help, version, bad arguments and exit codes |
-| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Gomoku also: Undo against an agent and asked of another player, allowed, declined or missed while away; games against an AI agent through its commands (reading the board, waiting for its turn, its moves and their refusals, from the tile to the built page), five in a row in every direction, draws, refused moves, game codes, the relay client's reconnects and pings, two players through a fake relay with rematches and catching up after a drop, and its built page played by two windows; Quiz also: its card docked over the pane, moved by its top bar or grip and resized by its corner, docked beside the panes and back, in Tilefold's theme or light or dark, the panel, saved progress, quizzes added by agents and checked, and older Tilefolds; Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command, adding, renaming, moving and trashing files, its panel per tab, its Recent section kept before any activity, its Now section's last action, agents of the hour, tally and setup row, and its window's file tools in a DOM) against the fake host |
+| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Gomoku also: Undo against an agent and asked of another player, allowed, declined or missed while away; games against an AI agent through its commands (reading the board, waiting for its turn, its moves and their refusals, from the tile to the built page), five in a row in every direction, draws, refused moves, game codes, the relay client's reconnects and pings, two players through a fake relay with rematches and catching up after a drop, and its built page played by two windows; TileGo also: captures, suicide and ko on every board size, passing and the end of play, marking dead stones a group at a time on both boards (clicks at once still agree), acceptances taken back by a change, area scoring with komi, Undo after both passed going back to playing, the board size taken from the room's maker, coming back to the marking or the score, games against an AI agent through its commands (moves, passes, marks and their refusals), and its built page played by two windows and by an agent; Quiz also: its card docked over the pane, moved by its top bar or grip and resized by its corner, docked beside the panes and back, in Tilefold's theme or light or dark, the panel, saved progress, quizzes added by agents and checked, and older Tilefolds; Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command, adding, renaming, moving and trashing files, its panel per tab, its Recent section kept before any activity, its Now section's last action, agents of the hour, tally and setup row, and its window's file tools in a DOM) against the fake host |
 | Room relay | Rooms, codes and names; joining in any case; messages to the others only; full rooms, wrong apps, unknown codes and malformed frames; one room per connection; seats freed on leave and close; the frame allowance and size limit; rooms expiring after a day unused; `authorize` and the token in the address; an activity log without names, codes or messages; WebSocket frames at every length, the RFC 6455 handshake, split messages, unmasked frames refused, the heartbeat closing silent clients, wrong paths and origins turned away, `/health`; the command's options; and a whole Gomoku game between two boards over a real relay, one board leaving and coming back mid-game |
 | Fake host | The fake Tilefold behaves like the real one for settings, commands with an agent's input and their results, strings, storage, overlays, panels (per tab too), pages, browsers (several pages per tile), screensaver themes, sounds, network, keys, AI, folders and file changes |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
@@ -252,7 +252,7 @@ Run with `npm test` (1720 tests in 83 files, all passing on 2026-10-28).
 - Tile Tools 0.2.0 (the `tf` types, the docs and the examples) is prepared in this repository but not published; npm still has 0.1.0.
 - Most examples have been tried only against the fake host, not against their real service in a running Tilefold; [examples/README.md](examples/README.md) says which.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
-- Gomoku has been played through Tilefold's relay at `play.tilefold.com` from its own client code, and in a browser against a local relay, but not yet as a tile inside a running Tilefold.
+- Gomoku has been played through Tilefold's relay at `play.tilefold.com` from its own client code, and in a browser against a local relay, but not yet as a tile inside a running Tilefold. TileGo has been played only in tests (two pages through a fake relay, and against an agent's requests), not yet through the real relay or in a running Tilefold.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`).
 - No `new` (scaffold a tile) command yet, and the command-line messages are English only.
 

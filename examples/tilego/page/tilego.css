@@ -1,0 +1,482 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * TileGo page — styles
+ *
+ * In Tilefold's own colors where Tilefold gives its theme (0.1.20: the
+ * `--tf-*` variables), else light or dark with the system. The board is a
+ * square of 9, 13 or 19 points a side (`--n`, set by the page) that fills
+ * the page's width: each point draws its own piece of the grid lines (a
+ * cross, or half of one on an edge), the star points a dot, and its stone
+ * on top. While the dead stones are marked, dead ones fade under a cross
+ * and each side's area shows as a small square of its color. Whose turn it
+ * is never shows by color alone: the status line says it in words too.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: var(--tf-pane, #ffffff);
+  --fg: var(--tf-text, #1d1f27);
+  --muted: var(--tf-text-muted, #5d6273);
+  --line: var(--tf-border, #d9dbe3);
+  --raised: var(--tf-surface-raised, #f3f4f8);
+  --hover: var(--tf-surface-hover, #e8eaf2);
+  --accent: var(--tf-accent, #5b5bd6);
+  --on-accent: var(--tf-on-accent, #ffffff);
+  --error: var(--tf-error, #c2413b);
+  --wood: #e3c48c;
+  --grid: #6b5330;
+  --black: #1a1a1a;
+  --white: #f7f7f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--tf-pane, #1d1f27);
+    --fg: var(--tf-text, #e8e9f0);
+    --muted: var(--tf-text-muted, #a0a5b8);
+    --line: var(--tf-border, #343747);
+    --raised: var(--tf-surface-raised, #272a35);
+    --hover: var(--tf-surface-hover, #30333f);
+    --accent: var(--tf-accent, #8b8bf0);
+    --on-accent: var(--tf-on-accent, #14151b);
+    --error: var(--tf-error, #ef8580);
+    --wood: #b8955c;
+    --grid: #3d2e17;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    14px/1.45 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+  padding: 12px 14px 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.conn {
+  color: var(--error);
+  font-size: 10px;
+}
+
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+section[hidden],
+[hidden] {
+  display: none !important;
+}
+
+.intro,
+.hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+label {
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--fg);
+  font: inherit;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, var(--fg));
+}
+
+button.versus {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+button.icon {
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.join {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.join-row {
+  display: flex;
+  gap: 8px;
+}
+
+#code,
+.code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.code {
+  padding: 10px;
+  font-size: 26px;
+  text-align: center;
+}
+
+.lead {
+  margin: 0;
+  font-weight: 600;
+}
+
+.message {
+  margin: 0;
+  color: var(--muted);
+}
+
+.message.is-error {
+  color: var(--error);
+}
+
+.players {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.player {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.player.to-move {
+  border-color: var(--accent);
+}
+
+.stone-chip {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--grid);
+}
+
+.stone-chip.black {
+  background: var(--black);
+}
+
+.stone-chip.white {
+  background: var(--white);
+}
+
+.status,
+.offer {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* The board: --n rows of --n points, square, on wood. */
+.board {
+  --n: 9;
+  display: grid;
+  grid-template-rows: repeat(var(--n), 1fr);
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 1;
+  padding: 2%;
+  border-radius: 6px;
+  background: var(--wood);
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+}
+
+.point {
+  position: relative;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background:
+    linear-gradient(var(--grid), var(--grid)) center / 1px 100% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) center / 100% 1px no-repeat;
+  cursor: default;
+}
+
+.point:hover:not(:disabled) {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center / 1px 100% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) center / 100% 1px no-repeat;
+}
+
+/* Edges draw only the inner half of their lines. */
+.point.edge-top {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center bottom / 1px 50% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) center / 100% 1px no-repeat;
+}
+
+.point.edge-bottom {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center top / 1px 50% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) center / 100% 1px no-repeat;
+}
+
+.point.edge-left {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center / 1px 100% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) right center / 50% 1px no-repeat;
+}
+
+.point.edge-right {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center / 1px 100% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) left center / 50% 1px no-repeat;
+}
+
+.point.edge-top.edge-left {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center bottom / 1px 50% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) right center / 50% 1px no-repeat;
+}
+
+.point.edge-top.edge-right {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center bottom / 1px 50% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) left center / 50% 1px no-repeat;
+}
+
+.point.edge-bottom.edge-left {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center top / 1px 50% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) right center / 50% 1px no-repeat;
+}
+
+.point.edge-bottom.edge-right {
+  background:
+    linear-gradient(var(--grid), var(--grid)) center top / 1px 50% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) left center / 50% 1px no-repeat;
+}
+
+/* A star point: a dot where the lines cross (never on an edge). */
+.point.star {
+  background:
+    radial-gradient(circle, var(--grid) 0 2.5px, transparent 3px) center / 100% 100% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) center / 1px 100% no-repeat,
+    linear-gradient(var(--grid), var(--grid)) center / 100% 1px no-repeat;
+}
+
+/* A stone, or a faint one where a click would play. */
+.point::after {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+}
+
+.point[data-stone="black"]::after {
+  background: radial-gradient(circle at 35% 30%, #555, var(--black) 60%);
+}
+
+.point[data-stone="white"]::after {
+  background: radial-gradient(circle at 35% 30%, #fff, var(--white) 55%, #d6d6cf);
+  box-shadow: inset 0 0 0 1px #9b9b92;
+}
+
+.board.playable .point[data-stone=""] {
+  cursor: pointer;
+}
+
+.board.playable .point[data-stone=""]:hover::after {
+  background: color-mix(in srgb, var(--black) 30%, transparent);
+}
+
+.point:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.point.last::before {
+  content: "";
+  position: absolute;
+  inset: 34%;
+  z-index: 1;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+}
+
+/* Marking: stones can be clicked; dead ones fade under a cross. */
+.board.marking .point[data-stone="black"],
+.board.marking .point[data-stone="white"] {
+  cursor: pointer;
+}
+
+.point.dead::after {
+  opacity: 0.45;
+}
+
+.point.dead::before {
+  content: "×";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: var(--error);
+  font-size: 1.1em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Each side's area while marking: a small square of its color. */
+.point[data-area="black"]:not(.dead)::after,
+.point[data-area="white"]:not(.dead)::after {
+  inset: 36%;
+  border-radius: 1px;
+}
+
+.point[data-area="black"]:not(.dead)::after {
+  background: var(--black);
+}
+
+.point[data-area="white"]:not(.dead)::after {
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px #9b9b92;
+}
+
+.point.dead[data-area="black"] {
+  box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--black) 12%, transparent);
+}
+
+.point.dead[data-area="white"] {
+  box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--white) 30%, transparent);
+}
+
+/* The marking band under the board: what to do, the score so far, who accepted. */
+.scoring {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.scoring p {
+  margin: 0;
+}
+
+.score-line {
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The other player asks to undo: their request, with Allow and Decline. */
+.undo-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+}
+
+.undo-offer[hidden] {
+  display: none;
+}
+
+.undo-buttons {
+  display: flex;
+  gap: 6px;
+}

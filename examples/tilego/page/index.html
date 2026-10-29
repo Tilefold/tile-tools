@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Tilefold
+  Author: Tilefold
+  Released under the MIT License.
+
+  TileGo's page: the lobby (your name, the board size, start a game, play
+  against an agent, or join one with a code), the code to send while
+  waiting for the other player, and the board with whose turn it is, Pass,
+  Undo and Resign, and once both passed the marking of dead stones with the
+  score and Accept. All text arrives from the tile in the user's language;
+  main.js is built from page-src/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TileGo</title>
+    <link rel="stylesheet" href="tilego.css" />
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1 id="title"></h1>
+        <span id="conn" class="conn" aria-hidden="true"></span>
+        <button id="close" class="icon" type="button">×</button>
+      </header>
+
+      <section id="lobby">
+        <p id="intro" class="intro"></p>
+        <label id="name-label" for="name"></label>
+        <input id="name" type="text" autocomplete="nickname" spellcheck="false" />
+        <label id="size-label" for="size"></label>
+        <select id="size">
+          <option id="size-9" value="9" selected></option>
+          <option id="size-13" value="13"></option>
+          <option id="size-19" value="19"></option>
+        </select>
+        <button id="new" class="primary" type="button"></button>
+        <button id="versus" class="versus" type="button"></button>
+        <div class="join">
+          <label id="code-label" for="code"></label>
+          <div class="join-row">
+            <input id="code" type="text" autocomplete="off" spellcheck="false" maxlength="9" />
+            <button id="join" type="button"></button>
+          </div>
+        </div>
+        <p id="error" class="message" role="alert" hidden></p>
+        <button id="cancel-connect" type="button" hidden></button>
+      </section>
+
+      <section id="waiting" hidden>
+        <p id="waiting-title" class="lead"></p>
+        <input id="room-code" class="code" type="text" readonly aria-labelledby="waiting-title" />
+        <button id="copy" class="primary" type="button"></button>
+        <p id="waiting-hint" class="hint"></p>
+        <p id="waiting-status" class="message" role="status" aria-live="polite"></p>
+        <button id="cancel" type="button"></button>
+      </section>
+
+      <section id="game" hidden>
+        <div class="players">
+          <span id="me" class="player"></span>
+          <span id="them" class="player"></span>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <div id="board" class="board"></div>
+        <div id="scoring" class="scoring" hidden>
+          <p id="scoring-hint" class="hint"></p>
+          <p id="score-line" class="score-line" aria-live="polite"></p>
+          <p id="accept-status" class="message" aria-live="polite"></p>
+        </div>
+        <p id="offer" class="offer" hidden></p>
+        <div id="undo-offer" class="undo-offer" role="alert" hidden>
+          <span id="undo-text"></span>
+          <span class="undo-buttons">
+            <button id="undo-allow" class="primary" type="button"></button>
+            <button id="undo-decline" type="button"></button>
+          </span>
+        </div>
+        <div class="actions">
+          <button id="rematch" class="primary" type="button" hidden></button>
+          <button id="accept" class="primary" type="button" hidden></button>
+          <button id="pass" type="button" hidden></button>
+          <button id="undo" type="button" hidden></button>
+          <button id="resign" type="button" hidden></button>
+          <button id="leave" type="button"></button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
