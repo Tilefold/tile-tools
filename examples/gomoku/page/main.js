@@ -22,6 +22,18 @@
  * Leave command. All text arrives from the tile in the user's language;
  * labels hold `{name}`, `{code}` or `{cell}` where those go.
  *
+ * Modified 2026-10-29 (playing an AI agent): "Play against an agent" starts
+ *   a game on this board alone (versus.js), the other color played by an
+ *   agent in one of the user's panes through the tile's commands. The tile
+ *   passes the agent's requests as `agent` messages ({ id, ask: "board",
+ *   "play" or "versus", input }) and the page answers each with the board
+ *   as the agent reads it (agent-view.js), waiting up to WAIT_MS for the
+ *   agent's turn when asked to. In a game with another person, an agent may
+ *   read the board and play for the user on their turn.
+ * Modified 2026-10-29 (undo): Undo takes the user's last move back: at once
+ *   against an agent, after the other player allows it in a game with
+ *   someone (who sees Allow and Decline, and a notice while away).
+ *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from page-src/main.js. Edit the sources, then rebuild.
@@ -188,6 +200,73 @@
   }
   var showCode = (code) => `${code.slice(0, 3)}-${code.slice(3)}`;
 
+  // page-src/undo.js
+  function undoTarget(moves, color) {
+    for (let i = moves.length - 1; i >= 0 && i >= moves.length - 2; i--) {
+      if (colorOfMove(i) === color) return i;
+    }
+    return null;
+  }
+  function undoFits(moves, n, to, color) {
+    return Number.isInteger(n) && Number.isInteger(to) && n === moves.length && to >= 0 && to < n && n - to <= 2 && colorOfMove(to) === color;
+  }
+  var NO_UNDO = Object.freeze({ mine: null, theirs: null, declined: false });
+  function undoActions(ctx) {
+    const { update, tell, save, onNotice } = ctx;
+    const theirColor = () => ctx.mine() === "black" ? "white" : "black";
+    function goBack(to) {
+      const s = ctx.state();
+      update({
+        moves: s.moves.slice(0, to),
+        result: null,
+        phase: ctx.phaseFor(null),
+        undo: NO_UNDO,
+        undone: s.undone + 1
+      });
+      save();
+    }
+    return {
+      /** Asks the other player to let this side take its last move back. */
+      ask() {
+        if (!ctx.canAsk()) return false;
+        const s = ctx.state();
+        const to = undoTarget(s.moves, ctx.mine());
+        tell({ t: "undo-ask", game: s.game, n: s.moves.length, to });
+        update({ undo: { ...NO_UNDO, mine: to } });
+        return true;
+      },
+      /** Allows the undo the other player asked for. */
+      allow() {
+        const s = ctx.state();
+        const asked = s.undo.theirs;
+        if (!asked || s.phase !== "playing") return;
+        tell({ t: "undo-yes", game: s.game, n: asked.n, to: asked.to });
+        goBack(asked.to);
+      },
+      /** Turns down the undo the other player asked for. */
+      decline() {
+        const s = ctx.state();
+        if (!s.undo.theirs) return;
+        tell({ t: "undo-no", game: s.game, n: s.undo.theirs.n });
+        update({ undo: NO_UNDO });
+      },
+      /** What the other player said about an undo (`undo-ask`, `undo-yes`, `undo-no`). */
+      heard(d) {
+        const s = ctx.state();
+        if (d.t === "undo-ask") {
+          if (s.phase !== "playing" || !undoFits(s.moves, d.n, d.to, theirColor())) return;
+          update({ undo: { ...NO_UNDO, theirs: { n: d.n, to: d.to } } });
+          onNotice({ kind: "undo", name: s.opponent.name });
+        } else if (d.t === "undo-yes") {
+          if (s.undo.mine === null || d.to !== s.undo.mine || d.n !== s.moves.length) return;
+          goBack(d.to);
+        } else if (d.t === "undo-no" && s.undo.mine !== null) {
+          update({ undo: { ...NO_UNDO, declined: true } });
+        }
+      }
+    };
+  }
+
   // page-src/match.js
   var APP = "gomoku";
   var V = 1;
@@ -215,7 +294,11 @@
       moves: [],
       result: null,
       // { winner, line, resigned }
-      rematch: { mine: false, theirs: false }
+      rematch: { mine: false, theirs: false },
+      undo: NO_UNDO,
+      // { mine: to | null, theirs: { n, to } | null, declined }
+      undone: 0
+      // undos this game has had
     };
     let pending = null;
     let fullTries = 0;
@@ -227,11 +310,18 @@
     function view2() {
       const color = myColor(state.creator, state.game);
       const turn = turnOf(state.moves);
+      const { undo } = state;
       return {
         ...state,
         color,
         turn,
-        myTurn: state.phase === "playing" && turn === color && !!state.opponent?.here
+        myTurn: state.phase === "playing" && turn === color && !!state.opponent?.here,
+        undo: {
+          canAsk: state.phase === "playing" && !!state.opponent?.here && undo.mine === null && undo.theirs === null && undoTarget(state.moves, color) !== null,
+          asked: undo.mine !== null,
+          offered: undo.theirs !== null,
+          declined: undo.declined
+        }
       };
     }
     const save = () => {
@@ -243,7 +333,8 @@
         opponent: state.opponent ? { player: state.opponent.player, name: state.opponent.name } : null,
         game: state.game,
         moves: state.moves,
-        resigned: state.result?.resigned ?? null
+        resigned: state.result?.resigned ?? null,
+        undone: state.undone
       });
     };
     const tell = (data) => relay.send({ op: "send", data: { v: V, ...data } });
@@ -253,12 +344,30 @@
       game: state.game,
       moves: state.moves,
       resigned: state.result?.resigned ?? null,
-      rematch: state.rematch.mine
+      rematch: state.rematch.mine,
+      undone: state.undone
     });
-    const resultFor = (moves, resigned) => resultOf(moves) ?? (resigned ? { winner: resigned === "black" ? "white" : "black", line: null, resigned } : null);
+    const resultFor2 = (moves, resigned) => resultOf(moves) ?? (resigned ? { winner: resigned === "black" ? "white" : "black", line: null, resigned } : null);
     const phaseFor = (result) => result ? "over" : state.opponent ? "playing" : "waiting";
+    const undos = undoActions({
+      state: () => state,
+      update,
+      tell,
+      save,
+      canAsk: () => view2().undo.canAsk,
+      mine: () => myColor(state.creator, state.game),
+      phaseFor,
+      onNotice
+    });
     function newGame(game) {
-      update({ game, moves: [], result: null, rematch: { mine: false, theirs: false } });
+      update({
+        game,
+        moves: [],
+        result: null,
+        rematch: { mine: false, theirs: false },
+        undo: NO_UNDO,
+        undone: 0
+      });
       update({ phase: phaseFor(null) });
       save();
     }
@@ -278,7 +387,9 @@
         game: 1,
         moves: [],
         result: null,
-        rematch: { mine: false, theirs: false }
+        rematch: { mine: false, theirs: false },
+        undo: NO_UNDO,
+        undone: 0
       });
       save();
     }
@@ -302,7 +413,7 @@
       if (!saved || !parseCode(saved.room) || !isValidGame(saved.moves)) return;
       pending = null;
       const opponent = saved.opponent ? { ...saved.opponent, here: false, gone: false } : null;
-      const result = resultFor(saved.moves, saved.resigned);
+      const result = resultFor2(saved.moves, saved.resigned);
       update({
         phase: "connecting",
         error: null,
@@ -312,12 +423,17 @@
         opponent,
         game: Number.isInteger(saved.game) && saved.game > 0 ? saved.game : 1,
         moves: saved.moves,
+        undone: Number.isInteger(saved.undone) && saved.undone > 0 ? saved.undone : 0,
+        undo: NO_UNDO,
         result
       });
       relay.connect();
     }
     function play(x, y) {
       if (!view2().myTurn || refusal(state.moves, x, y)) return false;
+      if (state.undo.theirs) tell({ t: "undo-no", game: state.game, n: state.undo.theirs.n });
+      if (state.undo.mine !== null || state.undo.theirs || state.undo.declined)
+        update({ undo: NO_UNDO });
       const n = state.moves.length;
       const moves = [...state.moves, [x, y]];
       const result = resultOf(moves);
@@ -329,7 +445,7 @@
     function resign() {
       if (state.phase !== "playing") return;
       const color = myColor(state.creator, state.game);
-      update({ result: resultFor(state.moves, color), phase: "over" });
+      update({ result: resultFor2(state.moves, color), phase: "over" });
       tell({ t: "resign", game: state.game });
       save();
     }
@@ -411,11 +527,14 @@
       if (d.t === "move") return heardMove(d);
       if (d.t === "resign" && d.game === state.game && state.phase === "playing") {
         const color = myColor(state.creator, state.game) === "black" ? "white" : "black";
-        update({ result: resultFor(state.moves, color), phase: "over" });
+        update({ result: resultFor2(state.moves, color), phase: "over" });
         onNotice({ kind: "over", name: state.opponent.name });
         return save();
       }
       if (d.t === "rematch" && d.game === state.game) return heardRematch();
+      if (typeof d.t === "string" && d.t.startsWith("undo-") && d.game === state.game) {
+        return undos.heard(d);
+      }
       if (d.t === "bye") {
         update({ opponent: { ...state.opponent, here: false, gone: true } });
         return onNotice({ kind: "left", name: state.opponent.name });
@@ -447,6 +566,12 @@
         update({ game: d.game, rematch: { mine: false, theirs: false } });
         return adopt(d.moves, null);
       }
+      const undone = Number.isInteger(d.undone) && d.undone > 0 ? d.undone : 0;
+      if (undone > state.undone) {
+        update({ undone, undo: NO_UNDO });
+        return adopt(d.moves, null);
+      }
+      if (undone < state.undone) return;
       const mine = state.moves;
       const agrees = mine.every(([x, y], i) => d.moves[i]?.[0] === x && d.moves[i]?.[1] === y);
       if (agrees && d.moves.length > mine.length) adopt(d.moves, state.result?.resigned ?? null);
@@ -457,7 +582,7 @@
       if (d.rematch === true) heardRematch();
     }
     function adopt(moves, resigned) {
-      const result = resultFor(moves, resigned);
+      const result = resultFor2(moves, resigned);
       update({ moves, result, phase: phaseFor(result) });
       save();
     }
@@ -471,7 +596,8 @@
       if (refusal(state.moves, d.x, d.y)) return;
       const moves = [...state.moves, [d.x, d.y]];
       const result = resultOf(moves);
-      update({ moves, result, phase: phaseFor(result) });
+      const declined = state.undo.mine !== null || state.undo.declined;
+      update({ moves, result, phase: phaseFor(result), undo: { ...NO_UNDO, declined } });
       onNotice(
         result ? { kind: "over", name: state.opponent.name } : { kind: "moved", name: state.opponent.name, x: d.x, y: d.y }
       );
@@ -485,6 +611,9 @@
       play,
       resign,
       rematch,
+      undo: undos.ask,
+      allowUndo: undos.allow,
+      declineUndo: undos.decline,
       leave,
       dismiss,
       /** The view as it is now. */
@@ -595,7 +724,199 @@
     };
   }
 
+  // page-src/agent-view.js
+  var COLUMNS2 = "ABCDEFGHIJKLMNO";
+  var RULES = "15x15 board. Black moves first, then turns alternate. Five or more stones in an unbroken line (across, down or diagonal) wins; a full board is a draw. Points are named by column A-O (left to right) and row 1-15 (bottom to top), such as H8 for the center.";
+  function parseCell(input) {
+    const text = typeof input === "string" ? input : input && typeof input.cell === "string" ? input.cell : "";
+    const m = text.replace(/\s+/g, "").toUpperCase().match(/^([A-O])(\d{1,2})$/);
+    if (!m) return null;
+    const row = Number(m[2]);
+    if (row < 1 || row > SIZE) return null;
+    return [COLUMNS2.indexOf(m[1]), SIZE - row];
+  }
+  function boardRows(moves) {
+    const board2 = boardOf(moves);
+    const rows = [];
+    for (let y = 0; y < SIZE; y++) {
+      let line = `${String(SIZE - y).padStart(2)} `;
+      for (let x = 0; x < SIZE; x++) {
+        const stone = board2[y * SIZE + x];
+        line += ` ${stone === "black" ? "X" : stone === "white" ? "O" : "."}`;
+      }
+      rows.push(line);
+    }
+    rows.push(`   ${[...COLUMNS2].map((c) => ` ${c}`).join("")}`);
+    return rows;
+  }
+  function agentBoard(view2) {
+    if (!view2 || view2.phase === "lobby" || view2.phase === "connecting") {
+      return {
+        mode: "none",
+        phase: "none",
+        rules: RULES,
+        next: `No game is open. Run Gomoku's "Play against an agent" command to start one with the user, or ask them to start or join a game.`
+      };
+    }
+    const versus2 = view2.mode === "agent";
+    const you = versus2 ? view2.color === "black" ? "white" : "black" : view2.color;
+    const yourTurn = versus2 ? !!view2.agentTurn : !!view2.myTurn;
+    const moves = view2.moves.map(([x, y]) => cellName(x, y));
+    const result = view2.result ? {
+      winner: view2.result.winner,
+      line: view2.result.line ? view2.result.line.map(([x, y]) => cellName(x, y)) : null,
+      resigned: view2.result.resigned ?? null,
+      youWon: view2.result.winner === you
+    } : null;
+    let next;
+    if (view2.phase === "waiting") next = "Waiting for the other player to join with the game's code.";
+    else if (result)
+      next = versus2 ? "The game is over. The user can press Play again for another, with colors swapped." : "The game is over.";
+    else if (yourTurn)
+      next = `Your move: run Gomoku's "Play a point" command with { cell }, such as { "cell": "H8" }.`;
+    else
+      next = versus2 ? `The user's move. Read the board again with { "wait": true } to wait for it.` : `${view2.opponent?.name || "The other player"}'s move. Read the board again with { "wait": true } to wait for it.`;
+    return {
+      mode: versus2 ? "agent" : "online",
+      phase: view2.phase,
+      you,
+      turn: view2.turn,
+      yourTurn,
+      opponent: versus2 ? "the user" : view2.opponent?.name || null,
+      game: view2.game,
+      moves,
+      last: moves.at(-1) ?? null,
+      board: boardRows(view2.moves),
+      result,
+      rules: RULES,
+      next
+    };
+  }
+
+  // page-src/versus.js
+  var userColor = (game) => game % 2 === 1 ? "black" : "white";
+  var resultFor = (moves, resigned) => resultOf(moves) ?? (resigned ? { winner: resigned === "black" ? "white" : "black", line: null, resigned } : null);
+  function createVersus({ agentName, onChange, onSave, onNotice = () => {
+  } }) {
+    let state = { phase: "lobby", name: "", game: 1, moves: [], result: null };
+    function view2() {
+      const color = userColor(state.game);
+      const turn = turnOf(state.moves);
+      const playing = state.phase === "playing";
+      return {
+        mode: "agent",
+        phase: state.phase,
+        error: null,
+        online: true,
+        offline: false,
+        room: null,
+        creator: true,
+        name: state.name,
+        opponent: { player: "agent", name: agentName, here: true, gone: false },
+        game: state.game,
+        moves: state.moves,
+        result: state.result,
+        rematch: { mine: false, theirs: true },
+        color,
+        turn,
+        myTurn: playing && turn === color,
+        agentTurn: playing && turn !== color,
+        undo: {
+          canAsk: playing && undoTarget(state.moves, color) !== null,
+          asked: false,
+          offered: false,
+          declined: false
+        }
+      };
+    }
+    const update = (changes) => {
+      state = { ...state, ...changes };
+      onChange(view2());
+    };
+    const save = () => onSave(
+      state.phase === "lobby" ? null : {
+        mode: "agent",
+        name: state.name,
+        game: state.game,
+        moves: state.moves,
+        resigned: state.result?.resigned ?? null
+      }
+    );
+    function place(x, y) {
+      if (state.phase !== "playing") return "not-playing";
+      const why = refusal(state.moves, x, y);
+      if (why) return why;
+      const moves = [...state.moves, [x, y]];
+      const result = resultOf(moves);
+      update({ moves, result, phase: result ? "over" : "playing" });
+      save();
+      return null;
+    }
+    return {
+      view: view2,
+      /** Starts a game against the agent, the user playing black. */
+      start(name) {
+        update({ phase: "playing", name: cleanName(name), game: 1, moves: [], result: null });
+        save();
+      },
+      /** The user's move; true when it was played. */
+      play(x, y) {
+        return view2().myTurn && place(x, y) === null;
+      },
+      /** The agent's move: null when played, else why not ("not-your-turn", "taken", …). */
+      agentPlay(x, y) {
+        if (state.phase === "playing" && !view2().agentTurn) return "not-your-turn";
+        const why = place(x, y);
+        if (!why) onNotice({ kind: "agent-moved", name: agentName, x, y });
+        return why;
+      },
+      /** Takes the user's last move back (and the agent's reply); true when it did. */
+      undo() {
+        const to = state.phase === "playing" ? undoTarget(state.moves, userColor(state.game)) : null;
+        if (to === null) return false;
+        update({ moves: state.moves.slice(0, to) });
+        save();
+        return true;
+      },
+      /** The user gives the game up. */
+      resign() {
+        if (state.phase !== "playing") return;
+        update({ result: resultFor(state.moves, userColor(state.game)), phase: "over" });
+        save();
+      },
+      /** Another game, colors swapped; the agent always says yes. */
+      rematch() {
+        if (state.phase !== "over") return;
+        update({ phase: "playing", game: state.game + 1, moves: [], result: null });
+        save();
+      },
+      /** Back to the lobby; the game is forgotten. */
+      leave() {
+        update({ phase: "lobby", game: 1, moves: [], result: null });
+        save();
+      },
+      dismiss() {
+      },
+      /** Picks up a kept game; false (nothing changes) when it couldn't have been played. */
+      resume(saved) {
+        if (!saved || saved.mode !== "agent" || !isValidGame(saved.moves)) return false;
+        const game = Number.isInteger(saved.game) && saved.game > 0 ? saved.game : 1;
+        const resigned = saved.resigned === "black" || saved.resigned === "white" ? saved.resigned : null;
+        const result = resultFor(saved.moves, resigned);
+        update({
+          phase: result ? "over" : "playing",
+          name: cleanName(saved.name),
+          game,
+          moves: saved.moves,
+          result
+        });
+        return true;
+      }
+    };
+  }
+
   // page-src/main.js
+  var WAIT_MS = 7e3;
   var bridge = window.tilefold;
   var $ = (id) => document.getElementById(id);
   var send = (message) => {
@@ -614,7 +935,9 @@
   };
   var player = null;
   var match = null;
+  var versus = null;
   var board = null;
+  var waiting = /* @__PURE__ */ new Set();
   var view = null;
   var lastEvent = null;
   var newPlayerId = () => Array.from(
@@ -632,9 +955,10 @@
     lastEvent = action;
     send({ type: "event", action });
   };
+  var active = () => versus && versus.view().phase !== "lobby" ? versus : match;
   function notice(n) {
     if (document.hasFocus()) return;
-    const cell = n.kind === "moved" ? cellName(n.x, n.y) : "";
+    const cell = n.kind === "moved" || n.kind === "agent-moved" ? cellName(n.x, n.y) : "";
     send({ type: "notice", kind: n.kind, name: n.name, cell });
   }
   function screen(name) {
@@ -650,6 +974,7 @@
         return L(r.resigned ? "result-they-resigned" : "status-won", { name });
       return L(r.resigned ? "result-you-resigned" : "status-lost", { name });
     }
+    if (v.mode === "agent") return v.myTurn ? L("status-your-turn") : L("status-agent-turn");
     if (v.opponent?.gone) return L("status-gone", { name });
     if (!v.opponent?.here) return L("status-away", { name });
     return v.myTurn ? L("status-your-turn") : L("status-their-turn", { name });
@@ -663,13 +988,15 @@
     el.classList.toggle("to-move", turn);
   }
   function render(v) {
+    if (v.mode !== "agent" && versus && versus.view().phase !== "lobby") return;
     view = v;
+    for (const w of [...waiting]) w.check();
     const busy = v.phase === "connecting" && !v.room;
     $("conn").textContent = v.room && !v.online ? "\u25CF" : "";
     $("conn").title = v.room && !v.online ? L("status-reconnecting") : "";
     if (v.phase === "lobby" || busy) {
       screen("lobby");
-      for (const id of ["new", "join", "name", "code"]) $(id).disabled = busy;
+      for (const id of ["new", "join", "name", "code", "versus"]) $(id).disabled = busy;
       $("error").hidden = !v.error && !busy;
       $("error").textContent = busy ? L(v.offline ? "error-offline" : "status-connecting") : v.error ? L(ERRORS[v.error] ?? "error-server") : "";
       $("error").classList.toggle("is-error", !busy);
@@ -696,11 +1023,19 @@
       label: (cell, stone) => stone ? L(`cell-${stone}`, { cell }) : L("cell-empty", { cell })
     });
     $("resign").hidden = v.phase !== "playing";
+    $("undo").hidden = v.phase !== "playing";
+    $("undo").disabled = !v.undo?.canAsk;
+    $("undo").textContent = v.undo?.asked ? L("undo-waiting", { name: them }) : L("action-undo");
+    const offered = !!v.undo?.offered;
+    $("undo-offer").hidden = !offered && !v.undo?.declined;
+    $("undo-text").textContent = offered ? L("undo-offered", { name: them }) : L("undo-declined", { name: them });
+    $("undo-allow").hidden = !offered;
+    $("undo-decline").hidden = !offered;
     const over = v.phase === "over";
     $("rematch").hidden = !over || !!v.opponent?.gone;
     $("rematch").disabled = v.rematch.mine;
-    $("rematch").textContent = v.rematch.mine ? L("rematch-waiting", { name: them }) : v.rematch.theirs ? L("rematch-accept") : L("action-rematch");
-    $("offer").hidden = !(over && v.rematch.theirs && !v.rematch.mine);
+    $("rematch").textContent = v.mode === "agent" ? L("action-rematch") : v.rematch.mine ? L("rematch-waiting", { name: them }) : v.rematch.theirs ? L("rematch-accept") : L("action-rematch");
+    $("offer").hidden = v.mode === "agent" || !(over && v.rematch.theirs && !v.rematch.mine);
     $("offer").textContent = L("rematch-offered", { name: them });
     if (over) {
       const r = v.result;
@@ -715,6 +1050,7 @@
       intro: "lobby-intro",
       "name-label": "lobby-name",
       new: "lobby-new",
+      versus: "lobby-agent",
       "code-label": "lobby-code",
       join: "lobby-join",
       "cancel-connect": "action-cancel",
@@ -723,6 +1059,8 @@
       copy: "waiting-copy",
       cancel: "action-cancel",
       resign: "action-resign",
+      "undo-allow": "undo-allow",
+      "undo-decline": "undo-decline",
       leave: "action-leave"
     };
     for (const [id, key] of Object.entries(text)) $(id).textContent = L(key);
@@ -763,12 +1101,85 @@
       onSave: keep,
       onNotice: notice
     });
+    versus = createVersus({
+      agentName: L("agent-name"),
+      onChange: render,
+      onSave: keep,
+      onNotice: notice
+    });
     keep(m.saved ?? null);
-    if (m.saved) match.resume(m.saved);
+    if (m.saved?.mode === "agent") {
+      if (!versus.resume(m.saved)) render(match.view());
+    } else if (m.saved) match.resume(m.saved);
     else render(match.view());
+    send({ type: "ready" });
+  }
+  function leaveVersus() {
+    versus.leave();
+    render(match.view());
+  }
+  function startVersus() {
+    if (!versus || view?.room) return false;
+    versus.start($("name").value);
+    event("agent-game");
+    return true;
+  }
+  function answerAgent(m) {
+    const reply = (extra = {}) => send({ type: "agent", id: m.id, reply: { ...extra, board: agentBoard(versusOrView()) } });
+    if (!versus)
+      return send({ type: "agent", id: m.id, reply: { error: "The board isn't ready yet." } });
+    if (m.ask === "versus") {
+      if (!startVersus())
+        return reply({ error: "A game with another person is open; it must end first." });
+      return reply({ ok: true });
+    }
+    if (m.ask === "play") {
+      const point = parseCell(m.input);
+      if (!point) return reply({ error: "Name a point such as H8: a column A-O and a row 1-15." });
+      const why = playForAgent(point[0], point[1]);
+      if (why) return reply({ error: AGENT_REFUSALS[why] ?? why });
+      send({ type: "event", action: "agent-moved" });
+      return reply({ ok: true, played: m.input.cell ?? m.input });
+    }
+    const ready = () => {
+      const b = agentBoard(versusOrView());
+      return !(m.input && m.input.wait === true) || b.yourTurn || b.phase !== "playing";
+    };
+    if (ready()) return reply();
+    const w = {
+      check() {
+        if (!ready()) return;
+        clearTimeout(w.timer);
+        waiting.delete(w);
+        reply();
+      }
+    };
+    w.timer = setTimeout(() => {
+      waiting.delete(w);
+      reply({ waited: true });
+    }, WAIT_MS);
+    waiting.add(w);
+  }
+  var versusOrView = () => versus && versus.view().phase !== "lobby" ? versus.view() : match?.view() ?? null;
+  var AGENT_REFUSALS = {
+    "no-game": `No game is open. Run Gomoku's "Play against an agent" command first.`,
+    "not-your-turn": `It isn't your turn. Read the board with { "wait": true } to wait for it.`,
+    "not-playing": "The game isn't being played right now (it's over, or waiting for a player).",
+    taken: "That point already has a stone. Pick an empty one.",
+    "off-board": "That point isn't on the board.",
+    over: "The game is over."
+  };
+  function playForAgent(x, y) {
+    if (versus.view().phase !== "lobby") return versus.agentPlay(x, y);
+    const v = match.view();
+    if (v.phase === "lobby" || v.phase === "connecting") return "no-game";
+    if (v.phase !== "playing") return "not-playing";
+    if (!v.myTurn) return "not-your-turn";
+    return match.play(x, y) ? null : "taken";
   }
   function wire() {
-    board = createBoard($("board"), { onPlay: (x, y) => match?.play(x, y) });
+    board = createBoard($("board"), { onPlay: (x, y) => active()?.play(x, y) });
+    $("versus").addEventListener("click", () => startVersus());
     $("new").addEventListener("click", () => match?.create($("name").value));
     const join = () => match?.join($("code").value, $("name").value);
     $("join").addEventListener("click", join);
@@ -780,10 +1191,17 @@
     $("copy").addEventListener("click", () => void copyCode());
     $("cancel").addEventListener("click", () => match?.leave());
     $("cancel-connect").addEventListener("click", () => match?.leave());
-    $("resign").addEventListener("click", () => match?.resign());
-    $("rematch").addEventListener("click", () => match?.rematch());
+    $("resign").addEventListener("click", () => active()?.resign());
+    $("undo").addEventListener("click", () => {
+      const against = active() === versus;
+      if (active()?.undo()) send({ type: "event", action: against ? "undid" : "undo-asked" });
+    });
+    $("undo-allow").addEventListener("click", () => match?.allowUndo());
+    $("undo-decline").addEventListener("click", () => match?.declineUndo());
+    $("rematch").addEventListener("click", () => active()?.rematch());
     $("leave").addEventListener("click", () => {
-      match?.leave();
+      if (active() === versus) leaveVersus();
+      else match?.leave();
       event("left");
     });
     $("close").addEventListener("click", () => send({ type: "close" }));
@@ -793,7 +1211,11 @@
   bridge?.onMessage((m) => {
     if (!m || typeof m !== "object") return;
     if (m.do === "setup") setup(m);
-    if (m.do === "leave" && view?.room) {
+    if (m.do === "agent" && typeof m.id === "string") answerAgent(m);
+    if (m.do === "leave" && active() === versus) {
+      leaveVersus();
+      event("left");
+    } else if (m.do === "leave" && view?.room) {
       match.leave();
       event("left");
     }

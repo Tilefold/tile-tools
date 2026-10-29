@@ -34,6 +34,8 @@ var PAGE_KEYS = [
   "lobby-name",
   "lobby-name-hint",
   "lobby-new",
+  "lobby-agent",
+  "agent-name",
   "lobby-code",
   "lobby-code-hint",
   "lobby-join",
@@ -45,6 +47,12 @@ var PAGE_KEYS = [
   "action-resign",
   "action-rematch",
   "action-leave",
+  "action-undo",
+  "undo-waiting",
+  "undo-offered",
+  "undo-allow",
+  "undo-decline",
+  "undo-declined",
   "rematch-offered",
   "rematch-accept",
   "rematch-waiting",
@@ -52,6 +60,7 @@ var PAGE_KEYS = [
   "status-reconnecting",
   "status-your-turn",
   "status-their-turn",
+  "status-agent-turn",
   "status-away",
   "status-gone",
   "status-won",
@@ -81,11 +90,26 @@ var NOTICE_KEYS = {
   moved: "notice-moved",
   left: "notice-left",
   rematch: "notice-rematch",
-  over: "notice-over"
+  over: "notice-over",
+  "agent-moved": "notice-agent-moved",
+  undo: "notice-undo"
 };
 
 // src/run.js
-var EVENTS = /* @__PURE__ */ new Set(["created", "started", "won", "lost", "draw", "left"]);
+var EVENTS = /* @__PURE__ */ new Set([
+  "created",
+  "started",
+  "won",
+  "lost",
+  "draw",
+  "left",
+  "agent-game",
+  "agent-moved",
+  "undid",
+  "undo-asked"
+]);
+var AGENT_REPLY_MS = 9e3;
+var READY_MS = 4e3;
 var PLAYER = "player";
 var NAME = "name";
 var GAME = "game";
@@ -95,6 +119,10 @@ function runGomoku(tf) {
   const audit = (action, details) => void Promise.resolve().then(() => tf.audit(action, details)).catch(warn);
   const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
   let where = null;
+  let ready = false;
+  let readyWaiters = [];
+  const pending = /* @__PURE__ */ new Map();
+  let nextId = 0;
   const canSide = () => !!tf.page && typeof tf.theme === "function";
   async function open() {
     if (!tf.page) return tf.toast(tf.t("toast-needs-tilefold"));
@@ -103,9 +131,18 @@ function runGomoku(tf) {
     if (!where) audit("opened", { as: side ? "side" : "window" });
     where = side ? "side" : "window";
   }
+  function gone() {
+    ready = false;
+    for (const [id, p] of pending) {
+      clearTimeout(p.timer);
+      p.reject(new Error("The board was closed."));
+      pending.delete(id);
+    }
+  }
   async function close() {
     if (!tf.page || !where) return;
     where = null;
+    gone();
     await tf.page.close();
     audit("closed");
   }
@@ -151,9 +188,56 @@ function runGomoku(tf) {
     const cell = typeof m.cell === "string" ? m.cell.slice(0, 4) : "";
     return tf.toast(tf.t(key, { name, cell }));
   }
+  async function pageReady() {
+    if (!tf.page)
+      throw new Error("This Tilefold can't show Gomoku's board (it needs 0.1.7 or later).");
+    if (!where) await open();
+    if (ready) return;
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error("The board didn't open in time; try again.")),
+        READY_MS
+      );
+      readyWaiters.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+  async function askPage(ask, input) {
+    await pageReady();
+    const id = `a${++nextId}`;
+    const answer = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error("The board didn't answer in time; try again."));
+      }, AGENT_REPLY_MS);
+      pending.set(id, { resolve, reject, timer });
+    });
+    await tf.page.post({ do: "agent", id, ask, input: input ?? null });
+    return answer;
+  }
+  function answered(m) {
+    const p = typeof m.id === "string" ? pending.get(m.id) : void 0;
+    if (!p) return;
+    pending.delete(m.id);
+    clearTimeout(p.timer);
+    p.resolve(m.reply && typeof m.reply === "object" ? m.reply : {});
+  }
   async function hear(m) {
     if (!m || typeof m !== "object") return;
-    if (m.type === "hello") return hello();
+    if (m.type === "ready") {
+      ready = true;
+      const waiters = readyWaiters;
+      readyWaiters = [];
+      for (const w of waiters) w();
+      return;
+    }
+    if (m.type === "agent") return answered(m);
+    if (m.type === "hello") {
+      ready = false;
+      return hello();
+    }
     if (m.type === "keep") return keep(m);
     if (m.type === "notice") return notify(m);
     if (m.type === "event" && EVENTS.has(m.action)) return audit(m.action);
@@ -167,6 +251,20 @@ function runGomoku(tf) {
   ]) {
     tf.command(tf.t(title), () => runs[id]().catch(warn), { id });
   }
+  const forAgent = async (ask, input) => {
+    const reply = await askPage(ask, input);
+    if (reply.error) throw new Error(`${reply.error}`);
+    return reply;
+  };
+  tf.command(tf.t("cmd-versus"), () => forAgent("versus"), { id: "versus" });
+  tf.command(tf.t("cmd-board"), (input) => forAgent("board", input), {
+    id: "board",
+    input: "{ wait?: true }: the game as data; with wait, holds up to 7 s until it's your turn"
+  });
+  tf.command(tf.t("cmd-move"), (input) => input == null ? open() : forAgent("play", input), {
+    id: "move",
+    input: '{ cell }: the point to play, such as "H8" (column A-O, row 1-15 from the bottom)'
+  });
   tf.on(
     "page.message",
     background((e) => hear(e && e.message))
@@ -176,6 +274,7 @@ function runGomoku(tf) {
     background(() => {
       if (!where) return;
       where = null;
+      gone();
       audit("closed");
     })
   );

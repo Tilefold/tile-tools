@@ -13,6 +13,17 @@
  * words, a click plays a stone that appears on the other board, and Leave
  * takes the page back to the lobby. What each page asks the tile to keep
  * is checked on the way.
+ *
+ * Modified 2026-10-29 (playing an AI agent): "Play against an agent" starts
+ *   a game on one page; the agent's requests (as the tile passes them) read
+ *   the board, wait for the agent's turn, play its moves and are refused
+ *   with a reason on the user's turn or a taken point; the game is kept and
+ *   comes back; Leave goes back to the lobby.
+ * Modified 2026-10-29 (undo): Undo against the agent takes the move back at
+ *   once; with another person it waits for Allow, which takes it back on
+ *   both pages, and Decline says so.
+ *
+ * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
@@ -221,5 +232,155 @@ describe("the page", () => {
     expect(again.shown()).toBe("waiting");
     expect(again.$("room-code").value).toBe("K7P-4QX");
     expect(again.$("name").value).toBe("Ada");
+  });
+});
+
+/** What the page answered the agent's request `id`, if it has. */
+const answer = (p, id) => p.posted.find((m) => m.type === "agent" && m.id === id)?.reply;
+
+describe("playing an AI agent", () => {
+  it("plays a game on one page, the agent's moves coming through the tile", async () => {
+    const p = page(createFakeRelay());
+    p.setup();
+    expect(p.posted.some((m) => m.type === "ready")).toBe(true);
+    expect(p.$("versus").textContent).toBe("Play against an agent");
+    type(p, "name", "Ada");
+    p.$("versus").click();
+    expect(p.shown()).toBe("game");
+    expect(p.$("status").textContent).toBe("Your move.");
+    expect(p.$("them").textContent).toContain("Agent · white");
+    expect(p.kept().saved).toMatchObject({ mode: "agent", name: "Ada", moves: [] });
+
+    // The agent asks to wait for its turn; the answer comes once the user has played.
+    p.send({ do: "agent", id: "a1", ask: "board", input: { wait: true } });
+    await settle();
+    expect(answer(p, "a1")).toBeUndefined();
+    p.point(7, 7).click();
+    await settle();
+    expect(answer(p, "a1").board).toMatchObject({
+      mode: "agent",
+      you: "white",
+      yourTurn: true,
+      moves: ["H8"],
+    });
+    expect(p.$("status").textContent).toBe(
+      "The agent's move. Ask an AI agent in one of your panes to play Gomoku with you.",
+    );
+
+    // The agent plays; its stone shows and it's the user's turn again.
+    p.send({ do: "agent", id: "a2", ask: "play", input: { cell: "i8" } });
+    expect(answer(p, "a2")).toMatchObject({ ok: true });
+    expect(p.point(8, 7).dataset.stone).toBe("white");
+    expect(p.$("status").textContent).toBe("Your move.");
+    expect(p.posted.filter((m) => m.type === "event").map((m) => m.action)).toContain(
+      "agent-moved",
+    );
+
+    // Out of turn, a taken point and a point that isn't one are refused with a reason.
+    p.send({ do: "agent", id: "a3", ask: "play", input: { cell: "J8" } });
+    expect(answer(p, "a3").error).toMatch(/isn't your turn/);
+    p.point(9, 9).click();
+    p.send({ do: "agent", id: "a4", ask: "play", input: { cell: "H8" } });
+    expect(answer(p, "a4").error).toMatch(/already has a stone/);
+    p.send({ do: "agent", id: "a5", ask: "play", input: "Z99" });
+    expect(answer(p, "a5").error).toMatch(/column A-O/);
+
+    p.$("leave").click();
+    expect(p.shown()).toBe("lobby");
+    expect(p.kept().saved).toBeNull();
+  });
+
+  it("starts a game for the agent's command, and comes back to a kept one", async () => {
+    const p = page(createFakeRelay());
+    p.setup();
+    p.send({ do: "agent", id: "v1", ask: "versus", input: null });
+    expect(answer(p, "v1")).toMatchObject({ ok: true, board: { mode: "agent", yourTurn: false } });
+    p.point(0, 0).click();
+    const kept = p.kept();
+    const again = page(createFakeRelay(), { player: kept.player, saved: kept.saved });
+    again.setup();
+    expect(again.shown()).toBe("game");
+    expect(again.point(0, 0).dataset.stone).toBe("black");
+    again.send({ do: "agent", id: "b1", ask: "board", input: null });
+    expect(answer(again, "b1").board).toMatchObject({ moves: ["A15"], yourTurn: true });
+  });
+
+  it("tells an agent there's no game, and lets it play for the user in a game with someone", async () => {
+    const server = createFakeRelay();
+    const ada = page(server);
+    const bo = page(server);
+    ada.setup();
+    bo.setup();
+    ada.send({ do: "agent", id: "n1", ask: "board", input: null });
+    expect(answer(ada, "n1").board.mode).toBe("none");
+    type(ada, "name", "Ada");
+    ada.$("new").click();
+    await settle();
+    type(bo, "name", "Bo");
+    type(bo, "code", ada.$("room-code").value);
+    bo.$("join").click();
+    await settle();
+    ada.send({ do: "agent", id: "o1", ask: "play", input: { cell: "H8" } });
+    expect(answer(ada, "o1")).toMatchObject({ ok: true, board: { mode: "online", you: "black" } });
+    await settle();
+    expect(bo.point(7, 7).dataset.stone).toBe("black");
+    // A game with someone open: no game against the agent until it ends.
+    ada.send({ do: "agent", id: "o2", ask: "versus", input: null });
+    expect(answer(ada, "o2").error).toMatch(/must end first/);
+  });
+});
+
+describe("undo on the page", () => {
+  it("takes a move back at once against the agent", async () => {
+    const p = page(createFakeRelay());
+    p.setup();
+    p.$("versus").click();
+    expect(p.$("undo").hidden).toBe(false);
+    expect(p.$("undo").disabled).toBe(true);
+    expect(p.$("undo").textContent).toBe("Undo");
+    p.point(7, 7).click();
+    p.send({ do: "agent", id: "u1", ask: "play", input: "H9" });
+    p.$("undo").click();
+    expect(p.point(7, 7).dataset.stone).toBe("");
+    expect(p.$("status").textContent).toBe("Your move.");
+    expect(p.posted.filter((m) => m.type === "event").map((m) => m.action)).toContain("undid");
+  });
+
+  it("asks the other player, who allows or declines", async () => {
+    const server = createFakeRelay();
+    const ada = page(server);
+    const bo = page(server);
+    ada.setup();
+    bo.setup();
+    type(ada, "name", "Ada");
+    ada.$("new").click();
+    await settle();
+    type(bo, "name", "Bo");
+    type(bo, "code", ada.$("room-code").value);
+    bo.$("join").click();
+    await settle();
+    ada.point(7, 7).click();
+    await settle();
+    ada.$("undo").click();
+    await settle();
+    expect(ada.$("undo").textContent).toBe("Waiting for Bo to allow the undo…");
+    expect(bo.$("undo-offer").hidden).toBe(false);
+    expect(bo.$("undo-text").textContent).toBe("Ada asks to take back their last move.");
+    bo.$("undo-decline").click();
+    await settle();
+    expect(ada.$("undo-text").textContent).toBe("Bo declined the undo.");
+    expect(ada.point(7, 7).dataset.stone).toBe("black");
+    // Asked again (after Bo plays) and allowed: gone from both boards.
+    bo.point(8, 8).click();
+    await settle();
+    ada.$("undo").click();
+    await settle();
+    bo.$("undo-allow").click();
+    await settle();
+    for (const p of [ada, bo]) {
+      expect(p.point(7, 7).dataset.stone).toBe("");
+      expect(p.point(8, 8).dataset.stone).toBe("");
+    }
+    expect(ada.$("status").textContent).toBe("Your move.");
   });
 });

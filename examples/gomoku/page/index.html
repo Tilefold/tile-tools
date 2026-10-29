@@ -8,6 +8,13 @@
   code), the code to send while waiting for the other player, and the
   board with whose turn it is. All text arrives from the tile in the
   user's language; main.js is built from page-src/.
+
+  Modified 2026-10-29 (playing an AI agent): the lobby's "Play against an
+    agent" button.
+  Modified 2026-10-29 (undo): the Undo button, and the other player's
+    request to undo with Allow and Decline.
+
+  Last updated by: Tilefold
 -->
 <html lang="en">
   <head>
@@ -30,6 +37,7 @@
         <label id="name-label" for="name"></label>
         <input id="name" type="text" autocomplete="nickname" spellcheck="false" />
         <button id="new" class="primary" type="button"></button>
+        <button id="versus" class="versus" type="button"></button>
         <div class="join">
           <label id="code-label" for="code"></label>
           <div class="join-row">
@@ -58,8 +66,16 @@
         <p id="status" class="status" role="status" aria-live="polite"></p>
         <div id="board" class="board"></div>
         <p id="offer" class="offer" hidden></p>
+        <div id="undo-offer" class="undo-offer" role="alert" hidden>
+          <span id="undo-text"></span>
+          <span class="undo-buttons">
+            <button id="undo-allow" class="primary" type="button"></button>
+            <button id="undo-decline" type="button"></button>
+          </span>
+        </div>
         <div class="actions">
           <button id="rematch" class="primary" type="button" hidden></button>
+          <button id="undo" type="button" hidden></button>
           <button id="resign" type="button" hidden></button>
           <button id="leave" type="button"></button>
         </div>
