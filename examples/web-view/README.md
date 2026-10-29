@@ -72,7 +72,7 @@ Pick one:
   ~/.local/bin/tilefold-memory install
   ```
 
-  This registers the server with every agent CLI it finds for your user: Claude Code, Codex, Gemini CLI and Cursor. To register only some of them, name each with `--agent`: `--agent claude --agent codex`. Each config file it changes is backed up first, as `<file>.tilefold-memory.bak`.
+  This registers the server with every agent CLI it finds for your user: Claude Code, Codex, Gemini CLI, Cursor, Antigravity CLI and opencode. To register only some of them, name each with `--agent`: `--agent claude --agent codex`. Each config file it changes is backed up first, as `<file>.tilefold-memory.bak`.
 - **From Tilefold:** in the **New fold** dialog, click **Set up** next to an agent that isn't set up yet.
 
 Check the result:
@@ -100,6 +100,18 @@ Talk to the agent normally. For example:
 - "Fill in the sign-up form with a test user and see if it goes through."
 
 When several pages are open, the agent lists them first. Each page has an id such as `example.web-view:3000` and shows its address and tab, so you can name the one you mean ("the API on port 3000"). If you don't name one, the agent uses the page docked beside its own tab.
+
+### Show your agent what you mean
+
+To point at something on the page ("make *this* button bigger"), click the **crosshair** on the docked page's bar (Tilefold 0.1.20 or later). The page shows **Click what you mean for your agent · Esc to cancel**, and the part under the pointer is outlined with what it is, such as `button "Save changes"`, `link "Help"`, `img "Google"` or `heading "Account"`.
+
+- **Click** to pick it. Your click never reaches the page.
+- A click on the page's **background** or on a **canvas** picks that spot instead.
+- **Esc**, or the crosshair again, stops without picking.
+
+The pick goes to the pane you're working in. A picture of it is saved with your attachments, and one line tells the agent what you picked: the page, what it is and which part of the page it's in, how its browser tools find it again, and its CSS selector. Links, buttons and fields are found again by what they are and their name; anything else, such as a logo or a heading, by its CSS selector. While an agent runs in the pane, both are typed into its input without being sent, so you add your words ("make this bigger and red") and press Return. At a shell prompt they go into the Composer.
+
+If the agent needs more, its **browser_picked** tool reads the element's HTML and a few of its styles. That tool only gives what you picked; it doesn't look at the page. Agents can't start a pick themselves.
 
 ### What asks you first
 
@@ -131,4 +143,4 @@ The address rules are in `src/addresses.js`, the recent list in `src/recent.js`,
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-19 by Tilefold
+Last updated: 2026-10-28 by Tilefold
