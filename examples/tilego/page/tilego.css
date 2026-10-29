@@ -8,7 +8,8 @@
  * In Tilefold's own colors where Tilefold gives its theme (0.1.20: the
  * `--tf-*` variables), else light or dark with the system. The board is a
  * square of 9, 13 or 19 points a side (`--n`, set by the page) that fills
- * the page's width: each point draws its own piece of the grid lines (a
+ * the page's width, framed by its coordinates, with a bar above it for who's
+ * ahead: each point draws its own piece of the grid lines (a
  * cross, or half of one on an edge), the star points a dot, and its stone
  * on top. While the dead stones are marked, dead ones fade under a cross
  * and each side's area shows as a small square of its color. Whose turn it
@@ -256,17 +257,112 @@ button.icon {
   font-weight: 600;
 }
 
-/* The board: --n rows of --n points, square, on wood. */
+/*
+ * The board on its wood, with the coordinates round it: the column letters
+ * above and below, the row numbers at both sides, each strip split into
+ * --n parts so every label sits on its line.
+ */
+.board-frame {
+  --n: 9;
+  --coord: 1.5em;
+  display: grid;
+  grid-template-columns: var(--coord) 1fr var(--coord);
+  grid-template-rows: var(--coord) auto var(--coord);
+  grid-template-areas:
+    ". top ."
+    "left board right"
+    ". bottom .";
+  width: 100%;
+  max-width: 600px;
+  padding: 1%;
+  border-radius: 6px;
+  background: var(--wood);
+  box-sizing: border-box;
+  /* A Go board reads A to the left in every language, as the arrow keys do. */
+  direction: ltr;
+}
+
+.coords {
+  display: grid;
+  color: var(--grid);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  user-select: none;
+}
+
+.coords span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coords.cols {
+  grid-template-columns: repeat(var(--n), 1fr);
+}
+
+.coords.rows {
+  grid-template-rows: repeat(var(--n), 1fr);
+}
+
+.coords.top {
+  grid-area: top;
+}
+
+.coords.bottom {
+  grid-area: bottom;
+}
+
+.coords.left {
+  grid-area: left;
+}
+
+.coords.right {
+  grid-area: right;
+}
+
+/* The board: --n rows of --n points, square. */
 .board {
   --n: 9;
+  grid-area: board;
   display: grid;
   grid-template-rows: repeat(var(--n), 1fr);
   width: 100%;
-  max-width: 560px;
   aspect-ratio: 1;
-  padding: 2%;
-  border-radius: 6px;
-  background: var(--wood);
+}
+
+/*
+ * Who's ahead, roughly: black's share of the winning chances in black from
+ * the left, white's in white for the rest, and the same in words under it.
+ */
+.lead-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lead-meter[hidden] {
+  display: none;
+}
+
+.lead-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--grid);
+  border-radius: 999px;
+  background: var(--white);
+}
+
+.lead-bar span {
+  background: var(--black);
+  transition: width 0.3s ease;
+}
+
+.lead-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .board-row {

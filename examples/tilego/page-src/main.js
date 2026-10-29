@@ -7,9 +7,10 @@
  *
  * The board and everything around it: the lobby (your name, the board
  * size, Start a game, Play against an agent, Join with a code), the code to
- * send while waiting for the other player, and the game itself with whose
- * turn it is, Pass, Undo, Resign, and once both passed the marking of dead
- * stones with the score and Accept; then Play again and Leave. The page
+ * send while waiting for the other player, and the game itself: the board
+ * with its coordinates round it and a rough guess at who's ahead above it,
+ * whose turn it is, Pass, Undo, Resign, and once both passed the marking of
+ * dead stones with the score and Accept; then Play again and Leave. The page
  * holds the connection to the relay (a tile page may keep a WebSocket open
  * to a host its tile asks for; the tile itself can't), and runs the match
  * (match.js) or the game against an agent (versus.js) in the open.
@@ -35,6 +36,7 @@ import { isPass, otherColor, positionOf } from "./game.js";
 import { DEFAULT_SIZE, NAME_MAX, createMatch } from "./match.js";
 import { createRelay } from "./relay.js";
 import { areaOf, scoreOf } from "./score.js";
+import { estimateOf, percentOf } from "./estimate.js";
 import { createVersus } from "./versus.js";
 
 const bridge = window.tilefold;
@@ -195,6 +197,27 @@ function drawBoard(v) {
       : "";
 }
 
+/**
+ * The bar for who's ahead while the game is played or marked: black's
+ * winning chances as its share of the bar, and the chances and the lead in
+ * words. Hidden once the game is over, when the status line says who won.
+ */
+function drawLead(v) {
+  $("lead").hidden = v.phase !== "playing" && v.phase !== "scoring";
+  if ($("lead").hidden) return;
+  const scoring = v.phase === "scoring";
+  const guess = estimateOf(positionOf(v.moves, v.size).board, v.size, {
+    dead: scoring ? v.marks.dead : [],
+    ended: scoring,
+  });
+  const black = percentOf(guess.blackChance);
+  $("lead-black").style.width = `${black}%`;
+  $("lead-line").textContent = `${L("lead-chances", { black, white: 100 - black })} · ${L(
+    `lead-${guess.leader}`,
+    { margin: guess.margin },
+  )}`;
+}
+
 /** Draws `v`, the match's view or the game against the agent's. */
 function render(v) {
   // A game against the agent draws over the match, which waits in its lobby meanwhile.
@@ -233,6 +256,7 @@ function render(v) {
   playerLine($("me"), v.color, L("player-you"), v.phase === "playing" && v.turn === v.color);
   playerLine($("them"), other, them, v.phase === "playing" && v.turn === other);
   $("status").textContent = status(v);
+  drawLead(v);
   drawBoard(v);
   const playing = v.phase === "playing";
   const scoring = v.phase === "scoring";
@@ -301,6 +325,7 @@ function applyLabels() {
   $("close").title = L("page-close");
   $("close").setAttribute("aria-label", L("page-close"));
   $("board").setAttribute("aria-label", L("board-label"));
+  $("lead").title = L("lead-hint");
 }
 
 /** Copies the room code, or selects it for the user to copy when the page may not. */
@@ -407,7 +432,7 @@ function onPoint(x, y) {
 
 /** Wires the page's buttons and fields. */
 function wire() {
-  board = createBoard($("board"), { onPoint });
+  board = createBoard($("board"), { onPoint, frame: $("board-frame") });
   $("versus").addEventListener("click", () => startVersus());
   $("new").addEventListener("click", () => match?.create($("name").value, pickedSize()));
   const join = () => match?.join($("code").value, $("name").value);

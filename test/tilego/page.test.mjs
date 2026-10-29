@@ -12,7 +12,9 @@
  * code, the other page joins and gets the same size, a click plays a stone
  * that appears on the other board, Pass is said in words, two passes show
  * the marking with the score, a click marks a chain dead on both boards,
- * and both accepting shows who won and by how much. Against an agent, its
+ * and both accepting shows who won and by how much. The board has its
+ * coordinates on all four sides, and a bar above it guesses who's ahead
+ * until the game is over. Against an agent, its
  * requests (as the tile passes them) read the board, wait for its turn,
  * play its stones and passes, mark and accept, and come back refused with
  * a reason when they can't be played.
@@ -186,6 +188,46 @@ describe("the page", () => {
       "won",
     ]);
     expect(ada.kept().saved).toMatchObject({ size: 13, scored: true });
+  });
+});
+
+describe("around the board", () => {
+  it("shows the coordinates on all four sides, and a rough guess at who's ahead", async () => {
+    const p = page(createFakeRelay());
+    p.setup();
+    type(p, "name", "Ada");
+    type(p, "size", "13");
+    await p.ask("versus");
+    const strip = (side) =>
+      [...p.$("board-frame").querySelector(`.coords.${side}`).children].map((s) => s.textContent);
+    const columns = [..."ABCDEFGHJKLMN"];
+    const rows = Array.from({ length: 13 }, (_, i) => String(13 - i));
+    expect(strip("top")).toEqual(columns);
+    expect(strip("bottom")).toEqual(columns);
+    expect(strip("left")).toEqual(rows);
+    expect(strip("right")).toEqual(rows);
+    // Screen readers skip them: each point says its own name.
+    expect(p.$("board-frame").querySelector(".coords.left").getAttribute("aria-hidden")).toBe(
+      "true",
+    );
+
+    // An empty board: white has the komi, so it leads a little.
+    expect(p.$("lead").hidden).toBe(false);
+    expect(p.$("lead").title).toMatch(/not a Go engine/);
+    expect(p.$("lead-line").textContent).toMatch(
+      /^Winning chances, roughly: black (\d+)%, white (\d+)% · white leads by about 7\.5 points$/,
+    );
+    const [, black, white] = p.$("lead-line").textContent.match(/black (\d+)%, white (\d+)%/);
+    expect(Number(black) + Number(white)).toBe(100);
+    expect(p.$("lead-black").style.width).toBe(`${black}%`);
+
+    // A move redraws it.
+    p.point(6, 6).click();
+    expect(p.$("lead-line").textContent).not.toMatch(/about 7\.5/);
+
+    // Over, the status line says who won and the bar goes.
+    p.$("resign").click();
+    expect(p.$("lead").hidden).toBe(true);
   });
 });
 

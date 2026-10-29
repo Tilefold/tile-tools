@@ -14,8 +14,12 @@
  * while marking, dead stones fade under a cross and each side's area shows
  * as a small square of its color. The board is built again when the game's
  * size changes; the lines are drawn by each point's own background.
+ * Around it, the frame shows the column letters (without I) above and below
+ * and the row numbers on both sides, counted from the bottom, as the
+ * points are named; screen readers skip them, since each point says its
+ * own name.
  */
-import { cellName } from "./game.js";
+import { COLUMNS, cellName } from "./game.js";
 
 /** The star points (hoshi) on each board size, as [x, y]. */
 const STARS = {
@@ -26,12 +30,13 @@ const STARS = {
 
 /**
  * Builds the board in `root`. `onPoint(x, y)` is called for a click, or
- * Enter or Space on a point.
+ * Enter or Space on a point. `frame`, when given, holds the board and its
+ * `.coords.cols` and `.coords.rows` strips, which get the coordinates.
  *
  * @param {HTMLElement} root
- * @param {{ onPoint: (x: number, y: number) => void }} options
+ * @param {{ onPoint: (x: number, y: number) => void, frame?: HTMLElement | null }} options
  */
-export function createBoard(root, { onPoint }) {
+export function createBoard(root, { onPoint, frame = null }) {
   /** @type {HTMLButtonElement[]} */
   let points = [];
   let size = 0;
@@ -44,6 +49,7 @@ export function createBoard(root, { onPoint }) {
     points = [];
     root.textContent = "";
     root.style.setProperty("--n", String(n));
+    if (frame) labelFrame(n);
     const stars = new Set((STARS[n] ?? []).map(([x, y]) => y * n + x));
     for (let y = 0; y < n; y++) {
       const row = document.createElement("div");
@@ -71,6 +77,24 @@ export function createBoard(root, { onPoint }) {
     }
     focusIndex = Math.floor((n * n) / 2); // the middle point
     points[focusIndex].tabIndex = 0;
+  }
+
+  /** Writes the coordinates of a board of `n` into the frame's strips. */
+  function labelFrame(n) {
+    frame.style.setProperty("--n", String(n));
+    const fill = (strip, names) => {
+      strip.textContent = "";
+      strip.setAttribute("aria-hidden", "true");
+      for (const name of names) {
+        const label = document.createElement("span");
+        label.textContent = name;
+        strip.append(label);
+      }
+    };
+    const columns = [...COLUMNS.slice(0, n)];
+    const rows = Array.from({ length: n }, (_, y) => String(n - y));
+    for (const strip of frame.querySelectorAll(".coords.cols")) fill(strip, columns);
+    for (const strip of frame.querySelectorAll(".coords.rows")) fill(strip, rows);
   }
 
   /** Moves the keyboard's point to `index`. */

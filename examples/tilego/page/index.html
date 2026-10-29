@@ -6,7 +6,8 @@
 
   TileGo's page: the lobby (your name, the board size, start a game, play
   against an agent, or join one with a code), the code to send while
-  waiting for the other player, and the board with whose turn it is, Pass,
+  waiting for the other player, and the board (with its coordinates, and a
+  rough guess at who's ahead above it) with whose turn it is, Pass,
   Undo and Resign, and once both passed the marking of dead stones with the
   score and Accept. All text arrives from the tile in the user's language;
   main.js is built from page-src/.
@@ -64,8 +65,18 @@
           <span id="me" class="player"></span>
           <span id="them" class="player"></span>
         </div>
+        <div id="lead" class="lead-meter">
+          <div class="lead-bar" aria-hidden="true"><span id="lead-black"></span></div>
+          <p id="lead-line" class="lead-line"></p>
+        </div>
         <p id="status" class="status" role="status" aria-live="polite"></p>
-        <div id="board" class="board"></div>
+        <div id="board-frame" class="board-frame">
+          <div class="coords cols top"></div>
+          <div class="coords rows left"></div>
+          <div id="board" class="board"></div>
+          <div class="coords rows right"></div>
+          <div class="coords cols bottom"></div>
+        </div>
         <div id="scoring" class="scoring" hidden>
           <p id="scoring-hint" class="hint"></p>
           <p id="score-line" class="score-line" aria-live="polite"></p>

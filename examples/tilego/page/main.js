@@ -7,9 +7,10 @@
  *
  * The board and everything around it: the lobby (your name, the board
  * size, Start a game, Play against an agent, Join with a code), the code to
- * send while waiting for the other player, and the game itself with whose
- * turn it is, Pass, Undo, Resign, and once both passed the marking of dead
- * stones with the score and Accept; then Play again and Leave. The page
+ * send while waiting for the other player, and the game itself: the board
+ * with its coordinates round it and a rough guess at who's ahead above it,
+ * whose turn it is, Pass, Undo, Resign, and once both passed the marking of
+ * dead stones with the score and Accept; then Play again and Leave. The page
  * holds the connection to the relay (a tile page may keep a WebSocket open
  * to a host its tile asks for; the tile itself can't), and runs the match
  * (match.js) or the game against an agent (versus.js) in the open.
@@ -402,7 +403,7 @@
     13: [3, 6, 9].flatMap((a) => [3, 6, 9].map((b) => [a, b])),
     19: [3, 9, 15].flatMap((a) => [3, 9, 15].map((b) => [a, b]))
   };
-  function createBoard(root, { onPoint: onPoint2 }) {
+  function createBoard(root, { onPoint: onPoint2, frame = null }) {
     let points = [];
     let size = 0;
     let focusIndex = 0;
@@ -412,6 +413,7 @@
       points = [];
       root.textContent = "";
       root.style.setProperty("--n", String(n));
+      if (frame) labelFrame(n);
       const stars = new Set((STARS[n] ?? []).map(([x, y]) => y * n + x));
       for (let y = 0; y < n; y++) {
         const row = document.createElement("div");
@@ -438,6 +440,22 @@
       }
       focusIndex = Math.floor(n * n / 2);
       points[focusIndex].tabIndex = 0;
+    }
+    function labelFrame(n) {
+      frame.style.setProperty("--n", String(n));
+      const fill = (strip, names2) => {
+        strip.textContent = "";
+        strip.setAttribute("aria-hidden", "true");
+        for (const name of names2) {
+          const label = document.createElement("span");
+          label.textContent = name;
+          strip.append(label);
+        }
+      };
+      const columns = [...COLUMNS.slice(0, n)];
+      const rows = Array.from({ length: n }, (_, y) => String(n - y));
+      for (const strip of frame.querySelectorAll(".coords.cols")) fill(strip, columns);
+      for (const strip of frame.querySelectorAll(".coords.rows")) fill(strip, rows);
     }
     const focusOn = (index) => {
       points[focusIndex].tabIndex = -1;
@@ -1202,6 +1220,86 @@
     };
   }
 
+  // page-src/estimate.js
+  var INFLUENCE = [0, 0.5, 0.3, 0.15];
+  var TERRITORY_SHARE = 1 / 2;
+  var SPREAD_PER_POINT = 0.35;
+  function distances(board2, size, color) {
+    const dist = new Array(board2.length).fill(Infinity);
+    const queue = [];
+    board2.forEach((stone, i) => {
+      if (stone === color) {
+        dist[i] = 0;
+        queue.push(i);
+      }
+    });
+    for (let k = 0; k < queue.length; k++) {
+      const i = queue[k];
+      if (dist[i] >= INFLUENCE.length - 1) continue;
+      for (const n of neighbors(size, i)) {
+        if (board2[n] || dist[n] <= dist[i] + 1) continue;
+        dist[n] = dist[i] + 1;
+        queue.push(n);
+      }
+    }
+    return dist;
+  }
+  function regionSizes(board2, size) {
+    const sizes = new Array(board2.length).fill(0);
+    for (let start = 0; start < board2.length; start++) {
+      if (board2[start] || sizes[start]) continue;
+      const region = [start];
+      sizes[start] = -1;
+      for (let k = 0; k < region.length; k++) {
+        for (const n of neighbors(size, region[k])) {
+          if (board2[n] || sizes[n]) continue;
+          sizes[n] = -1;
+          region.push(n);
+        }
+      }
+      for (const p of region) sizes[p] = region.length;
+    }
+    return sizes;
+  }
+  function estimateOf(board2, size, { dead = [], ended = false } = {}) {
+    const gone = new Set(dead);
+    const alive = board2.map((stone, i) => stone && !gone.has(i) ? stone : null);
+    const owner = areaOf(alive, size, []);
+    const sizes = regionSizes(alive, size);
+    const near = { black: distances(alive, size, "black"), white: distances(alive, size, "white") };
+    const territory = ended ? Infinity : size * size * TERRITORY_SHARE;
+    let black = 0;
+    let white = KOMI;
+    let open = 0;
+    alive.forEach((stone, i) => {
+      let color = stone;
+      let weight = 1;
+      if (!stone) {
+        if (owner[i] && sizes[i] <= territory) color = owner[i];
+        else {
+          open += 1;
+          const b = near.black[i];
+          const w = near.white[i];
+          color = b < w ? "black" : w < b ? "white" : null;
+          weight = color ? INFLUENCE[Math.min(b, w)] ?? 0 : 0;
+        }
+      }
+      if (color === "black") black += weight;
+      else if (color === "white") white += weight;
+    });
+    const lead = black - white;
+    const spread = 1 + SPREAD_PER_POINT * open;
+    return {
+      black,
+      white,
+      lead,
+      leader: lead > 0 ? "black" : "white",
+      margin: Math.max(0.5, Math.round(Math.abs(lead) * 2) / 2),
+      blackChance: 1 / (1 + Math.exp(-lead / spread))
+    };
+  }
+  var percentOf = (chance) => Math.min(99, Math.max(1, Math.round(chance * 100)));
+
   // page-src/versus.js
   var userColor = (game) => game % 2 === 1 ? "black" : "white";
   function createVersus({ agentName, onChange, onSave, onNotice = () => {
@@ -1537,6 +1635,21 @@
     $("score-line").textContent = L("score-line", { black: score.black, white: score.white });
     $("accept-status").textContent = v.marks.mine ? L("accept-waiting", { name }) : v.marks.theirs ? L("accept-theirs", { name }) : "";
   }
+  function drawLead(v) {
+    $("lead").hidden = v.phase !== "playing" && v.phase !== "scoring";
+    if ($("lead").hidden) return;
+    const scoring = v.phase === "scoring";
+    const guess = estimateOf(positionOf(v.moves, v.size).board, v.size, {
+      dead: scoring ? v.marks.dead : [],
+      ended: scoring
+    });
+    const black = percentOf(guess.blackChance);
+    $("lead-black").style.width = `${black}%`;
+    $("lead-line").textContent = `${L("lead-chances", { black, white: 100 - black })} \xB7 ${L(
+      `lead-${guess.leader}`,
+      { margin: guess.margin }
+    )}`;
+  }
   function render(v) {
     if (v.mode !== "agent" && versus && versus.view().phase !== "lobby") return;
     view = v;
@@ -1566,6 +1679,7 @@
     playerLine($("me"), v.color, L("player-you"), v.phase === "playing" && v.turn === v.color);
     playerLine($("them"), other, them, v.phase === "playing" && v.turn === other);
     $("status").textContent = status(v);
+    drawLead(v);
     drawBoard(v);
     const playing = v.phase === "playing";
     const scoring = v.phase === "scoring";
@@ -1623,6 +1737,7 @@
     $("close").title = L("page-close");
     $("close").setAttribute("aria-label", L("page-close"));
     $("board").setAttribute("aria-label", L("board-label"));
+    $("lead").title = L("lead-hint");
   }
   async function copyCode() {
     const field = $("room-code");
@@ -1710,7 +1825,7 @@
     else game.play(x, y);
   }
   function wire() {
-    board = createBoard($("board"), { onPoint });
+    board = createBoard($("board"), { onPoint, frame: $("board-frame") });
     $("versus").addEventListener("click", () => startVersus());
     $("new").addEventListener("click", () => match?.create($("name").value, pickedSize()));
     const join = () => match?.join($("code").value, $("name").value);

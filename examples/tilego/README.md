@@ -9,8 +9,9 @@ Like the Gomoku example, its page keeps a WebSocket open to a **room relay**, a 
 - **TileGo: Play** opens the board beside your panes (in a window of its own before Tilefold 0.1.20, or after you press **Undock**).
 - Enter your name (the other player sees it), pick the **board size** (9 × 9 for a quick game, 13 × 13, or the full 19 × 19), then **Start a game**. The board shows a code such as `K7P-4QX`: send it to the other player any way you like.
 - The other player opens TileGo in their Tilefold, enters their name and the code, and presses **Join**. Their board takes the size you picked, and the game starts at once.
-- Black moves first; the player who started the game plays black in the first game. Click a point to place your stone, or use the arrow keys to move around the board and **Enter** or **Space** to play. The status line above the board says whose turn it is, and when the other player passed.
+- Black moves first; the player who started the game plays black in the first game. The column letters (A to T, without I) run along the top and bottom of the board and the row numbers up both sides, so you can name a point as an agent does: `E5`. Click a point to place your stone, or use the arrow keys to move around the board and **Enter** or **Space** to play. The status line above the board says whose turn it is, and when the other player passed.
 - A group of stones (stones of one color joined across or down, never diagonally) with no empty point next to it is captured and taken off the board. You can't play a stone that would leave its own group without an empty point unless it captures (no suicide), and you can't take back a single stone straight away where a single stone was just taken (ko): play elsewhere first.
+- The bar above the board is a rough guess at who's ahead: black's share of it is black's chance of winning, and the line under it says the chances and about how many points the leader is up. It counts the stones, the areas each side has walled off, part of the open points nearer to each side's stones, and white's komi. It's no Go engine: it can't read a fight, and it doesn't know a group is dead until you mark it, so take it as a hint. The bar goes when the game is over.
 - **Pass** when no move gains you anything. Two passes in a row end the play.
 - **Undo** takes back your last move (a stone or a pass), and the other player's reply to it if they already answered, so it's your turn again. The other player sees your request with **Allow** and **Decline** (and a notice if they're working elsewhere); it happens on both boards only when they allow it. **Resign** gives the game up.
 
@@ -73,6 +74,7 @@ TileGo has no settings. It keeps your player id (random, so the other board reco
 | `src/config.js` | The relay's address |
 | `page-src/game.js` | The rules: board sizes, point names, captures, suicide, ko, passes and the end of play |
 | `page-src/score.js` | Dead stones a group at a time, areas, area scoring with komi, and the result |
+| `page-src/estimate.js` | The rough guess at who's ahead: the lead and each side's winning chances |
 | `page-src/code.js` | Game codes: six characters without look-alikes, shown as `K7P-4QX` |
 | `page-src/relay.js` | The relay connection, with reconnects and pings, and the room protocol |
 | `page-src/match.js` | A match between two players: rooms, the board size, turns, passes, rematches |
@@ -82,9 +84,9 @@ TileGo has no settings. It keeps your player id (random, so the other board reco
 | `page-src/versus.js` | A game against an AI agent on one board |
 | `page-src/agent-view.js` | The game as an agent reads it, and the points and passes it names |
 | `page-src/agent-requests.js` | Answering an agent's commands: the board, a move, the dead stones |
-| `page-src/board.js` | The board as a grid of points that works with the keyboard and screen readers |
+| `page-src/board.js` | The board as a grid of points that works with the keyboard and screen readers, with its coordinates round it |
 | `page-src/main.js` | The page: lobby, waiting for the other player, the game, the marking, and agents' requests |
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-28 by Tilefold
+Last updated: 2026-10-29 by Tilefold
