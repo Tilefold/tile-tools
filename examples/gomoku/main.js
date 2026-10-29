@@ -47,6 +47,12 @@ var PAGE_KEYS = [
   "action-resign",
   "action-rematch",
   "action-leave",
+  "action-undo",
+  "undo-waiting",
+  "undo-offered",
+  "undo-allow",
+  "undo-decline",
+  "undo-declined",
   "rematch-offered",
   "rematch-accept",
   "rematch-waiting",
@@ -85,7 +91,8 @@ var NOTICE_KEYS = {
   left: "notice-left",
   rematch: "notice-rematch",
   over: "notice-over",
-  "agent-moved": "notice-agent-moved"
+  "agent-moved": "notice-agent-moved",
+  undo: "notice-undo"
 };
 
 // src/run.js
@@ -97,7 +104,9 @@ var EVENTS = /* @__PURE__ */ new Set([
   "draw",
   "left",
   "agent-game",
-  "agent-moved"
+  "agent-moved",
+  "undid",
+  "undo-asked"
 ]);
 var AGENT_REPLY_MS = 9e3;
 var READY_MS = 4e3;

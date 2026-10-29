@@ -11,6 +11,7 @@ It's also an example of a tile that does something live with other people. Its p
 - The other player opens Gomoku in their Tilefold, enters their name and the code, and presses **Join**. The game starts at once.
 - Black moves first; the player who started the game plays black in the first game. Click a point to place your stone, or use the arrow keys to move around the board and **Enter** or **Space** to play. The status line above the board says whose turn it is.
 - The first to get five or more stones in an unbroken line (across, down or diagonally) wins. A full board with no line of five is a draw. **Resign** gives the game up.
+- **Undo** takes back your last move, and the other player's reply to it if they already answered, so it's your turn again. The other player sees your request with **Allow** and **Decline** (and a notice if they're working elsewhere); the move comes off both boards only when they allow it. Playing on instead counts as declining. Undo works while the game is on, not after it ends.
 - When a game ends, **Play again** asks for another; it starts once both of you press it, with the colors swapped.
 - **Leave the game** (on the board, or **Gomoku: Leave the game**) ends it for you and tells the other player.
 
@@ -26,7 +27,7 @@ You can play against an AI agent in one of your panes, such as Claude Code or Co
 2. In a pane, ask the agent: *"Let's play Gomoku in Tilefold. You're white; read the board and play your move."* The first time, Tilefold asks you to let that pane run Gomoku's commands.
 3. Play your stones by clicking. The agent reads the board, waits for your move and answers with its own. Its stones appear on your board, and a notice tells you when it has played if you're working elsewhere.
 
-**Play again** starts another game with the colors swapped, and **Leave the game** goes back to the lobby.
+**Undo** takes your last move back at once, with the agent's reply if it already played; the agent sees the shorter game the next time it reads the board. **Play again** starts another game with the colors swapped, and **Leave the game** goes back to the lobby.
 
 The agent plays through three commands, which it finds with Tilefold's `tile_list` and runs with `tile_run`:
 
@@ -36,7 +37,7 @@ The agent plays through three commands, which it finds with Tilefold's `tile_lis
 | `board` (**Read the board**) | `{ "wait": true }` (optional) | The game as data: the agent's color, whose turn it is, the moves as point names (`"H8"`), the board drawn as text rows (`X` black, `O` white), the result with its winning line, the rules, and what to do next. With `wait`, it holds up to seven seconds until it's the agent's turn |
 | `move` (**Play a point**) | `{ "cell": "H8" }`: column A–O, row 1–15 from the bottom | The board after the move, or the reason it can't be played (not your turn, a taken point), as an error |
 
-In a game with another person, the same commands let an agent read the board for you, or play for you on your turn. Agent moves and games against an agent are recorded in the activity log as `agent-moved` and `agent-game`, without the points. Needs Tilefold 0.1.14 or later and Tilefold's agent tools in the pane ([setting them up](../web-view/README.md) is the same as for Web View).
+In a game with another person, the same commands let an agent read the board for you, or play for you on your turn. Agent moves, games against an agent and undos are recorded in the activity log as `agent-moved`, `agent-game`, `undid` and `undo-asked`, without the points. Needs Tilefold 0.1.14 or later and Tilefold's agent tools in the pane ([setting them up](../web-view/README.md) is the same as for Web View).
 
 ## What the relay sees
 
@@ -70,6 +71,7 @@ Gomoku has no settings. It keeps your player id (random, so the other board reco
 | `page-src/match.js` | A match between two players: rooms, turns, catching up, rematches |
 | `page-src/board.js` | The board as a grid of points that works with the keyboard and screen readers |
 | `page-src/versus.js` | A game against an AI agent on one board |
+| `page-src/undo.js` | Taking a move back: what comes off, which requests fit, asking and answering |
 | `page-src/agent-view.js` | The game as an agent reads it, and the points it names |
 | `page-src/main.js` | The page: lobby, waiting for the other player, the game, and agents' requests |
 

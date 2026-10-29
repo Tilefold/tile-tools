@@ -14,6 +14,14 @@
  * catches up on the moves, the resignation or the rematch they missed. A
  * wrong code, a full room or a room that's gone back to the lobby with
  * the reason. Notices go out for what the other player did.
+ *
+ * Modified 2026-10-29 (undo): a player asks to take their last move back
+ *   (with the reply to it), the other allows or declines; allowed, both
+ *   boards go back; playing on declines; a player who missed an allowed
+ *   undo takes the shorter game when they come back instead of putting
+ *   the moves back.
+ *
+ * Last updated by: Tilefold
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMatch } from "../../examples/gomoku/page-src/match.js";
@@ -300,5 +308,98 @@ describe("leaving", () => {
     ada.match.resign();
     ada.match.rematch();
     expect(ada.view.rematch.mine).toBe(false);
+  });
+});
+
+describe("undo", () => {
+  it("takes a move back on both boards once the other player allows it", async () => {
+    const { ada, bo } = await started();
+    await move(ada, bo, 7, 7);
+    expect(ada.view.undo).toMatchObject({ canAsk: true, asked: false });
+    expect(bo.view.undo.canAsk).toBe(false); // white has no move to take back yet
+    expect(ada.match.undo()).toBe(true);
+    await flush();
+    expect(ada.view.undo).toMatchObject({ asked: true, canAsk: false });
+    expect(bo.view.undo.offered).toBe(true);
+    expect(bo.notices.at(-1)).toEqual({ kind: "undo", name: "Ada" });
+    bo.match.allowUndo();
+    await flush();
+    for (const p of [ada, bo]) {
+      expect(p.view.moves).toEqual([]);
+      expect(p.view.undo).toMatchObject({ asked: false, offered: false });
+      expect(p.view.undone).toBe(1);
+    }
+    expect(ada.view.myTurn).toBe(true);
+    expect(ada.saved).toMatchObject({ moves: [], undone: 1 });
+  });
+
+  it("takes the reply back too when the other player already answered", async () => {
+    const { ada, bo } = await started();
+    await move(ada, bo, 7, 7);
+    await move(ada, bo, 8, 8);
+    ada.match.undo();
+    await flush();
+    bo.match.allowUndo();
+    await flush();
+    expect(ada.view.moves).toEqual([]);
+    expect(bo.view.moves).toEqual([]);
+    expect(ada.view.myTurn).toBe(true);
+  });
+
+  it("leaves the game as it is when declined, and says so", async () => {
+    const { ada, bo } = await started();
+    await move(ada, bo, 7, 7);
+    ada.match.undo();
+    await flush();
+    bo.match.declineUndo();
+    await flush();
+    expect(ada.view.undo).toMatchObject({ asked: false, declined: true });
+    expect(ada.view.moves).toEqual([[7, 7]]);
+    // The note stays through the other player's move, and goes with this side's next one.
+    await move(ada, bo, 8, 8);
+    expect(ada.view.undo.declined).toBe(true);
+    await move(ada, bo, 9, 9);
+    expect(ada.view.undo.declined).toBe(false);
+  });
+
+  it("counts playing on as no", async () => {
+    const { ada, bo } = await started();
+    await move(ada, bo, 7, 7);
+    ada.match.undo();
+    await flush();
+    expect(bo.match.play(8, 8)).toBe(true);
+    await flush();
+    expect(ada.view.undo).toMatchObject({ asked: false, declined: true });
+    expect(ada.view.moves).toHaveLength(2);
+    expect(bo.view.undo.offered).toBe(false);
+  });
+
+  it("ignores an undo that doesn't fit the game", async () => {
+    const { ada, bo } = await started();
+    await move(ada, bo, 7, 7);
+    // Bo's page asks to take back black's move: not Bo's to take back.
+    bo.relay.send({ op: "send", data: { v: 1, t: "undo-ask", game: 1, n: 1, to: 0 } });
+    await flush();
+    expect(ada.view.undo.offered).toBe(false);
+  });
+
+  it("lets a player who missed an allowed undo take the shorter game", async () => {
+    const { server, ada, bo } = await started();
+    await move(ada, bo, 7, 7);
+    await move(ada, bo, 8, 8);
+    const kept = structuredClone(bo.saved);
+    ada.match.undo();
+    await flush();
+    bo.match.allowUndo();
+    await flush();
+    // Bo reopens from what was kept before the undo: longer, but older.
+    bo.relay.close();
+    await flush();
+    const again = side(server, "p-bo", kept);
+    again.match.resume(kept);
+    await flush();
+    expect(again.view.moves).toEqual([]);
+    expect(again.view.undone).toBe(1);
+    expect(ada.view.moves).toEqual([]);
   });
 });

@@ -19,6 +19,9 @@
  *   the board, wait for the agent's turn, play its moves and are refused
  *   with a reason on the user's turn or a taken point; the game is kept and
  *   comes back; Leave goes back to the lobby.
+ * Modified 2026-10-29 (undo): Undo against the agent takes the move back at
+ *   once; with another person it waits for Allow, which takes it back on
+ *   both pages, and Decline says so.
  *
  * Last updated by: Tilefold
  */
@@ -324,5 +327,60 @@ describe("playing an AI agent", () => {
     // A game with someone open: no game against the agent until it ends.
     ada.send({ do: "agent", id: "o2", ask: "versus", input: null });
     expect(answer(ada, "o2").error).toMatch(/must end first/);
+  });
+});
+
+describe("undo on the page", () => {
+  it("takes a move back at once against the agent", async () => {
+    const p = page(createFakeRelay());
+    p.setup();
+    p.$("versus").click();
+    expect(p.$("undo").hidden).toBe(false);
+    expect(p.$("undo").disabled).toBe(true);
+    expect(p.$("undo").textContent).toBe("Undo");
+    p.point(7, 7).click();
+    p.send({ do: "agent", id: "u1", ask: "play", input: "H9" });
+    p.$("undo").click();
+    expect(p.point(7, 7).dataset.stone).toBe("");
+    expect(p.$("status").textContent).toBe("Your move.");
+    expect(p.posted.filter((m) => m.type === "event").map((m) => m.action)).toContain("undid");
+  });
+
+  it("asks the other player, who allows or declines", async () => {
+    const server = createFakeRelay();
+    const ada = page(server);
+    const bo = page(server);
+    ada.setup();
+    bo.setup();
+    type(ada, "name", "Ada");
+    ada.$("new").click();
+    await settle();
+    type(bo, "name", "Bo");
+    type(bo, "code", ada.$("room-code").value);
+    bo.$("join").click();
+    await settle();
+    ada.point(7, 7).click();
+    await settle();
+    ada.$("undo").click();
+    await settle();
+    expect(ada.$("undo").textContent).toBe("Waiting for Bo to allow the undo…");
+    expect(bo.$("undo-offer").hidden).toBe(false);
+    expect(bo.$("undo-text").textContent).toBe("Ada asks to take back their last move.");
+    bo.$("undo-decline").click();
+    await settle();
+    expect(ada.$("undo-text").textContent).toBe("Bo declined the undo.");
+    expect(ada.point(7, 7).dataset.stone).toBe("black");
+    // Asked again (after Bo plays) and allowed: gone from both boards.
+    bo.point(8, 8).click();
+    await settle();
+    ada.$("undo").click();
+    await settle();
+    bo.$("undo-allow").click();
+    await settle();
+    for (const p of [ada, bo]) {
+      expect(p.point(7, 7).dataset.stone).toBe("");
+      expect(p.point(8, 8).dataset.stone).toBe("");
+    }
+    expect(ada.$("status").textContent).toBe("Your move.");
   });
 });

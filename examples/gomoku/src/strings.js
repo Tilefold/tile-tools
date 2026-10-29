@@ -13,6 +13,7 @@
  *
  * Modified 2026-10-29 (playing an AI agent): the lobby's button, the
  *   agent's name and turn, and the notice for the agent's move.
+ * Modified 2026-10-29 (undo): Undo, asking and answering, and its notice.
  *
  * Last updated by: Tilefold
  */
@@ -40,6 +41,12 @@ export const PAGE_KEYS = [
   "action-resign",
   "action-rematch",
   "action-leave",
+  "action-undo",
+  "undo-waiting",
+  "undo-offered",
+  "undo-allow",
+  "undo-decline",
+  "undo-declined",
   "rematch-offered",
   "rematch-accept",
   "rematch-waiting",
@@ -86,4 +93,5 @@ export const NOTICE_KEYS = {
   rematch: "notice-rematch",
   over: "notice-over",
   "agent-moved": "notice-agent-moved",
+  undo: "notice-undo",
 };

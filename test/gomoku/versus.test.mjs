@@ -13,6 +13,13 @@
  * board as text rows with the top row first, and the game as data that
  * says its color, whose turn it is, the result and what to do next, both
  * against the user and when playing for them in a game with someone else.
+ *
+ * Modified 2026-10-29 (undo): Undo takes the user's last move back at once,
+ *   with the agent's reply; never more than two moves, never the agent's
+ *   alone, never after the game ends. The undo rules for any game: what is
+ *   taken back, and which asks fit the game.
+ *
+ * Last updated by: Tilefold
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -21,6 +28,7 @@ import {
   boardRows,
   parseCell,
 } from "../../examples/gomoku/page-src/agent-view.js";
+import { undoFits, undoTarget } from "../../examples/gomoku/page-src/undo.js";
 import { createVersus, userColor } from "../../examples/gomoku/page-src/versus.js";
 
 /** A game against the agent, recording what it saved and noticed. */
@@ -188,5 +196,55 @@ describe("what the agent reads", () => {
     });
     expect(agentBoard({ ...view, myTurn: false, turn: "white" }).next).toMatch(/Bo's move/);
     expect(agentBoard({ ...view, phase: "waiting" }).next).toMatch(/Waiting/);
+  });
+});
+
+describe("undo against the agent", () => {
+  it("takes the user's move back, with the agent's reply, at once", () => {
+    const g = game();
+    g.v.start("Ada");
+    expect(g.view.undo.canAsk).toBe(false);
+    g.v.play(7, 7);
+    expect(g.v.undo()).toBe(true);
+    expect(g.view.moves).toEqual([]);
+    g.v.play(7, 7);
+    g.v.agentPlay(8, 8);
+    expect(g.v.undo()).toBe(true);
+    expect(g.view).toMatchObject({ moves: [], myTurn: true });
+    expect(g.saved.moves).toEqual([]);
+  });
+
+  it("never takes the agent's first move back alone, nor after the game ends", () => {
+    const g = game();
+    g.v.start("Ada");
+    g.v.resign();
+    g.v.rematch(); // the user plays white: the agent moves first
+    g.v.agentPlay(7, 7);
+    expect(g.view.undo.canAsk).toBe(false);
+    expect(g.v.undo()).toBe(false);
+    expect(g.view.moves).toHaveLength(1);
+    g.v.resign();
+    expect(g.v.undo()).toBe(false);
+  });
+});
+
+describe("the undo rules", () => {
+  const m = (n) => Array.from({ length: n }, (_, i) => [i, 0]);
+  it("take back one move or two, back to the asker's turn", () => {
+    expect(undoTarget(m(1), "black")).toBe(0);
+    expect(undoTarget(m(2), "black")).toBe(0);
+    expect(undoTarget(m(2), "white")).toBe(1);
+    expect(undoTarget(m(0), "black")).toBeNull();
+    expect(undoTarget(m(1), "white")).toBeNull();
+  });
+
+  it("fit only an unchanged game, one or two moves off, to the asker's turn", () => {
+    expect(undoFits(m(3), 3, 2, "black")).toBe(true);
+    expect(undoFits(m(3), 3, 1, "white")).toBe(true);
+    expect(undoFits(m(3), 2, 1, "white")).toBe(false); // the game moved on
+    expect(undoFits(m(3), 3, 0, "black")).toBe(false); // three moves off
+    expect(undoFits(m(3), 3, 2, "white")).toBe(false); // not white's turn after
+    expect(undoFits(m(3), 3, 3, "white")).toBe(false);
+    expect(undoFits(m(3), "3", 2, "black")).toBe(false);
   });
 });

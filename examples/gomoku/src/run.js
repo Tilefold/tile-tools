@@ -33,6 +33,9 @@
  *   turn. The user runs the same commands from the palette (they open the
  *   board). Agent moves are recorded as `agent-moved`, new games against
  *   an agent as `agent-game`.
+ * Modified 2026-10-29 (undo): a move taken back is recorded as `undid` (asked for: `undo-asked`), and
+ *   the other player's request to undo becomes a notice while the user is
+ *   away from the board.
  *
  * Last updated by: Tilefold
  */
@@ -49,6 +52,8 @@ const EVENTS = new Set([
   "left",
   "agent-game",
   "agent-moved",
+  "undid",
+  "undo-asked",
 ]);
 
 /** How long a request to the page may take, in ms (a command has ten seconds in all). */

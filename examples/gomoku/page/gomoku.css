@@ -14,6 +14,8 @@
  *
  * Modified 2026-10-29 (playing an AI agent): the lobby's "Play against an
  *   agent" button, outlined in the accent color.
+ * Modified 2026-10-29 (undo): the other player's request to undo, with
+ *   Allow and Decline, in a band under the board.
  *
  * Last updated by: Tilefold
  */
@@ -388,4 +390,26 @@ button.icon {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* The other player asks to undo: their request, with Allow and Decline. */
+.undo-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+}
+
+.undo-offer[hidden] {
+  display: none;
+}
+
+.undo-buttons {
+  display: flex;
+  gap: 6px;
 }

@@ -15,9 +15,15 @@
  * `agentTurn` the agent's. `onSave` gets what to keep to come back to the
  * game (mode "agent"), or null once the user left; `onNotice` hears the
  * agent's moves, as a match hears the other player's.
+ *
+ * Modified 2026-10-29 (undo): Undo takes the user's last move back at once,
+ *   with the agent's reply to it when there is one (undo.js).
+ *
+ * Last updated by: Tilefold
  */
 import { isValidGame, refusal, resultOf, turnOf } from "./game.js";
 import { cleanName } from "./match.js";
+import { undoTarget } from "./undo.js";
 
 /** The color the user plays in game number `game` (from 1). */
 export const userColor = (game) => (game % 2 === 1 ? "black" : "white");
@@ -57,6 +63,12 @@ export function createVersus({ agentName, onChange, onSave, onNotice = () => {} 
       turn,
       myTurn: playing && turn === color,
       agentTurn: playing && turn !== color,
+      undo: {
+        canAsk: playing && undoTarget(state.moves, color) !== null,
+        asked: false,
+        offered: false,
+        declined: false,
+      },
     };
   }
 
@@ -110,6 +122,15 @@ export function createVersus({ agentName, onChange, onSave, onNotice = () => {} 
       const why = place(x, y);
       if (!why) onNotice({ kind: "agent-moved", name: agentName, x, y });
       return why;
+    },
+
+    /** Takes the user's last move back (and the agent's reply); true when it did. */
+    undo() {
+      const to = state.phase === "playing" ? undoTarget(state.moves, userColor(state.game)) : null;
+      if (to === null) return false;
+      update({ moves: state.moves.slice(0, to) });
+      save();
+      return true;
     },
 
     /** The user gives the game up. */

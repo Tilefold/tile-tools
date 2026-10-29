@@ -30,6 +30,9 @@
  *   as the agent reads it (agent-view.js), waiting up to WAIT_MS for the
  *   agent's turn when asked to. In a game with another person, an agent may
  *   read the board and play for the user on their turn.
+ * Modified 2026-10-29 (undo): Undo takes the user's last move back: at once
+ *   against an agent, after the other player allows it in a game with
+ *   someone (who sees Allow and Decline, and a notice while away).
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -194,6 +197,16 @@ function render(v) {
     label: (cell, stone) => (stone ? L(`cell-${stone}`, { cell }) : L("cell-empty", { cell })),
   });
   $("resign").hidden = v.phase !== "playing";
+  $("undo").hidden = v.phase !== "playing";
+  $("undo").disabled = !v.undo?.canAsk;
+  $("undo").textContent = v.undo?.asked ? L("undo-waiting", { name: them }) : L("action-undo");
+  const offered = !!v.undo?.offered;
+  $("undo-offer").hidden = !offered && !v.undo?.declined;
+  $("undo-text").textContent = offered
+    ? L("undo-offered", { name: them })
+    : L("undo-declined", { name: them });
+  $("undo-allow").hidden = !offered;
+  $("undo-decline").hidden = !offered;
   const over = v.phase === "over";
   $("rematch").hidden = !over || !!v.opponent?.gone;
   $("rematch").disabled = v.rematch.mine;
@@ -231,6 +244,8 @@ function applyLabels() {
     copy: "waiting-copy",
     cancel: "action-cancel",
     resign: "action-resign",
+    "undo-allow": "undo-allow",
+    "undo-decline": "undo-decline",
     leave: "action-leave",
   };
   for (const [id, key] of Object.entries(text)) $(id).textContent = L(key);
@@ -384,6 +399,13 @@ function wire() {
   $("cancel").addEventListener("click", () => match?.leave());
   $("cancel-connect").addEventListener("click", () => match?.leave());
   $("resign").addEventListener("click", () => active()?.resign());
+  $("undo").addEventListener("click", () => {
+    const against = active() === versus;
+    // Every undo is recorded (not only the first in a row, as event() would).
+    if (active()?.undo()) send({ type: "event", action: against ? "undid" : "undo-asked" });
+  });
+  $("undo-allow").addEventListener("click", () => match?.allowUndo());
+  $("undo-decline").addEventListener("click", () => match?.declineUndo());
   $("rematch").addEventListener("click", () => active()?.rematch());
   $("leave").addEventListener("click", () => {
     if (active() === versus) leaveVersus();

@@ -11,6 +11,8 @@
 
   Modified 2026-10-29 (playing an AI agent): the lobby's "Play against an
     agent" button.
+  Modified 2026-10-29 (undo): the Undo button, and the other player's
+    request to undo with Allow and Decline.
 
   Last updated by: Tilefold
 -->
@@ -64,8 +66,16 @@
         <p id="status" class="status" role="status" aria-live="polite"></p>
         <div id="board" class="board"></div>
         <p id="offer" class="offer" hidden></p>
+        <div id="undo-offer" class="undo-offer" role="alert" hidden>
+          <span id="undo-text"></span>
+          <span class="undo-buttons">
+            <button id="undo-allow" class="primary" type="button"></button>
+            <button id="undo-decline" type="button"></button>
+          </span>
+        </div>
         <div class="actions">
           <button id="rematch" class="primary" type="button" hidden></button>
+          <button id="undo" type="button" hidden></button>
           <button id="resign" type="button" hidden></button>
           <button id="leave" type="button"></button>
         </div>

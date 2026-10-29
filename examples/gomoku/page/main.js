@@ -30,6 +30,9 @@
  *   as the agent reads it (agent-view.js), waiting up to WAIT_MS for the
  *   agent's turn when asked to. In a game with another person, an agent may
  *   read the board and play for the user on their turn.
+ * Modified 2026-10-29 (undo): Undo takes the user's last move back: at once
+ *   against an agent, after the other player allows it in a game with
+ *   someone (who sees Allow and Decline, and a notice while away).
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -197,6 +200,73 @@
   }
   var showCode = (code) => `${code.slice(0, 3)}-${code.slice(3)}`;
 
+  // page-src/undo.js
+  function undoTarget(moves, color) {
+    for (let i = moves.length - 1; i >= 0 && i >= moves.length - 2; i--) {
+      if (colorOfMove(i) === color) return i;
+    }
+    return null;
+  }
+  function undoFits(moves, n, to, color) {
+    return Number.isInteger(n) && Number.isInteger(to) && n === moves.length && to >= 0 && to < n && n - to <= 2 && colorOfMove(to) === color;
+  }
+  var NO_UNDO = Object.freeze({ mine: null, theirs: null, declined: false });
+  function undoActions(ctx) {
+    const { update, tell, save, onNotice } = ctx;
+    const theirColor = () => ctx.mine() === "black" ? "white" : "black";
+    function goBack(to) {
+      const s = ctx.state();
+      update({
+        moves: s.moves.slice(0, to),
+        result: null,
+        phase: ctx.phaseFor(null),
+        undo: NO_UNDO,
+        undone: s.undone + 1
+      });
+      save();
+    }
+    return {
+      /** Asks the other player to let this side take its last move back. */
+      ask() {
+        if (!ctx.canAsk()) return false;
+        const s = ctx.state();
+        const to = undoTarget(s.moves, ctx.mine());
+        tell({ t: "undo-ask", game: s.game, n: s.moves.length, to });
+        update({ undo: { ...NO_UNDO, mine: to } });
+        return true;
+      },
+      /** Allows the undo the other player asked for. */
+      allow() {
+        const s = ctx.state();
+        const asked = s.undo.theirs;
+        if (!asked || s.phase !== "playing") return;
+        tell({ t: "undo-yes", game: s.game, n: asked.n, to: asked.to });
+        goBack(asked.to);
+      },
+      /** Turns down the undo the other player asked for. */
+      decline() {
+        const s = ctx.state();
+        if (!s.undo.theirs) return;
+        tell({ t: "undo-no", game: s.game, n: s.undo.theirs.n });
+        update({ undo: NO_UNDO });
+      },
+      /** What the other player said about an undo (`undo-ask`, `undo-yes`, `undo-no`). */
+      heard(d) {
+        const s = ctx.state();
+        if (d.t === "undo-ask") {
+          if (s.phase !== "playing" || !undoFits(s.moves, d.n, d.to, theirColor())) return;
+          update({ undo: { ...NO_UNDO, theirs: { n: d.n, to: d.to } } });
+          onNotice({ kind: "undo", name: s.opponent.name });
+        } else if (d.t === "undo-yes") {
+          if (s.undo.mine === null || d.to !== s.undo.mine || d.n !== s.moves.length) return;
+          goBack(d.to);
+        } else if (d.t === "undo-no" && s.undo.mine !== null) {
+          update({ undo: { ...NO_UNDO, declined: true } });
+        }
+      }
+    };
+  }
+
   // page-src/match.js
   var APP = "gomoku";
   var V = 1;
@@ -224,7 +294,11 @@
       moves: [],
       result: null,
       // { winner, line, resigned }
-      rematch: { mine: false, theirs: false }
+      rematch: { mine: false, theirs: false },
+      undo: NO_UNDO,
+      // { mine: to | null, theirs: { n, to } | null, declined }
+      undone: 0
+      // undos this game has had
     };
     let pending = null;
     let fullTries = 0;
@@ -236,11 +310,18 @@
     function view2() {
       const color = myColor(state.creator, state.game);
       const turn = turnOf(state.moves);
+      const { undo } = state;
       return {
         ...state,
         color,
         turn,
-        myTurn: state.phase === "playing" && turn === color && !!state.opponent?.here
+        myTurn: state.phase === "playing" && turn === color && !!state.opponent?.here,
+        undo: {
+          canAsk: state.phase === "playing" && !!state.opponent?.here && undo.mine === null && undo.theirs === null && undoTarget(state.moves, color) !== null,
+          asked: undo.mine !== null,
+          offered: undo.theirs !== null,
+          declined: undo.declined
+        }
       };
     }
     const save = () => {
@@ -252,7 +333,8 @@
         opponent: state.opponent ? { player: state.opponent.player, name: state.opponent.name } : null,
         game: state.game,
         moves: state.moves,
-        resigned: state.result?.resigned ?? null
+        resigned: state.result?.resigned ?? null,
+        undone: state.undone
       });
     };
     const tell = (data) => relay.send({ op: "send", data: { v: V, ...data } });
@@ -262,12 +344,30 @@
       game: state.game,
       moves: state.moves,
       resigned: state.result?.resigned ?? null,
-      rematch: state.rematch.mine
+      rematch: state.rematch.mine,
+      undone: state.undone
     });
     const resultFor2 = (moves, resigned) => resultOf(moves) ?? (resigned ? { winner: resigned === "black" ? "white" : "black", line: null, resigned } : null);
     const phaseFor = (result) => result ? "over" : state.opponent ? "playing" : "waiting";
+    const undos = undoActions({
+      state: () => state,
+      update,
+      tell,
+      save,
+      canAsk: () => view2().undo.canAsk,
+      mine: () => myColor(state.creator, state.game),
+      phaseFor,
+      onNotice
+    });
     function newGame(game) {
-      update({ game, moves: [], result: null, rematch: { mine: false, theirs: false } });
+      update({
+        game,
+        moves: [],
+        result: null,
+        rematch: { mine: false, theirs: false },
+        undo: NO_UNDO,
+        undone: 0
+      });
       update({ phase: phaseFor(null) });
       save();
     }
@@ -287,7 +387,9 @@
         game: 1,
         moves: [],
         result: null,
-        rematch: { mine: false, theirs: false }
+        rematch: { mine: false, theirs: false },
+        undo: NO_UNDO,
+        undone: 0
       });
       save();
     }
@@ -321,12 +423,17 @@
         opponent,
         game: Number.isInteger(saved.game) && saved.game > 0 ? saved.game : 1,
         moves: saved.moves,
+        undone: Number.isInteger(saved.undone) && saved.undone > 0 ? saved.undone : 0,
+        undo: NO_UNDO,
         result
       });
       relay.connect();
     }
     function play(x, y) {
       if (!view2().myTurn || refusal(state.moves, x, y)) return false;
+      if (state.undo.theirs) tell({ t: "undo-no", game: state.game, n: state.undo.theirs.n });
+      if (state.undo.mine !== null || state.undo.theirs || state.undo.declined)
+        update({ undo: NO_UNDO });
       const n = state.moves.length;
       const moves = [...state.moves, [x, y]];
       const result = resultOf(moves);
@@ -425,6 +532,9 @@
         return save();
       }
       if (d.t === "rematch" && d.game === state.game) return heardRematch();
+      if (typeof d.t === "string" && d.t.startsWith("undo-") && d.game === state.game) {
+        return undos.heard(d);
+      }
       if (d.t === "bye") {
         update({ opponent: { ...state.opponent, here: false, gone: true } });
         return onNotice({ kind: "left", name: state.opponent.name });
@@ -456,6 +566,12 @@
         update({ game: d.game, rematch: { mine: false, theirs: false } });
         return adopt(d.moves, null);
       }
+      const undone = Number.isInteger(d.undone) && d.undone > 0 ? d.undone : 0;
+      if (undone > state.undone) {
+        update({ undone, undo: NO_UNDO });
+        return adopt(d.moves, null);
+      }
+      if (undone < state.undone) return;
       const mine = state.moves;
       const agrees = mine.every(([x, y], i) => d.moves[i]?.[0] === x && d.moves[i]?.[1] === y);
       if (agrees && d.moves.length > mine.length) adopt(d.moves, state.result?.resigned ?? null);
@@ -480,7 +596,8 @@
       if (refusal(state.moves, d.x, d.y)) return;
       const moves = [...state.moves, [d.x, d.y]];
       const result = resultOf(moves);
-      update({ moves, result, phase: phaseFor(result) });
+      const declined = state.undo.mine !== null || state.undo.declined;
+      update({ moves, result, phase: phaseFor(result), undo: { ...NO_UNDO, declined } });
       onNotice(
         result ? { kind: "over", name: state.opponent.name } : { kind: "moved", name: state.opponent.name, x: d.x, y: d.y }
       );
@@ -494,6 +611,9 @@
       play,
       resign,
       rematch,
+      undo: undos.ask,
+      allowUndo: undos.allow,
+      declineUndo: undos.decline,
       leave,
       dismiss,
       /** The view as it is now. */
@@ -700,7 +820,13 @@
         color,
         turn,
         myTurn: playing && turn === color,
-        agentTurn: playing && turn !== color
+        agentTurn: playing && turn !== color,
+        undo: {
+          canAsk: playing && undoTarget(state.moves, color) !== null,
+          asked: false,
+          offered: false,
+          declined: false
+        }
       };
     }
     const update = (changes) => {
@@ -743,6 +869,14 @@
         const why = place(x, y);
         if (!why) onNotice({ kind: "agent-moved", name: agentName, x, y });
         return why;
+      },
+      /** Takes the user's last move back (and the agent's reply); true when it did. */
+      undo() {
+        const to = state.phase === "playing" ? undoTarget(state.moves, userColor(state.game)) : null;
+        if (to === null) return false;
+        update({ moves: state.moves.slice(0, to) });
+        save();
+        return true;
       },
       /** The user gives the game up. */
       resign() {
@@ -889,6 +1023,14 @@
       label: (cell, stone) => stone ? L(`cell-${stone}`, { cell }) : L("cell-empty", { cell })
     });
     $("resign").hidden = v.phase !== "playing";
+    $("undo").hidden = v.phase !== "playing";
+    $("undo").disabled = !v.undo?.canAsk;
+    $("undo").textContent = v.undo?.asked ? L("undo-waiting", { name: them }) : L("action-undo");
+    const offered = !!v.undo?.offered;
+    $("undo-offer").hidden = !offered && !v.undo?.declined;
+    $("undo-text").textContent = offered ? L("undo-offered", { name: them }) : L("undo-declined", { name: them });
+    $("undo-allow").hidden = !offered;
+    $("undo-decline").hidden = !offered;
     const over = v.phase === "over";
     $("rematch").hidden = !over || !!v.opponent?.gone;
     $("rematch").disabled = v.rematch.mine;
@@ -917,6 +1059,8 @@
       copy: "waiting-copy",
       cancel: "action-cancel",
       resign: "action-resign",
+      "undo-allow": "undo-allow",
+      "undo-decline": "undo-decline",
       leave: "action-leave"
     };
     for (const [id, key] of Object.entries(text)) $(id).textContent = L(key);
@@ -1048,6 +1192,12 @@
     $("cancel").addEventListener("click", () => match?.leave());
     $("cancel-connect").addEventListener("click", () => match?.leave());
     $("resign").addEventListener("click", () => active()?.resign());
+    $("undo").addEventListener("click", () => {
+      const against = active() === versus;
+      if (active()?.undo()) send({ type: "event", action: against ? "undid" : "undo-asked" });
+    });
+    $("undo-allow").addEventListener("click", () => match?.allowUndo());
+    $("undo-decline").addEventListener("click", () => match?.declineUndo());
     $("rematch").addEventListener("click", () => active()?.rematch());
     $("leave").addEventListener("click", () => {
       if (active() === versus) leaveVersus();

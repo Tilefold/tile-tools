@@ -24,6 +24,10 @@
  *   { v: 1, t: "resign", game }
  *   { v: 1, t: "rematch", game }               I want game + 1
  *   { v: 1, t: "bye" }                         I left for good
+ *   { v: 1, t: "undo-ask", game, n, to }       may I take my last move back
+ *       (from n moves to `to`, one or two moves off)?
+ *   { v: 1, t: "undo-yes", game, n, to }       yes: both boards go back to `to`
+ *   { v: 1, t: "undo-no", game, n }            no
  *
  * `player` is a random id each player keeps (the relay's member ids change
  * on every reconnect). The player who made the room plays black in odd
@@ -35,10 +39,19 @@
  * The match only talks to its relay and calls `onChange` with a fresh view
  * of its state; `onSave` gets what to keep to resume later (or null once
  * the player left), and `onNotice` what's worth telling a player who isn't
- * looking (`joined`, `moved`, `left`, `rematch`, `over`).
+ * looking (`joined`, `moved`, `left`, `rematch`, `over`, `undo`).
+ *
+ * Modified 2026-10-29 (undo): a player may ask to take their last move
+ *   back (and the reply to it); it happens on both boards once the other
+ *   player allows it. `sync` carries how many undos the game has had, so
+ *   a player who missed one takes the shorter game instead of putting the
+ *   moves back.
+ *
+ * Last updated by: Tilefold
  */
 import { parseCode } from "./code.js";
 import { colorOfMove, isValidGame, refusal, resultOf, turnOf } from "./game.js";
+import { NO_UNDO, undoActions, undoTarget } from "./undo.js";
 
 /** The app name rooms are made for, so codes from other tiles don't mix. */
 export const APP = "gomoku";
@@ -88,6 +101,8 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
     moves: [],
     result: null, // { winner, line, resigned }
     rematch: { mine: false, theirs: false },
+    undo: NO_UNDO, // { mine: to | null, theirs: { n, to } | null, declined }
+    undone: 0, // undos this game has had
   };
   /** What the next `open` should do: "create", "join", or null (rejoin the room, if any). */
   let pending = null;
@@ -103,11 +118,23 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
   function view() {
     const color = myColor(state.creator, state.game);
     const turn = turnOf(state.moves);
+    const { undo } = state;
     return {
       ...state,
       color,
       turn,
       myTurn: state.phase === "playing" && turn === color && !!state.opponent?.here,
+      undo: {
+        canAsk:
+          state.phase === "playing" &&
+          !!state.opponent?.here &&
+          undo.mine === null &&
+          undo.theirs === null &&
+          undoTarget(state.moves, color) !== null,
+        asked: undo.mine !== null,
+        offered: undo.theirs !== null,
+        declined: undo.declined,
+      },
     };
   }
 
@@ -124,6 +151,7 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
       game: state.game,
       moves: state.moves,
       resigned: state.result?.resigned ?? null,
+      undone: state.undone,
     });
   };
 
@@ -136,6 +164,7 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
       moves: state.moves,
       resigned: state.result?.resigned ?? null,
       rematch: state.rematch.mine,
+      undone: state.undone,
     });
 
   /** The result to show for `moves`, with a resignation that wasn't overtaken. */
@@ -146,9 +175,28 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
   /** Moves on to the phase the game is in. */
   const phaseFor = (result) => (result ? "over" : state.opponent ? "playing" : "waiting");
 
+  // Undo: asking, allowing, turning down, and what the other player says (undo.js).
+  const undos = undoActions({
+    state: () => state,
+    update,
+    tell,
+    save,
+    canAsk: () => view().undo.canAsk,
+    mine: () => myColor(state.creator, state.game),
+    phaseFor,
+    onNotice,
+  });
+
   /** Starts game `game` with no moves. */
   function newGame(game) {
-    update({ game, moves: [], result: null, rematch: { mine: false, theirs: false } });
+    update({
+      game,
+      moves: [],
+      result: null,
+      rematch: { mine: false, theirs: false },
+      undo: NO_UNDO,
+      undone: 0,
+    });
     update({ phase: phaseFor(null) });
     save();
   }
@@ -171,6 +219,8 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
       moves: [],
       result: null,
       rematch: { mine: false, theirs: false },
+      undo: NO_UNDO,
+      undone: 0,
     });
     save();
   }
@@ -212,6 +262,8 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
       opponent,
       game: Number.isInteger(saved.game) && saved.game > 0 ? saved.game : 1,
       moves: saved.moves,
+      undone: Number.isInteger(saved.undone) && saved.undone > 0 ? saved.undone : 0,
+      undo: NO_UNDO,
       result,
     });
     relay.connect();
@@ -220,6 +272,10 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
   /** Places a stone, when it's this player's turn. */
   function play(x, y) {
     if (!view().myTurn || refusal(state.moves, x, y)) return false;
+    // Playing on answers an undo the other player asked for with no, and drops one asked here.
+    if (state.undo.theirs) tell({ t: "undo-no", game: state.game, n: state.undo.theirs.n });
+    if (state.undo.mine !== null || state.undo.theirs || state.undo.declined)
+      update({ undo: NO_UNDO });
     const n = state.moves.length;
     const moves = [...state.moves, [x, y]];
     const result = resultOf(moves);
@@ -336,6 +392,9 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
       return save();
     }
     if (d.t === "rematch" && d.game === state.game) return heardRematch();
+    if (typeof d.t === "string" && d.t.startsWith("undo-") && d.game === state.game) {
+      return undos.heard(d);
+    }
     if (d.t === "bye") {
       update({ opponent: { ...state.opponent, here: false, gone: true } });
       return onNotice({ kind: "left", name: state.opponent.name });
@@ -373,6 +432,13 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
       update({ game: d.game, rematch: { mine: false, theirs: false } });
       return adopt(d.moves, null);
     }
+    // A game that had more undos is the newer one: take it, shorter or not.
+    const undone = Number.isInteger(d.undone) && d.undone > 0 ? d.undone : 0;
+    if (undone > state.undone) {
+      update({ undone, undo: NO_UNDO });
+      return adopt(d.moves, null);
+    }
+    if (undone < state.undone) return; // This side is newer; its own sync mends the other.
     const mine = state.moves;
     const agrees = mine.every(([x, y], i) => d.moves[i]?.[0] === x && d.moves[i]?.[1] === y);
     if (agrees && d.moves.length > mine.length) adopt(d.moves, state.result?.resigned ?? null);
@@ -402,7 +468,9 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
     if (refusal(state.moves, d.x, d.y)) return;
     const moves = [...state.moves, [d.x, d.y]];
     const result = resultOf(moves);
-    update({ moves, result, phase: phaseFor(result) });
+    // Their move answers an undo asked here with no; the note stays until this side plays.
+    const declined = state.undo.mine !== null || state.undo.declined;
+    update({ moves, result, phase: phaseFor(result), undo: { ...NO_UNDO, declined } });
     onNotice(
       result
         ? { kind: "over", name: state.opponent.name }
@@ -419,6 +487,9 @@ export function createMatch({ relay, player, timers = globalThis, onChange, onSa
     play,
     resign,
     rematch,
+    undo: undos.ask,
+    allowUndo: undos.allow,
+    declineUndo: undos.decline,
     leave,
     dismiss,
     /** The view as it is now. */
