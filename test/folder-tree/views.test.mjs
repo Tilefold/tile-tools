@@ -169,7 +169,32 @@ describe("panel", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("shows only the tree when activity is off or there is none", () => {
+  it("keeps Recent pinned with a note before any agent used a file", () => {
+    const { content, targets } = panelView({ tree, events: [], now: NOW, t, opts: OPTS });
+    expect(content.footer.rows).toEqual([
+      { id: "recent", label: "section-recent", section: true, expandable: true, expanded: true },
+      {
+        id: "recent-none",
+        label: "page-empty-recent",
+        icon: "none",
+        depth: 1,
+        muted: true,
+      },
+    ]);
+    // The note is no link; the header still opens and closes.
+    expect(targets.has("recent-none")).toBe(false);
+    expect(targets.get("recent")).toEqual({ kind: "recent" });
+    const closed = panelView({
+      tree,
+      events: [],
+      now: NOW,
+      t,
+      opts: { ...OPTS, recentOpen: false },
+    });
+    expect(closed.content.footer.rows.map((r) => r.id)).toEqual(["recent"]);
+  });
+
+  it("shows only the tree when activity is off", () => {
     const events = toEvents([found("src/a.js", "e", 3)]);
     const off = panelView({ tree, events, now: NOW, t, opts: { ...OPTS, showActivity: false } });
     expect(off.content.footer).toBeUndefined();

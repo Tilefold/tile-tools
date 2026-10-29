@@ -556,17 +556,26 @@ function recentFooter(t, events, root, now, { open, all }) {
   const rows = [];
   const targets = /* @__PURE__ */ new Map();
   const recent = recentFiles(events, RECENT_LIMIT);
-  if (!recent.length) return { rows, targets };
   rows.push({
     id: "recent",
     label: t("section-recent"),
     section: true,
     expandable: true,
     expanded: open,
-    badge: String(recent.length)
+    ...recent.length ? { badge: String(recent.length) } : {}
   });
   targets.set("recent", { kind: "recent" });
   if (!open) return { rows, targets };
+  if (!recent.length) {
+    rows.push({
+      id: "recent-none",
+      label: t("page-empty-recent"),
+      icon: "none",
+      depth: 1,
+      muted: true
+    });
+    return { rows, targets };
+  }
   for (const e of all ? recent : recent.slice(0, PANEL_RECENT)) {
     const id = `recent:${e.abs}`;
     rows.push({
@@ -647,10 +656,7 @@ ${path}`, 512)
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
   rows.push(...built.rows);
-  const footer = recentFooter(t, activity, root, now, {
-    open: opts.recentOpen,
-    all: opts.recentAll
-  });
+  const footer = opts.showActivity ? recentFooter(t, activity, root, now, { open: opts.recentOpen, all: opts.recentAll }) : { rows: [], targets: /* @__PURE__ */ new Map() };
   for (const [id, target] of footer.targets) targets.set(id, target);
   const subtitle = headline(t, active, root);
   return {

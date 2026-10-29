@@ -14,7 +14,9 @@
  *   how many;
  * - "Recent", pinned to the bottom of the panel (the panel's footer): the
  *   newest five, or all of them, which Tilefold lets grow upward to half
- *   the panel and scroll inside.
+ *   the panel and scroll inside. It is always there while activity is on,
+ *   saying so when no agent has used a file here yet, so the panel keeps
+ *   its shape and the user knows where recent files will show.
  * A Tilefold older than 0.1.11 ignores the colours, pulses and footer and
  * shows the tree. Text comes from `t`, times are passed in, so it is
  * tested directly; `targets` maps each clickable row to what it opens.
@@ -23,6 +25,8 @@
  *   tinted, and folders, files and the empty space have right-click menus
  *   for changing files (panel-actions.js). The panel belongs to the tabs
  *   it is opened on (`perTab`, Tilefold 0.1.16; older ones show it on all).
+ * Modified 2026-10-28 (Recent always shown): the Recent footer shows while
+ *   activity is on even with no recent files yet, with a note saying so.
  *
  * Last updated by: Tilefold
  */
@@ -94,17 +98,26 @@ function recentFooter(t, events, root, now, { open, all }) {
   const rows = [];
   const targets = new Map();
   const recent = recentFiles(events, RECENT_LIMIT);
-  if (!recent.length) return { rows, targets };
   rows.push({
     id: "recent",
     label: t("section-recent"),
     section: true,
     expandable: true,
     expanded: open,
-    badge: String(recent.length),
+    ...(recent.length ? { badge: String(recent.length) } : {}),
   });
   targets.set("recent", { kind: "recent" });
   if (!open) return { rows, targets };
+  if (!recent.length) {
+    rows.push({
+      id: "recent-none",
+      label: t("page-empty-recent"),
+      icon: "none",
+      depth: 1,
+      muted: true,
+    });
+    return { rows, targets };
+  }
   for (const e of all ? recent : recent.slice(0, PANEL_RECENT)) {
     const id = `recent:${e.abs}`;
     rows.push({
@@ -198,10 +211,10 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
   }
   rows.push(...built.rows);
 
-  const footer = recentFooter(t, activity, root, now, {
-    open: opts.recentOpen,
-    all: opts.recentAll,
-  });
+  // Recent stays pinned while activity is on, even before any; off, there is none.
+  const footer = opts.showActivity
+    ? recentFooter(t, activity, root, now, { open: opts.recentOpen, all: opts.recentAll })
+    : { rows: [], targets: new Map() };
   for (const [id, target] of footer.targets) targets.set(id, target);
   const subtitle = headline(t, active, root);
   return {
