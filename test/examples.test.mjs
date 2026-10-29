@@ -17,6 +17,7 @@
  * Modified 2026-10-26 (Quiz example): the Quiz is listed; only folders
  *   with a tile.json count as examples.
  * Modified 2026-10-28 (Gomoku example): Gomoku is listed.
+ * Modified 2026-10-28 (TileGo example): TileGo is listed.
  *
  * Last updated by: Tilefold
  */
@@ -100,6 +101,7 @@ describe("examples", () => {
       "shell-tips",
       "tilefall",
       "tilefold-pet",
+      "tilego",
       "tuneboard",
       "watchpane",
       "weather-card",

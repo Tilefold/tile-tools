@@ -1,0 +1,12 @@
+{
+  "id": "example.tilego",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    { "page": "to show the board docked beside your panes, or in a window of its own" },
+    {
+      "net:play.tilefold.com": "to pass your moves to the other player through Tilefold's game relay"
+    }
+  ]
+}

@@ -15,6 +15,8 @@
  * Modified 2026-10-18 (screensaver themes): the screensaver-themes example.
  * Modified 2026-10-26 (Quiz example): the Quiz ships all twelve languages.
  * Modified 2026-10-28 (Gomoku example): Gomoku ships all twelve languages.
+ * Modified 2026-10-28 (TileGo example): TileGo ships all twelve languages, its
+ *   name never translated.
  *
  * Last updated by: Tilefold
  */
@@ -37,6 +39,7 @@ const EXAMPLES = [
   "screensaver-themes",
   "service-status",
   "shell-tips",
+  "tilego",
   "watchpane",
   "weather-card",
 ];
@@ -59,6 +62,7 @@ const KEPT = [
   "YouTube",
   "Watchpane",
   "Folder Tree",
+  "TileGo",
 ];
 
 /** The messages of one locale, checking every line on the way. */
