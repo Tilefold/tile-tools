@@ -66,12 +66,13 @@ describe("Folder Tree with agent activity", () => {
   it("shows Now, the marked tree and Recent pinned to the bottom", async () => {
     const host = await start();
     await host.command("toggle");
-    // Now keeps at least NOW_MIN rows (blank ones after the file), so the tree stays put.
+    // Now keeps at least NOW_MIN rows (the hour's agents and tally after the file),
+    // so the tree stays put.
     expect(ids(host)).toEqual([
       "now",
       "now:/work/app/src/main.js",
-      "now-pad-1",
-      "now-pad-2",
+      "now-agents",
+      "now-tally",
       "files",
       "/work/app/src",
       "/work/app/README.md",

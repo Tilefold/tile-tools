@@ -27,10 +27,14 @@
  *   it is opened on (`perTab`, Tilefold 0.1.16; older ones show it on all).
  * Modified 2026-10-28 (Recent always shown): the Recent footer shows while
  *   activity is on even with no recent files yet, with a note saying so.
+ * Modified 2026-10-28 (a livelier Now): the "Now" section moved to
+ *   now-view.js, and the row helpers to row-marks.js.
  *
  * Last updated by: Tilefold
  */
-import { activeFiles, age, hotFolders, recentFiles, TONES } from "./activity.js";
+import { activeFiles, hotFolders, recentFiles } from "./activity.js";
+import { nowRows } from "./now-view.js";
+import { clamp, marked, NOW_KEYS } from "./row-marks.js";
 import { treeRows } from "./model.js";
 import { panelMenus, ROW_MENU } from "./panel-actions.js";
 import { basename, shownPath } from "./paths.js";
@@ -40,46 +44,8 @@ import { folderName } from "./tree.js";
 export const PANEL_RECENT = 5;
 /** Most recent files shown with "Show all". */
 export const RECENT_LIMIT = 100;
-/** Most files under "Now". */
-export const NOW_MAX = 5;
-/**
- * Fewest rows the "Now" section takes (after its header), so the tree
- * below stays put as agents start and stop: a quiet note when nobody is
- * busy, then blank rows.
- */
-export const NOW_MIN = 3;
-
-/** `text` cut to `max` characters (Tilefold's limits), with "…" when cut. */
-export function clamp(text, max) {
-  const chars = [...String(text)];
-  return chars.length <= max ? String(text) : `${chars.slice(0, max - 1).join("")}…`;
-}
-
-/** Message keys, written out so each can be found in the code. */
-const AGO_KEYS = { s: "ago-s", m: "ago-m", h: "ago-h", d: "ago-d" };
-const HINT_KEYS = { r: "hint-r", e: "hint-e", a: "hint-a", d: "hint-d" };
-const NOW_KEYS = { r: "now-r", e: "now-e", a: "now-a", d: "now-d" };
-
-/** A short age, such as "12s" or "5m". */
-export const agoText = (t, ms) => {
-  const { unit, n } = age(ms);
-  return t(AGO_KEYS[unit], { n });
-};
-
-/** The tooltip for an action: who did what, how long ago, and the path. */
-const activityHint = (t, e, now, path) =>
-  clamp(
-    `${t(HINT_KEYS[e.action] ?? HINT_KEYS.e, { pane: e.pane, ago: agoText(t, now - e.ts) })}\n${path}`,
-    512,
-  );
-
-/** What an event adds to a file's row. */
-const marked = (t, e, now, { pulse, path }) => ({
-  tone: TONES[e.action] ?? "warning",
-  ...(pulse ? { pulse: true, badge: e.pane } : {}),
-  trail: agoText(t, now - e.ts),
-  hint: activityHint(t, e, now, path),
-});
+export { NOW_MAX, NOW_MIN } from "./now-view.js";
+export { clamp } from "./row-marks.js";
 
 /** The subtitle: what the newest agent is doing, or the folder's path. */
 function headline(t, active, root) {
@@ -190,23 +156,9 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
   const rows = [];
   const targets = new Map(built.targets);
   if (opts.showActivity) {
-    const count = active.length ? { badge: String(active.length) } : {};
-    rows.push({ id: "now", label: t("section-now"), section: true, ...count });
-    const shown = active.slice(0, NOW_MAX);
-    for (const e of shown) {
-      const id = `now:${e.abs}`;
-      const path = e.shown ?? shownPath(e.abs, root);
-      const label = clamp(path, 256);
-      rows.push({ id, label, icon: "file", ...marked(t, e, now, { pulse: true, path }) });
-      targets.set(id, { kind: "file", path: e.abs });
-    }
-    if (!shown.length) {
-      rows.push({ id: "now-idle", label: t("page-empty-now"), icon: "none", muted: true });
-    }
-    // Blank rows keep the section's height (Tilefold accepts a blank label).
-    for (let i = Math.max(shown.length, 1); i < NOW_MIN; i++) {
-      rows.push({ id: `now-pad-${i}`, label: " ", icon: "none", muted: true });
-    }
+    const section = nowRows(t, { active, events: activity, now, root });
+    rows.push(...section.rows);
+    for (const [id, target] of section.targets) targets.set(id, target);
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
   rows.push(...built.rows);

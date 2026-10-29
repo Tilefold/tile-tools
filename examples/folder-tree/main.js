@@ -490,6 +490,124 @@ function pageStrings(t, hookCommand) {
   };
 }
 
+// src/row-marks.js
+function clamp(text, max) {
+  const chars = [...String(text)];
+  return chars.length <= max ? String(text) : `${chars.slice(0, max - 1).join("")}\u2026`;
+}
+var AGO_KEYS = { s: "ago-s", m: "ago-m", h: "ago-h", d: "ago-d" };
+var HINT_KEYS = { r: "hint-r", e: "hint-e", a: "hint-a", d: "hint-d" };
+var NOW_KEYS = { r: "now-r", e: "now-e", a: "now-a", d: "now-d" };
+var agoText = (t, ms) => {
+  const { unit, n } = age(ms);
+  return t(AGO_KEYS[unit], { n });
+};
+var activityHint = (t, e, now, path) => clamp(
+  `${t(HINT_KEYS[e.action] ?? HINT_KEYS.e, { pane: e.pane, ago: agoText(t, now - e.ts) })}
+${path}`,
+  512
+);
+var marked = (t, e, now, { pulse, path }) => ({
+  tone: TONES[e.action] ?? "warning",
+  ...pulse ? { pulse: true, badge: e.pane } : {},
+  trail: agoText(t, now - e.ts),
+  hint: activityHint(t, e, now, path)
+});
+
+// src/now-view.js
+var NOW_MAX = 5;
+var NOW_MIN = 3;
+var LATELY_MS = 60 * 60 * 1e3;
+var LAST_KEYS = { r: "now-last-r", e: "now-last-e", a: "now-last-a", d: "now-last-d" };
+function tally(events) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = { r: 0, e: 0, a: 0, d: 0 };
+  for (const e of events) {
+    const key = `${e.action}|${e.abs}`;
+    if (seen.has(key) || !(e.action in out)) continue;
+    seen.add(key);
+    out[e.action] += 1;
+  }
+  return out;
+}
+var panesOf = (events) => [...new Set(events.map((e) => e.pane).filter(Boolean))];
+function nowRows(t, { active, events, now, root }) {
+  const rows = [];
+  const targets = /* @__PURE__ */ new Map();
+  const count = active.length ? { badge: String(active.length) } : {};
+  rows.push({ id: "now", label: t("section-now"), section: true, ...count });
+  const shown = active.slice(0, NOW_MAX);
+  for (const e of shown) {
+    const id = `now:${e.abs}`;
+    const path = e.shown ?? shownPath(e.abs, root);
+    rows.push({
+      id,
+      label: clamp(path, 256),
+      icon: "file",
+      ...marked(t, e, now, { pulse: true, path })
+    });
+    targets.set(id, { kind: "file", path: e.abs });
+  }
+  if (!events.length) {
+    rows.push({ id: "now-idle", label: t("page-empty-now"), icon: "none", muted: true });
+    rows.push({ id: "now-setup", label: t("now-setup"), icon: "info", tone: "accent" });
+    targets.set("now-setup", { kind: "setup" });
+    padTo(rows, shown.length + 2);
+    return { rows, targets };
+  }
+  const extra = [];
+  if (!shown.length) extra.push(lastRow(t, events[0], now, root, targets));
+  const lately = events.filter((e) => now - e.ts <= LATELY_MS);
+  extra.push(agentsRow(t, lately, events[0], now));
+  extra.push(tallyRow(t, lately.length ? lately : events, lately.length > 0));
+  rows.push(...extra.slice(0, Math.max(0, NOW_MIN - shown.length)));
+  return { rows, targets };
+}
+function padTo(rows, n) {
+  for (let i = n; i < NOW_MIN; i++) {
+    rows.push({ id: `now-pad-${i}`, label: " ", icon: "none", muted: true });
+  }
+}
+function lastRow(t, e, now, root, targets) {
+  const path = e.shown ?? shownPath(e.abs, root);
+  const id = `now-last:${e.abs}`;
+  targets.set(id, { kind: "file", path: e.abs });
+  return {
+    id,
+    label: clamp(t(LAST_KEYS[e.action] ?? LAST_KEYS.e, { pane: e.pane, path }), 256),
+    icon: "file",
+    ...marked(t, e, now, { pulse: false, path })
+  };
+}
+function agentsRow(t, lately, newest, now) {
+  const panes = panesOf(lately);
+  if (!panes.length) {
+    return {
+      id: "now-agents",
+      label: t("now-quiet", { ago: agoText(t, now - newest.ts) }),
+      icon: "none",
+      muted: true
+    };
+  }
+  return {
+    id: "now-agents",
+    label: clamp(t("now-agents", { names: panes.join(", ") }), 256),
+    icon: "info",
+    tone: "accent",
+    badge: String(panes.length),
+    hint: clamp(panes.join("\n"), 512)
+  };
+}
+function tallyRow(t, events, lately) {
+  const n = tally(events);
+  return {
+    id: "now-tally",
+    label: clamp(t(lately ? "now-tally-hour" : "now-tally-all", n), 256),
+    icon: "none",
+    tone: "info"
+  };
+}
+
 // src/panel-actions.js
 var ROW_MENU = { dir: "dir", file: "file", link: "file" };
 function panelMenus(t, canEdit2) {
@@ -518,30 +636,6 @@ function panelMenus(t, canEdit2) {
 // src/panel-view.js
 var PANEL_RECENT = 5;
 var RECENT_LIMIT = 100;
-var NOW_MAX = 5;
-var NOW_MIN = 3;
-function clamp(text, max) {
-  const chars = [...String(text)];
-  return chars.length <= max ? String(text) : `${chars.slice(0, max - 1).join("")}\u2026`;
-}
-var AGO_KEYS = { s: "ago-s", m: "ago-m", h: "ago-h", d: "ago-d" };
-var HINT_KEYS = { r: "hint-r", e: "hint-e", a: "hint-a", d: "hint-d" };
-var NOW_KEYS = { r: "now-r", e: "now-e", a: "now-a", d: "now-d" };
-var agoText = (t, ms) => {
-  const { unit, n } = age(ms);
-  return t(AGO_KEYS[unit], { n });
-};
-var activityHint = (t, e, now, path) => clamp(
-  `${t(HINT_KEYS[e.action] ?? HINT_KEYS.e, { pane: e.pane, ago: agoText(t, now - e.ts) })}
-${path}`,
-  512
-);
-var marked = (t, e, now, { pulse, path }) => ({
-  tone: TONES[e.action] ?? "warning",
-  ...pulse ? { pulse: true, badge: e.pane } : {},
-  trail: agoText(t, now - e.ts),
-  hint: activityHint(t, e, now, path)
-});
 function headline(t, active, root) {
   if (!active.length) return root ? clamp(root, 512) : void 0;
   const top = active[0];
@@ -637,22 +731,9 @@ ${path}`, 512)
   const rows = [];
   const targets = new Map(built.targets);
   if (opts.showActivity) {
-    const count = active.length ? { badge: String(active.length) } : {};
-    rows.push({ id: "now", label: t("section-now"), section: true, ...count });
-    const shown = active.slice(0, NOW_MAX);
-    for (const e of shown) {
-      const id = `now:${e.abs}`;
-      const path = e.shown ?? shownPath(e.abs, root);
-      const label = clamp(path, 256);
-      rows.push({ id, label, icon: "file", ...marked(t, e, now, { pulse: true, path }) });
-      targets.set(id, { kind: "file", path: e.abs });
-    }
-    if (!shown.length) {
-      rows.push({ id: "now-idle", label: t("page-empty-now"), icon: "none", muted: true });
-    }
-    for (let i = Math.max(shown.length, 1); i < NOW_MIN; i++) {
-      rows.push({ id: `now-pad-${i}`, label: " ", icon: "none", muted: true });
-    }
+    const section = nowRows(t, { active, events: activity, now, root });
+    rows.push(...section.rows);
+    for (const [id, target] of section.targets) targets.set(id, target);
     rows.push({ id: "files", label: t("section-files"), section: true });
   }
   rows.push(...built.rows);
@@ -1093,6 +1174,7 @@ function createFolderTree(tf) {
         recentOpen: action === "expand" || action === "activate" && !ui.recentOpen
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
+    if (target.kind === "setup") return api.openWindow(true);
     return void 0;
   };
   const renameChosen = async () => {
