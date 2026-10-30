@@ -1,0 +1,11 @@
+{
+  "id": "example.explain-board",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "page": "to show the board your AI agent draws on, docked beside your panes or in a window of its own"
+    }
+  ]
+}

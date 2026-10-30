@@ -27,6 +27,7 @@ body:
         - "Documentation"
         - "Example: break-timer"
         - "Example: brickfold"
+        - "Example: explain-board"
         - "Example: folder-tree"
         - "Example: girder-jump"
         - "Example: github-inbox"

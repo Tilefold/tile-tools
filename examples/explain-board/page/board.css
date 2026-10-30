@@ -1,0 +1,481 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Explain Board page — styles
+ *
+ * In Tilefold's own colors where Tilefold gives its theme (0.1.20: the
+ * `--tf-*` variables), else light or dark with the system. The board is an
+ * SVG 1,000 units wide that fills the page's width ("fit") or shows at its
+ * own size and scrolls. Agents name colors from a short palette (`c-red`,
+ * …); each is a `--ink` here, tuned for light and dark, so a drawing stays
+ * readable in either. The newest step's drawings fade in, unless the
+ * system asks for reduced motion. The palette follows Tilefold's light or
+ * dark (`data-mode` on the root, set by the page) where Tilefold says, else
+ * the system's.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: var(--tf-pane, #ffffff);
+  --fg: var(--tf-text, #1d1f27);
+  --muted: var(--tf-text-muted, #5d6273);
+  --line: var(--tf-border, #d9dbe3);
+  --raised: var(--tf-surface-raised, #f3f4f8);
+  --hover: var(--tf-surface-hover, #e8eaf2);
+  --accent: var(--tf-accent, #5b5bd6);
+  --on-accent: var(--tf-on-accent, #ffffff);
+  --soft: var(--tf-accent-soft, rgba(91, 91, 214, 0.14));
+  --note: #fff6c7;
+  --note-fg: #3d3410;
+  --ink-red: #c2413b;
+  --ink-orange: #c2620f;
+  --ink-yellow: #a17a00;
+  --ink-green: #2f8a4b;
+  --ink-teal: #12808a;
+  --ink-blue: #2f6bd1;
+  --ink-purple: #7d4cc7;
+  --ink-gray: #6b7080;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode="light"]) {
+    --bg: var(--tf-pane, #1d1f27);
+    --fg: var(--tf-text, #e8e9f0);
+    --muted: var(--tf-text-muted, #a0a5b8);
+    --line: var(--tf-border, #343747);
+    --raised: var(--tf-surface-raised, #272a35);
+    --hover: var(--tf-surface-hover, #30333f);
+    --accent: var(--tf-accent, #8b8bf0);
+    --on-accent: var(--tf-on-accent, #14151b);
+    --soft: var(--tf-accent-soft, rgba(139, 139, 240, 0.18));
+    --note: #3b3720;
+    --note-fg: #f3e9b5;
+    --ink-red: #ef8580;
+    --ink-orange: #f2a05c;
+    --ink-yellow: #e6c55a;
+    --ink-green: #6fcf8a;
+    --ink-teal: #5cc8d0;
+    --ink-blue: #7fa8f5;
+    --ink-purple: #b896f2;
+    --ink-gray: #a0a5b8;
+  }
+}
+
+/* Tilefold's own light or dark (the page sets data-mode from its theme) wins over the system's. */
+:root[data-mode="dark"] {
+  --bg: var(--tf-pane, #1d1f27);
+  --fg: var(--tf-text, #e8e9f0);
+  --muted: var(--tf-text-muted, #a0a5b8);
+  --line: var(--tf-border, #343747);
+  --raised: var(--tf-surface-raised, #272a35);
+  --hover: var(--tf-surface-hover, #30333f);
+  --accent: var(--tf-accent, #8b8bf0);
+  --on-accent: var(--tf-on-accent, #14151b);
+  --soft: var(--tf-accent-soft, rgba(139, 139, 240, 0.18));
+  --note: #3b3720;
+  --note-fg: #f3e9b5;
+  --ink-red: #ef8580;
+  --ink-orange: #f2a05c;
+  --ink-yellow: #e6c55a;
+  --ink-green: #6fcf8a;
+  --ink-teal: #5cc8d0;
+  --ink-blue: #7fa8f5;
+  --ink-purple: #b896f2;
+  --ink-gray: #a0a5b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    14px/1.45 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 12px 14px 14px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+button.quiet {
+  padding: 4px 8px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+button.icon {
+  padding: 2px 9px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+}
+
+input,
+button {
+  min-height: 32px;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--tf-focus-ring, var(--accent));
+  outline-offset: 1px;
+}
+
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.count {
+  flex: 1;
+  color: var(--muted);
+  text-align: center;
+}
+
+.caption {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: var(--soft);
+  white-space: pre-wrap;
+}
+
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px 8px;
+  text-align: center;
+}
+
+.lead {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hint,
+.message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.scroller {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.scroller:has(svg[hidden]) {
+  display: none;
+}
+
+.board {
+  display: block;
+  height: auto;
+  user-select: none;
+}
+
+/* The content being explained. */
+.content .code {
+  fill: var(--fg);
+  font:
+    16px ui-monospace,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    monospace;
+  white-space: pre;
+}
+
+.content.text .code {
+  font-family: inherit;
+}
+
+.content .num {
+  fill: var(--muted);
+  font:
+    12px ui-monospace,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    monospace;
+}
+
+.line .hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.line:hover .hit {
+  fill: var(--hover);
+}
+
+.line.pointed .hit {
+  fill: var(--soft);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+/* Palette colors, as each shape's ink. */
+.c-accent {
+  --ink: var(--accent);
+}
+.c-red {
+  --ink: var(--ink-red);
+}
+.c-orange {
+  --ink: var(--ink-orange);
+}
+.c-yellow {
+  --ink: var(--ink-yellow);
+}
+.c-green {
+  --ink: var(--ink-green);
+}
+.c-teal {
+  --ink: var(--ink-teal);
+}
+.c-blue {
+  --ink: var(--ink-blue);
+}
+.c-purple {
+  --ink: var(--ink-purple);
+}
+.c-gray {
+  --ink: var(--ink-gray);
+}
+
+/* Drawings. */
+.shape {
+  cursor: pointer;
+}
+
+.shape .body {
+  fill: var(--bg);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.shape .body.filled {
+  fill: color-mix(in srgb, var(--ink) 14%, var(--bg));
+}
+
+.shape .body.note {
+  fill: var(--note);
+  stroke: color-mix(in srgb, var(--ink) 50%, var(--note));
+  stroke-width: 1;
+}
+
+.k-note .label {
+  fill: var(--note-fg);
+}
+
+.shape .body.band {
+  fill: color-mix(in srgb, var(--ink) 22%, transparent);
+  stroke: none;
+}
+
+.shape .stroke {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.shape .stroke.filled {
+  fill: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.shape .dashed {
+  stroke-dasharray: 7 6;
+}
+
+.head path {
+  fill: var(--ink);
+}
+
+.label {
+  fill: var(--fg);
+}
+
+.label.tag,
+.label.on-line,
+.label.title {
+  fill: var(--ink, var(--fg));
+  font-weight: 600;
+}
+
+.label.on-line {
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 4px;
+}
+
+.shape.pointed .body,
+.shape.pointed .stroke,
+.shape.pointed .frame {
+  stroke-width: 4;
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+/* 3D scenes. */
+.k-scene3d {
+  cursor: grab;
+}
+
+.scene .frame {
+  fill: color-mix(in srgb, var(--fg) 4%, var(--bg));
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.scene .face {
+  fill: var(--ink);
+  stroke: color-mix(in srgb, var(--ink) 70%, var(--fg));
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+.scene .ball {
+  fill: color-mix(in srgb, var(--ink) 75%, var(--bg));
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.scene .dot {
+  fill: var(--ink);
+}
+
+.scene .edge {
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.scene .label {
+  fill: var(--ink);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+}
+
+.scene-hint {
+  fill: var(--muted);
+}
+
+.fresh {
+  animation: arrive 420ms ease-out both;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fresh {
+    animation: none;
+  }
+}
+
+/* What the user points at, and the question about it. */
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pointing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.ask-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ask-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--fg);
+  font: inherit;
+}
