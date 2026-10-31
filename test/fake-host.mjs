@@ -75,6 +75,8 @@
  *   beside the panes (`host.page.side`; `host.undock()` plays the user
  *   undocking it), and `theme` adds `tf.theme()` (`host.theme`;
  *   `host.setTheme(theme)` plays a change, firing `theme.changed`).
+ * Modified 2026-10-30 (Tilefold 0.1.23): `annotate` adds `tf.annotate`
+ *   (fake-annotate.mjs): marks are kept in `host.marks`.
  *
  * Last updated by: Tilefold
  */
@@ -82,6 +84,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addScreensaver } from "./fake-screensaver.mjs";
+import { addAnnotate } from "./fake-annotate.mjs";
 import { addFileWrites } from "./fake-files.mjs";
 import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
@@ -331,6 +334,7 @@ export async function startTile(dir, opts = {}) {
   if (opts.panel) addPanel(tf, host, named);
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
   if (opts.screensaver) addScreensaver(tf, host, named);
+  if (opts.annotate) addAnnotate(tf, host, named, opts.annotate);
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;

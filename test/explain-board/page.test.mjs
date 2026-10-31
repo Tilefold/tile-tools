@@ -108,6 +108,14 @@ describe("the page", () => {
     expect(p.$("steps").hidden).toBe(true);
   });
 
+  it("shows only the agent's words when it points on the panes without content", () => {
+    const p = page();
+    p.setup(draw(emptyBoard(), { shapes: [], say: "This line stops the build" }).board);
+    expect(p.$("empty").hidden).toBe(true);
+    expect(p.$("board").hasAttribute("hidden")).toBe(true);
+    expect(p.$("caption").textContent).toBe("This line stops the build");
+  });
+
   it("draws the content as numbered lines, and the steps up to the one shown", () => {
     const p = page();
     p.setup(explained(1));

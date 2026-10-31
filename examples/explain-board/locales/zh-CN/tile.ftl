@@ -9,6 +9,7 @@ cmd-show = Explain Board：显示内容
 cmd-draw = Explain Board：绘制
 cmd-erase = Explain Board：擦除
 cmd-read = Explain Board：读取白板
+cmd-point = Explain Board：在屏幕上指示
 toast-needs-tilefold = Explain Board 需要 Tilefold 0.1.7 或更高版本。
 page-lang = zh-CN
 page-dir = ltr

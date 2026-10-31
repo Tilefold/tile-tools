@@ -11,23 +11,26 @@
  * sends back what the user does (a step back or on, a line or a drawing
  * pointed at, a question).
  *
- * Four commands for the AI agent in one of the user's panes, through
+ * Five commands for the AI agent in one of the user's panes, through
  * Tilefold's tile_run: "Show content" (the code or text to explain),
  * "Draw" (shapes, as a new step of the explanation when it says
- * something), "Erase" and "Read the board" (everything on it as data,
- * with the user's last question; { wait: true } holds up to seven seconds
- * for the user to ask something new). Each opens the board when it's
- * closed. Run from the palette, they just open it.
+ * something), "Erase", "Read the board" (everything on it as data, with
+ * the user's last question; { wait: true } holds up to seven seconds for
+ * the user to ask something new) and "Point on screen" (marks on the
+ * user's own panes and the document viewer, see point.js). Each board
+ * command opens the board when it's closed. Run from the palette, they
+ * just open it. Clearing the board also takes the marks away.
  *
  * What happens is recorded in the tile's log as one-word actions
  * (tile.<id>.<action>): `opened`, `closed`, `shown`, `drew`, `erased`,
- * `cleared` and `asked`. Never the content, the drawings or what the user
- * typed.
+ * `cleared`, `asked`, `pointed` and `unpointed`. Never the content, the
+ * drawings, the marks or what the user typed.
  *
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
  */
 import { ask, describe, draw, emptyBoard, erase, goTo, isBoard, show } from "./board.js";
+import { pointing } from "./point.js";
 import { pageLabels } from "./strings.js";
 
 /** The store key the board is kept under. */
@@ -151,9 +154,18 @@ export function runExplainBoard(tf) {
     });
   }
 
+  // Marks on the user's panes; what the agent says with them goes on the board.
+  const pointer = pointing(tf, {
+    say: async (text) => void (await change("drew", (b) => draw(b, { shapes: [], say: text }))),
+    audit,
+  });
+
   /** What the agent should do next, from what's on the board. */
   function nextFor(b, fresh) {
-    if (!b.content) return "Show what to explain first: run Show content with { text }.";
+    const pane = pointer.can()
+      ? " To point at something on the user's own panes or in the viewer, use Point on screen."
+      : "";
+    if (!b.content) return `Show what to explain first: run Show content with { text }.${pane}`;
     if (fresh && b.asked) {
       const about = [
         b.asked.line !== undefined ? `line ${b.asked.line}` : null,
@@ -162,7 +174,7 @@ export function runExplainBoard(tf) {
       const q = b.asked.question ? `"${b.asked.question}"` : "what it is";
       return `The user asks ${q}${about.length ? ` about ${about.join(" and ")}` : ""}: answer with Draw and a say.`;
     }
-    return "Explain with Draw, a step at a time (each say is a step); read with { wait: true } to hear the user's next question.";
+    return `Explain with Draw, a step at a time (each say is a step); read with { wait: true } to hear the user's next question.${pane}`;
   }
 
   /** Read the board: what's on it, and the user's question if there's a new one. */
@@ -174,7 +186,14 @@ export function runExplainBoard(tf) {
     const fresh = n > seen;
     seen = n;
     const out = describe(board, { lines: input && input.lines === true });
-    return { ...out, open: !!where, newAsk: fresh, next: nextFor(board, fresh) };
+    const marks = await pointer.marks().catch(() => null);
+    return {
+      ...out,
+      ...(marks ? { marks } : {}),
+      open: !!where,
+      newAsk: fresh,
+      next: nextFor(board, fresh),
+    };
   }
 
   const runs = {
@@ -182,6 +201,7 @@ export function runExplainBoard(tf) {
     close,
     clear: async () => {
       await set({ ...emptyBoard(), nextId: (await current()).nextId, asked: board.asked });
+      await pointer.clearAll().catch(warn);
       audit("cleared");
     },
     next: async () => set(goTo(await current(), (await current()).step + 1)),
@@ -243,6 +263,19 @@ export function runExplainBoard(tf) {
     input:
       "{ wait?: true, lines?: true }: the board as data; with wait, holds up to 7 s for the user's question",
   });
+
+  tf.command(
+    tf.t("cmd-point"),
+    async (input) => {
+      if (input == null) return void (await open());
+      return pointer.point(input);
+    },
+    {
+      id: "point",
+      input:
+        '{ marks: [{ kind: highlight|box|underline|arrow|note, at, text?, color?, id? }], say?, clear? }. at: { pane, text } or { pane, row } on a pane\'s screen, or { file, line } in the viewer; pane: your $TILEFOLD_SESSION_ID, its name, "focused" or 1 = first',
+    },
+  );
 
   tf.on(
     "page.message",

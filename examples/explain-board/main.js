@@ -646,6 +646,73 @@ var roundBox = (b) => ({
   h: Math.round(b.h)
 });
 
+// src/point.js
+var WHY = {
+  "no-pane": `There's no such pane. Name it by its session (your own is in $TILEFOLD_SESSION_ID), the name the user gave it, "focused", or its place in the tab (1 = first).`,
+  "not-found": "That text isn't on that pane's screen now (only what's on screen is searched, not the scrollback). Check the exact text, case and spaces, or give a row.",
+  "no-row": "There's no such row on that screen, or no such line in that file.",
+  "not-shown": "That file isn't in the document viewer's current tab in the Raw view (or the pane isn't shown). Ask the user to open it; the mark appears once it's shown."
+};
+function nextAfter(items, shown) {
+  const misses = [...new Set(items.filter((i) => !i.placed).map((i) => i.why))];
+  const parts = misses.map((why) => `${why}: ${WHY[why] ?? "It couldn't be placed."}`);
+  if (!shown) {
+    parts.push(
+      "The user has hidden tile overlays (Option-Command-O), so the marks are kept but not drawn until they show them again."
+    );
+  }
+  if (parts.length) return parts.join(" ");
+  return "The user sees the marks on their screen. Explain them in say (it goes on the board), read the board with { wait: true } for their question, and Point with { clear: true } when you move on.";
+}
+function pointing(tf, board) {
+  const can = () => !!tf.annotate;
+  async function point2(input) {
+    if (!can()) {
+      throw new Error(
+        "This Tilefold can't point on your panes: it needs Tilefold 0.1.23 or later, with the user's OK for this tile to draw on panes. Use Draw on the board instead."
+      );
+    }
+    if (!input || typeof input !== "object") {
+      throw new Error("input: { marks: [...], say?, clear? }, or { clear: true } to remove them");
+    }
+    const { marks: marks2, say, clear } = input;
+    if (clear !== void 0 && typeof clear !== "boolean") throw new Error("clear: true or false");
+    if (say !== void 0 && (typeof say !== "string" || !say.trim())) {
+      throw new Error("say: what you're pointing out, in words");
+    }
+    if (marks2 === void 0) {
+      if (clear !== true)
+        throw new Error("marks: a list of marks, or { clear: true } to remove them");
+      const { cleared } = await tf.annotate.clear();
+      board.audit("unpointed");
+      if (say) await board.say(say);
+      return { cleared, next: "The marks are gone." };
+    }
+    let result;
+    try {
+      result = await tf.annotate.draw(marks2, { clear: clear === true });
+    } catch (err) {
+      const message = String(err && err.message ? err.message : err).replace(/^items/, "marks");
+      throw Object.assign(new Error(message), { name: err && err.name });
+    }
+    board.audit("pointed");
+    if (say) await board.say(say);
+    return {
+      marks: result.items,
+      shown: result.shown,
+      next: nextAfter(result.items, result.shown)
+    };
+  }
+  async function marks() {
+    if (!can()) return null;
+    return (await tf.annotate.list()).items;
+  }
+  async function clearAll() {
+    if (can()) await tf.annotate.clear();
+  }
+  return { point: point2, marks, clearAll, can };
+}
+
 // src/strings.js
 var PAGE_KEYS = [
   "page-lang",
@@ -757,8 +824,13 @@ function runExplainBoard(tf) {
       waiters.push(done2);
     });
   }
+  const pointer = pointing(tf, {
+    say: async (text2) => void await change("drew", (b) => draw(b, { shapes: [], say: text2 })),
+    audit
+  });
   function nextFor(b, fresh) {
-    if (!b.content) return "Show what to explain first: run Show content with { text }.";
+    const pane = pointer.can() ? " To point at something on the user's own panes or in the viewer, use Point on screen." : "";
+    if (!b.content) return `Show what to explain first: run Show content with { text }.${pane}`;
     if (fresh && b.asked) {
       const about = [
         b.asked.line !== void 0 ? `line ${b.asked.line}` : null,
@@ -767,7 +839,7 @@ function runExplainBoard(tf) {
       const q = b.asked.question ? `"${b.asked.question}"` : "what it is";
       return `The user asks ${q}${about.length ? ` about ${about.join(" and ")}` : ""}: answer with Draw and a say.`;
     }
-    return "Explain with Draw, a step at a time (each say is a step); read with { wait: true } to hear the user's next question.";
+    return `Explain with Draw, a step at a time (each say is a step); read with { wait: true } to hear the user's next question.${pane}`;
   }
   async function read(input) {
     if (input == null) return void await open();
@@ -777,13 +849,21 @@ function runExplainBoard(tf) {
     const fresh = n > seen;
     seen = n;
     const out = describe(board, { lines: input && input.lines === true });
-    return { ...out, open: !!where, newAsk: fresh, next: nextFor(board, fresh) };
+    const marks = await pointer.marks().catch(() => null);
+    return {
+      ...out,
+      ...marks ? { marks } : {},
+      open: !!where,
+      newAsk: fresh,
+      next: nextFor(board, fresh)
+    };
   }
   const runs = {
     open: () => open(),
     close,
     clear: async () => {
       await set({ ...emptyBoard(), nextId: (await current()).nextId, asked: board.asked });
+      await pointer.clearAll().catch(warn);
       audit("cleared");
     },
     next: async () => set(goTo(await current(), (await current()).step + 1)),
@@ -840,6 +920,17 @@ function runExplainBoard(tf) {
     id: "read",
     input: "{ wait?: true, lines?: true }: the board as data; with wait, holds up to 7 s for the user's question"
   });
+  tf.command(
+    tf.t("cmd-point"),
+    async (input) => {
+      if (input == null) return void await open();
+      return pointer.point(input);
+    },
+    {
+      id: "point",
+      input: `{ marks: [{ kind: highlight|box|underline|arrow|note, at, text?, color?, id? }], say?, clear? }. at: { pane, text } or { pane, row } on a pane's screen, or { file, line } in the viewer; pane: your $TILEFOLD_SESSION_ID, its name, "focused" or 1 = first`
+    }
+  );
   tf.on(
     "page.message",
     background((e) => hear(e && e.message))

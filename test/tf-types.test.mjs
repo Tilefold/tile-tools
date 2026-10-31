@@ -11,6 +11,7 @@
  * name the documentation lists is declared.
  *
  * Modified 2026-10-18 (screensaver themes): `tf.screensaver` and its frame type.
+ * Modified 2026-10-30 (Tilefold 0.1.23): `tf.annotate` and `annotate.cleared`.
  *
  * Last updated by: Tilefold
  */
@@ -53,6 +54,8 @@ describe("lib/tf.d.ts", () => {
       "readonly fs?:",
       "readonly viewer?:",
       "readonly screensaver?:",
+      "readonly annotate?:",
+      "type AnnotationTarget",
       "interface ScreensaverFrame",
       "interface TilePageBridge",
     ];
@@ -73,6 +76,7 @@ describe("lib/tf.d.ts", () => {
       "page.closed",
       "page.message",
       "overlay.hidden",
+      "annotate.cleared",
       "pane.cwd",
       "panel.click",
       "panel.closed",

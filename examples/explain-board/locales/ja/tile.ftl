@@ -9,6 +9,7 @@ cmd-show = Explain Board: 内容を表示
 cmd-draw = Explain Board: 描く
 cmd-erase = Explain Board: 消す
 cmd-read = Explain Board: ボードを読む
+cmd-point = Explain Board: 画面上で指し示す
 toast-needs-tilefold = Explain Board には Tilefold 0.1.7 以降が必要です。
 page-lang = ja
 page-dir = ltr

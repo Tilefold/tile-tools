@@ -9,6 +9,7 @@ cmd-show = Explain Board: Inhalt zeigen
 cmd-draw = Explain Board: Zeichnen
 cmd-erase = Explain Board: Löschen
 cmd-read = Explain Board: Tafel lesen
+cmd-point = Explain Board: Auf dem Bildschirm zeigen
 toast-needs-tilefold = Explain Board braucht Tilefold 0.1.7 oder neuer.
 page-lang = de
 page-dir = ltr

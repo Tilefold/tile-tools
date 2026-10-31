@@ -125,7 +125,8 @@ function draw() {
   const svg = $("board");
   svg.replaceChildren();
   const empty = !board.content && board.shapes.length === 0;
-  $("empty").hidden = !empty;
+  // Once the agent has said something (pointing on the panes), its words are what shows.
+  $("empty").hidden = !empty || board.steps.length > 1;
   // An SVG element has no `hidden` property in browsers: set the attribute itself.
   svg.toggleAttribute("hidden", empty);
   caption();

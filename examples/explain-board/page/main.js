@@ -699,7 +699,7 @@
     const svg = $("board");
     svg.replaceChildren();
     const empty = !board.content && board.shapes.length === 0;
-    $("empty").hidden = !empty;
+    $("empty").hidden = !empty || board.steps.length > 1;
     svg.toggleAttribute("hidden", empty);
     caption();
     $("title").textContent = board.title || L("page-title");

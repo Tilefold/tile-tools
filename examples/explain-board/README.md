@@ -37,20 +37,25 @@ Every shape may have an `id` (drawing one with the same id again replaces it, so
 
 ## The agent's commands
 
-The agent finds them with Tilefold's `tile_list` and runs them with `tile_run`. Each one opens the board if it's closed. From the palette, they just open it.
+The agent finds them with Tilefold's `tile_list` and runs them with `tile_run`. Each board command opens the board if it's closed. From the palette, they just open it.
 
 | Command | Input | What the agent gets back |
 |---|---|---|
 | `show` (**Show content**) | `{ text, kind?: "code" \| "text", language?, from?, title?, say?, append? }` | Shows what to explain, as numbered lines starting at `from` (a file's own line numbers). It starts a new explanation: earlier drawings go. With `append`, adds lines and keeps them. Returns the content's place and line numbers |
 | `draw` (**Draw**) | `{ shapes: [...], say?, clear? }` | With `say`, the shapes make a new step and the board moves on to it. Without, they join the last step. Returns the ids, the step and how many steps there are, or the reason a shape was refused (a field, a missing line or shape), as an error |
 | `erase` (**Erase**) | `{ ids: [...] }`, `{ step }` or `{ all: true }` | Takes shapes off (with arrows that pointed at them). The content stays |
-| `read` (**Read the board**) | `{ wait?: true, lines?: true }` | Everything as data: the canvas, the content's place and line numbers (with its text when `lines`), the steps, each shape with the box it takes and each arrow's ends, the user's last question and whether it's new, a short how-to, and what to do next. With `wait`, holds up to seven seconds for the user to ask something |
+| `read` (**Read the board**) | `{ wait?: true, lines?: true }` | Everything as data: the canvas, the content's place and line numbers (with its text when `lines`), the steps, each shape with the box it takes and each arrow's ends, the user's last question and whether it's new, a short how-to, and what to do next. With `wait`, holds up to seven seconds for the user to ask something. Lists the marks on your panes too, where Tilefold can draw them |
+| `point` (**Point on screen**) | `{ marks: [...], say?, clear? }`, or `{ clear: true }` | Marks on your own panes and the document viewer, drawn by Tilefold (0.1.23 or later, permission `window.annotate`): `highlight`, `box`, `underline`, `arrow` or `note`, each `at` a place named by what's there. That's `{ pane, text }` or `{ pane, row }` on a pane's screen, where `pane` is its session (`$TILEFOLD_SESSION_ID` for the agent's own), the name you gave it, `"focused"` or 1 for the first pane in the tab. Or it's `{ file, line, text? }` in the file the viewer shows in Raw. Returns whether each mark was placed and what to do about the ones that weren't. What it `say`s goes on the board as a step |
 
 An agent explaining in a loop shows the content, draws a step or two, then reads with `{ wait: true }` to hear what the user asks next. A Draw takes up to 100 shapes. The board holds up to 300 shapes, 50 steps and 1,000 lines of content (60,000 characters), and refuses to grow past what one message to the page can carry.
 
+### Pointing on your panes
+
+With **Point on screen**, the agent marks the real thing: the error in your build pane, a line of the file open in the viewer. Tilefold finds the text, keeps the mark on it as the pane scrolls, and never lets the tile see your panes; the tile learns only whether each mark was placed. Marks never take a click or a key. Hide them with **Hide or show tile overlays** (⌥⌘O), remove them with **Clear annotations** in the palette, or clear the board. On a Tilefold before 0.1.23 the command explains that it can't point, and the agent draws on the board instead.
+
 ## Settings and data
 
-Explain Board has no settings. It keeps the board (the content, the drawings, the steps and your last question) in the tile's own storage on your computer, so closing it or quitting Tilefold loses nothing. **Clear the board** removes it. The activity log records only one-word actions: `opened`, `closed`, `shown`, `drew`, `erased`, `cleared` and `asked`. It never records the content, the drawings or your questions.
+Explain Board has no settings. It keeps the board (the content, the drawings, the steps and your last question) in the tile's own storage on your computer, so closing it or quitting Tilefold loses nothing. **Clear the board** removes it. **Clear the board** also takes away the marks on your panes. The activity log records only one-word actions: `opened`, `closed`, `shown`, `drew`, `erased`, `cleared`, `asked`, `pointed` and `unpointed`. It never records the content, the drawings, the marks or your questions.
 
 ## Files
 
@@ -60,6 +65,7 @@ Explain Board has no settings. It keeps the board (the content, the drawings, th
 | `src/scene.js` | Checking what an agent draws: every kind of shape and 3D object, the palette, the limits |
 | `src/board.js` | The board and what changes it: show, draw, erase, steps, the user's asks, and the board as an agent reads it |
 | `src/run.js` | The tile: the agent's commands, the palette's, the store, and the page's messages |
+| `src/point.js` | Point on screen: marks on your panes through `tf.annotate`, and what the agent should do about the ones not placed |
 | `src/strings.js` | The page's text, by message key |
 | `page-src/svg.js` | Each shape as SVG, in palette classes, with text never read as markup |
 | `page-src/project.js` | A 3D scene as flat pieces: the camera, perspective, hidden faces and shading |

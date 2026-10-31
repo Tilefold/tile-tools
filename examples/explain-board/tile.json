@@ -6,6 +6,9 @@
   "permissions": [
     {
       "page": "to show the board your AI agent draws on, docked beside your panes or in a window of its own"
+    },
+    {
+      "window.annotate": "to let your AI agent point at things on your panes and in the document viewer with arrows, boxes and notes"
     }
   ]
 }
