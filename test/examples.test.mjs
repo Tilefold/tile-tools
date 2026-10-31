@@ -18,7 +18,7 @@
  *   with a tile.json count as examples.
  * Modified 2026-10-28 (Gomoku example): Gomoku is listed.
  * Modified 2026-10-28 (TileGo example): TileGo is listed.
- * Modified 2026-10-30 (Explain Board example): Explain Board is listed.
+ * Modified 2026-10-30 (Whiteboard example): Whiteboard is listed.
  *
  * Last updated by: Tilefold
  */
@@ -89,7 +89,6 @@ describe("examples", () => {
     expect(folders).toEqual([
       "break-timer",
       "brickfold",
-      "explain-board",
       "folder-tree",
       "girder-jump",
       "github-inbox",
@@ -108,6 +107,7 @@ describe("examples", () => {
       "watchpane",
       "weather-card",
       "web-view",
+      "whiteboard",
       "with-npm-package",
     ]);
   });

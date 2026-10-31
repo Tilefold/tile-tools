@@ -1,6 +1,6 @@
 # Boards AI agents draw on
 
-A tile can give the AI agent in one of the user's panes, such as Claude Code or Codex, a place to **explain by drawing**: a board beside the panes where it shows what it's explaining and draws over it, step by step, while the user follows along and asks about what they point at. The agent draws through the tile's commands, which it finds with Tilefold's `tile_list` and runs with `tile_run` (see [Commands AI agents call with data](tf-api.md)). The **Explain Board** example (`examples/explain-board`) is a complete one.
+A tile can give the AI agent in one of the user's panes, such as Claude Code or Codex, a place to **explain by drawing**: a board beside the panes where it shows what it's explaining and draws over it, step by step, while the user follows along and asks about what they point at. The agent draws through the tile's commands, which it finds with Tilefold's `tile_list` and runs with `tile_run` (see [Commands AI agents call with data](tf-api.md)). The **Whiteboard** example (`examples/whiteboard`) is a complete one.
 
 Like a game an agent plays ([Games AI agents can play](agent-games.md)), the board is data the agent reads and changes, never pixels it guesses at or code it sends. That makes its drawings exact, and lets the tile check every one.
 
@@ -18,7 +18,7 @@ Like a game an agent plays ([Games AI agents can play](agent-games.md)), the boa
 
 The agent can't see the board: a tile's own page is hidden from agents' browser tools. So everything it needs to aim has to come out of **Read the board** as numbers, and the rules for where things go have to be fixed:
 
-- **Lay out the content at known places.** Explain Board puts each line of code 22 units below the last, in a monospaced font with every character 9.6 units wide, on a board 1,000 units wide. The page scales the whole board to fit; the units never change.
+- **Lay out the content at known places.** Whiteboard puts each line of code 22 units below the last, in a monospaced font with every character 9.6 units wide, on a board 1,000 units wide. The page scales the whole board to fit; the units never change.
 - **Let agents point at the content, not at pixels.** An arrow to `{ line: 12, col: 8 }` lands on that character, and one to `{ shape: "cache" }` lands on that box's nearest side. Keep the file's own line numbers (`from`), so the agent can use the ones it already knows.
 - **Return each shape's box** and each arrow's ends in Read the board, so the agent can place the next thing beside the last without working it out.
 
@@ -40,7 +40,7 @@ Clicking a line or a drawing points at it; a question typed with it goes to the 
 
 ## Point at the real thing
 
-A board shows a copy. To point at what the user is actually looking at, such as the error in a pane or a line of the file in the document viewer, use `tf.annotate` (Tilefold 0.1.23, permission `window.annotate`). The agent names each place by what's there: `{ pane, text }` on a pane's screen, or `{ file, line }` in the viewer. Tilefold finds it and keeps the mark on it as the pane scrolls. The tile learns only whether each mark was placed, so pass the reasons on to the agent in words it can act on, as Explain Board's **Point on screen** does. Put what the agent says on the board as well: marks are a visual aid, and the words are the explanation.
+A board shows a copy. To point at what the user is actually looking at, such as the error in a pane or a line of the file in the document viewer, use `tf.annotate` (Tilefold 0.1.23, permission `window.annotate`). The agent names each place by what's there: `{ pane, text }` on a pane's screen, or `{ file, line }` in the viewer. Tilefold finds it and keeps the mark on it as the pane scrolls. The tile learns only whether each mark was placed, so pass the reasons on to the agent in words it can act on, as Whiteboard's **Point on screen** does. Put what the agent says on the board as well: marks are a visual aid, and the words are the explanation.
 
 ## Keep the board in the tile
 
