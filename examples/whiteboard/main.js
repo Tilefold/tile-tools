@@ -20,6 +20,38 @@
  * Built into main.js with `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
+// src/askAgent.js
+var clip = (s, max) => {
+  const one = String(s).replace(/\s+/g, " ").trim();
+  return one.length > max ? `${one.slice(0, max - 1)}\u2026` : one;
+};
+var ABOUT_MAX = 600;
+function aboutLine(board, asked) {
+  const title = board.title ? ` "${clip(board.title, 80)}"` : "";
+  let what = "";
+  if (Number.isInteger(asked.line) && board.content) {
+    const text2 = board.content.lines[asked.line - board.content.from] ?? "";
+    what = `, pointing at line ${asked.line}${text2.trim() ? `: ${clip(text2, 160)}` : ""}`;
+  } else if (typeof asked.shape === "string") {
+    const shape = board.shapes.find((s) => s.id === asked.shape);
+    const label = shape?.label ?? shape?.text;
+    const kind = shape?.kind ?? "drawing";
+    what = `, pointing at the ${kind} "${clip(asked.shape, 40)}"${label ? ` (${clip(label, 80)})` : ""}`;
+  }
+  const read = "Run the Whiteboard's read command with tile_run to see the board.";
+  return clip(`On the Whiteboard${title}${what}. ${read}`, ABOUT_MAX);
+}
+async function askAgent(tf, board) {
+  const asked = board.asked;
+  if (!asked?.question || typeof tf.agent?.ask !== "function") return "board";
+  try {
+    const r = await tf.agent.ask({ question: asked.question, about: aboutLine(board, asked) });
+    return r?.shown ? "card" : "board";
+  } catch {
+    return "board";
+  }
+}
+
 // src/layout.js
 var WIDTH = 1e3;
 var MAX_HEIGHT = 6e3;
@@ -731,6 +763,8 @@ var PAGE_KEYS = [
   "ask-send",
   "ask-hint",
   "ask-sent",
+  "ask-card",
+  "ask-heard",
   "ask-line",
   "ask-shape",
   "ask-clear",
@@ -746,7 +780,7 @@ var WAIT_MS = 7e3;
 function runWhiteboard(tf) {
   const warn = (err) => void Promise.resolve().then(() => tf.log.warn(String(err && err.message ? err.message : err))).catch(() => {
   });
-  const audit = (action) => void Promise.resolve().then(() => tf.audit(action)).catch(warn);
+  const audit = (action, details) => void Promise.resolve().then(() => tf.audit(action, details)).catch(warn);
   const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
   let board = null;
   let where = null;
@@ -794,10 +828,13 @@ function runWhiteboard(tf) {
     const before = (await current()).asked?.n ?? 0;
     await set(ask(board, m));
     if ((board.asked?.n ?? 0) === before) return;
-    audit("asked");
     const ws = waiters;
     waiters = [];
     for (const w of ws) w();
+    const via = ws.length ? "agent" : await askAgent(tf, board);
+    audit("asked", { via });
+    if (where) await tf.page.post({ do: "asked", via }).catch(() => {
+    });
   }
   async function hear(m) {
     if (!m || typeof m !== "object") return;

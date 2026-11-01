@@ -15,7 +15,7 @@
  *
  * Messages with the tile: the page says `hello` when it loads and gets
  * `setup` (the labels in the user's language and the board), then `board`
- * after every change. It sends `step` ({ n }), `ask` ({ line?, shape?,
+ * after every change, and `asked` ({ via }) after a question. It sends `step` ({ n }), `ask` ({ line?, shape?,
  * question? }) and `close`. Labels hold `{n}` and `{total}` where those go.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
@@ -832,6 +832,9 @@
       drawnStep = board?.step ?? -1;
       words();
       if (board) draw();
+    } else if (m.do === "asked") {
+      const said = { agent: "ask-heard", card: "ask-card" }[m.via] ?? "ask-sent";
+      $("ask-status").textContent = L(said);
     } else if (m.do === "board" && m.board) {
       if (board && m.board.steps.length < board.steps.length) drawnStep = -1;
       board = m.board;

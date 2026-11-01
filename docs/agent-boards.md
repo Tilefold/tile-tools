@@ -42,6 +42,8 @@ Clicking a line or a drawing points at it; a question typed with it goes to the 
 
 A board shows a copy. To point at what the user is actually looking at, such as the error in a pane or a line of the file in the document viewer, use `tf.annotate` (Tilefold 0.1.23, permission `window.annotate`). The agent names each place by what's there: `{ pane, text }` on a pane's screen, or `{ file, line }` in the viewer. Tilefold finds it and keeps the mark on it as the pane scrolls. The tile learns only whether each mark was placed, so pass the reasons on to the agent in words it can act on, as Whiteboard's **Point on screen** does. Put what the agent says on the board as well: marks are a visual aid, and the words are the explanation.
 
+When the user asks on the board, an agent that is waiting in a read hears it at once. Otherwise bring the question to the agent with `tf.agent.ask` (Tilefold 0.1.23, permission `agent.ask`): Tilefold shows it on its ask card and the user presses Return to send it. Say in `about` what the user pointed at and how to read the board, so the agent can answer without guessing. Keep the question on the board as well, for an older Tilefold or a card the user dropped.
+
 ## Keep the board in the tile
 
 Moving a page between the dock and a window loads it again, and the user may close it at any time. Keep the board in the tile (and its store), apply the agent's commands there, and send the page the whole board after each change: the page only draws it and passes on what the user does. Commands then answer at once, without waiting for the page.

@@ -9,6 +9,9 @@
     },
     {
       "window.annotate": "to let your AI agent point at things on your panes and in the document viewer with arrows, boxes and notes"
+    },
+    {
+      "agent.ask": "to bring the question you ask on the board to your AI agent, on Tilefold's ask card, where you send it"
     }
   ]
 }

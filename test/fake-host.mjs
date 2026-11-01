@@ -80,6 +80,9 @@
  *
  * Modified 2026-10-31 (plain JSON): `store.set` and `page.post` refuse what
  *   Tilefold refuses, so a value with an `undefined` field fails here first.
+ * Modified 2026-10-31 (Tilefold 0.1.23): `agentAsk` adds `tf.agent.ask`;
+ *   the questions are kept in `host.asks`, and it answers `{ shown: true }`
+ *   or the object `agentAsk` gives (such as `{ shown: false, why: "busy" }`).
  *
  * Last updated by: Tilefold
  */
@@ -361,6 +364,17 @@ export async function startTile(dir, opts = {}) {
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
   if (opts.screensaver) addScreensaver(tf, host, named);
   if (opts.annotate) addAnnotate(tf, host, named, opts.annotate);
+  if (opts.agentAsk) {
+    host.asks = [];
+    tf.agent = {
+      async ask(request) {
+        if (!isPlainJson(request) || typeof request?.question !== "string")
+          throw named("TypeError", "agent.ask takes { question, about? }");
+        host.asks.push(structuredClone(request));
+        return typeof opts.agentAsk === "object" ? { ...opts.agentAsk } : { shown: true };
+      },
+    };
+  }
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;

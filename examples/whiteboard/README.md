@@ -10,7 +10,7 @@ It's a way to learn from what's in your panes with the agent you already use: no
 2. In a pane, ask your agent something like: *"Explain `src/auth.ts` on Tilefold's Whiteboard, step by step."* The first time, Tilefold asks you to let that pane run the board's commands.
 3. The board opens beside your panes (in a window of its own before Tilefold 0.1.20, or after you press **Undock**). The agent shows the content, then draws one step at a time. What it says in each step shows above the board.
 4. **Back** and **Next** (or the left and right arrow keys) go over the explanation again. **Fit to width** and **Actual size** switch between a board that fits the page and one at full size that scrolls.
-5. To ask about something, click a line or a drawing to point at it, type your question and press **Ask**. Asking without a question asks what it is. If the agent is waiting for you, it answers right away. Otherwise tell it to read the board.
+5. To ask about something, click a line or a drawing to point at it, type your question and press **Ask**. Asking without a question asks what it is. If the agent is waiting for you, it answers right away. Otherwise, on Tilefold 0.1.23 or later, your question opens Tilefold's ask card at the top of the window with a line saying what you pointed at: press **Return** there to send it to your agent, or edit it first. Nothing goes until you do. On an older Tilefold, tell the agent to read the board.
 
 **Whiteboard: Open**, **Close**, **Clear the board**, **Next step** and **Previous step** are in the command palette.
 
@@ -65,6 +65,7 @@ Whiteboard has no settings. It keeps the board (the content, the drawings, the s
 | `src/scene.js` | Checking what an agent draws: every kind of shape and 3D object, the palette, the limits |
 | `src/board.js` | The board and what changes it: show, draw, erase, steps, the user's asks, and the board as an agent reads it |
 | `src/run.js` | The tile: the agent's commands, the palette's, the store, and the page's messages |
+| `src/askAgent.js` | Bringing your question to the agent on Tilefold's ask card (`tf.agent.ask`, permission `agent.ask`), with a line saying what you pointed at |
 | `src/point.js` | Point on screen: marks on your panes through `tf.annotate`, and what the agent should do about the ones not placed |
 | `src/strings.js` | The page's text, by message key |
 | `page-src/svg.js` | Each shape as SVG, in palette classes, with text never read as markup |
@@ -73,4 +74,4 @@ Whiteboard has no settings. It keeps the board (the content, the drawings, the s
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-30 by Tilefold
+Last updated: 2026-10-31 by Tilefold

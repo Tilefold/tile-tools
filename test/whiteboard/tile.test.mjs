@@ -180,6 +180,62 @@ describe("the user on the page", () => {
     expect(actions(host)).toContain("asked");
   });
 
+  it("brings the question to Tilefold's ask card when no agent is waiting", async () => {
+    const host = await start({ agentAsk: true });
+    await host.command("open");
+    await host.command("show", { text: CODE, title: "Doubles" });
+    await say(host, { type: "ask", line: 2, question: "why times two?" });
+    expect(host.asks).toEqual([
+      {
+        question: "why times two?",
+        about:
+          'On the Whiteboard "Doubles", pointing at line 2: return secret * 2;. ' +
+          "Run the Whiteboard's read command with tile_run to see the board.",
+      },
+    ]);
+    expect(host.page.posted.at(-1)).toEqual({ do: "asked", via: "card" });
+    expect(host.audits.find((a) => a.action === "asked").details).toEqual({ via: "card" });
+    // The question stays on the board for the agent's next read.
+    expect((await host.command("read", {})).asked).toMatchObject({ question: "why times two?" });
+  });
+
+  it("names a drawing the user pointed at", async () => {
+    const host = await start({ agentAsk: true });
+    await host.command("show", { text: CODE });
+    await host.command("draw", {
+      shapes: [{ kind: "note", id: "n1", x: 600, y: 60, text: "the result" }],
+    });
+    await say(host, { type: "ask", shape: "n1", question: "and this?" });
+    expect(host.asks[0].about).toMatch(
+      /^On the Whiteboard, pointing at the note "n1" \(the result\)\./,
+    );
+  });
+
+  it("leaves the question on the board when the card can't take it", async () => {
+    for (const agentAsk of [{ shown: false, why: "busy" }, undefined]) {
+      const host = await start({ agentAsk });
+      await host.command("open");
+      await host.command("show", { text: CODE });
+      await say(host, { type: "ask", line: 1, question: "q?" });
+      expect(host.page.posted.at(-1)).toEqual({ do: "asked", via: "board" });
+    }
+  });
+
+  it("asks only with a question, and not when an agent is already waiting", async () => {
+    const host = await start({ agentAsk: true });
+    await host.command("open");
+    await host.command("show", { text: CODE });
+    await say(host, { type: "ask", line: 1 });
+    expect(host.asks).toEqual([]);
+    // The agent has read that pointing; now it waits for the next ask.
+    await host.command("read", {});
+    const waiting = host.command("read", { wait: true });
+    await say(host, { type: "ask", line: 2, question: "now?" });
+    await waiting;
+    expect(host.asks).toEqual([]);
+    expect(host.page.posted.at(-1)).toEqual({ do: "asked", via: "agent" });
+  });
+
   it("holds a waiting read for seven seconds at most", async () => {
     vi.useFakeTimers();
     const host = await start();

@@ -29,6 +29,7 @@
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
  */
+import { askAgent } from "./askAgent.js";
 import { ask, describe, draw, emptyBoard, erase, goTo, isBoard, show } from "./board.js";
 import { pointing } from "./point.js";
 import { pageLabels } from "./strings.js";
@@ -46,9 +47,9 @@ export function runWhiteboard(tf) {
     void Promise.resolve()
       .then(() => tf.log.warn(String(err && err.message ? err.message : err)))
       .catch(() => {});
-  const audit = (action) =>
+  const audit = (action, details) =>
     void Promise.resolve()
-      .then(() => tf.audit(action))
+      .then(() => tf.audit(action, details))
       .catch(warn);
   const background = (fn) => (e) =>
     void Promise.resolve()
@@ -118,15 +119,21 @@ export function runWhiteboard(tf) {
     await tf.page.post({ do: "setup", labels: pageLabels(tf), board: await current() });
   }
 
-  /** The user asked about something on the page; a waiting agent hears at once. */
+  /**
+   * The user asked about something on the page. A waiting agent hears at
+   * once; otherwise the question goes to Tilefold's ask card, for the user
+   * to send. The page is told which, so it can say so.
+   */
   async function asked(m) {
     const before = (await current()).asked?.n ?? 0;
     await set(ask(board, m));
     if ((board.asked?.n ?? 0) === before) return;
-    audit("asked");
     const ws = waiters;
     waiters = [];
     for (const w of ws) w();
+    const via = ws.length ? "agent" : await askAgent(tf, board);
+    audit("asked", { via });
+    if (where) await tf.page.post({ do: "asked", via }).catch(() => {});
   }
 
   /** A message from the page. */

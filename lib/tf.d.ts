@@ -26,6 +26,8 @@
  *   `tf.theme()`, and the `page.undocked` and `theme.changed` events.
  * Modified 2026-10-30 (Tilefold 0.1.23): `tf.annotate` (marks on what a
  *   pane or the document viewer shows) and the `annotate.cleared` event.
+ * Modified 2026-10-31 (Tilefold 0.1.23): `tf.agent.ask` (a question for the
+ *   user's agent on Tilefold's ask card).
  *
  * Last updated by: Tilefold
  */
@@ -509,6 +511,20 @@ export interface Tf {
     clear(ids?: string[]): Promise<{ cleared: number }>;
     list(): Promise<{
       items: Array<{ id: string; kind: AnnotationItem["kind"]; placed: boolean }>;
+    }>;
+  };
+  /**
+   * Needs agent.ask (Tilefold 0.1.23; missing before). Opens Tilefold's ask
+   * card with `question` for the AI agent in the pane the user works in, and
+   * a line naming the tile and `about`. The user sends it (or not); the tile
+   * never learns what they did. `why`: a card is already open (`busy`), or
+   * there is no pane to send to (`no-pane`). Six asks a minute; `question`
+   * 1–4,000 characters, `about` 600 on one line.
+   */
+  readonly agent?: {
+    ask(request: { question: string; about?: string }): Promise<{
+      shown: boolean;
+      why?: "busy" | "no-pane";
     }>;
   };
   /** Needs sound.play. Resolves whether the sound will be heard. */

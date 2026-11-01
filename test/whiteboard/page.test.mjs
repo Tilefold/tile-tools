@@ -65,6 +65,7 @@ function page({ theme = null } = {}) {
     posted,
     setup: (board) => listener({ do: "setup", labels: LABELS, board }),
     send: (board) => listener({ do: "board", board }),
+    tell: (message) => listener(message),
     click: (node) => node.dispatchEvent(new w.MouseEvent("click", { bubbles: true })),
   };
 }
@@ -182,6 +183,13 @@ describe("the page", () => {
     expect(p.posted.at(-1)).toEqual({ type: "ask", line: 2, question: "why +=?" });
     expect(p.$("ask-status").textContent).toMatch(/^Asked/);
     expect(p.$("pointing").hidden).toBe(true);
+    // The tile says where the question went, and the page says so.
+    p.tell({ do: "asked", via: "card" });
+    expect(p.$("ask-status").textContent).toMatch(/card at the top of Tilefold/);
+    p.tell({ do: "asked", via: "agent" });
+    expect(p.$("ask-status").textContent).toMatch(/was waiting/);
+    p.tell({ do: "asked", via: "anything else" });
+    expect(p.$("ask-status").textContent).toMatch(/next time it reads the board/);
     // A drawing, then the same one again to stop pointing.
     const note = p.$("board").querySelector('[data-shape="n"] rect');
     p.click(note);

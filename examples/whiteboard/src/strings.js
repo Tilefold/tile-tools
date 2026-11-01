@@ -28,6 +28,8 @@ export const PAGE_KEYS = [
   "ask-send",
   "ask-hint",
   "ask-sent",
+  "ask-card",
+  "ask-heard",
   "ask-line",
   "ask-shape",
   "ask-clear",
