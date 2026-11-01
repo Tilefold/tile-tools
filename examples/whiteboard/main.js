@@ -37,6 +37,7 @@ function aboutLine(board, asked) {
     const label = shape?.label ?? shape?.text;
     const kind = shape?.kind ?? "drawing";
     what = `, pointing at the ${kind} "${clip(asked.shape, 40)}"${label ? ` (${clip(label, 80)})` : ""}`;
+    if (asked.part) what += `, at its part "${clip(asked.part, 80)}"`;
   }
   const read = "Run the Whiteboard's read command with tile_run to see the board.";
   return clip(`On the Whiteboard${title}${what}. ${read}`, ABOUT_MAX);
@@ -242,7 +243,19 @@ var KINDS = [
   "path",
   "scene3d"
 ];
-var KINDS_3D = ["box", "sphere", "line", "point", "label"];
+var KINDS_3D = [
+  "box",
+  "sphere",
+  "line",
+  "point",
+  "label",
+  "cylinder",
+  "arrow",
+  "lathe",
+  "wing",
+  "tube"
+];
+var AXES = ["x", "y", "z"];
 var LIMITS = {
   shapes: 300,
   shapesPerDraw: 100,
@@ -257,6 +270,8 @@ var LIMITS = {
   text: 300,
   path: 2e3,
   objects3d: 60,
+  points3d: 64,
+  pointsPerScene: 1500,
   question: 500
 };
 var ID = /^[A-Za-z0-9_-]{1,32}$/;
@@ -320,7 +335,8 @@ function object3d(o, where) {
   if (!o || typeof o !== "object") fail(where, 'an object such as { kind: "box", at: [0, 0, 0] }');
   const kind = oneOf(o.kind, `${where}.kind`, KINDS_3D, void 0);
   if (!kind) fail(`${where}.kind`, `one of ${KINDS_3D.join(", ")}`);
-  const out = { kind, at: point3(o.at, `${where}.at`), color: color(o.color, where) };
+  const at = kind === "tube" && o.at === void 0 && Array.isArray(o.points) ? o.points[0] : o.at;
+  const out = { kind, at: point3(at, `${where}.at`), color: color(o.color, where) };
   const label = optText(o.label ?? (kind === "label" ? o.text : void 0), `${where}.label`, 80);
   if (kind === "label" && !label) fail(`${where}.text`, "the label's text");
   if (label) out.label = label;
@@ -331,8 +347,48 @@ function object3d(o, where) {
   }
   if (kind === "sphere") out.r = optNum(o.r, `${where}.r`, 0.1, 100, 5);
   if (kind === "line") out.to = point3(o.to, `${where}.to`);
+  if (kind === "cylinder" || kind === "arrow") {
+    out.to = point3(o.to, `${where}.to`);
+    out.r = optNum(o.r, `${where}.r`, 0.1, 50, kind === "arrow" ? 1.2 : 3);
+    if (kind === "cylinder") out.r2 = optNum(o.r2, `${where}.r2`, 0, 50, out.r);
+  }
+  if (kind === "lathe") {
+    out.profile = list(o.profile, `${where}.profile`, 2, (p, w) => {
+      if (!Array.isArray(p) || p.length !== 2) fail(w, "[radius, height]");
+      return [num(p[0], `${w}[0]`, 0, 100), num(p[1], `${w}[1]`, -100, 100)];
+    });
+    out.axis = oneOf(o.axis, `${where}.axis`, AXES, "y");
+  }
+  if (kind === "wing") {
+    out.span = num(o.span, `${where}.span`, 1, 200);
+    out.chord = num(o.chord, `${where}.chord`, 1, 100);
+    out.thickness = optNum(o.thickness, `${where}.thickness`, 0.02, 0.4, 0.12);
+    out.camber = optNum(o.camber, `${where}.camber`, 0, 0.1, 0.03);
+    out.taper = optNum(o.taper, `${where}.taper`, 0.1, 1, 1);
+    out.sweep = optNum(o.sweep, `${where}.sweep`, -60, 60, 0);
+    out.dihedral = optNum(o.dihedral, `${where}.dihedral`, -30, 30, 0);
+    out.mirror = flag(o.mirror, `${where}.mirror`, true);
+    out.vertical = flag(o.vertical, `${where}.vertical`, false);
+  }
+  if (kind === "tube") {
+    out.points = list(o.points, `${where}.points`, 2, point3);
+    out.r = optNum(o.r, `${where}.r`, 0.1, 20, 0.8);
+    out.flow = flag(o.flow, `${where}.flow`, false);
+  }
+  if (o.rot !== void 0) {
+    if (!Array.isArray(o.rot) || o.rot.length !== 3) fail(`${where}.rot`, "[x, y, z] in degrees");
+    out.rot = o.rot.map((n, i) => num(n, `${where}.rot[${i}]`, -360, 360));
+  }
+  if (o.opacity !== void 0) out.opacity = num(o.opacity, `${where}.opacity`, 0.1, 1);
   return out;
 }
+function list(v, where, min, each) {
+  if (!Array.isArray(v) || v.length < min || v.length > LIMITS.points3d) {
+    fail(where, `a list of ${min} to ${LIMITS.points3d} points`);
+  }
+  return v.map((p, i) => each(p, `${where}[${i}]`));
+}
+var pointsIn = (objects) => objects.reduce((n, o) => n + (o.profile?.length ?? 0) + (o.points?.length ?? 0), 0);
 function common(s, where) {
   const out = { kind: s.kind };
   if (s.id !== void 0) {
@@ -431,6 +487,9 @@ function checkShape(s, where = "shape") {
         fail(`${where}.objects`, `at most ${LIMITS.objects3d} objects`);
       }
       out.objects = s.objects.map((o, i) => object3d(o, `${where}.objects[${i}]`));
+      if (pointsIn(out.objects) > LIMITS.pointsPerScene) {
+        fail(`${where}.objects`, `at most ${LIMITS.pointsPerScene} points in all`);
+      }
       const cam = s.camera ?? {};
       if (typeof cam !== "object" || Array.isArray(cam))
         fail(`${where}.camera`, "{ yaw?, pitch? }");
@@ -550,16 +609,16 @@ function linesHint(board) {
 }
 function draw(board, input) {
   if (!input || typeof input !== "object") throw new Error("input: { shapes: [...], say? }");
-  const list = input.shapes ?? [];
-  if (!Array.isArray(list)) throw new Error("shapes: a list of shapes");
-  if (list.length > LIMITS.shapesPerDraw) {
+  const list2 = input.shapes ?? [];
+  if (!Array.isArray(list2)) throw new Error("shapes: a list of shapes");
+  if (list2.length > LIMITS.shapesPerDraw) {
     throw new Error(
       `shapes: at most ${LIMITS.shapesPerDraw} in one Draw; draw the rest in another`
     );
   }
   const say = checkSay(input.say);
-  if (!list.length && !say) throw new Error("shapes: at least one shape, or a step to say");
-  const checked = list.map((s, i) => checkShape(s, `shapes[${i}]`));
+  if (!list2.length && !say) throw new Error("shapes: at least one shape, or a step to say");
+  const checked = list2.map((s, i) => checkShape(s, `shapes[${i}]`));
   let next = input.clear === true ? erase(board, { all: true }) : board;
   let steps = next.steps;
   let step = steps.length - 1;
@@ -614,7 +673,11 @@ function goTo(board, n) {
 function ask(board, input) {
   const asked = { n: (board.asked?.n ?? 0) + 1 };
   if (Number.isInteger(input?.line) && lineBox(board.content, input.line)) asked.line = input.line;
-  if (typeof input?.shape === "string" && finder(board)(input.shape)) asked.shape = input.shape;
+  const shape = typeof input?.shape === "string" ? finder(board)(input.shape) : null;
+  if (shape) asked.shape = input.shape;
+  if (shape?.kind === "scene3d" && typeof input?.part === "string" && shape.objects.some((o) => o.label === input.part)) {
+    asked.part = input.part;
+  }
   if (typeof input?.question === "string" && input.question.trim()) {
     asked.question = input.question.trim().slice(0, LIMITS.question);
   }
@@ -624,7 +687,8 @@ function ask(board, input) {
 var HOW = [
   "The board is 1000 units wide; y grows downwards. Content lines are laid out at fixed places (see content).",
   "Draw with { shapes: [...], say? }: say makes a new step the user steps through; ids let you replace a shape later.",
-  "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,objects:[{kind:box|sphere|line|point|label, at:[x,y,z], ...}]}.",
+  "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,camera?:{yaw,pitch},objects:[...]}.",
+  "3D objects (y up, -100..100; the user turns, zooms and clicks parts): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
   "Points: [x,y], { line, col? } (a content line by its number) or { shape: id, side? }. Colors: accent, red, orange, yellow, green, teal, blue, purple, gray.",
   "Keep drawings right of the content column (x \u2265 content.box.w + 20) so they don't cover it, or below it."
 ];
@@ -873,7 +937,7 @@ function runWhiteboard(tf) {
     if (fresh && b.asked) {
       const about = [
         b.asked.line !== void 0 ? `line ${b.asked.line}` : null,
-        b.asked.shape ? `the shape "${b.asked.shape}"` : null
+        b.asked.shape ? `the shape "${b.asked.shape}"${b.asked.part ? `, its part "${b.asked.part}"` : ""}` : null
       ].filter(Boolean);
       const q = b.asked.question ? `"${b.asked.question}"` : "what it is";
       return `The user asks ${q}${about.length ? ` about ${about.join(" and ")}` : ""}: answer with Draw and a say.`;

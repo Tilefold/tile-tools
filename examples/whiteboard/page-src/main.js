@@ -15,8 +15,14 @@
  *
  * Messages with the tile: the page says `hello` when it loads and gets
  * `setup` (the labels in the user's language and the board), then `board`
- * after every change, and `asked` ({ via }) after a question. It sends `step` ({ n }), `ask` ({ line?, shape?,
- * question? }) and `close`. Labels hold `{n}` and `{total}` where those go.
+ * after every change, and `asked` ({ via }) after a question. It sends
+ * `step` ({ n }), `ask` ({ line?, shape?, part?, question? }) and `close`. Labels hold `{n}` and `{total}` where those go.
+ *
+ * Where WebGL can draw, each 3D scene is drawn for real (three.js, bundled)
+ * by the layer in glLayer.js, over the scene's SVG frame: lit and shaded,
+ * turned by dragging or the arrow keys, zoomed with the wheel, and a click
+ * on a part points at it (`ask` then carries `part`). Elsewhere the flat
+ * SVG drawing stays.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -31,6 +37,8 @@ import {
 } from "../src/layout.js";
 import { COLORS } from "../src/scene.js";
 import { el, markers, sceneNode, shapeNode } from "./svg.js";
+import { createGlLayer } from "./glLayer.js";
+import { webglAvailable } from "./three3d.js";
 
 const bridge = window.tilefold;
 const doc = document;
@@ -155,6 +163,13 @@ function draw() {
   contentNodes(svg);
   svg.append(over);
   drawnStep = board.step;
+  if (gl) {
+    // The scenes are drawn for real over their frames: the SVG keeps only frame and title.
+    for (const g of svg.querySelectorAll(".scene")) {
+      for (const c of [...g.children]) if (!c.matches(".frame, .title")) c.remove();
+    }
+    gl.sync(shown.filter((s) => s.kind === "scene3d"));
+  }
   mark();
 }
 
@@ -169,12 +184,24 @@ function mark() {
       )
     : null;
   node?.classList.add("pointed");
+  gl?.highlight(pointed?.shape ?? null, pointed?.part ?? null);
   $("pointing").hidden = !pointed;
   $("pointed").textContent = !pointed
     ? ""
     : "line" in pointed
       ? L("ask-line", { n: pointed.line })
-      : L("ask-shape");
+      : pointed.part
+        ? `${L("ask-shape")}: ${pointed.part}`
+        : L("ask-shape");
+}
+
+/** Points at a part of a real 3D scene (or the scene), as a click on the board does. */
+function pointPart(id, part) {
+  const next = part ? { shape: id, part } : { shape: id };
+  const same = pointed && JSON.stringify(next) === JSON.stringify(pointed);
+  pointed = same ? null : next;
+  mark();
+  if (pointed) $("question").focus();
 }
 
 /** A click on the board: point at the line or the drawing under it (again: stop pointing). */
@@ -258,8 +285,8 @@ function wire() {
   $("ask").addEventListener("submit", askIt);
   $("question").addEventListener("input", () => ($("ask-status").textContent = ""));
   doc.addEventListener("keydown", (e) => {
-    // Left and right step through the explanation, unless the user is typing.
-    if (!board || e.target === $("question")) return;
+    // Left and right step through the explanation, unless the user is typing or turning a scene.
+    if (!board || e.target === $("question") || e.target?.classList?.contains("gl")) return;
     if (e.key === "ArrowLeft" && board.step > 0) send({ type: "step", n: board.step - 1 });
     if (e.key === "ArrowRight" && board.step < board.steps.length - 1)
       send({ type: "step", n: board.step + 1 });
@@ -272,7 +299,14 @@ function followTheme(theme) {
   if (theme && (theme.mode === "light" || theme.mode === "dark")) {
     doc.documentElement.dataset.mode = theme.mode;
   } else delete doc.documentElement.dataset.mode;
+  gl?.themeChanged();
+  if (board) draw();
 }
+
+/** Real 3D views over the scenes, where WebGL can draw them (else the flat SVG). */
+const gl = webglAvailable(doc)
+  ? createGlLayer({ doc, svg: $("board"), hint: () => L("scene-hint"), cameras, onPick: pointPart })
+  : null;
 
 wire();
 followTheme(bridge?.theme);

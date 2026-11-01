@@ -45,6 +45,7 @@ export function aboutLine(board, asked) {
     const label = shape?.label ?? shape?.text;
     const kind = shape?.kind ?? "drawing";
     what = `, pointing at the ${kind} "${clip(asked.shape, 40)}"${label ? ` (${clip(label, 80)})` : ""}`;
+    if (asked.part) what += `, at its part "${clip(asked.part, 80)}"`;
   }
   const read = "Run the Whiteboard's read command with tile_run to see the board.";
   return clip(`On the Whiteboard${title}${what}. ${read}`, ABOUT_MAX);

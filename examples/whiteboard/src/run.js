@@ -184,7 +184,9 @@ export function runWhiteboard(tf) {
     if (fresh && b.asked) {
       const about = [
         b.asked.line !== undefined ? `line ${b.asked.line}` : null,
-        b.asked.shape ? `the shape "${b.asked.shape}"` : null,
+        b.asked.shape
+          ? `the shape "${b.asked.shape}"${b.asked.part ? `, its part "${b.asked.part}"` : ""}`
+          : null,
       ].filter(Boolean);
       const q = b.asked.question ? `"${b.asked.question}"` : "what it is";
       return `The user asks ${q}${about.length ? ` about ${about.join(" and ")}` : ""}: answer with Draw and a say.`;

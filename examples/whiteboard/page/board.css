@@ -233,6 +233,67 @@ button:focus-visible {
   border-radius: 8px;
 }
 
+/* The real 3D views sit over the board, in the same scroller, so they scroll with it. */
+.scroller {
+  position: relative;
+}
+
+.gl-layer {
+  position: absolute;
+  pointer-events: none;
+}
+
+.gl-host {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+canvas.gl {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+canvas.gl:active {
+  cursor: grabbing;
+}
+
+canvas.gl:focus-visible {
+  outline: 2px solid var(--tf-focus-ring, var(--accent));
+  outline-offset: -2px;
+}
+
+.gl-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gl-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gl-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
 .scroller:has(svg[hidden]) {
   display: none;
 }

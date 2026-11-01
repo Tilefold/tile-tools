@@ -14,6 +14,12 @@
  * back to the agent as the reason, so it can fix the call and try again.
  *
  * Pure: no `tf`, no DOM.
+ *
+ * Modified 2026-10-31 (real 3D): scenes take cylinders, arrows, lathes
+ *   (a profile spun round an axis), wings (an airfoil stretched along a
+ *   span) and tubes (a curve with a thickness, flowing when asked), plus
+ *   `rot` and `opacity` on any object; points are limited per object and
+ *   per scene.
  */
 import { MAX_HEIGHT, WIDTH } from "./layout.js";
 
@@ -44,7 +50,21 @@ export const KINDS = [
 ];
 
 /** The objects a 3D scene can hold. */
-export const KINDS_3D = ["box", "sphere", "line", "point", "label"];
+export const KINDS_3D = [
+  "box",
+  "sphere",
+  "line",
+  "point",
+  "label",
+  "cylinder",
+  "arrow",
+  "lathe",
+  "wing",
+  "tube",
+];
+
+/** Axes a lathe spins round. */
+const AXES = ["x", "y", "z"];
 
 /** Limits that keep a board within what the page and the store can carry. */
 export const LIMITS = {
@@ -61,6 +81,8 @@ export const LIMITS = {
   text: 300,
   path: 2000,
   objects3d: 60,
+  points3d: 64,
+  pointsPerScene: 1500,
   question: 500,
 };
 
@@ -157,7 +179,9 @@ function object3d(o, where) {
   if (!o || typeof o !== "object") fail(where, 'an object such as { kind: "box", at: [0, 0, 0] }');
   const kind = oneOf(o.kind, `${where}.kind`, KINDS_3D, undefined);
   if (!kind) fail(`${where}.kind`, `one of ${KINDS_3D.join(", ")}`);
-  const out = { kind, at: point3(o.at, `${where}.at`), color: color(o.color, where) };
+  // A tube is placed by its points: its `at` is the first one unless given.
+  const at = kind === "tube" && o.at === undefined && Array.isArray(o.points) ? o.points[0] : o.at;
+  const out = { kind, at: point3(at, `${where}.at`), color: color(o.color, where) };
   const label = optText(o.label ?? (kind === "label" ? o.text : undefined), `${where}.label`, 80);
   if (kind === "label" && !label) fail(`${where}.text`, "the label's text");
   if (label) out.label = label;
@@ -168,8 +192,53 @@ function object3d(o, where) {
   }
   if (kind === "sphere") out.r = optNum(o.r, `${where}.r`, 0.1, 100, 5);
   if (kind === "line") out.to = point3(o.to, `${where}.to`);
+  if (kind === "cylinder" || kind === "arrow") {
+    out.to = point3(o.to, `${where}.to`);
+    out.r = optNum(o.r, `${where}.r`, 0.1, 50, kind === "arrow" ? 1.2 : 3);
+    if (kind === "cylinder") out.r2 = optNum(o.r2, `${where}.r2`, 0, 50, out.r);
+  }
+  if (kind === "lathe") {
+    out.profile = list(o.profile, `${where}.profile`, 2, (p, w) => {
+      if (!Array.isArray(p) || p.length !== 2) fail(w, "[radius, height]");
+      return [num(p[0], `${w}[0]`, 0, 100), num(p[1], `${w}[1]`, -100, 100)];
+    });
+    out.axis = oneOf(o.axis, `${where}.axis`, AXES, "y");
+  }
+  if (kind === "wing") {
+    out.span = num(o.span, `${where}.span`, 1, 200);
+    out.chord = num(o.chord, `${where}.chord`, 1, 100);
+    out.thickness = optNum(o.thickness, `${where}.thickness`, 0.02, 0.4, 0.12);
+    out.camber = optNum(o.camber, `${where}.camber`, 0, 0.1, 0.03);
+    out.taper = optNum(o.taper, `${where}.taper`, 0.1, 1, 1);
+    out.sweep = optNum(o.sweep, `${where}.sweep`, -60, 60, 0);
+    out.dihedral = optNum(o.dihedral, `${where}.dihedral`, -30, 30, 0);
+    out.mirror = flag(o.mirror, `${where}.mirror`, true);
+    out.vertical = flag(o.vertical, `${where}.vertical`, false);
+  }
+  if (kind === "tube") {
+    out.points = list(o.points, `${where}.points`, 2, point3);
+    out.r = optNum(o.r, `${where}.r`, 0.1, 20, 0.8);
+    out.flow = flag(o.flow, `${where}.flow`, false);
+  }
+  if (o.rot !== undefined) {
+    if (!Array.isArray(o.rot) || o.rot.length !== 3) fail(`${where}.rot`, "[x, y, z] in degrees");
+    out.rot = o.rot.map((n, i) => num(n, `${where}.rot[${i}]`, -360, 360));
+  }
+  if (o.opacity !== undefined) out.opacity = num(o.opacity, `${where}.opacity`, 0.1, 1);
   return out;
 }
+
+/** A list of 2 to LIMITS.points3d items, each checked by `each`. */
+function list(v, where, min, each) {
+  if (!Array.isArray(v) || v.length < min || v.length > LIMITS.points3d) {
+    fail(where, `a list of ${min} to ${LIMITS.points3d} points`);
+  }
+  return v.map((p, i) => each(p, `${where}[${i}]`));
+}
+
+/** How many points a scene's objects hold (lathe profiles and tubes). */
+const pointsIn = (objects) =>
+  objects.reduce((n, o) => n + (o.profile?.length ?? 0) + (o.points?.length ?? 0), 0);
 
 /** The fields every shape may have. */
 function common(s, where) {
@@ -279,6 +348,9 @@ export function checkShape(s, where = "shape") {
         fail(`${where}.objects`, `at most ${LIMITS.objects3d} objects`);
       }
       out.objects = s.objects.map((o, i) => object3d(o, `${where}.objects[${i}]`));
+      if (pointsIn(out.objects) > LIMITS.pointsPerScene) {
+        fail(`${where}.objects`, `at most ${LIMITS.pointsPerScene} points in all`);
+      }
       const cam = s.camera ?? {};
       if (typeof cam !== "object" || Array.isArray(cam))
         fail(`${where}.camera`, "{ yaw?, pitch? }");

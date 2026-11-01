@@ -240,7 +240,16 @@ export function goTo(board, n) {
 export function ask(board, input) {
   const asked = { n: (board.asked?.n ?? 0) + 1 };
   if (Number.isInteger(input?.line) && lineBox(board.content, input.line)) asked.line = input.line;
-  if (typeof input?.shape === "string" && finder(board)(input.shape)) asked.shape = input.shape;
+  const shape = typeof input?.shape === "string" ? finder(board)(input.shape) : null;
+  if (shape) asked.shape = input.shape;
+  // A part of a 3D scene: one of its objects' labels.
+  if (
+    shape?.kind === "scene3d" &&
+    typeof input?.part === "string" &&
+    shape.objects.some((o) => o.label === input.part)
+  ) {
+    asked.part = input.part;
+  }
   if (typeof input?.question === "string" && input.question.trim()) {
     asked.question = input.question.trim().slice(0, LIMITS.question);
   }
@@ -252,7 +261,8 @@ export function ask(board, input) {
 const HOW = [
   "The board is 1000 units wide; y grows downwards. Content lines are laid out at fixed places (see content).",
   "Draw with { shapes: [...], say? }: say makes a new step the user steps through; ids let you replace a shape later.",
-  "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,objects:[{kind:box|sphere|line|point|label, at:[x,y,z], ...}]}.",
+  "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,camera?:{yaw,pitch},objects:[...]}.",
+  "3D objects (y up, -100..100; the user turns, zooms and clicks parts): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
   "Points: [x,y], { line, col? } (a content line by its number) or { shape: id, side? }. Colors: accent, red, orange, yellow, green, teal, blue, purple, gray.",
   "Keep drawings right of the content column (x ≥ content.box.w + 20) so they don't cover it, or below it.",
 ];

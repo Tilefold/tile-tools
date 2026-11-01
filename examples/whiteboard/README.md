@@ -31,7 +31,7 @@ Shapes point at content by line and column rather than by guessing pixels, and a
 | `arrow`, `line` | `from, to, label?, curve?, dashed?, both?` | `from` and `to` are `[x, y]`, `{ line, col?, side? }` or `{ shape, side? }`. An arrow at a whole line ends just after its text, and one at a shape ends on the side that faces the other end |
 | `highlight` | `line` or `lines: [a, b]`, `cols?: [a, b]`, `label?` | A band over lines, or over some columns of them |
 | `path` | `d, fill?, dashed?` | SVG path data (numbers and commands only) for anything else |
-| `scene3d` | `x, y, w, h, objects, camera?, label?` | A 3D scene. Objects are `box` (`at`, `size`), `sphere` (`at`, `r`), `line` (`at`, `to`), `point` and `label`, in coordinates from −100 to 100 with y up. You turn it by dragging |
+| `scene3d` | `x, y, w, h, objects, camera?, label?` | A 3D scene, drawn lit and shaded. Objects are `box` (`at`, `size`), `sphere` (`at`, `r`), `line` (`at`, `to`), `point`, `label`, `cylinder` (`at`, `to`, `r`, `r2`; a cone when `r2` is 0), `arrow` (`at`, `to`, `r`), `lathe` (a `profile` of `[radius, height]` spun round an `axis`, for bodies), `wing` (a real airfoil: `span`, `chord`, `thickness`, `camber`, `taper`, `sweep`, `dihedral`, `mirror`, `vertical`) and `tube` (smooth `points`, `r`, and `flow` to send beads along it), in coordinates from −100 to 100 with y up. Any object takes `color`, `label` (its part's name), `rot` and `opacity`. You turn it by dragging or with the arrow keys, zoom with the wheel or a pinch, put it back with a double-click or 0, and click a part to ask about it |
 
 Every shape may have an `id` (drawing one with the same id again replaces it, so the agent can move or relabel it) and a `color`.
 
@@ -69,7 +69,10 @@ Whiteboard has no settings. It keeps the board (the content, the drawings, the s
 | `src/point.js` | Point on screen: marks on your panes through `tf.annotate`, and what the agent should do about the ones not placed |
 | `src/strings.js` | The page's text, by message key |
 | `page-src/svg.js` | Each shape as SVG, in palette classes, with text never read as markup |
-| `page-src/project.js` | A 3D scene as flat pieces: the camera, perspective, hidden faces and shading |
+| `page-src/three3d.js` | A 3D scene drawn for real with three.js (bundled into the page): lights, the camera and its controls, labels kept apart, flowing tubes, clicking a part |
+| `page-src/meshes.js` | Each 3D object as meshes, the wing's airfoil among them |
+| `page-src/glLayer.js` | The layer that keeps a real 3D view over each scene's frame as the board scrolls and scales |
+| `page-src/project.js` | A 3D scene as flat pieces (where the page can't draw real 3D): the camera, perspective, hidden faces and shading |
 | `page-src/main.js` | The page: the board, the steps and their captions, pointing and asking, turning 3D scenes |
 
 Copyright (c) 2026 Tilefold

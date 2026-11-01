@@ -89,7 +89,51 @@ export function extentOf(objects) {
  *
  * `shade` is 0 (in shadow) to 1 (facing the light).
  */
+/**
+ * The newer objects (cylinder, arrow, tube, lathe, wing) as the simple ones
+ * this flat drawing knows: lines along them, or the box they fill. Used where
+ * the page can't draw real 3D.
+ */
+export function simplify(objects) {
+  const out = [];
+  for (const o of objects) {
+    const base = { color: o.color, ...(o.label ? { label: o.label } : {}) };
+    if (o.kind === "cylinder" || o.kind === "arrow") {
+      out.push({ kind: "line", at: o.at, to: o.to, ...base });
+      if (o.kind === "arrow") out.push({ kind: "point", at: o.to, color: o.color });
+    } else if (o.kind === "tube") {
+      o.points
+        .slice(1)
+        .forEach((p, i) =>
+          out.push({ kind: "line", at: o.points[i], to: p, color: o.color, ...(i ? {} : base) }),
+        );
+    } else if (o.kind === "lathe") {
+      const r = Math.max(...o.profile.map((p) => p[0]));
+      const hs = o.profile.map((p) => p[1]);
+      const len = Math.max(...hs) - Math.min(...hs) || 1;
+      const mid = (Math.max(...hs) + Math.min(...hs)) / 2;
+      const i = { x: 0, y: 1, z: 2 }[o.axis];
+      const at = [...o.at];
+      at[i] += mid;
+      const size = [r * 2, r * 2, r * 2];
+      size[i] = len;
+      out.push({ kind: "box", at, size, ...base });
+    } else if (o.kind === "wing") {
+      const span = o.mirror ? o.span * 2 : o.span;
+      const at = [...o.at];
+      if (!o.mirror) at[o.vertical ? 1 : 2] += o.span / 2;
+      const thick = Math.max(0.5, o.chord * o.thickness);
+      const size = o.vertical ? [o.chord, span, thick] : [o.chord, thick, span];
+      out.push({ kind: "box", at, size, ...base });
+    } else {
+      out.push(o);
+    }
+  }
+  return out;
+}
+
 export function sceneItems(objects, camera, rect) {
+  objects = simplify(objects);
   const extent = extentOf(objects);
   const scale = (Math.min(rect.w, rect.h) / 2 / extent) * 0.85;
   const cx = rect.x + rect.w / 2;
