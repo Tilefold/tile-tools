@@ -28,8 +28,8 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  /* A little see-through, so the board under it still shows. */
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  /* Mostly see-through, so the board under it still reads; the bar stays solid. */
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
   pointer-events: auto;
 }
