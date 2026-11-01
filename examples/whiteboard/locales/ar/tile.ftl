@@ -34,3 +34,7 @@ ask-shape = هذا الرسم
 ask-clear = إيقاف الإشارة
 board-label = اللوح، مع المحتوى ورسومات الوكيل
 scene-hint = اسحب للتدوير
+scene-move = اسحب لتحريكه على اللوحة؛ تحركه مفاتيح الأسهم أيضًا
+scene-fold = طيّ
+scene-unfold = إظهار مجددًا
+scene-untitled = عرض ثلاثي الأبعاد

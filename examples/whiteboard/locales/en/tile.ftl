@@ -34,3 +34,7 @@ ask-shape = This drawing
 ask-clear = Stop pointing
 board-label = The board, with the content and the agent's drawings
 scene-hint = Drag to turn
+scene-move = Drag to move it on the board; arrow keys move it too
+scene-fold = Fold away
+scene-unfold = Show again
+scene-untitled = 3D view

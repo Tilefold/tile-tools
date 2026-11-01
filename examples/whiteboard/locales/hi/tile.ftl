@@ -34,3 +34,7 @@ ask-shape = यह चित्र
 ask-clear = इशारा हटाएँ
 board-label = सामग्री और एजेंट के चित्रों वाला बोर्ड
 scene-hint = घुमाने के लिए खींचें
+scene-move = बोर्ड पर खिसकाने के लिए खींचें; तीर कुंजियाँ भी खिसकाती हैं
+scene-fold = समेटें
+scene-unfold = फिर से दिखाएँ
+scene-untitled = 3D दृश्य

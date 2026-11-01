@@ -1,0 +1,176 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Whiteboard's page: the windows real 3D scenes float in, over the board.
+ * Each has a bar to move it by (with the scene's title) and a button that
+ * folds it down to the bar; inside, the 3D view, its labels and a hint.
+ * Colors come from board.css's palette, so they follow light and dark.
+ */
+
+/* The windows sit over the board, in the same scroller, so they scroll with it. */
+.scroller {
+  position: relative;
+}
+
+.gl-layer {
+  position: absolute;
+  pointer-events: none;
+}
+
+.gl-host {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  /* A little see-through, so the board under it still shows. */
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
+  pointer-events: auto;
+}
+
+.gl-host.moving {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.26);
+  opacity: 0.94;
+}
+
+.float-bar {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+}
+
+.gl-host.folded .float-bar {
+  border-bottom: 0;
+}
+
+.float-bar button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+}
+
+.float-grip {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 8px;
+  cursor: grab;
+  touch-action: none;
+  text-align: start;
+}
+
+.gl-host.moving .float-grip {
+  cursor: grabbing;
+}
+
+/* Six dots, the usual sign of something to drag. */
+.float-dots {
+  flex: none;
+  width: 8px;
+  height: 12px;
+  background-image: radial-gradient(circle, var(--muted) 1.2px, transparent 1.4px);
+  background-size: 4px 4px;
+}
+
+.float-title {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.float-fold {
+  flex: none;
+  width: 28px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.float-bar button:hover {
+  background: var(--hover);
+}
+
+.float-bar button:focus-visible {
+  outline: 2px solid var(--tf-focus-ring, var(--accent));
+  outline-offset: -2px;
+}
+
+.float-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+canvas.gl {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+canvas.gl:active {
+  cursor: grabbing;
+}
+
+/* Over a part a click would point at. */
+canvas.gl.over-part {
+  cursor: pointer;
+}
+
+canvas.gl:focus-visible {
+  outline: 2px solid var(--tf-focus-ring, var(--accent));
+  outline-offset: -2px;
+}
+
+.gl-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gl-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gl-label.hover {
+  outline: 1px solid currentColor;
+}
+
+.gl-label.picked {
+  outline: 2px solid currentColor;
+}
+
+.gl-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gl-host {
+    transition: box-shadow 0.15s ease;
+  }
+}

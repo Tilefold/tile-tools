@@ -34,3 +34,7 @@ ask-shape = Ce dessin
 ask-clear = Ne plus montrer
 board-label = Le tableau, avec le contenu et les dessins de l'agent
 scene-hint = Faites glisser pour tourner
+scene-move = Faites glisser pour le déplacer sur le tableau ; les flèches le déplacent aussi
+scene-fold = Replier
+scene-unfold = Afficher à nouveau
+scene-untitled = Vue 3D

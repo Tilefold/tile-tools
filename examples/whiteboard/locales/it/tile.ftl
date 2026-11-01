@@ -34,3 +34,7 @@ ask-shape = Questo disegno
 ask-clear = Smetti di indicare
 board-label = La lavagna, con il contenuto e i disegni dell'agente
 scene-hint = Trascina per ruotare
+scene-move = Trascina per spostarlo sulla lavagna; anche le frecce lo spostano
+scene-fold = Riduci
+scene-unfold = Mostra di nuovo
+scene-untitled = Vista 3D

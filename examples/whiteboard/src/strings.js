@@ -35,6 +35,10 @@ export const PAGE_KEYS = [
   "ask-clear",
   "board-label",
   "scene-hint",
+  "scene-move",
+  "scene-fold",
+  "scene-unfold",
+  "scene-untitled",
 ];
 
 /** What the page fills in itself, passed so the message keeps a mark for it. */

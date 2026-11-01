@@ -9,7 +9,7 @@
  * page, undocking it or quitting Tilefold loses nothing. The page only
  * draws: the tile sends it the board after every change, and the page
  * sends back what the user does (a step back or on, a line or a drawing
- * pointed at, a question).
+ * pointed at, a question, a 3D scene moved to another place).
  *
  * Five commands for the AI agent in one of the user's panes, through
  * Tilefold's tile_run: "Show content" (the code or text to explain),
@@ -23,14 +23,14 @@
  *
  * What happens is recorded in the tile's log as one-word actions
  * (tile.<id>.<action>): `opened`, `closed`, `shown`, `drew`, `erased`,
- * `cleared`, `asked`, `pointed` and `unpointed`. Never the content, the
+ * `cleared`, `asked`, `moved`, `pointed` and `unpointed`. Never the content, the
  * drawings, the marks or what the user typed.
  *
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
  */
 import { askAgent } from "./askAgent.js";
-import { ask, describe, draw, emptyBoard, erase, goTo, isBoard, show } from "./board.js";
+import { ask, describe, draw, emptyBoard, erase, goTo, isBoard, move, show } from "./board.js";
 import { pointing } from "./point.js";
 import { pageLabels } from "./strings.js";
 
@@ -39,6 +39,10 @@ const BOARD = "board";
 
 /** How long Read the board with { wait: true } holds for the user, in ms (a command has 10 s). */
 export const WAIT_MS = 7000;
+
+/** The most moves the page may send in MOVE_WINDOW_MS; more are dropped, not kept. */
+export const MOVES_PER_WINDOW = 30;
+const MOVE_WINDOW_MS = 10_000;
 
 /** @param {any} tf */
 export function runWhiteboard(tf) {
@@ -64,6 +68,8 @@ export function runWhiteboard(tf) {
   let seen = 0;
   /** Reads waiting for the user to ask something. */
   let waiters = [];
+  /** When the page's recent moves came, so a flood of them can't wear out the store. */
+  let moves = [];
 
   // Docking beside the panes came with Tilefold's theme for tiles (0.1.20).
   const canSide = () => !!tf.page && typeof tf.theme === "function";
@@ -136,12 +142,24 @@ export function runWhiteboard(tf) {
     if (where) await tf.page.post({ do: "asked", via }).catch(() => {});
   }
 
+  /** The user moved a 3D scene on the page (they drop it, or move it with the keys). */
+  async function moved(m) {
+    const t = Date.now();
+    moves = moves.filter((at) => t - at < MOVE_WINDOW_MS);
+    if (moves.length >= MOVES_PER_WINDOW) return;
+    moves.push(t);
+    const before = await current();
+    await set(move(before, m));
+    if (board !== before) audit("moved");
+  }
+
   /** A message from the page. */
   async function hear(m) {
     if (!m || typeof m !== "object") return;
     if (m.type === "hello") return hello();
     if (m.type === "step") return set(goTo(await current(), m.n));
     if (m.type === "ask") return asked(m);
+    if (m.type === "move") return moved(m);
     if (m.type === "close") return close();
   }
 

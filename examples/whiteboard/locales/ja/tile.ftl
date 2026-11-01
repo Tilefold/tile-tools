@@ -34,3 +34,7 @@ ask-shape = この図
 ask-clear = 指すのをやめる
 board-label = 内容とエージェントの図があるボード
 scene-hint = ドラッグで回転
+scene-move = ドラッグでボード上を移動。矢印キーでも動かせます
+scene-fold = たたむ
+scene-unfold = もう一度表示
+scene-untitled = 3D ビュー

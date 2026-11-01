@@ -34,3 +34,7 @@ ask-shape = 이 그림
 ask-clear = 가리키기 그만
 board-label = 내용과 에이전트의 그림이 있는 보드
 scene-hint = 드래그해서 돌리기
+scene-move = 드래그해서 보드 위에서 옮기기. 화살표 키로도 옮길 수 있어요
+scene-fold = 접기
+scene-unfold = 다시 보기
+scene-untitled = 3D 보기

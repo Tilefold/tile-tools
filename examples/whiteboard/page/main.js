@@ -16,13 +16,16 @@
  * Messages with the tile: the page says `hello` when it loads and gets
  * `setup` (the labels in the user's language and the board), then `board`
  * after every change, and `asked` ({ via }) after a question. It sends
- * `step` ({ n }), `ask` ({ line?, shape?, part?, question? }) and `close`. Labels hold `{n}` and `{total}` where those go.
+ * `step` ({ n }), `ask` ({ line?, shape?, part?, question? }), `move`
+ * ({ id, x, y }: the user moved a 3D scene, in board units) and `close`.
+ * Labels hold `{n}` and `{total}` where those go.
  *
  * Where WebGL can draw, each 3D scene is drawn for real (three.js, bundled)
- * by the layer in glLayer.js, over the scene's SVG frame: lit and shaded,
- * turned by dragging or the arrow keys, zoomed with the wheel, and a click
- * on a part points at it (`ask` then carries `part`). Elsewhere the flat
- * SVG drawing stays.
+ * by the layer in glLayer.js, in a window floating over the board that the
+ * user moves by its bar and can fold away: lit and shaded, turned by
+ * dragging or the arrow keys, zoomed with the wheel, and a click on a part
+ * points at it (`ask` then carries `part`). Elsewhere the flat SVG drawing
+ * stays, turned by dragging, and moved by the strip along its top.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -671,6 +674,111 @@
       }
     }
     return defs;
+  }
+
+  // page-src/floatView.js
+  var KEY_STEP = 10;
+  var BIG_STEP = 50;
+  var DRAG_PX = 4;
+  function createFloat(doc2, o) {
+    const host = doc2.createElement("div");
+    host.className = "gl-host float";
+    const bar = doc2.createElement("div");
+    bar.className = "float-bar";
+    const grip = doc2.createElement("button");
+    grip.type = "button";
+    grip.className = "float-grip";
+    grip.title = o.labels.move;
+    grip.setAttribute("aria-label", `${o.title}: ${o.labels.move}`);
+    const dots = doc2.createElement("span");
+    dots.className = "float-dots";
+    dots.setAttribute("aria-hidden", "true");
+    const title = doc2.createElement("span");
+    title.className = "float-title";
+    title.textContent = o.title;
+    grip.append(dots, title);
+    const fold = doc2.createElement("button");
+    fold.type = "button";
+    fold.className = "float-fold";
+    bar.append(grip, fold);
+    const body = doc2.createElement("div");
+    body.className = "float-body";
+    host.append(bar, body);
+    let folded = !!o.folded;
+    const showFold = () => {
+      host.classList.toggle("folded", folded);
+      body.hidden = folded;
+      const label = folded ? o.labels.unfold : o.labels.fold;
+      fold.title = label;
+      fold.setAttribute("aria-label", label);
+      fold.setAttribute("aria-expanded", String(!folded));
+      fold.textContent = folded ? "\u25A1" : "\u2212";
+    };
+    showFold();
+    fold.addEventListener("click", () => {
+      folded = !folded;
+      showFold();
+      o.onFold(folded);
+    });
+    let drag = null;
+    let dragged = false;
+    grip.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY, id: e.pointerId, moving: false };
+      dragged = false;
+      grip.setPointerCapture?.(e.pointerId);
+    });
+    grip.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (!drag.moving && Math.hypot(dx, dy) < DRAG_PX) return;
+      if (!drag.moving) {
+        drag.moving = true;
+        host.classList.add("moving");
+        o.onGrab();
+      }
+      o.onDrag(dx, dy);
+    });
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const was = drag.moving;
+      drag = null;
+      host.classList.remove("moving");
+      if (was) {
+        dragged = true;
+        o.onDrop();
+      }
+    };
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+    grip.addEventListener("click", () => {
+      if (dragged) return void (dragged = false);
+      o.onPick();
+    });
+    grip.addEventListener("keydown", (e) => {
+      const step = e.shiftKey ? BIG_STEP : KEY_STEP;
+      const by = {
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step]
+      }[e.key];
+      if (!by) return;
+      e.preventDefault();
+      e.stopPropagation();
+      o.onKey(by[0], by[1]);
+    });
+    return {
+      /** The whole window, which the layer places. */
+      host,
+      /** Where the 3D view draws. */
+      body,
+      /** The bar's height in pixels now (0 before it's laid out). */
+      barHeight: () => bar.offsetHeight,
+      /** Whether it's folded down to its bar. */
+      folded: () => folded
+    };
   }
 
   // ../../node_modules/three/build/three.module.js
@@ -22558,7 +22666,7 @@ void main() {
         tag.textContent = obj.label;
         tag.style.color = o.color(obj.color);
         labels2.append(tag);
-        tags.push({ tag, at: labelAnchor(obj, group), index: i });
+        tags.push({ tag, at: labelAnchor(obj, group), index: i, part: obj.label });
       }
     });
     const beads = flows.flatMap(
@@ -22638,21 +22746,54 @@ void main() {
       o.onTurn(now());
     });
     const ray = new Raycaster();
+    const ndc = (e) => {
+      const r2 = canvas.getBoundingClientRect();
+      return new Vector2(
+        (e.clientX - r2.left) / Math.max(1, r2.width) * 2 - 1,
+        -((e.clientY - r2.top) / Math.max(1, r2.height)) * 2 + 1
+      );
+    };
+    const partAt = (at) => {
+      ray.setFromCamera(at, camera);
+      return ray.intersectObjects(parts, true)[0]?.object.userData.part ?? null;
+    };
     let down = null;
     canvas.addEventListener("pointerdown", (e) => down = [e.clientX, e.clientY]);
     canvas.addEventListener("pointerup", (e) => {
       if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
-      const r2 = canvas.getBoundingClientRect();
-      ray.setFromCamera(
-        new Vector2(
-          (e.clientX - r2.left) / r2.width * 2 - 1,
-          -((e.clientY - r2.top) / r2.height) * 2 + 1
-        ),
-        camera
-      );
-      const hit = ray.intersectObjects(parts, true)[0];
-      o.onPick(hit?.object.userData.part ?? null);
+      o.onPick(partAt(ndc(e)));
     });
+    let hoverAt = null;
+    let hovered = null;
+    let picked = null;
+    canvas.addEventListener("pointermove", (e) => {
+      hoverAt = e.buttons ? null : ndc(e);
+      if (e.buttons) setHover(null);
+    });
+    canvas.addEventListener("pointerleave", () => {
+      hoverAt = null;
+      setHover(null);
+    });
+    const paint = () => {
+      for (const g of parts) {
+        g.traverse((c) => {
+          if (!c.material?.emissive) return;
+          const part = c.userData.part;
+          const hex = part && part === picked ? 3355460 : part && part === hovered ? 1842216 : 0;
+          c.material.emissive.setHex(hex);
+        });
+      }
+      for (const t of tags) {
+        t.tag.classList.toggle("picked", !!picked && t.part === picked);
+        t.tag.classList.toggle("hover", !!hovered && t.part === hovered);
+      }
+      canvas.classList.toggle("over-part", !!hovered);
+    };
+    const setHover = (part) => {
+      if (part === hovered) return;
+      hovered = part;
+      paint();
+    };
     const placeLabels = (w, h) => {
       const seen = [];
       const order = tags.map((t) => ({ t, p: t.at.clone().project(camera) })).sort((a, b) => a.p.z - b.p.z);
@@ -22691,9 +22832,15 @@ void main() {
     let height = 0;
     let frame = 0;
     let alive = true;
+    let paused = false;
     const tick = (time) => {
-      if (!alive) return;
+      frame = 0;
+      if (!alive || paused) return;
       controls.update();
+      if (hoverAt) {
+        setHover(partAt(hoverAt));
+        hoverAt = null;
+      }
       for (const b of beads) {
         const t = (b.phase + (still ? 0 : time / 4e3)) % 1;
         b.bead.position.copy(b.curve.getPoint(t));
@@ -22713,16 +22860,20 @@ void main() {
         canvas.style.height = `${h}px`;
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
-        if (!frame) frame = win.requestAnimationFrame(tick);
+        if (!frame && !paused) frame = win.requestAnimationFrame(tick);
       },
       /** Marks `part` (or nothing) as the one pointed at. */
       highlight(part) {
-        for (const g of parts) {
-          g.traverse((c) => {
-            if (!c.material?.emissive) return;
-            c.material.emissive.setHex(part && c.userData.part === part ? 3355460 : 0);
-          });
-        }
+        picked = part ?? null;
+        paint();
+      },
+      /** Stops drawing while the window is folded away (`on`), and starts again. */
+      pause(on) {
+        paused = !!on;
+        if (paused && frame) {
+          win.cancelAnimationFrame(frame);
+          frame = 0;
+        } else if (!paused && width && !frame) frame = win.requestAnimationFrame(tick);
       },
       dispose() {
         alive = false;
@@ -22739,18 +22890,38 @@ void main() {
   }
 
   // page-src/glLayer.js
-  var TITLE_H = 24;
+  var KEY_SETTLE_MS = 400;
   function createGlLayer(o) {
     const { doc: doc2, svg } = o;
+    const makeView = o.makeView ?? createView;
     const layer = doc2.createElement("div");
     layer.className = "gl-layer";
     svg.after(layer);
     const views = /* @__PURE__ */ new Map();
+    const folded = /* @__PURE__ */ new Set();
     let theme = 0;
+    let top = 1;
     const color = (name) => {
       const css = doc2.defaultView.getComputedStyle(doc2.documentElement);
       const v = css.getPropertyValue(name === "accent" ? "--accent" : `--ink-${name}`).trim();
       return v || "#5b5bd6";
+    };
+    const scale = () => (svg.getBoundingClientRect().width || WIDTH) / WIDTH;
+    const boardH = () => svg.viewBox?.baseVal?.height || Number.POSITIVE_INFINITY;
+    const inside = (s, x, y) => ({
+      x: Math.round(Math.min(Math.max(0, WIDTH - s.w), Math.max(0, x))),
+      y: Math.round(Math.min(Math.max(0, boardH() - s.h), Math.max(0, y)))
+    });
+    const placeOf = (v) => v.place ?? { x: v.shape.x, y: v.shape.y };
+    const put = (v) => {
+      const k = scale();
+      const at = placeOf(v);
+      const w = Math.max(1, Math.round(v.shape.w * k));
+      const h = Math.max(1, Math.round(v.shape.h * k));
+      v.win.host.style.transform = `translate(${Math.round(at.x * k)}px, ${Math.round(at.y * k)}px)`;
+      v.win.host.style.width = `${w}px`;
+      v.win.host.style.height = v.win.folded() ? "" : `${h}px`;
+      if (!v.win.folded()) v.view.resize(Math.max(1, w - 2), Math.max(1, h - v.win.barHeight() - 2));
     };
     const layout = () => {
       const scroller = layer.parentElement;
@@ -22758,43 +22929,95 @@ void main() {
       const box = scroller.getBoundingClientRect();
       layer.style.left = `${at.left - box.left + scroller.scrollLeft - scroller.clientLeft}px`;
       layer.style.top = `${at.top - box.top + scroller.scrollTop - scroller.clientTop}px`;
-      const scale = at.width / WIDTH;
-      for (const { host, view, shape: s } of views.values()) {
-        const top = s.label ? TITLE_H : 0;
-        const w = Math.max(1, Math.round(s.w * scale) - 2);
-        const h = Math.max(1, Math.round((s.h - top) * scale) - 2);
-        host.style.transform = `translate(${Math.round(s.x * scale) + 1}px, ${Math.round((s.y + top) * scale) + 1}px)`;
-        host.style.width = `${w}px`;
-        host.style.height = `${h}px`;
-        view.resize(w, h);
-      }
+      for (const v of views.values()) put(v);
     };
-    new doc2.defaultView.ResizeObserver(layout).observe(svg);
+    const Observer = doc2.defaultView.ResizeObserver;
+    if (Observer) new Observer(layout).observe(svg);
+    const raise = (v) => v.win.host.style.zIndex = String(top++);
+    function open(s, key) {
+      const t = o.labels();
+      const v = { key, shape: s, place: null, grabbed: null, timer: 0 };
+      v.win = createFloat(doc2, {
+        title: s.label || t.untitled,
+        labels: t,
+        folded: folded.has(s.id),
+        onGrab: () => {
+          raise(v);
+          v.grabbed = placeOf(v);
+        },
+        onDrag: (dx, dy) => {
+          const k = scale();
+          v.place = inside(v.shape, v.grabbed.x + dx / k, v.grabbed.y + dy / k);
+          put(v);
+        },
+        onDrop: () => {
+          v.grabbed = null;
+          const at = placeOf(v);
+          o.onMove(v.shape.id, at.x, at.y);
+        },
+        onKey: (dx, dy) => {
+          const at = placeOf(v);
+          v.place = inside(v.shape, at.x + dx, at.y + dy);
+          put(v);
+          doc2.defaultView.clearTimeout(v.timer);
+          v.timer = doc2.defaultView.setTimeout(() => {
+            const now = placeOf(v);
+            o.onMove(v.shape.id, now.x, now.y);
+          }, KEY_SETTLE_MS);
+        },
+        onFold: (on) => {
+          if (on) folded.add(s.id);
+          else folded.delete(s.id);
+          v.view.pause(on);
+          put(v);
+        },
+        onPick: () => {
+          raise(v);
+          o.onPick(s.id, null);
+        }
+      });
+      v.win.host.dataset.scene = s.id;
+      v.win.host.addEventListener("pointerdown", () => raise(v));
+      layer.append(v.win.host);
+      v.view = makeView(doc2, v.win.body, s, {
+        color,
+        camera: o.cameras.get(s.id),
+        hint: t.hint,
+        onTurn: (cam) => o.cameras.set(s.id, cam),
+        onPick: (part) => o.onPick(s.id, part)
+      });
+      if (v.win.folded()) v.view.pause(true);
+      return v;
+    }
+    function close(v) {
+      doc2.defaultView.clearTimeout(v.timer);
+      v.view.dispose();
+      v.win.host.remove();
+    }
+    const keyOf = (s) => `${theme}:${JSON.stringify([s.objects, s.camera, s.w, s.h, s.label ?? null])}`;
     return {
-      /** Shows views for `scenes` (the scene3d shapes shown now) and drops the rest. */
+      /** Shows windows for `scenes` (the scene3d shapes shown now) and drops the rest. */
       sync(scenes) {
         const keep = /* @__PURE__ */ new Set();
         for (const s of scenes) {
-          const key = `${theme}:${JSON.stringify(s)}`;
           keep.add(s.id);
-          if (views.get(s.id)?.key === key) continue;
-          views.get(s.id)?.view.dispose();
-          const host = views.get(s.id)?.host ?? doc2.createElement("div");
-          host.className = "gl-host";
-          layer.append(host);
-          const view = createView(doc2, host, s, {
-            color,
-            camera: o.cameras.get(s.id),
-            hint: o.hint(),
-            onTurn: (cam) => o.cameras.set(s.id, cam),
-            onPick: (part) => o.onPick(s.id, part)
-          });
-          views.set(s.id, { key, host, view, shape: s });
+          const key = keyOf(s);
+          let v = views.get(s.id);
+          if (v && v.key !== key) {
+            close(v);
+            v = null;
+          }
+          if (!v) {
+            v = open(s, key);
+            views.set(s.id, v);
+          } else {
+            if (v.place && !v.grabbed && v.place.x === s.x && v.place.y === s.y) v.place = null;
+            v.shape = s;
+          }
         }
         for (const [id, v] of views) {
           if (keep.has(id)) continue;
-          v.view.dispose();
-          v.host.remove();
+          close(v);
           views.delete(id);
         }
         layout();
@@ -22904,9 +23127,7 @@ void main() {
     svg.append(over);
     drawnStep = board.step;
     if (gl) {
-      for (const g of svg.querySelectorAll(".scene")) {
-        for (const c of [...g.children]) if (!c.matches(".frame, .title")) c.remove();
-      }
+      for (const g of svg.querySelectorAll(".scene")) g.replaceChildren();
       gl.sync(shown.filter((s) => s.kind === "scene3d"));
     }
     mark();
@@ -22951,13 +23172,19 @@ void main() {
     mark();
     $("ask-status").textContent = L("ask-sent");
   }
+  var unitsPerPx = () => WIDTH / ($("board").getBoundingClientRect().width || WIDTH);
   function dragScenes() {
     let drag = null;
     $("board").addEventListener("pointerdown", (e) => {
       const g = e.target.closest?.(".k-scene3d");
       if (!g) return;
       const id = g.getAttribute("data-shape");
-      drag = { id, x: e.clientX, y: e.clientY, cam: { ...cameraOf(id) }, moved: false };
+      const s = find(id);
+      if (!s) return;
+      const r2 = $("board").getBoundingClientRect();
+      const y = (e.clientY - r2.top) * unitsPerPx();
+      const move = y >= s.y && y - s.y < SCENE_BAR;
+      drag = { id, g, x: e.clientX, y: e.clientY, cam: { ...cameraOf(id) }, moved: false, move };
       g.setPointerCapture?.(e.pointerId);
     });
     $("board").addEventListener("pointermove", (e) => {
@@ -22965,6 +23192,12 @@ void main() {
       const dx = e.clientX - drag.x;
       const dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      if (drag.move) {
+        const k = unitsPerPx();
+        drag.by = [dx * k, dy * k];
+        drag.g.setAttribute("transform", `translate(${drag.by[0]} ${drag.by[1]})`);
+        return;
+      }
       const cam = {
         yaw: drag.cam.yaw + dx * 0.6,
         pitch: Math.max(-89, Math.min(89, drag.cam.pitch + dy * 0.6))
@@ -22976,12 +23209,19 @@ void main() {
     });
     const end = () => {
       if (drag?.moved) suppressClick = true;
+      const s = drag?.move && drag.by ? find(drag.id) : null;
+      if (s) moveScene(s.id, s.x + drag.by[0], s.y + drag.by[1]);
       drag = null;
     };
     $("board").addEventListener("pointerup", end);
     $("board").addEventListener("pointercancel", end);
   }
   var suppressClick = false;
+  var SCENE_BAR = 24;
+  function moveScene(id, x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    send({ type: "move", id, x: Math.round(x), y: Math.round(y) });
+  }
   function wire() {
     $("close").addEventListener("click", () => send({ type: "close" }));
     $("back").addEventListener("click", () => board && send({ type: "step", n: board.step - 1 }));
@@ -23002,7 +23242,7 @@ void main() {
     $("ask").addEventListener("submit", askIt);
     $("question").addEventListener("input", () => $("ask-status").textContent = "");
     doc.addEventListener("keydown", (e) => {
-      if (!board || e.target === $("question") || e.target?.classList?.contains("gl")) return;
+      if (!board || e.target === $("question") || e.target?.closest?.(".gl-host")) return;
       if (e.key === "ArrowLeft" && board.step > 0) send({ type: "step", n: board.step - 1 });
       if (e.key === "ArrowRight" && board.step < board.steps.length - 1)
         send({ type: "step", n: board.step + 1 });
@@ -23016,7 +23256,20 @@ void main() {
     gl?.themeChanged();
     if (board) draw();
   }
-  var gl = webglAvailable(doc) ? createGlLayer({ doc, svg: $("board"), hint: () => L("scene-hint"), cameras, onPick: pointPart }) : null;
+  var gl = webglAvailable(doc) ? createGlLayer({
+    doc,
+    svg: $("board"),
+    labels: () => ({
+      hint: L("scene-hint"),
+      move: L("scene-move"),
+      fold: L("scene-fold"),
+      unfold: L("scene-unfold"),
+      untitled: L("scene-untitled")
+    }),
+    cameras,
+    onPick: pointPart,
+    onMove: moveScene
+  }) : null;
   wire();
   followTheme(bridge?.theme);
   bridge?.onTheme?.(followTheme);

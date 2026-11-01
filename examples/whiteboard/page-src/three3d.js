@@ -13,7 +13,9 @@
  * when they ask for reduced motion). Labels are HTML beside their objects,
  * kept apart so none covers another. Tubes marked `flow` carry beads along
  * them, for air or current. A click that isn't a drag points at the part
- * under it (the object's label) for the question box.
+ * under it (the object's label) for the question box; the part under the
+ * pointer glows a little first, with its label, to show what a click would
+ * point at. A folded window's view is paused, so it costs nothing.
  *
  * Where WebGL isn't available the page draws its flat SVG version instead
  * (`webglAvailable`).
@@ -102,7 +104,7 @@ export function createView(doc, host, shape, o) {
       tag.textContent = obj.label;
       tag.style.color = o.color(obj.color);
       labels.append(tag);
-      tags.push({ tag, at: labelAnchor(obj, group), index: i });
+      tags.push({ tag, at: labelAnchor(obj, group), index: i, part: obj.label });
     }
   });
 
@@ -199,21 +201,59 @@ export function createView(doc, host, shape, o) {
 
   // A click (not a drag) points at the part under it.
   const ray = new Raycaster();
+  /** Where an event is, in the view's -1..1 coordinates. */
+  const ndc = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return new Vector2(
+      ((e.clientX - r.left) / Math.max(1, r.width)) * 2 - 1,
+      -((e.clientY - r.top) / Math.max(1, r.height)) * 2 + 1,
+    );
+  };
+  /** The part (an object's label) at `at`, or null. */
+  const partAt = (at) => {
+    ray.setFromCamera(at, camera);
+    return ray.intersectObjects(parts, true)[0]?.object.userData.part ?? null;
+  };
   let down = null;
   canvas.addEventListener("pointerdown", (e) => (down = [e.clientX, e.clientY]));
   canvas.addEventListener("pointerup", (e) => {
     if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
-    const r = canvas.getBoundingClientRect();
-    ray.setFromCamera(
-      new Vector2(
-        ((e.clientX - r.left) / r.width) * 2 - 1,
-        -((e.clientY - r.top) / r.height) * 2 + 1,
-      ),
-      camera,
-    );
-    const hit = ray.intersectObjects(parts, true)[0];
-    o.onPick(hit?.object.userData.part ?? null);
+    o.onPick(partAt(ndc(e)));
   });
+
+  // The part under the pointer glows a little, found once a frame, not on every move.
+  let hoverAt = null;
+  let hovered = null;
+  let picked = null;
+  canvas.addEventListener("pointermove", (e) => {
+    hoverAt = e.buttons ? null : ndc(e);
+    if (e.buttons) setHover(null);
+  });
+  canvas.addEventListener("pointerleave", () => {
+    hoverAt = null;
+    setHover(null);
+  });
+  /** Lights the part pointed at, and less the one under the pointer, with their labels. */
+  const paint = () => {
+    for (const g of parts) {
+      g.traverse((c) => {
+        if (!c.material?.emissive) return;
+        const part = c.userData.part;
+        const hex = part && part === picked ? 0x333344 : part && part === hovered ? 0x1c1c28 : 0;
+        c.material.emissive.setHex(hex);
+      });
+    }
+    for (const t of tags) {
+      t.tag.classList.toggle("picked", !!picked && t.part === picked);
+      t.tag.classList.toggle("hover", !!hovered && t.part === hovered);
+    }
+    canvas.classList.toggle("over-part", !!hovered);
+  };
+  const setHover = (part) => {
+    if (part === hovered) return;
+    hovered = part;
+    paint();
+  };
 
   /** Places the labels by their objects, nearest first, moving any that would overlap. */
   const placeLabels = (w, h) => {
@@ -259,9 +299,15 @@ export function createView(doc, host, shape, o) {
   let height = 0;
   let frame = 0;
   let alive = true;
+  let paused = false;
   const tick = (time) => {
-    if (!alive) return;
+    frame = 0;
+    if (!alive || paused) return;
     controls.update();
+    if (hoverAt) {
+      setHover(partAt(hoverAt));
+      hoverAt = null;
+    }
     for (const b of beads) {
       const t = (b.phase + (still ? 0 : time / 4000)) % 1;
       b.bead.position.copy(b.curve.getPoint(t));
@@ -282,16 +328,20 @@ export function createView(doc, host, shape, o) {
       canvas.style.height = `${h}px`;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      if (!frame) frame = win.requestAnimationFrame(tick);
+      if (!frame && !paused) frame = win.requestAnimationFrame(tick);
     },
     /** Marks `part` (or nothing) as the one pointed at. */
     highlight(part) {
-      for (const g of parts) {
-        g.traverse((c) => {
-          if (!c.material?.emissive) return;
-          c.material.emissive.setHex(part && c.userData.part === part ? 0x333344 : 0x000000);
-        });
-      }
+      picked = part ?? null;
+      paint();
+    },
+    /** Stops drawing while the window is folded away (`on`), and starts again. */
+    pause(on) {
+      paused = !!on;
+      if (paused && frame) {
+        win.cancelAnimationFrame(frame);
+        frame = 0;
+      } else if (!paused && width && !frame) frame = win.requestAnimationFrame(tick);
     },
     dispose() {
       alive = false;

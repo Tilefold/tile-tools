@@ -34,3 +34,7 @@ ask-shape = Este desenho
 ask-clear = Parar de apontar
 board-label = O quadro, com o conteúdo e os desenhos do agente
 scene-hint = Arraste para girar
+scene-move = Arraste para movê-lo no quadro; as setas também o movem
+scene-fold = Recolher
+scene-unfold = Mostrar de novo
+scene-untitled = Vista 3D

@@ -34,3 +34,7 @@ ask-shape = Diese Zeichnung
 ask-clear = Nicht mehr zeigen
 board-label = Die Tafel mit dem Inhalt und den Zeichnungen des Agenten
 scene-hint = Zum Drehen ziehen
+scene-move = Ziehen, um es auf dem Board zu verschieben; Pfeiltasten verschieben es auch
+scene-fold = Einklappen
+scene-unfold = Wieder zeigen
+scene-untitled = 3D-Ansicht

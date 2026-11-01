@@ -34,3 +34,7 @@ ask-shape = 这个图形
 ask-clear = 取消指向
 board-label = 包含内容和代理绘图的白板
 scene-hint = 拖动以旋转
+scene-move = 拖动以在白板上移动；方向键也可移动
+scene-fold = 收起
+scene-unfold = 重新显示
+scene-untitled = 3D 视图

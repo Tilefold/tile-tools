@@ -1,6 +1,6 @@
 # Whiteboard
 
-A board docked beside your panes where the AI agent in one of your panes explains things by drawing on them. Ask it to explain a file, a function, an error or an idea. It shows the code or text on the board, then draws over it a step at a time: arrows that point at exact lines and columns, highlights, notes, boxes, small diagrams and 3D scenes you turn by dragging. Go back over any step, point at a line or a drawing, and ask about it. The agent hears your question the next time it reads the board.
+A board docked beside your panes where the AI agent in one of your panes explains things by drawing on them. Ask it to explain a file, a function, an error or an idea. It shows the code or text on the board, then draws over it a step at a time: arrows that point at exact lines and columns, highlights, notes, boxes, small diagrams and 3D scenes that float over the board, which you move, turn and fold away. Go back over any step, point at a line or a drawing, and ask about it. The agent hears your question the next time it reads the board.
 
 It's a way to learn from what's in your panes with the agent you already use: no other AI, account or key. The agent draws through the tile's commands, as data the tile checks, never code.
 
@@ -31,7 +31,7 @@ Shapes point at content by line and column rather than by guessing pixels, and a
 | `arrow`, `line` | `from, to, label?, curve?, dashed?, both?` | `from` and `to` are `[x, y]`, `{ line, col?, side? }` or `{ shape, side? }`. An arrow at a whole line ends just after its text, and one at a shape ends on the side that faces the other end |
 | `highlight` | `line` or `lines: [a, b]`, `cols?: [a, b]`, `label?` | A band over lines, or over some columns of them |
 | `path` | `d, fill?, dashed?` | SVG path data (numbers and commands only) for anything else |
-| `scene3d` | `x, y, w, h, objects, camera?, label?` | A 3D scene, drawn lit and shaded. Objects are `box` (`at`, `size`), `sphere` (`at`, `r`), `line` (`at`, `to`), `point`, `label`, `cylinder` (`at`, `to`, `r`, `r2`; a cone when `r2` is 0), `arrow` (`at`, `to`, `r`), `lathe` (a `profile` of `[radius, height]` spun round an `axis`, for bodies), `wing` (a real airfoil: `span`, `chord`, `thickness`, `camber`, `taper`, `sweep`, `dihedral`, `mirror`, `vertical`) and `tube` (smooth `points`, `r`, and `flow` to send beads along it), in coordinates from −100 to 100 with y up. Any object takes `color`, `label` (its part's name), `rot` and `opacity`. You turn it by dragging or with the arrow keys, zoom with the wheel or a pinch, put it back with a double-click or 0, and click a part to ask about it |
+| `scene3d` | `x, y, w, h, objects, camera?, label?` | A 3D scene, drawn lit and shaded. Objects are `box` (`at`, `size`), `sphere` (`at`, `r`), `line` (`at`, `to`), `point`, `label`, `cylinder` (`at`, `to`, `r`, `r2`; a cone when `r2` is 0), `arrow` (`at`, `to`, `r`), `lathe` (a `profile` of `[radius, height]` spun round an `axis`, for bodies), `wing` (a real airfoil: `span`, `chord`, `thickness`, `camber`, `taper`, `sweep`, `dihedral`, `mirror`, `vertical`) and `tube` (smooth `points`, `r`, and `flow` to send beads along it), in coordinates from −100 to 100 with y up. Any object takes `color`, `label` (its part's name), `rot` and `opacity`. You turn it by dragging or with the arrow keys, zoom with the wheel or a pinch, put it back with a double-click or 0, and click a part to ask about it (the part under the pointer lights up first). It floats over the board in a window: drag its bar (or focus it and use the arrow keys) to move it, and fold it down to the bar to see what's under it. Where you put it is kept (`moved: true`), even when the agent draws it again |
 
 Every shape may have an `id` (drawing one with the same id again replaces it, so the agent can move or relabel it) and a `color`.
 
@@ -55,7 +55,7 @@ With **Point on screen**, the agent marks the real thing: the error in your buil
 
 ## Settings and data
 
-Whiteboard has no settings. It keeps the board (the content, the drawings, the steps and your last question) in the tile's own storage on your computer, so closing it or quitting Tilefold loses nothing. **Clear the board** removes it. **Clear the board** also takes away the marks on your panes. The activity log records only one-word actions: `opened`, `closed`, `shown`, `drew`, `erased`, `cleared`, `asked`, `pointed` and `unpointed`. It never records the content, the drawings, the marks or your questions.
+Whiteboard has no settings. It keeps the board (the content, the drawings, the steps and your last question) in the tile's own storage on your computer, so closing it or quitting Tilefold loses nothing. **Clear the board** removes it. **Clear the board** also takes away the marks on your panes. The activity log records only one-word actions: `opened`, `closed`, `shown`, `drew`, `erased`, `cleared`, `asked`, `moved`, `pointed` and `unpointed`. It never records the content, the drawings, the marks, where you moved a scene, or your questions.
 
 ## Files
 
@@ -71,10 +71,11 @@ Whiteboard has no settings. It keeps the board (the content, the drawings, the s
 | `page-src/svg.js` | Each shape as SVG, in palette classes, with text never read as markup |
 | `page-src/three3d.js` | A 3D scene drawn for real with three.js (bundled into the page): lights, the camera and its controls, labels kept apart, flowing tubes, clicking a part |
 | `page-src/meshes.js` | Each 3D object as meshes, the wing's airfoil among them |
-| `page-src/glLayer.js` | The layer that keeps a real 3D view over each scene's frame as the board scrolls and scales |
+| `page-src/glLayer.js` | The layer of 3D windows over the board: where each sits, moving it, folding it, bringing it to the front |
+| `page-src/floatView.js` | One 3D window: the bar to move it by, its title, and the button that folds it |
 | `page-src/project.js` | A 3D scene as flat pieces (where the page can't draw real 3D): the camera, perspective, hidden faces and shading |
 | `page-src/main.js` | The page: the board, the steps and their captions, pointing and asking, turning 3D scenes |
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-31 by Tilefold
+Last updated: 2026-11-01 by Tilefold

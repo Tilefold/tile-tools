@@ -12,7 +12,8 @@
  * to the one shown are drawn (the newest fading in) with the step's caption,
  * and Back and Next ask the tile for the other steps. A click on a line or
  * a drawing points at it, Ask sends it with the question, a 3D scene turns
- * when dragged without pointing at it, colors are only palette classes, and
+ * when dragged without pointing at it (and moves by the strip along its
+ * top), colors are only palette classes, and
  * text an agent wrote is never read as markup.
  */
 import { readFileSync } from "node:fs";
@@ -239,6 +240,39 @@ describe("the page", () => {
       fire(type, x);
     }
     expect(faces()).not.toBe(before);
+    expect(p.$("pointing").hidden).toBe(true);
+  });
+
+  it("moves a flat 3D scene by the strip along its top", () => {
+    const p = page();
+    let b = show(emptyBoard(), { text: "cube" });
+    ({ board: b } = draw(b, {
+      shapes: [
+        {
+          kind: "scene3d",
+          id: "cube",
+          x: 600,
+          y: 60,
+          w: 300,
+          h: 260,
+          objects: [{ kind: "box", at: [0, 0, 0], color: "blue" }],
+        },
+      ],
+    }));
+    p.setup(b);
+    const scene = () => p.$("board").querySelector('[data-shape="cube"]');
+    const faces = () =>
+      [...scene().querySelectorAll("polygon")].map((f) => f.getAttribute("points")).join("|");
+    const before = faces();
+    // jsdom lays nothing out, so a pixel is a board unit and the board starts at 0.
+    const fire = (type, x, y) =>
+      scene().dispatchEvent(new p.w.MouseEvent(type, { bubbles: true, clientX: x, clientY: y }));
+    fire("pointerdown", 610, 70);
+    fire("pointermove", 660, 120);
+    fire("pointerup", 660, 120);
+    fire("click", 660, 120);
+    expect(p.posted.at(-1)).toEqual({ type: "move", id: "cube", x: 650, y: 110 });
+    expect(faces()).toBe(before);
     expect(p.$("pointing").hidden).toBe(true);
   });
 

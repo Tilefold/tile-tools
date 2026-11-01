@@ -633,7 +633,9 @@ function draw(board, input) {
   for (const s of checked) {
     const id = s.id ?? `s${nextId++}`;
     const at = shapes.findIndex((o) => o.id === id);
-    const shape = { ...s, id, step: at >= 0 ? shapes[at].step : step };
+    const old = at >= 0 ? shapes[at] : null;
+    const placed = old?.moved && old.kind === "scene3d" && s.kind === "scene3d" ? { x: Math.min(old.x, Math.max(0, WIDTH - s.w)), y: old.y, moved: true } : {};
+    const shape = { ...s, ...placed, id, step: old ? old.step : step };
     if (at >= 0) shapes[at] = shape;
     else shapes.push(shape);
     ids.push(id);
@@ -684,13 +686,24 @@ function ask(board, input) {
   if (!("line" in asked) && !("shape" in asked) && !("question" in asked)) return board;
   return done({ ...board, asked });
 }
+function move(board, input) {
+  const id = typeof input?.id === "string" ? input.id : null;
+  const s = id ? finder(board)(id) : null;
+  if (!s || s.kind !== "scene3d") return board;
+  if (!Number.isFinite(input.x) || !Number.isFinite(input.y)) return board;
+  const x = Math.round(clamp(input.x, 0, Math.max(0, WIDTH - s.w)));
+  const y = Math.round(clamp(input.y, 0, Math.max(0, MAX_HEIGHT - s.h)));
+  if (x === s.x && y === s.y) return board;
+  const moved = { ...s, x, y, moved: true };
+  return done({ ...board, shapes: board.shapes.map((t) => t === s ? moved : t) });
+}
 var HOW = [
   "The board is 1000 units wide; y grows downwards. Content lines are laid out at fixed places (see content).",
   "Draw with { shapes: [...], say? }: say makes a new step the user steps through; ids let you replace a shape later.",
   "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,camera?:{yaw,pitch},objects:[...]}.",
   "3D objects (y up, -100..100; the user turns, zooms and clicks parts): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
   "Points: [x,y], { line, col? } (a content line by its number) or { shape: id, side? }. Colors: accent, red, orange, yellow, green, teal, blue, purple, gray.",
-  "Keep drawings right of the content column (x \u2265 content.box.w + 20) so they don't cover it, or below it."
+  "Keep drawings right of the content column (x \u2265 content.box.w + 20) so they don't cover it, or below it. A scene3d floats over the board in a window the user can move by its bar (and fold away): moved: true means its x,y are where the user put it, and drawing it again keeps them."
 ];
 function describe(board, { lines = false, maxChars = 2e4 } = {}) {
   const find = finder(board);
@@ -833,7 +846,11 @@ var PAGE_KEYS = [
   "ask-shape",
   "ask-clear",
   "board-label",
-  "scene-hint"
+  "scene-hint",
+  "scene-move",
+  "scene-fold",
+  "scene-unfold",
+  "scene-untitled"
 ];
 var MARKS = { n: "{n}", total: "{total}" };
 var pageLabels = (tf) => Object.fromEntries(PAGE_KEYS.map((key) => [key, tf.t(key, MARKS)]));
@@ -841,6 +858,8 @@ var pageLabels = (tf) => Object.fromEntries(PAGE_KEYS.map((key) => [key, tf.t(ke
 // src/run.js
 var BOARD = "board";
 var WAIT_MS = 7e3;
+var MOVES_PER_WINDOW = 30;
+var MOVE_WINDOW_MS = 1e4;
 function runWhiteboard(tf) {
   const warn = (err) => void Promise.resolve().then(() => tf.log.warn(String(err && err.message ? err.message : err))).catch(() => {
   });
@@ -850,6 +869,7 @@ function runWhiteboard(tf) {
   let where = null;
   let seen = 0;
   let waiters = [];
+  let moves = [];
   const canSide = () => !!tf.page && typeof tf.theme === "function";
   async function current() {
     if (board) return board;
@@ -900,11 +920,21 @@ function runWhiteboard(tf) {
     if (where) await tf.page.post({ do: "asked", via }).catch(() => {
     });
   }
+  async function moved(m) {
+    const t = Date.now();
+    moves = moves.filter((at) => t - at < MOVE_WINDOW_MS);
+    if (moves.length >= MOVES_PER_WINDOW) return;
+    moves.push(t);
+    const before = await current();
+    await set(move(before, m));
+    if (board !== before) audit("moved");
+  }
   async function hear(m) {
     if (!m || typeof m !== "object") return;
     if (m.type === "hello") return hello();
     if (m.type === "step") return set(goTo(await current(), m.n));
     if (m.type === "ask") return asked(m);
+    if (m.type === "move") return moved(m);
     if (m.type === "close") return close();
   }
   async function change(action, apply) {

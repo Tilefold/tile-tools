@@ -16,13 +16,16 @@
  * Messages with the tile: the page says `hello` when it loads and gets
  * `setup` (the labels in the user's language and the board), then `board`
  * after every change, and `asked` ({ via }) after a question. It sends
- * `step` ({ n }), `ask` ({ line?, shape?, part?, question? }) and `close`. Labels hold `{n}` and `{total}` where those go.
+ * `step` ({ n }), `ask` ({ line?, shape?, part?, question? }), `move`
+ * ({ id, x, y }: the user moved a 3D scene, in board units) and `close`.
+ * Labels hold `{n}` and `{total}` where those go.
  *
  * Where WebGL can draw, each 3D scene is drawn for real (three.js, bundled)
- * by the layer in glLayer.js, over the scene's SVG frame: lit and shaded,
- * turned by dragging or the arrow keys, zoomed with the wheel, and a click
- * on a part points at it (`ask` then carries `part`). Elsewhere the flat
- * SVG drawing stays.
+ * by the layer in glLayer.js, in a window floating over the board that the
+ * user moves by its bar and can fold away: lit and shaded, turned by
+ * dragging or the arrow keys, zoomed with the wheel, and a click on a part
+ * points at it (`ask` then carries `part`). Elsewhere the flat SVG drawing
+ * stays, turned by dragging, and moved by the strip along its top.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -164,10 +167,8 @@ function draw() {
   svg.append(over);
   drawnStep = board.step;
   if (gl) {
-    // The scenes are drawn for real over their frames: the SVG keeps only frame and title.
-    for (const g of svg.querySelectorAll(".scene")) {
-      for (const c of [...g.children]) if (!c.matches(".frame, .title")) c.remove();
-    }
+    // The scenes are drawn for real in windows over the board: none of the flat one stays.
+    for (const g of svg.querySelectorAll(".scene")) g.replaceChildren();
     gl.sync(shown.filter((s) => s.kind === "scene3d"));
   }
   mark();
@@ -229,14 +230,26 @@ function askIt(e) {
   $("ask-status").textContent = L("ask-sent");
 }
 
-/** Turning a 3D scene by dragging it: only the view here changes. */
+/** Board units per pixel, as the board is drawn now. */
+const unitsPerPx = () => WIDTH / ($("board").getBoundingClientRect().width || WIDTH);
+
+/**
+ * Dragging a flat 3D scene (where WebGL can't draw): the strip along its
+ * top moves it on the board (the tile keeps where it was dropped); the
+ * rest turns it, which only changes the view here.
+ */
 function dragScenes() {
   let drag = null;
   $("board").addEventListener("pointerdown", (e) => {
     const g = e.target.closest?.(".k-scene3d");
     if (!g) return;
     const id = g.getAttribute("data-shape");
-    drag = { id, x: e.clientX, y: e.clientY, cam: { ...cameraOf(id) }, moved: false };
+    const s = find(id);
+    if (!s) return;
+    const r = $("board").getBoundingClientRect();
+    const y = (e.clientY - r.top) * unitsPerPx();
+    const move = y >= s.y && y - s.y < SCENE_BAR;
+    drag = { id, g, x: e.clientX, y: e.clientY, cam: { ...cameraOf(id) }, moved: false, move };
     g.setPointerCapture?.(e.pointerId);
   });
   $("board").addEventListener("pointermove", (e) => {
@@ -244,6 +257,12 @@ function dragScenes() {
     const dx = e.clientX - drag.x;
     const dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    if (drag.move) {
+      const k = unitsPerPx();
+      drag.by = [dx * k, dy * k];
+      drag.g.setAttribute("transform", `translate(${drag.by[0]} ${drag.by[1]})`);
+      return;
+    }
     const cam = {
       yaw: drag.cam.yaw + dx * 0.6,
       pitch: Math.max(-89, Math.min(89, drag.cam.pitch + dy * 0.6)),
@@ -255,14 +274,24 @@ function dragScenes() {
     if (g && s) g.replaceChildren(sceneNode(doc, s, cam, L("scene-hint")));
   });
   const end = () => {
-    // A drag that turned the scene isn't a click that points at it.
+    // A drag that turned or moved the scene isn't a click that points at it.
     if (drag?.moved) suppressClick = true;
+    const s = drag?.move && drag.by ? find(drag.id) : null;
+    if (s) moveScene(s.id, s.x + drag.by[0], s.y + drag.by[1]);
     drag = null;
   };
   $("board").addEventListener("pointerup", end);
   $("board").addEventListener("pointercancel", end);
 }
 let suppressClick = false;
+/** The strip along a flat 3D scene's top that moves it, in board units. */
+const SCENE_BAR = 24;
+
+/** The user moved 3D scene `id` to `x`, `y` (board units): the tile keeps it, inside the board. */
+function moveScene(id, x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  send({ type: "move", id, x: Math.round(x), y: Math.round(y) });
+}
 
 /** The page's buttons and keys. */
 function wire() {
@@ -285,8 +314,8 @@ function wire() {
   $("ask").addEventListener("submit", askIt);
   $("question").addEventListener("input", () => ($("ask-status").textContent = ""));
   doc.addEventListener("keydown", (e) => {
-    // Left and right step through the explanation, unless the user is typing or turning a scene.
-    if (!board || e.target === $("question") || e.target?.classList?.contains("gl")) return;
+    // Left and right step through the explanation, unless the user is typing or in a 3D window.
+    if (!board || e.target === $("question") || e.target?.closest?.(".gl-host")) return;
     if (e.key === "ArrowLeft" && board.step > 0) send({ type: "step", n: board.step - 1 });
     if (e.key === "ArrowRight" && board.step < board.steps.length - 1)
       send({ type: "step", n: board.step + 1 });
@@ -305,7 +334,20 @@ function followTheme(theme) {
 
 /** Real 3D views over the scenes, where WebGL can draw them (else the flat SVG). */
 const gl = webglAvailable(doc)
-  ? createGlLayer({ doc, svg: $("board"), hint: () => L("scene-hint"), cameras, onPick: pointPart })
+  ? createGlLayer({
+      doc,
+      svg: $("board"),
+      labels: () => ({
+        hint: L("scene-hint"),
+        move: L("scene-move"),
+        fold: L("scene-fold"),
+        unfold: L("scene-unfold"),
+        untitled: L("scene-untitled"),
+      }),
+      cameras,
+      onPick: pointPart,
+      onMove: moveScene,
+    })
   : null;
 
 wire();

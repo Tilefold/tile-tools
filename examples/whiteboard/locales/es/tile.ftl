@@ -34,3 +34,7 @@ ask-shape = Este dibujo
 ask-clear = Dejar de señalar
 board-label = La pizarra, con el contenido y los dibujos del agente
 scene-hint = Arrastra para girar
+scene-move = Arrastra para moverlo por la pizarra; las flechas también lo mueven
+scene-fold = Plegar
+scene-unfold = Mostrar de nuevo
+scene-untitled = Vista 3D
