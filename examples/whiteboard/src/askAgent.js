@@ -13,11 +13,14 @@
  * anything to a pane itself.
  *
  * `aboutLine` is that line's text: the board, what the user pointed at,
- * and how to read the rest. `askAgent` makes the ask and says how the
+ * and how to read the rest (an area marked on a 3D scene is put into
+ * words by area.js). `askAgent` makes the ask and says how the
  * question went: "card" (the card is open), or "board" (it waits on the
  * board for the agent's next read: no question, an older Tilefold, a card
  * already open, or no pane to send to).
  */
+
+import { areaWords } from "./area.js";
 
 /** Text cut to `max` characters on one line. */
 const clip = (s, max) => {
@@ -45,7 +48,8 @@ export function aboutLine(board, asked) {
     const label = shape?.label ?? shape?.text;
     const kind = shape?.kind ?? "drawing";
     what = `, pointing at the ${kind} "${clip(asked.shape, 40)}"${label ? ` (${clip(label, 80)})` : ""}`;
-    if (asked.part) what += `, at its part "${clip(asked.part, 80)}"`;
+    if (asked.area) what += `, at ${clip(areaWords(asked.area), 300)}`;
+    else if (asked.part) what += `, at its part "${clip(asked.part, 80)}"`;
   }
   const read = "Run the Whiteboard's read command with tile_run to see the board.";
   return clip(`On the Whiteboard${title}${what}. ${read}`, ABOUT_MAX);

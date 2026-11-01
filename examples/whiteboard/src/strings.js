@@ -39,6 +39,9 @@ export const PAGE_KEYS = [
   "scene-fold",
   "scene-unfold",
   "scene-untitled",
+  "scene-mark",
+  "scene-marking",
+  "ask-area",
 ];
 
 /** What the page fills in itself, passed so the message keeps a mark for it. */

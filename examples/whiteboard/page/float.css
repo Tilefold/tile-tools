@@ -4,8 +4,9 @@
  * Released under the MIT License.
  *
  * Whiteboard's page: the windows real 3D scenes float in, over the board.
- * Each has a bar to move it by (with the scene's title) and a button that
- * folds it down to the bar; inside, the 3D view, its labels and a hint.
+ * Each has a bar to move it by (with the scene's title), a pencil that
+ * turns on marking an area, and a button that folds it down to the bar;
+ * inside, the 3D view, its labels, a hint and the loop being drawn.
  * Colors come from board.css's palette, so they follow light and dark.
  */
 
@@ -92,6 +93,19 @@
   white-space: nowrap;
 }
 
+.float-mark {
+  flex: none;
+  width: 28px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Marking is on: the pencil looks pressed. */
+.float-bar .float-mark.on {
+  background: var(--soft);
+  color: var(--accent);
+}
+
 .float-fold {
   flex: none;
   width: 28px;
@@ -127,6 +141,28 @@ canvas.gl:active {
 /* Over a part a click would point at. */
 canvas.gl.over-part {
   cursor: pointer;
+}
+
+/* Marking an area: a drag draws a loop. */
+canvas.gl.marking {
+  cursor: crosshair;
+}
+
+/* The loop while it's drawn. */
+.mark-draw {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.mark-draw polygon {
+  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
 }
 
 canvas.gl:focus-visible {

@@ -20,6 +20,54 @@
  * Built into main.js with `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
+// src/area.js
+var AREA_POINTS = 32;
+var AREA_PARTS = 8;
+var ROOM = 400;
+var r1 = (n) => Math.round(n * 10) / 10;
+function point(p) {
+  if (!Array.isArray(p) || p.length !== 3) return null;
+  if (!p.every((n) => typeof n === "number" && Number.isFinite(n) && Math.abs(n) <= ROOM)) {
+    return null;
+  }
+  return p.map(r1);
+}
+function checkArea(scene, raw) {
+  if (scene?.kind !== "scene3d" || !raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  if (!Array.isArray(raw.points) || raw.points.length === 0) return null;
+  if (raw.points.length > AREA_POINTS) return null;
+  const points = raw.points.map(point);
+  if (points.some((p) => p === null)) return null;
+  const labels = new Set(scene.objects.map((o) => o.label).filter(Boolean));
+  const parts = Array.isArray(raw.parts) ? [...new Set(raw.parts.filter((p) => typeof p === "string" && labels.has(p)))].slice(
+    0,
+    AREA_PARTS
+  ) : [];
+  const min = [0, 1, 2].map((k) => Math.min(...points.map((p) => p[k])));
+  const max = [0, 1, 2].map((k) => Math.max(...points.map((p) => p[k])));
+  const center = [0, 1, 2].map((k) => r1(points.reduce((s, p) => s + p[k], 0) / points.length));
+  const out = { parts, points, center, min, max };
+  const v = raw.view;
+  if (v && typeof v === "object" && Number.isFinite(v.yaw) && Number.isFinite(v.pitch) && Math.abs(v.yaw) <= 720 && Math.abs(v.pitch) <= 90) {
+    out.view = { yaw: Math.round(v.yaw), pitch: Math.round(v.pitch) };
+  }
+  return out;
+}
+var list = (xs) => xs.length <= 1 ? xs[0] ?? "" : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`;
+function viewWords(v) {
+  const pitch = v.pitch > 25 ? "above" : v.pitch < -25 ? "below" : "level";
+  return `seen from ${pitch} (yaw ${v.yaw}\xB0, pitch ${v.pitch}\xB0)`;
+}
+function areaWords(area) {
+  const on = area.parts.length ? ` on ${list(area.parts.map((p) => `"${p}"`))}` : "";
+  const [x, y, z] = area.center;
+  const span = ["x", "y", "z"].map((k, i) => `${k} ${area.min[i]}..${area.max[i]}`).join(", ");
+  const view = area.view ? `, ${viewWords(area.view)}` : "";
+  return `an area${on} around (${x}, ${y}, ${z}), spanning ${span}${view}`;
+}
+
 // src/askAgent.js
 var clip = (s, max) => {
   const one = String(s).replace(/\s+/g, " ").trim();
@@ -37,7 +85,8 @@ function aboutLine(board, asked) {
     const label = shape?.label ?? shape?.text;
     const kind = shape?.kind ?? "drawing";
     what = `, pointing at the ${kind} "${clip(asked.shape, 40)}"${label ? ` (${clip(label, 80)})` : ""}`;
-    if (asked.part) what += `, at its part "${clip(asked.part, 80)}"`;
+    if (asked.area) what += `, at ${clip(areaWords(asked.area), 300)}`;
+    else if (asked.part) what += `, at its part "${clip(asked.part, 80)}"`;
   }
   const read = "Run the Whiteboard's read command with tile_run to see the board.";
   return clip(`On the Whiteboard${title}${what}. ${read}`, ABOUT_MAX);
@@ -185,18 +234,18 @@ function sideFacing(b, p) {
   if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "right" : "left";
   return dy >= 0 ? "bottom" : "top";
 }
-function targetOf(point2, find, content) {
-  if (Array.isArray(point2)) return { at: point2 };
-  if ("line" in point2) {
-    const b2 = lineBox(content, point2.line, point2.col ? [point2.col, point2.col] : void 0);
+function targetOf(point4, find, content) {
+  if (Array.isArray(point4)) return { at: point4 };
+  if ("line" in point4) {
+    const b2 = lineBox(content, point4.line, point4.col ? [point4.col, point4.col] : void 0);
     if (!b2) return null;
-    if (point2.col) return { at: centerOf(b2), box: b2, side: point2.side };
-    return { at: [b2.x + b2.w + 6, b2.y + b2.h / 2], box: b2, side: point2.side, lineEnd: true };
+    if (point4.col) return { at: centerOf(b2), box: b2, side: point4.side };
+    return { at: [b2.x + b2.w + 6, b2.y + b2.h / 2], box: b2, side: point4.side, lineEnd: true };
   }
-  const other = find(point2.shape);
+  const other = find(point4.shape);
   if (!other || other.kind === "arrow" || other.kind === "line") return null;
   const b = shapeBox(other, find, content);
-  return b ? { at: centerOf(b), box: b, side: point2.side } : null;
+  return b ? { at: centerOf(b), box: b, side: point4.side } : null;
 }
 function endPoint(t, toward) {
   if (!t.box) return t.at;
@@ -308,7 +357,7 @@ function oneOf(v, where, choices, fallback) {
 }
 var color = (v, where) => oneOf(v, `${where}.color`, COLORS, "accent");
 var SIDES = ["top", "bottom", "left", "right", "center"];
-function point(v, where) {
+function point2(v, where) {
   if (Array.isArray(v)) {
     if (v.length !== 2) fail(where, "[x, y], { line, col? } or { shape }");
     return [num(v[0], `${where}[0]`, 0, WIDTH), num(v[1], `${where}[1]`, 0, MAX_HEIGHT)];
@@ -353,7 +402,7 @@ function object3d(o, where) {
     if (kind === "cylinder") out.r2 = optNum(o.r2, `${where}.r2`, 0, 50, out.r);
   }
   if (kind === "lathe") {
-    out.profile = list(o.profile, `${where}.profile`, 2, (p, w) => {
+    out.profile = list2(o.profile, `${where}.profile`, 2, (p, w) => {
       if (!Array.isArray(p) || p.length !== 2) fail(w, "[radius, height]");
       return [num(p[0], `${w}[0]`, 0, 100), num(p[1], `${w}[1]`, -100, 100)];
     });
@@ -371,7 +420,7 @@ function object3d(o, where) {
     out.vertical = flag(o.vertical, `${where}.vertical`, false);
   }
   if (kind === "tube") {
-    out.points = list(o.points, `${where}.points`, 2, point3);
+    out.points = list2(o.points, `${where}.points`, 2, point3);
     out.r = optNum(o.r, `${where}.r`, 0.1, 20, 0.8);
     out.flow = flag(o.flow, `${where}.flow`, false);
   }
@@ -382,7 +431,7 @@ function object3d(o, where) {
   if (o.opacity !== void 0) out.opacity = num(o.opacity, `${where}.opacity`, 0.1, 1);
   return out;
 }
-function list(v, where, min, each) {
+function list2(v, where, min, each) {
   if (!Array.isArray(v) || v.length < min || v.length > LIMITS.points3d) {
     fail(where, `a list of ${min} to ${LIMITS.points3d} points`);
   }
@@ -436,8 +485,8 @@ function checkShape(s, where = "shape") {
       break;
     case "arrow":
     case "line": {
-      out.from = point(s.from, `${where}.from`);
-      out.to = point(s.to, `${where}.to`);
+      out.from = point2(s.from, `${where}.from`);
+      out.to = point2(s.to, `${where}.to`);
       const label = optText(s.label, `${where}.label`, LIMITS.label);
       if (label) out.label = label;
       out.dashed = flag(s.dashed, `${where}.dashed`);
@@ -609,16 +658,16 @@ function linesHint(board) {
 }
 function draw(board, input) {
   if (!input || typeof input !== "object") throw new Error("input: { shapes: [...], say? }");
-  const list2 = input.shapes ?? [];
-  if (!Array.isArray(list2)) throw new Error("shapes: a list of shapes");
-  if (list2.length > LIMITS.shapesPerDraw) {
+  const list3 = input.shapes ?? [];
+  if (!Array.isArray(list3)) throw new Error("shapes: a list of shapes");
+  if (list3.length > LIMITS.shapesPerDraw) {
     throw new Error(
       `shapes: at most ${LIMITS.shapesPerDraw} in one Draw; draw the rest in another`
     );
   }
   const say = checkSay(input.say);
-  if (!list2.length && !say) throw new Error("shapes: at least one shape, or a step to say");
-  const checked = list2.map((s, i) => checkShape(s, `shapes[${i}]`));
+  if (!list3.length && !say) throw new Error("shapes: at least one shape, or a step to say");
+  const checked = list3.map((s, i) => checkShape(s, `shapes[${i}]`));
   let next = input.clear === true ? erase(board, { all: true }) : board;
   let steps = next.steps;
   let step = steps.length - 1;
@@ -677,7 +726,9 @@ function ask(board, input) {
   if (Number.isInteger(input?.line) && lineBox(board.content, input.line)) asked.line = input.line;
   const shape = typeof input?.shape === "string" ? finder(board)(input.shape) : null;
   if (shape) asked.shape = input.shape;
-  if (shape?.kind === "scene3d" && typeof input?.part === "string" && shape.objects.some((o) => o.label === input.part)) {
+  const area = shape ? checkArea(shape, input?.area) : null;
+  if (area) asked.area = area;
+  else if (shape?.kind === "scene3d" && typeof input?.part === "string" && shape.objects.some((o) => o.label === input.part)) {
     asked.part = input.part;
   }
   if (typeof input?.question === "string" && input.question.trim()) {
@@ -701,7 +752,7 @@ var HOW = [
   "The board is 1000 units wide; y grows downwards. Content lines are laid out at fixed places (see content).",
   "Draw with { shapes: [...], say? }: say makes a new step the user steps through; ids let you replace a shape later.",
   "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,camera?:{yaw,pitch},objects:[...]}.",
-  "3D objects (y up, -100..100; the user turns, zooms and clicks parts): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
+  "3D objects (y up, -100..100; the user turns, zooms, clicks parts and marks areas, which asked.area gives as parts, surface points, center, min, max and the view they marked it from): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
   "Points: [x,y], { line, col? } (a content line by its number) or { shape: id, side? }. Colors: accent, red, orange, yellow, green, teal, blue, purple, gray.",
   "Keep drawings right of the content column (x \u2265 content.box.w + 20) so they don't cover it, or below it. A scene3d floats over the board in a window the user can move by its bar (and fold away): moved: true means its x,y are where the user put it, and drawing it again keeps them."
 ];
@@ -775,7 +826,7 @@ function nextAfter(items, shown) {
 }
 function pointing(tf, board) {
   const can = () => !!tf.annotate;
-  async function point2(input) {
+  async function point4(input) {
     if (!can()) {
       throw new Error(
         "This Tilefold can't point on your panes: it needs Tilefold 0.1.23 or later, with the user's OK for this tile to draw on panes. Use Draw on the board instead."
@@ -819,7 +870,7 @@ function pointing(tf, board) {
   async function clearAll() {
     if (can()) await tf.annotate.clear();
   }
-  return { point: point2, marks, clearAll, can };
+  return { point: point4, marks, clearAll, can };
 }
 
 // src/strings.js
@@ -850,7 +901,10 @@ var PAGE_KEYS = [
   "scene-move",
   "scene-fold",
   "scene-unfold",
-  "scene-untitled"
+  "scene-untitled",
+  "scene-mark",
+  "scene-marking",
+  "ask-area"
 ];
 var MARKS = { n: "{n}", total: "{total}" };
 var pageLabels = (tf) => Object.fromEntries(PAGE_KEYS.map((key) => [key, tf.t(key, MARKS)]));
@@ -967,7 +1021,7 @@ function runWhiteboard(tf) {
     if (fresh && b.asked) {
       const about = [
         b.asked.line !== void 0 ? `line ${b.asked.line}` : null,
-        b.asked.shape ? `the shape "${b.asked.shape}"${b.asked.part ? `, its part "${b.asked.part}"` : ""}` : null
+        b.asked.shape ? `the shape "${b.asked.shape}"${b.asked.area ? `, at ${areaWords(b.asked.area)} (asked.area has its points)` : b.asked.part ? `, its part "${b.asked.part}"` : ""}` : null
       ].filter(Boolean);
       const q = b.asked.question ? `"${b.asked.question}"` : "what it is";
       return `The user asks ${q}${about.length ? ` about ${about.join(" and ")}` : ""}: answer with Draw and a say.`;

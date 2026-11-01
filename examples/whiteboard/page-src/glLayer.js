@@ -30,10 +30,12 @@ const KEY_SETTLE_MS = 400;
 
 /**
  * @param {{ doc: Document, svg: SVGSVGElement,
- *   labels: () => { hint: string, move: string, fold: string, unfold: string, untitled: string },
+ *   labels: () => { hint: string, move: string, fold: string, unfold: string, untitled: string,
+ *     mark: string, marking: string },
  *   cameras: Map<string, any>,
  *   onPick: (id: string, part: string | null) => void,
  *   onMove: (id: string, x: number, y: number) => void,
+ *   onArea: (id: string, area: object) => void,
  *   makeView?: typeof createView }} o
  *   `makeView` stands in for the WebGL view in tests.
  */
@@ -142,6 +144,7 @@ export function createGlLayer(o) {
         raise(v);
         o.onPick(s.id, null);
       },
+      onMarkMode: (on) => v.view.setMarking(on),
     });
     v.win.host.dataset.scene = s.id;
     v.win.host.addEventListener("pointerdown", () => raise(v));
@@ -152,6 +155,9 @@ export function createGlLayer(o) {
       hint: t.hint,
       onTurn: (cam) => o.cameras.set(s.id, cam),
       onPick: (part) => o.onPick(s.id, part),
+      markHint: t.marking,
+      onMark: (area) => o.onArea(s.id, area),
+      onMarkMode: (on) => v.win.setMarking(on),
     });
     if (v.win.folded()) v.view.pause(true);
     return v;
@@ -196,9 +202,15 @@ export function createGlLayer(o) {
       }
       layout();
     },
-    /** Marks the part pointed at in scene `id` (nothing, elsewhere). */
-    highlight(id, part) {
-      for (const [sid, v] of views) v.view.highlight(sid === id ? part : null);
+    /**
+     * Marks the part pointed at in scene `id` (nothing, elsewhere); an area's
+     * mark stays only while that area is what's pointed at.
+     */
+    highlight(id, part, area = false) {
+      for (const [sid, v] of views) {
+        v.view.highlight(sid === id ? part : null);
+        if (sid !== id || !area) v.view.clearMark();
+      }
     },
     /** The theme changed: make every view again in its colors. */
     themeChanged() {

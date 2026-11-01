@@ -10,7 +10,7 @@
  * drag (or focus and move with the arrow keys, Shift for bigger steps),
  * and a button that folds the window down to its bar, so it never hides
  * the content for good. A click on the bar that isn't a drag points at the
- * whole scene. The window only reports what the user does; where it sits
+ * whole scene. A Mark button turns on marking an area of the model. The window only reports what the user does; where it sits
  * on the board is up to the layer that holds it (glLayer.js).
  */
 
@@ -24,13 +24,14 @@ const DRAG_PX = 4;
  * The window for one scene.
  *
  * @param {Document} doc
- * @param {{ title: string, labels: { move: string, fold: string, unfold: string },
+ * @param {{ title: string, labels: { move: string, fold: string, unfold: string, mark: string },
  *   folded: boolean,
  *   onGrab: () => void,
  *   onDrag: (dx: number, dy: number) => void,
  *   onDrop: () => void,
  *   onKey: (dx: number, dy: number) => void,
  *   onFold: (folded: boolean) => void,
+ *   onMarkMode: (on: boolean) => void,
  *   onPick: () => void }} o
  *   onGrab, onDrag (pixels from where the drag started) and onDrop follow a
  *   drag of the bar; onKey moves by board units; onPick is a click.
@@ -53,10 +54,28 @@ export function createFloat(doc, o) {
   // Text the agent wrote is only ever text, never markup.
   title.textContent = o.title;
   grip.append(dots, title);
+  const markBtn = doc.createElement("button");
+  markBtn.type = "button";
+  markBtn.className = "float-mark";
+  markBtn.title = o.labels.mark;
+  markBtn.setAttribute("aria-label", o.labels.mark);
+  // A pencil, as text, so no icon font is needed.
+  markBtn.textContent = "\u270E";
   const fold = doc.createElement("button");
   fold.type = "button";
   fold.className = "float-fold";
-  bar.append(grip, fold);
+  bar.append(grip, markBtn, fold);
+  let marking = false;
+  const showMark = () => {
+    markBtn.setAttribute("aria-pressed", String(marking));
+    markBtn.classList.toggle("on", marking);
+  };
+  showMark();
+  markBtn.addEventListener("click", () => {
+    marking = !marking;
+    showMark();
+    o.onMarkMode(marking);
+  });
   const body = doc.createElement("div");
   body.className = "float-body";
   host.append(bar, body);
@@ -141,5 +160,10 @@ export function createFloat(doc, o) {
     barHeight: () => bar.offsetHeight,
     /** Whether it's folded down to its bar. */
     folded: () => folded,
+    /** Shows marking as on or off (Esc in the view turns it off). */
+    setMarking(on) {
+      marking = !!on;
+      showMark();
+    },
   };
 }

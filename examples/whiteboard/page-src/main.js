@@ -16,7 +16,7 @@
  * Messages with the tile: the page says `hello` when it loads and gets
  * `setup` (the labels in the user's language and the board), then `board`
  * after every change, and `asked` ({ via }) after a question. It sends
- * `step` ({ n }), `ask` ({ line?, shape?, part?, question? }), `move`
+ * `step` ({ n }), `ask` ({ line?, shape?, part?, area?, question? }), `move`
  * ({ id, x, y }: the user moved a 3D scene, in board units) and `close`.
  * Labels hold `{n}` and `{total}` where those go.
  *
@@ -24,7 +24,8 @@
  * by the layer in glLayer.js, in a window floating over the board that the
  * user moves by its bar and can fold away: lit and shaded, turned by
  * dragging or the arrow keys, zoomed with the wheel, and a click on a part
- * points at it (`ask` then carries `part`). Elsewhere the flat SVG drawing
+ * points at it (`ask` then carries `part`); a loop drawn with marking on
+ * (or Shift held) marks an area of it (`ask` carries `area`). Elsewhere the flat SVG drawing
  * stays, turned by dragging, and moved by the strip along its top.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
@@ -185,15 +186,19 @@ function mark() {
       )
     : null;
   node?.classList.add("pointed");
-  gl?.highlight(pointed?.shape ?? null, pointed?.part ?? null);
+  gl?.highlight(pointed?.shape ?? null, pointed?.part ?? null, !!pointed?.area);
   $("pointing").hidden = !pointed;
   $("pointed").textContent = !pointed
     ? ""
     : "line" in pointed
       ? L("ask-line", { n: pointed.line })
-      : pointed.part
-        ? `${L("ask-shape")}: ${pointed.part}`
-        : L("ask-shape");
+      : pointed.area
+        ? `${L("ask-shape")}: ${L("ask-area")}${
+            pointed.area.parts.length ? ` (${pointed.area.parts.join(", ")})` : ""
+          }`
+        : pointed.part
+          ? `${L("ask-shape")}: ${pointed.part}`
+          : L("ask-shape");
 }
 
 /** Points at a part of a real 3D scene (or the scene), as a click on the board does. */
@@ -203,6 +208,13 @@ function pointPart(id, part) {
   pointed = same ? null : next;
   mark();
   if (pointed) $("question").focus();
+}
+
+/** Points at an area the user marked on a real 3D scene; a new mark always replaces the last. */
+function pointArea(id, area) {
+  pointed = { shape: id, area };
+  mark();
+  $("question").focus();
 }
 
 /** A click on the board: point at the line or the drawing under it (again: stop pointing). */
@@ -343,10 +355,13 @@ const gl = webglAvailable(doc)
         fold: L("scene-fold"),
         unfold: L("scene-unfold"),
         untitled: L("scene-untitled"),
+        mark: L("scene-mark"),
+        marking: L("scene-marking"),
       }),
       cameras,
       onPick: pointPart,
       onMove: moveScene,
+      onArea: pointArea,
     })
   : null;
 

@@ -29,6 +29,7 @@
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
  */
+import { areaWords } from "./area.js";
 import { askAgent } from "./askAgent.js";
 import { ask, describe, draw, emptyBoard, erase, goTo, isBoard, move, show } from "./board.js";
 import { pointing } from "./point.js";
@@ -203,7 +204,13 @@ export function runWhiteboard(tf) {
       const about = [
         b.asked.line !== undefined ? `line ${b.asked.line}` : null,
         b.asked.shape
-          ? `the shape "${b.asked.shape}"${b.asked.part ? `, its part "${b.asked.part}"` : ""}`
+          ? `the shape "${b.asked.shape}"${
+              b.asked.area
+                ? `, at ${areaWords(b.asked.area)} (asked.area has its points)`
+                : b.asked.part
+                  ? `, its part "${b.asked.part}"`
+                  : ""
+            }`
           : null,
       ].filter(Boolean);
       const q = b.asked.question ? `"${b.asked.question}"` : "what it is";

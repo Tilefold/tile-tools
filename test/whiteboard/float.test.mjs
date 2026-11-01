@@ -190,6 +190,8 @@ describe("the floating window", () => {
           resize: (a, b) => v.sizes.push([a, b]),
           highlight: (part) => (v.part = part),
           pause: (on) => v.paused.push(on),
+          setMarking: () => {},
+          clearMark: () => {},
           dispose: () => (v.disposed = true),
         };
       },

@@ -15,7 +15,9 @@
  * them, for air or current. A click that isn't a drag points at the part
  * under it (the object's label) for the question box; the part under the
  * pointer glows a little first, with its label, to show what a click would
- * point at. A folded window's view is paused, so it costs nothing.
+ * point at. A folded window's view is paused, so it costs nothing. With
+ * marking on, or Shift held, a drag draws a loop that marks an area of the
+ * model instead (markArea.js).
  *
  * Where WebGL isn't available the page draws its flat SVG version instead
  * (`webglAvailable`).
@@ -36,6 +38,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { createMarker } from "./markArea.js";
 import { labelAnchor, objectGroup, standardMaterial } from "./meshes.js";
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -59,7 +62,8 @@ export function webglAvailable(doc) {
  * @param {any} shape
  * @param {{ color: (name: string) => string, camera: { yaw: number, pitch: number, zoom?: number },
  *   onTurn: (cam: { yaw: number, pitch: number, zoom: number }) => void,
- *   onPick: (part: string | null) => void, hint: string, still?: boolean }} o
+ *   onPick: (part: string | null) => void, hint: string, still?: boolean,
+ *   markHint?: string, onMark?: (area: object) => void, onMarkMode?: (on: boolean) => void }} o
  */
 export function createView(doc, host, shape, o) {
   const win = doc.defaultView;
@@ -255,6 +259,23 @@ export function createView(doc, host, shape, o) {
     paint();
   };
 
+  // Marking an area: a loop drawn on the model instead of turning it.
+  const marker = createMarker({
+    doc,
+    body: host,
+    canvas,
+    camera,
+    scene,
+    parts,
+    color: o.color("accent"),
+    view: () => now(),
+    onMark: (area) => o.onMark?.(area),
+    onMode: (on) => {
+      hint.textContent = on ? (o.markHint ?? o.hint) : o.hint;
+      o.onMarkMode?.(on);
+    },
+  });
+
   /** Places the labels by their objects, nearest first, moving any that would overlap. */
   const placeLabels = (w, h) => {
     const seen = [];
@@ -335,6 +356,15 @@ export function createView(doc, host, shape, o) {
       picked = part ?? null;
       paint();
     },
+    /** Turns marking an area on or off. */
+    setMarking(on) {
+      marker.setMode(on);
+      hint.textContent = on ? (o.markHint ?? o.hint) : o.hint;
+    },
+    /** Takes the area's mark off the model. */
+    clearMark() {
+      marker.clear();
+    },
     /** Stops drawing while the window is folded away (`on`), and starts again. */
     pause(on) {
       paused = !!on;
@@ -347,6 +377,7 @@ export function createView(doc, host, shape, o) {
       alive = false;
       win.cancelAnimationFrame(frame);
       controls.dispose();
+      marker.dispose();
       scene.traverse((c) => {
         c.geometry?.dispose();
         c.material?.dispose();

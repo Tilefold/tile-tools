@@ -16,7 +16,7 @@
  * Messages with the tile: the page says `hello` when it loads and gets
  * `setup` (the labels in the user's language and the board), then `board`
  * after every change, and `asked` ({ via }) after a question. It sends
- * `step` ({ n }), `ask` ({ line?, shape?, part?, question? }), `move`
+ * `step` ({ n }), `ask` ({ line?, shape?, part?, area?, question? }), `move`
  * ({ id, x, y }: the user moved a 3D scene, in board units) and `close`.
  * Labels hold `{n}` and `{total}` where those go.
  *
@@ -24,7 +24,8 @@
  * by the layer in glLayer.js, in a window floating over the board that the
  * user moves by its bar and can fold away: lit and shaded, turned by
  * dragging or the arrow keys, zoomed with the wheel, and a click on a part
- * points at it (`ask` then carries `part`). Elsewhere the flat SVG drawing
+ * points at it (`ask` then carries `part`); a loop drawn with marking on
+ * (or Shift held) marks an area of it (`ask` carries `area`). Elsewhere the flat SVG drawing
  * stays, turned by dragging, and moved by the strip along its top.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
@@ -697,10 +698,27 @@
     title.className = "float-title";
     title.textContent = o.title;
     grip.append(dots, title);
+    const markBtn = doc2.createElement("button");
+    markBtn.type = "button";
+    markBtn.className = "float-mark";
+    markBtn.title = o.labels.mark;
+    markBtn.setAttribute("aria-label", o.labels.mark);
+    markBtn.textContent = "\u270E";
     const fold = doc2.createElement("button");
     fold.type = "button";
     fold.className = "float-fold";
-    bar.append(grip, fold);
+    bar.append(grip, markBtn, fold);
+    let marking = false;
+    const showMark = () => {
+      markBtn.setAttribute("aria-pressed", String(marking));
+      markBtn.classList.toggle("on", marking);
+    };
+    showMark();
+    markBtn.addEventListener("click", () => {
+      marking = !marking;
+      showMark();
+      o.onMarkMode(marking);
+    });
     const body = doc2.createElement("div");
     body.className = "float-body";
     host.append(bar, body);
@@ -777,7 +795,12 @@
       /** The bar's height in pixels now (0 before it's laid out). */
       barHeight: () => bar.offsetHeight,
       /** Whether it's folded down to its bar. */
-      folded: () => folded
+      folded: () => folded,
+      /** Shows marking as on or off (Esc in the view turns it off). */
+      setMarking(on) {
+        marking = !!on;
+        showMark();
+      }
     };
   }
 
@@ -19122,6 +19145,356 @@ void main() {
       return data;
     }
   };
+  var DataTexture = class extends Texture {
+    constructor(data = null, width = 1, height = 1, format, type, mapping, wrapS, wrapT, magFilter = NearestFilter, minFilter = NearestFilter, anisotropy, colorSpace) {
+      super(null, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy, colorSpace);
+      this.isDataTexture = true;
+      this.image = { data, width, height };
+      this.generateMipmaps = false;
+      this.flipY = false;
+      this.unpackAlignment = 1;
+    }
+  };
+  var InstancedBufferAttribute = class extends BufferAttribute {
+    constructor(array, itemSize, normalized, meshPerAttribute = 1) {
+      super(array, itemSize, normalized);
+      this.isInstancedBufferAttribute = true;
+      this.meshPerAttribute = meshPerAttribute;
+    }
+    copy(source) {
+      super.copy(source);
+      this.meshPerAttribute = source.meshPerAttribute;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.meshPerAttribute = this.meshPerAttribute;
+      data.isInstancedBufferAttribute = true;
+      return data;
+    }
+  };
+  var _instanceLocalMatrix = /* @__PURE__ */ new Matrix4();
+  var _instanceWorldMatrix = /* @__PURE__ */ new Matrix4();
+  var _instanceIntersects = [];
+  var _box3 = /* @__PURE__ */ new Box3();
+  var _identity = /* @__PURE__ */ new Matrix4();
+  var _mesh$1 = /* @__PURE__ */ new Mesh();
+  var _sphere$3 = /* @__PURE__ */ new Sphere();
+  var InstancedMesh = class extends Mesh {
+    constructor(geometry, material, count) {
+      super(geometry, material);
+      this.isInstancedMesh = true;
+      this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count * 16), 16);
+      this.instanceColor = null;
+      this.morphTexture = null;
+      this.count = count;
+      this.boundingBox = null;
+      this.boundingSphere = null;
+      for (let i = 0; i < count; i++) {
+        this.setMatrixAt(i, _identity);
+      }
+    }
+    computeBoundingBox() {
+      const geometry = this.geometry;
+      const count = this.count;
+      if (this.boundingBox === null) {
+        this.boundingBox = new Box3();
+      }
+      if (geometry.boundingBox === null) {
+        geometry.computeBoundingBox();
+      }
+      this.boundingBox.makeEmpty();
+      for (let i = 0; i < count; i++) {
+        this.getMatrixAt(i, _instanceLocalMatrix);
+        _box3.copy(geometry.boundingBox).applyMatrix4(_instanceLocalMatrix);
+        this.boundingBox.union(_box3);
+      }
+    }
+    computeBoundingSphere() {
+      const geometry = this.geometry;
+      const count = this.count;
+      if (this.boundingSphere === null) {
+        this.boundingSphere = new Sphere();
+      }
+      if (geometry.boundingSphere === null) {
+        geometry.computeBoundingSphere();
+      }
+      this.boundingSphere.makeEmpty();
+      for (let i = 0; i < count; i++) {
+        this.getMatrixAt(i, _instanceLocalMatrix);
+        _sphere$3.copy(geometry.boundingSphere).applyMatrix4(_instanceLocalMatrix);
+        this.boundingSphere.union(_sphere$3);
+      }
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      this.instanceMatrix.copy(source.instanceMatrix);
+      if (source.morphTexture !== null) this.morphTexture = source.morphTexture.clone();
+      if (source.instanceColor !== null) this.instanceColor = source.instanceColor.clone();
+      this.count = source.count;
+      if (source.boundingBox !== null) this.boundingBox = source.boundingBox.clone();
+      if (source.boundingSphere !== null) this.boundingSphere = source.boundingSphere.clone();
+      return this;
+    }
+    getColorAt(index, color) {
+      color.fromArray(this.instanceColor.array, index * 3);
+    }
+    getMatrixAt(index, matrix) {
+      matrix.fromArray(this.instanceMatrix.array, index * 16);
+    }
+    getMorphAt(index, object) {
+      const objectInfluences = object.morphTargetInfluences;
+      const array = this.morphTexture.source.data.data;
+      const len = objectInfluences.length + 1;
+      const dataIndex = index * len + 1;
+      for (let i = 0; i < objectInfluences.length; i++) {
+        objectInfluences[i] = array[dataIndex + i];
+      }
+    }
+    raycast(raycaster, intersects) {
+      const matrixWorld = this.matrixWorld;
+      const raycastTimes = this.count;
+      _mesh$1.geometry = this.geometry;
+      _mesh$1.material = this.material;
+      if (_mesh$1.material === void 0) return;
+      if (this.boundingSphere === null) this.computeBoundingSphere();
+      _sphere$3.copy(this.boundingSphere);
+      _sphere$3.applyMatrix4(matrixWorld);
+      if (raycaster.ray.intersectsSphere(_sphere$3) === false) return;
+      for (let instanceId = 0; instanceId < raycastTimes; instanceId++) {
+        this.getMatrixAt(instanceId, _instanceLocalMatrix);
+        _instanceWorldMatrix.multiplyMatrices(matrixWorld, _instanceLocalMatrix);
+        _mesh$1.matrixWorld = _instanceWorldMatrix;
+        _mesh$1.raycast(raycaster, _instanceIntersects);
+        for (let i = 0, l = _instanceIntersects.length; i < l; i++) {
+          const intersect2 = _instanceIntersects[i];
+          intersect2.instanceId = instanceId;
+          intersect2.object = this;
+          intersects.push(intersect2);
+        }
+        _instanceIntersects.length = 0;
+      }
+    }
+    setColorAt(index, color) {
+      if (this.instanceColor === null) {
+        this.instanceColor = new InstancedBufferAttribute(new Float32Array(this.instanceMatrix.count * 3).fill(1), 3);
+      }
+      color.toArray(this.instanceColor.array, index * 3);
+    }
+    setMatrixAt(index, matrix) {
+      matrix.toArray(this.instanceMatrix.array, index * 16);
+    }
+    setMorphAt(index, object) {
+      const objectInfluences = object.morphTargetInfluences;
+      const len = objectInfluences.length + 1;
+      if (this.morphTexture === null) {
+        this.morphTexture = new DataTexture(new Float32Array(len * this.count), len, this.count, RedFormat, FloatType);
+      }
+      const array = this.morphTexture.source.data.data;
+      let morphInfluencesSum = 0;
+      for (let i = 0; i < objectInfluences.length; i++) {
+        morphInfluencesSum += objectInfluences[i];
+      }
+      const morphBaseInfluence = this.geometry.morphTargetsRelative ? 1 : 1 - morphInfluencesSum;
+      const dataIndex = len * index;
+      array[dataIndex] = morphBaseInfluence;
+      array.set(objectInfluences, dataIndex + 1);
+    }
+    updateMorphTargets() {
+    }
+    dispose() {
+      this.dispatchEvent({ type: "dispose" });
+      if (this.morphTexture !== null) {
+        this.morphTexture.dispose();
+        this.morphTexture = null;
+      }
+      return this;
+    }
+  };
+  var LineBasicMaterial = class extends Material {
+    static get type() {
+      return "LineBasicMaterial";
+    }
+    constructor(parameters) {
+      super();
+      this.isLineBasicMaterial = true;
+      this.color = new Color(16777215);
+      this.map = null;
+      this.linewidth = 1;
+      this.linecap = "round";
+      this.linejoin = "round";
+      this.fog = true;
+      this.setValues(parameters);
+    }
+    copy(source) {
+      super.copy(source);
+      this.color.copy(source.color);
+      this.map = source.map;
+      this.linewidth = source.linewidth;
+      this.linecap = source.linecap;
+      this.linejoin = source.linejoin;
+      this.fog = source.fog;
+      return this;
+    }
+  };
+  var _vStart = /* @__PURE__ */ new Vector3();
+  var _vEnd = /* @__PURE__ */ new Vector3();
+  var _inverseMatrix$1 = /* @__PURE__ */ new Matrix4();
+  var _ray$1 = /* @__PURE__ */ new Ray();
+  var _sphere$1 = /* @__PURE__ */ new Sphere();
+  var _intersectPointOnRay = /* @__PURE__ */ new Vector3();
+  var _intersectPointOnSegment = /* @__PURE__ */ new Vector3();
+  var Line = class extends Object3D {
+    constructor(geometry = new BufferGeometry(), material = new LineBasicMaterial()) {
+      super();
+      this.isLine = true;
+      this.type = "Line";
+      this.geometry = geometry;
+      this.material = material;
+      this.updateMorphTargets();
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      this.material = Array.isArray(source.material) ? source.material.slice() : source.material;
+      this.geometry = source.geometry;
+      return this;
+    }
+    computeLineDistances() {
+      const geometry = this.geometry;
+      if (geometry.index === null) {
+        const positionAttribute = geometry.attributes.position;
+        const lineDistances = [0];
+        for (let i = 1, l = positionAttribute.count; i < l; i++) {
+          _vStart.fromBufferAttribute(positionAttribute, i - 1);
+          _vEnd.fromBufferAttribute(positionAttribute, i);
+          lineDistances[i] = lineDistances[i - 1];
+          lineDistances[i] += _vStart.distanceTo(_vEnd);
+        }
+        geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
+      } else {
+        console.warn("THREE.Line.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
+      }
+      return this;
+    }
+    raycast(raycaster, intersects) {
+      const geometry = this.geometry;
+      const matrixWorld = this.matrixWorld;
+      const threshold = raycaster.params.Line.threshold;
+      const drawRange = geometry.drawRange;
+      if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
+      _sphere$1.copy(geometry.boundingSphere);
+      _sphere$1.applyMatrix4(matrixWorld);
+      _sphere$1.radius += threshold;
+      if (raycaster.ray.intersectsSphere(_sphere$1) === false) return;
+      _inverseMatrix$1.copy(matrixWorld).invert();
+      _ray$1.copy(raycaster.ray).applyMatrix4(_inverseMatrix$1);
+      const localThreshold = threshold / ((this.scale.x + this.scale.y + this.scale.z) / 3);
+      const localThresholdSq = localThreshold * localThreshold;
+      const step = this.isLineSegments ? 2 : 1;
+      const index = geometry.index;
+      const attributes = geometry.attributes;
+      const positionAttribute = attributes.position;
+      if (index !== null) {
+        const start = Math.max(0, drawRange.start);
+        const end = Math.min(index.count, drawRange.start + drawRange.count);
+        for (let i = start, l = end - 1; i < l; i += step) {
+          const a = index.getX(i);
+          const b = index.getX(i + 1);
+          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
+          if (intersect2) {
+            intersects.push(intersect2);
+          }
+        }
+        if (this.isLineLoop) {
+          const a = index.getX(end - 1);
+          const b = index.getX(start);
+          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
+          if (intersect2) {
+            intersects.push(intersect2);
+          }
+        }
+      } else {
+        const start = Math.max(0, drawRange.start);
+        const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
+        for (let i = start, l = end - 1; i < l; i += step) {
+          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1);
+          if (intersect2) {
+            intersects.push(intersect2);
+          }
+        }
+        if (this.isLineLoop) {
+          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start);
+          if (intersect2) {
+            intersects.push(intersect2);
+          }
+        }
+      }
+    }
+    updateMorphTargets() {
+      const geometry = this.geometry;
+      const morphAttributes = geometry.morphAttributes;
+      const keys = Object.keys(morphAttributes);
+      if (keys.length > 0) {
+        const morphAttribute = morphAttributes[keys[0]];
+        if (morphAttribute !== void 0) {
+          this.morphTargetInfluences = [];
+          this.morphTargetDictionary = {};
+          for (let m = 0, ml = morphAttribute.length; m < ml; m++) {
+            const name = morphAttribute[m].name || String(m);
+            this.morphTargetInfluences.push(0);
+            this.morphTargetDictionary[name] = m;
+          }
+        }
+      }
+    }
+  };
+  function checkIntersection(object, raycaster, ray, thresholdSq, a, b) {
+    const positionAttribute = object.geometry.attributes.position;
+    _vStart.fromBufferAttribute(positionAttribute, a);
+    _vEnd.fromBufferAttribute(positionAttribute, b);
+    const distSq = ray.distanceSqToSegment(_vStart, _vEnd, _intersectPointOnRay, _intersectPointOnSegment);
+    if (distSq > thresholdSq) return;
+    _intersectPointOnRay.applyMatrix4(object.matrixWorld);
+    const distance = raycaster.ray.origin.distanceTo(_intersectPointOnRay);
+    if (distance < raycaster.near || distance > raycaster.far) return;
+    return {
+      distance,
+      // What do we want? intersection point on the ray or on the segment??
+      // point: raycaster.ray.at( distance ),
+      point: _intersectPointOnSegment.clone().applyMatrix4(object.matrixWorld),
+      index: a,
+      face: null,
+      faceIndex: null,
+      barycoord: null,
+      object
+    };
+  }
+  var _start = /* @__PURE__ */ new Vector3();
+  var _end = /* @__PURE__ */ new Vector3();
+  var LineSegments = class extends Line {
+    constructor(geometry, material) {
+      super(geometry, material);
+      this.isLineSegments = true;
+      this.type = "LineSegments";
+    }
+    computeLineDistances() {
+      const geometry = this.geometry;
+      if (geometry.index === null) {
+        const positionAttribute = geometry.attributes.position;
+        const lineDistances = [];
+        for (let i = 0, l = positionAttribute.count; i < l; i += 2) {
+          _start.fromBufferAttribute(positionAttribute, i);
+          _end.fromBufferAttribute(positionAttribute, i + 1);
+          lineDistances[i] = i === 0 ? 0 : lineDistances[i - 1];
+          lineDistances[i + 1] = lineDistances[i] + _start.distanceTo(_end);
+        }
+        geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
+      } else {
+        console.warn("THREE.LineSegments.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
+      }
+      return this;
+    }
+  };
   var Curve = class {
     constructor() {
       this.type = "Curve";
@@ -20002,6 +20375,53 @@ void main() {
     }
     static fromJSON(data) {
       return new _LatheGeometry(data.points, data.segments, data.phiStart, data.phiLength);
+    }
+  };
+  var CircleGeometry = class _CircleGeometry extends BufferGeometry {
+    constructor(radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "CircleGeometry";
+      this.parameters = {
+        radius,
+        segments,
+        thetaStart,
+        thetaLength
+      };
+      segments = Math.max(3, segments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      vertices.push(0, 0, 0);
+      normals.push(0, 0, 1);
+      uvs.push(0.5, 0.5);
+      for (let s = 0, i = 3; s <= segments; s++, i += 3) {
+        const segment = thetaStart + s / segments * thetaLength;
+        vertex2.x = radius * Math.cos(segment);
+        vertex2.y = radius * Math.sin(segment);
+        vertices.push(vertex2.x, vertex2.y, vertex2.z);
+        normals.push(0, 0, 1);
+        uv.x = (vertices[i] / radius + 1) / 2;
+        uv.y = (vertices[i + 1] / radius + 1) / 2;
+        uvs.push(uv.x, uv.y);
+      }
+      for (let i = 1; i <= segments; i++) {
+        indices.push(i, i + 1, 0);
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new _CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
     }
   };
   var CylinderGeometry = class _CylinderGeometry extends BufferGeometry {
@@ -22466,6 +22886,204 @@ void main() {
     }
   }
 
+  // page-src/markArea.js
+  var AREA_POINTS = 32;
+  var LOOP_MAX = 300;
+  var LOOP_GAP = 3;
+  var GRID = 196;
+  var SVG = "http://www.w3.org/2000/svg";
+  function insidePolygon(p, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i];
+      const [xj, yj] = poly[j];
+      if (yi > p[1] !== yj > p[1] && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+  function gridInside(poly, max = GRID) {
+    const xs = poly.map((p) => p[0]);
+    const ys = poly.map((p) => p[1]);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const step = Math.max(4, Math.sqrt((x1 - x0) * (y1 - y0) / max));
+    const out = [];
+    for (let y = y0 + step / 2; y < y1; y += step) {
+      for (let x = x0 + step / 2; x < x1; x += step) {
+        if (insidePolygon([x, y], poly)) out.push([x, y]);
+      }
+    }
+    return { points: out, step };
+  }
+  function spread(list, n) {
+    if (list.length <= n) return list.slice();
+    return Array.from({ length: n }, (_, i) => list[Math.floor(i * list.length / n)]);
+  }
+  function summarize(hits, view) {
+    const counts = /* @__PURE__ */ new Map();
+    for (const h of hits) if (h.part) counts.set(h.part, (counts.get(h.part) ?? 0) + 1);
+    const parts = [...counts].sort((a, b) => b[1] - a[1]).map(([p]) => p);
+    const points = spread(hits, AREA_POINTS).map((h) => h.at.map((n) => Math.round(n * 10) / 10));
+    return { parts, points, view: { yaw: view.yaw, pitch: view.pitch } };
+  }
+  function createMarker(o) {
+    const { doc: doc2, body, canvas, camera } = o;
+    const ray = new Raycaster();
+    let on = false;
+    let drawing = null;
+    let mark2 = null;
+    const overlay = doc2.createElementNS(SVG, "svg");
+    overlay.setAttribute("class", "mark-draw");
+    const line = doc2.createElementNS(SVG, "polygon");
+    overlay.append(line);
+    const at = (e) => {
+      const r2 = canvas.getBoundingClientRect();
+      return [e.clientX - r2.left, e.clientY - r2.top];
+    };
+    const hitAt = (p, w, h) => {
+      ray.setFromCamera(new Vector2(p[0] / w * 2 - 1, -(p[1] / h) * 2 + 1), camera);
+      const hit = ray.intersectObjects(o.parts, true)[0];
+      if (!hit) return null;
+      const normal = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new Vector3(0, 0, 1);
+      if (normal.dot(ray.ray.direction) > 0) normal.negate();
+      return { point: hit.point.clone(), normal, part: hit.object.userData.part ?? null };
+    };
+    const clear = () => {
+      if (!mark2) return;
+      o.scene.remove(mark2);
+      mark2.traverse((c) => {
+        c.geometry?.dispose();
+        c.material?.dispose();
+      });
+      mark2 = null;
+    };
+    const show = (inner, edge, step, h) => {
+      clear();
+      mark2 = new Group();
+      const fov2 = camera.fov * Math.PI / 180;
+      const all = [...inner, ...edge.filter(Boolean)];
+      const discs = new InstancedMesh(
+        new CircleGeometry(1, 14),
+        new MeshBasicMaterial({
+          color: o.color,
+          transparent: true,
+          opacity: 0.55,
+          side: DoubleSide,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2
+        }),
+        all.length
+      );
+      const z = new Vector3(0, 0, 1);
+      const size = (s) => 2 * camera.position.distanceTo(s.point) * Math.tan(fov2 / 2) * step / h;
+      all.forEach((s, i) => {
+        const r2 = size(s) * 0.75;
+        const pos = s.point.clone().addScaledVector(s.normal, r2 * 0.08);
+        const turn = new Quaternion().setFromUnitVectors(z, s.normal);
+        discs.setMatrixAt(i, new Matrix4().compose(pos, turn, new Vector3(r2, r2, r2)));
+      });
+      mark2.add(discs);
+      const seg = [];
+      for (let i = 0; i < edge.length; i++) {
+        const a = edge[i];
+        const b = edge[(i + 1) % edge.length];
+        if (!a || !b || a.point.distanceTo(b.point) > 2 * Math.max(size(a), size(b))) continue;
+        for (const s of [a, b])
+          seg.push(
+            ...s.point.clone().addScaledVector(s.normal, size(s) * 0.1).toArray()
+          );
+      }
+      if (seg.length) {
+        const g = new BufferGeometry();
+        g.setAttribute("position", new Float32BufferAttribute(seg, 3));
+        mark2.add(new LineSegments(g, new LineBasicMaterial({ color: o.color })));
+      }
+      o.scene.add(mark2);
+    };
+    const finish = () => {
+      const loop = drawing.points;
+      drawing = null;
+      overlay.remove();
+      if (loop.length < 3) return;
+      const w = canvas.clientWidth || canvas.width;
+      const h = canvas.clientHeight || canvas.height;
+      const { points: grid, step } = gridInside(loop);
+      const edge = loop.map((p) => hitAt(p, w, h));
+      const inner = grid.map((p) => hitAt(p, w, h)).filter(Boolean);
+      const hits = [...inner, ...edge.filter(Boolean)];
+      if (!hits.length) return;
+      show(inner, edge, step, h);
+      o.onMark(
+        summarize(
+          hits.map((s) => ({ at: s.point.toArray(), part: s.part })),
+          o.view()
+        )
+      );
+    };
+    const down = (e) => {
+      if (e.target !== canvas || e.button !== 0 || !(on || e.shiftKey)) return;
+      e.stopPropagation();
+      e.preventDefault();
+      drawing = { id: e.pointerId, points: [at(e)] };
+      canvas.setPointerCapture?.(e.pointerId);
+      line.setAttribute("points", "");
+      body.append(overlay);
+    };
+    const move = (e) => {
+      if (!drawing || e.pointerId !== drawing.id) return;
+      e.stopPropagation();
+      const p = at(e);
+      const last = drawing.points.at(-1);
+      if (drawing.points.length >= LOOP_MAX || Math.hypot(p[0] - last[0], p[1] - last[1]) < LOOP_GAP)
+        return;
+      drawing.points.push(p);
+      line.setAttribute("points", drawing.points.map((q) => q.join(",")).join(" "));
+    };
+    const up = (e) => {
+      if (!drawing || e.pointerId !== drawing.id) return;
+      e.stopPropagation();
+      finish();
+    };
+    const cancel = () => {
+      drawing = null;
+      overlay.remove();
+    };
+    const key = (e) => {
+      if (e.key !== "Escape" || !on) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (drawing) cancel();
+      setMode(false);
+      o.onMode(false);
+    };
+    body.addEventListener("pointerdown", down, true);
+    body.addEventListener("pointermove", move, true);
+    body.addEventListener("pointerup", up, true);
+    body.addEventListener("pointercancel", cancel, true);
+    canvas.addEventListener("keydown", key);
+    function setMode(next) {
+      on = !!next;
+      canvas.classList.toggle("marking", on);
+      if (!on && drawing) cancel();
+    }
+    return {
+      setMode,
+      clear,
+      dispose() {
+        cancel();
+        clear();
+        body.removeEventListener("pointerdown", down, true);
+        body.removeEventListener("pointermove", move, true);
+        body.removeEventListener("pointerup", up, true);
+        body.removeEventListener("pointercancel", cancel, true);
+        canvas.removeEventListener("keydown", key);
+      }
+    };
+  }
+
   // page-src/meshes.js
   var UP = new Vector3(0, 1, 0);
   var rad = (d) => d * Math.PI / 180;
@@ -22794,6 +23412,21 @@ void main() {
       hovered = part;
       paint();
     };
+    const marker = createMarker({
+      doc: doc2,
+      body: host,
+      canvas,
+      camera,
+      scene,
+      parts,
+      color: o.color("accent"),
+      view: () => now(),
+      onMark: (area) => o.onMark?.(area),
+      onMode: (on) => {
+        hint.textContent = on ? o.markHint ?? o.hint : o.hint;
+        o.onMarkMode?.(on);
+      }
+    });
     const placeLabels = (w, h) => {
       const seen = [];
       const order = tags.map((t) => ({ t, p: t.at.clone().project(camera) })).sort((a, b) => a.p.z - b.p.z);
@@ -22867,6 +23500,15 @@ void main() {
         picked = part ?? null;
         paint();
       },
+      /** Turns marking an area on or off. */
+      setMarking(on) {
+        marker.setMode(on);
+        hint.textContent = on ? o.markHint ?? o.hint : o.hint;
+      },
+      /** Takes the area's mark off the model. */
+      clearMark() {
+        marker.clear();
+      },
       /** Stops drawing while the window is folded away (`on`), and starts again. */
       pause(on) {
         paused = !!on;
@@ -22879,6 +23521,7 @@ void main() {
         alive = false;
         win.cancelAnimationFrame(frame);
         controls.dispose();
+        marker.dispose();
         scene.traverse((c) => {
           c.geometry?.dispose();
           c.material?.dispose();
@@ -22974,7 +23617,8 @@ void main() {
         onPick: () => {
           raise(v);
           o.onPick(s.id, null);
-        }
+        },
+        onMarkMode: (on) => v.view.setMarking(on)
       });
       v.win.host.dataset.scene = s.id;
       v.win.host.addEventListener("pointerdown", () => raise(v));
@@ -22984,7 +23628,10 @@ void main() {
         camera: o.cameras.get(s.id),
         hint: t.hint,
         onTurn: (cam) => o.cameras.set(s.id, cam),
-        onPick: (part) => o.onPick(s.id, part)
+        onPick: (part) => o.onPick(s.id, part),
+        markHint: t.marking,
+        onMark: (area) => o.onArea(s.id, area),
+        onMarkMode: (on) => v.win.setMarking(on)
       });
       if (v.win.folded()) v.view.pause(true);
       return v;
@@ -23022,9 +23669,15 @@ void main() {
         }
         layout();
       },
-      /** Marks the part pointed at in scene `id` (nothing, elsewhere). */
-      highlight(id, part) {
-        for (const [sid, v] of views) v.view.highlight(sid === id ? part : null);
+      /**
+       * Marks the part pointed at in scene `id` (nothing, elsewhere); an area's
+       * mark stays only while that area is what's pointed at.
+       */
+      highlight(id, part, area = false) {
+        for (const [sid, v] of views) {
+          v.view.highlight(sid === id ? part : null);
+          if (sid !== id || !area) v.view.clearMark();
+        }
       },
       /** The theme changed: make every view again in its colors. */
       themeChanged() {
@@ -23140,9 +23793,9 @@ void main() {
       "line" in pointed ? `[data-line="${pointed.line}"]` : `[data-shape="${pointed.shape}"]`
     ) : null;
     node?.classList.add("pointed");
-    gl?.highlight(pointed?.shape ?? null, pointed?.part ?? null);
+    gl?.highlight(pointed?.shape ?? null, pointed?.part ?? null, !!pointed?.area);
     $("pointing").hidden = !pointed;
-    $("pointed").textContent = !pointed ? "" : "line" in pointed ? L("ask-line", { n: pointed.line }) : pointed.part ? `${L("ask-shape")}: ${pointed.part}` : L("ask-shape");
+    $("pointed").textContent = !pointed ? "" : "line" in pointed ? L("ask-line", { n: pointed.line }) : pointed.area ? `${L("ask-shape")}: ${L("ask-area")}${pointed.area.parts.length ? ` (${pointed.area.parts.join(", ")})` : ""}` : pointed.part ? `${L("ask-shape")}: ${pointed.part}` : L("ask-shape");
   }
   function pointPart(id, part) {
     const next = part ? { shape: id, part } : { shape: id };
@@ -23150,6 +23803,11 @@ void main() {
     pointed = same ? null : next;
     mark();
     if (pointed) $("question").focus();
+  }
+  function pointArea(id, area) {
+    pointed = { shape: id, area };
+    mark();
+    $("question").focus();
   }
   function point(e) {
     const shape = e.target.closest?.("[data-shape]");
@@ -23264,11 +23922,14 @@ void main() {
       move: L("scene-move"),
       fold: L("scene-fold"),
       unfold: L("scene-unfold"),
-      untitled: L("scene-untitled")
+      untitled: L("scene-untitled"),
+      mark: L("scene-mark"),
+      marking: L("scene-marking")
     }),
     cameras,
     onPick: pointPart,
-    onMove: moveScene
+    onMove: moveScene,
+    onArea: pointArea
   }) : null;
   wire();
   followTheme(bridge?.theme);
