@@ -28,7 +28,7 @@ import {
 } from "../../examples/whiteboard/src/board.js";
 import { checkShape } from "../../examples/whiteboard/src/scene.js";
 import { createGlLayer } from "../../examples/whiteboard/page-src/glLayer.js";
-import { BIG_STEP, KEY_STEP } from "../../examples/whiteboard/page-src/floatView.js";
+import { BIG_STEP, CLICK_WAIT_MS, KEY_STEP } from "../../examples/whiteboard/page-src/floatView.js";
 import { MOVES_PER_WINDOW } from "../../examples/whiteboard/src/run.js";
 import { startTile } from "../fake-host.mjs";
 
@@ -239,12 +239,15 @@ describe("the floating window", () => {
     expect(l.made).toHaveLength(1);
   });
 
-  it("points at the whole scene with a click on the bar", () => {
+  it("points at the whole scene with a click on the bar, once it isn't a double-click", () => {
+    vi.useFakeTimers();
     const l = layer();
     l.gl.sync([CUBE]);
     l.fire(l.grip(), "pointerdown", 10, 10);
     l.fire(l.grip(), "pointerup", 11, 10);
     l.fire(l.grip(), "click", 11, 10);
+    expect(l.picks).toEqual([]);
+    vi.advanceTimersByTime(CLICK_WAIT_MS);
     expect(l.picks).toEqual([["cube", null]]);
   });
 

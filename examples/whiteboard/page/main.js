@@ -35,6 +35,9 @@
   // src/layout.js
   var WIDTH = 1e3;
   var MAX_HEIGHT = 6e3;
+  var SCENE_MIN_W = 260;
+  var SCENE_MIN_H = 140;
+  var SCENE_MAX_H = 1200;
   var MIN_HEIGHT = 560;
   var CONTENT_TOP = 20;
   var LINE_H = 22;
@@ -677,104 +680,229 @@
     return defs;
   }
 
+  // page-src/icons.js
+  var NS2 = "http://www.w3.org/2000/svg";
+  var SHAPES = {
+    // A cube seen from a corner: the sign of a 3D view.
+    cube: [
+      ["path", { d: "M12 2.8 20.5 7.5v9L12 21.2 3.5 16.5v-9Z" }],
+      ["path", { d: "M3.8 7.6 12 12l8.2-4.4M12 12v9" }]
+    ],
+    // Six dots: something to drag.
+    grip: [
+      ["circle", { cx: 9, cy: 6, r: 1.6, fill: 1 }],
+      ["circle", { cx: 15, cy: 6, r: 1.6, fill: 1 }],
+      ["circle", { cx: 9, cy: 12, r: 1.6, fill: 1 }],
+      ["circle", { cx: 15, cy: 12, r: 1.6, fill: 1 }],
+      ["circle", { cx: 9, cy: 18, r: 1.6, fill: 1 }],
+      ["circle", { cx: 15, cy: 18, r: 1.6, fill: 1 }]
+    ],
+    "zoom-out": [
+      ["circle", { cx: 10.5, cy: 10.5, r: 6.5 }],
+      ["path", { d: "m15.5 15.5 5 5M7.5 10.5h6" }]
+    ],
+    "zoom-in": [
+      ["circle", { cx: 10.5, cy: 10.5, r: 6.5 }],
+      ["path", { d: "m15.5 15.5 5 5M7.5 10.5h6M10.5 7.5v6" }]
+    ],
+    // A luggage tag: the parts' labels.
+    tags: [
+      [
+        "path",
+        {
+          d: "M3.5 11.6V4.8c0-.7.6-1.3 1.3-1.3h6.8l8.9 8.9a1.3 1.3 0 0 1 0 1.8l-6.8 6.8a1.3 1.3 0 0 1-1.8 0Z"
+        }
+      ],
+      ["circle", { cx: 8, cy: 8, r: 1.6, fill: 1 }]
+    ],
+    // A circle half filled: how see-through.
+    opacity: [
+      ["circle", { cx: 12, cy: 12, r: 8.5 }],
+      ["path", { d: "M12 3.5a8.5 8.5 0 0 1 0 17Z", fill: 1 }]
+    ],
+    pen: [
+      ["path", { d: "M4 20l1.1-4.2L15.8 5.1a2 2 0 0 1 2.8 0l.3.3a2 2 0 0 1 0 2.8L8.2 18.9Z" }],
+      ["path", { d: "m13.8 7.1 3.1 3.1" }]
+    ],
+    eraser: [
+      [
+        "path",
+        {
+          d: "M8.6 19.5 4.1 15a1.8 1.8 0 0 1 0-2.5l8.4-8.4a1.8 1.8 0 0 1 2.5 0l4.9 4.9a1.8 1.8 0 0 1 0 2.5l-8 8Z"
+        }
+      ],
+      ["path", { d: "m9 8.6 6.4 6.4M8.6 19.5H20" }]
+    ],
+    "fold-up": [["path", { d: "m6.5 14.5 5.5-5.5 5.5 5.5" }]],
+    "fold-down": [["path", { d: "m6.5 9.5 5.5 5.5 5.5-5.5" }]],
+    close: [["path", { d: "M6.5 6.5l11 11M17.5 6.5l-11 11" }]],
+    // Three short diagonals in a corner: drag to resize.
+    resize: [["path", { d: "M20 9 9 20M20 14l-6 6M20 19l-1 1" }]]
+  };
+  var ICONS = Object.freeze(Object.keys(SHAPES));
+  function icon(doc2, name) {
+    const shapes = SHAPES[name];
+    if (!shapes) throw new Error(`no icon "${name}"`);
+    const svg = doc2.createElementNS(NS2, "svg");
+    svg.setAttribute("class", `icon icon-${name}`);
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    for (const [tag, attrs] of shapes) {
+      const el2 = doc2.createElementNS(NS2, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === "fill") el2.setAttribute("class", "fill");
+        else el2.setAttribute(k, String(v));
+      }
+      svg.append(el2);
+    }
+    return svg;
+  }
+
+  // page-src/scrubSlider.js
+  var PAGE = 25;
+  function createScrubSlider(doc2, o) {
+    const el2 = doc2.createElement("div");
+    el2.className = "scrub";
+    el2.tabIndex = 0;
+    el2.setAttribute("role", "slider");
+    el2.setAttribute("aria-orientation", "vertical");
+    el2.setAttribute("aria-label", o.label);
+    el2.setAttribute("aria-valuemin", "0");
+    el2.setAttribute("aria-valuemax", "100");
+    const track = doc2.createElement("div");
+    track.className = "scrub-track";
+    const fill = doc2.createElement("div");
+    fill.className = "scrub-fill";
+    const thumb = doc2.createElement("div");
+    thumb.className = "scrub-thumb";
+    track.append(fill, thumb);
+    el2.append(track);
+    let value = 0;
+    const fit = (n) => {
+      const v = Math.round(Math.min(100, Math.max(0, Number(n) || 0)) / o.step) * o.step;
+      return Math.min(100, Math.max(0, v));
+    };
+    const show = (n) => {
+      value = fit(n);
+      fill.style.height = `${value}%`;
+      thumb.style.bottom = `${value}%`;
+      el2.setAttribute("aria-valuenow", String(value));
+      el2.setAttribute("aria-valuetext", `${value}%`);
+      return value;
+    };
+    const take = (n) => {
+      const before = value;
+      show(n);
+      if (value !== before) o.onInput(value);
+    };
+    show(o.value);
+    const at = (y) => {
+      const r2 = track.getBoundingClientRect();
+      if (!r2.height) return null;
+      return (r2.bottom - y) / r2.height * 100;
+    };
+    let pressed = null;
+    el2.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pressed = e.pointerId;
+      el2.setPointerCapture?.(e.pointerId);
+      el2.focus();
+      el2.classList.add("scrubbing");
+      const v = at(e.clientY);
+      if (v !== null) take(v);
+    });
+    el2.addEventListener("pointermove", (e) => {
+      if (pressed === null || e.pointerId !== pressed) return;
+      const v = at(e.clientY);
+      if (v !== null) take(v);
+    });
+    const end = (e) => {
+      if (pressed === null || e.pointerId !== pressed) return;
+      pressed = null;
+      el2.classList.remove("scrubbing");
+    };
+    el2.addEventListener("pointerup", end);
+    el2.addEventListener("pointercancel", end);
+    el2.addEventListener("keydown", (e) => {
+      const by = {
+        ArrowUp: o.step,
+        ArrowRight: o.step,
+        ArrowDown: -o.step,
+        ArrowLeft: -o.step,
+        PageUp: PAGE,
+        PageDown: -PAGE
+      }[e.key];
+      if (by !== void 0) take(value + by);
+      else if (e.key === "Home") take(0);
+      else if (e.key === "End") take(100);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    return {
+      el: el2,
+      /** The value now. */
+      value: () => value,
+      /** Sets it without telling `onInput`. */
+      set: (n) => show(n),
+      /** Moves it by `n` from `from`, as the user scrubbing it from elsewhere. */
+      scrubBy: (from, n) => take(from + n),
+      focus: () => el2.focus()
+    };
+  }
+
   // page-src/floatView.js
   var KEY_STEP = 10;
   var BIG_STEP = 50;
+  var ZOOM_STEP = 1.25;
+  var OPACITY = 55;
+  var OPACITY_STEP = 5;
+  var SCRUB_PX = 1.5;
   var DRAG_PX = 4;
-  function createFloat(doc2, o) {
-    const host = doc2.createElement("div");
-    host.className = "gl-host float";
-    const bar = doc2.createElement("div");
-    bar.className = "float-bar";
-    const grip = doc2.createElement("button");
-    grip.type = "button";
-    grip.className = "float-grip";
-    grip.title = o.labels.move;
-    grip.setAttribute("aria-label", `${o.title}: ${o.labels.move}`);
-    const dots = doc2.createElement("span");
-    dots.className = "float-dots";
-    dots.setAttribute("aria-hidden", "true");
-    const title = doc2.createElement("span");
-    title.className = "float-title";
-    title.textContent = o.title;
-    grip.append(dots, title);
-    const markBtn = doc2.createElement("button");
-    markBtn.type = "button";
-    markBtn.className = "float-mark";
-    markBtn.title = o.labels.mark;
-    markBtn.setAttribute("aria-label", o.labels.mark);
-    markBtn.textContent = "\u270E";
-    const fold = doc2.createElement("button");
-    fold.type = "button";
-    fold.className = "float-fold";
-    bar.append(grip, markBtn, fold);
-    let marking = false;
-    const showMark = () => {
-      markBtn.setAttribute("aria-pressed", String(marking));
-      markBtn.classList.toggle("on", marking);
-    };
-    showMark();
-    markBtn.addEventListener("click", () => {
-      marking = !marking;
-      showMark();
-      o.onMarkMode(marking);
-    });
-    const body = doc2.createElement("div");
-    body.className = "float-body";
-    host.append(bar, body);
-    let folded = !!o.folded;
-    const showFold = () => {
-      host.classList.toggle("folded", folded);
-      body.hidden = folded;
-      const label = folded ? o.labels.unfold : o.labels.fold;
-      fold.title = label;
-      fold.setAttribute("aria-label", label);
-      fold.setAttribute("aria-expanded", String(!folded));
-      fold.textContent = folded ? "\u25A1" : "\u2212";
-    };
-    showFold();
-    fold.addEventListener("click", () => {
-      folded = !folded;
-      showFold();
-      o.onFold(folded);
-    });
+  var CLICK_WAIT_MS = 250;
+  function dragging(el2, on) {
     let drag = null;
     let dragged = false;
-    grip.addEventListener("pointerdown", (e) => {
+    el2.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       drag = { x: e.clientX, y: e.clientY, id: e.pointerId, moving: false };
       dragged = false;
-      grip.setPointerCapture?.(e.pointerId);
+      el2.setPointerCapture?.(e.pointerId);
     });
-    grip.addEventListener("pointermove", (e) => {
+    el2.addEventListener("pointermove", (e) => {
       if (!drag || e.pointerId !== drag.id) return;
       const dx = e.clientX - drag.x;
       const dy = e.clientY - drag.y;
       if (!drag.moving && Math.hypot(dx, dy) < DRAG_PX) return;
       if (!drag.moving) {
         drag.moving = true;
-        host.classList.add("moving");
-        o.onGrab();
+        on.moving(true);
+        on.grab();
       }
-      o.onDrag(dx, dy);
+      on.drag(dx, dy);
     });
     const end = (e) => {
       if (!drag || e.pointerId !== drag.id) return;
       const was = drag.moving;
       drag = null;
-      host.classList.remove("moving");
+      on.moving(false);
       if (was) {
         dragged = true;
-        o.onDrop();
+        on.drop();
       }
     };
-    grip.addEventListener("pointerup", end);
-    grip.addEventListener("pointercancel", end);
-    grip.addEventListener("click", () => {
+    el2.addEventListener("pointerup", end);
+    el2.addEventListener("pointercancel", end);
+    el2.addEventListener("click", () => {
       if (dragged) return void (dragged = false);
-      o.onPick();
+      on.click?.();
     });
-    grip.addEventListener("keydown", (e) => {
+  }
+  function arrowKeys(el2, fn) {
+    el2.addEventListener("keydown", (e) => {
       const step = e.shiftKey ? BIG_STEP : KEY_STEP;
       const by = {
         ArrowLeft: [-step, 0],
@@ -785,8 +913,185 @@
       if (!by) return;
       e.preventDefault();
       e.stopPropagation();
-      o.onKey(by[0], by[1]);
+      fn(by[0], by[1]);
     });
+  }
+  function barButton(doc2, cls, name, label) {
+    const b = doc2.createElement("button");
+    b.type = "button";
+    b.className = cls;
+    b.title = label;
+    b.setAttribute("aria-label", label);
+    b.append(icon(doc2, name));
+    return b;
+  }
+  function separator(doc2) {
+    const s = doc2.createElement("span");
+    s.className = "float-sep";
+    s.setAttribute("aria-hidden", "true");
+    return s;
+  }
+  function toggle(doc2, cls, name, label, on, fn) {
+    const b = barButton(doc2, cls, name, label);
+    let state = !!on;
+    const show = () => {
+      b.setAttribute("aria-pressed", String(state));
+      b.classList.toggle("on", state);
+    };
+    show();
+    b.addEventListener("click", () => {
+      state = !state;
+      show();
+      fn(state);
+    });
+    return {
+      b,
+      set(next) {
+        state = !!next;
+        show();
+      }
+    };
+  }
+  function createFloat(doc2, o) {
+    const host = doc2.createElement("div");
+    host.className = "gl-host float";
+    const bar = doc2.createElement("div");
+    bar.className = "float-bar";
+    const grip = doc2.createElement("button");
+    grip.type = "button";
+    grip.className = "float-grip";
+    grip.title = o.labels.move;
+    grip.setAttribute("aria-label", `${o.title}: ${o.labels.move}`);
+    const title = doc2.createElement("span");
+    title.className = "float-title";
+    title.textContent = o.title;
+    grip.append(icon(doc2, "grip"), icon(doc2, "cube"), title);
+    const out = barButton(doc2, "float-zoom-out", "zoom-out", o.labels.zoomOut);
+    const inn = barButton(doc2, "float-zoom-in", "zoom-in", o.labels.zoomIn);
+    out.addEventListener("click", () => o.onZoom(1 / ZOOM_STEP));
+    inn.addEventListener("click", () => o.onZoom(ZOOM_STEP));
+    const tags = toggle(doc2, "float-tags", "tags", o.labels.tags, o.tags !== false, o.onTags);
+    const mark2 = toggle(doc2, "float-mark", "pen", o.labels.mark, false, o.onMarkMode);
+    const reset = barButton(doc2, "float-reset", "eraser", o.labels.reset);
+    reset.addEventListener("click", () => o.onReset());
+    const fold = doc2.createElement("button");
+    fold.type = "button";
+    fold.className = "float-fold";
+    const close = barButton(doc2, "float-close", "close", o.labels.close);
+    close.addEventListener("click", () => o.onClose());
+    const clear = barButton(doc2, "float-clear", "opacity", o.labels.clear);
+    clear.setAttribute("aria-expanded", "false");
+    const pop = doc2.createElement("div");
+    pop.className = "float-opacity";
+    pop.hidden = true;
+    const shown = doc2.createElement("output");
+    const solid = (v) => {
+      shown.textContent = `${v}%`;
+      host.style.setProperty("--float-solid", `${v}%`);
+      host.classList.toggle("clear", v === 0);
+      return v;
+    };
+    const slider = createScrubSlider(doc2, {
+      label: o.labels.opacity,
+      value: Number.isFinite(o.opacity) ? o.opacity : OPACITY,
+      step: OPACITY_STEP,
+      onInput: (v) => o.onOpacity(solid(v))
+    });
+    solid(slider.value());
+    pop.append(slider.el, shown);
+    const openPop = (on, focus = true) => {
+      pop.hidden = !on;
+      clear.setAttribute("aria-expanded", String(on));
+      clear.classList.toggle("on", on);
+      if (!on) return;
+      const right = host.clientWidth - (clear.offsetLeft + clear.offsetWidth);
+      pop.style.right = `${Math.max(0, right)}px`;
+      pop.style.top = `${bar.offsetHeight}px`;
+      if (focus) slider.focus();
+    };
+    let from = 0;
+    dragging(clear, {
+      grab: () => {
+        from = slider.value();
+        openPop(true, false);
+      },
+      drag: (_dx, dy) => slider.scrubBy(from, -dy / SCRUB_PX),
+      drop: () => openPop(false),
+      click: () => openPop(pop.hidden),
+      moving: (on) => host.classList.toggle("scrubbing", on)
+    });
+    pop.addEventListener("focusout", (e) => {
+      if (!pop.contains(e.relatedTarget) && e.relatedTarget !== clear) openPop(false);
+    });
+    pop.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      openPop(false);
+      clear.focus();
+    });
+    bar.append(
+      grip,
+      out,
+      inn,
+      separator(doc2),
+      tags.b,
+      clear,
+      separator(doc2),
+      mark2.b,
+      reset,
+      separator(doc2),
+      fold,
+      close
+    );
+    const body = doc2.createElement("div");
+    body.className = "float-body";
+    const size = barButton(doc2, "float-size", "resize", o.labels.size);
+    host.append(bar, body, size, pop);
+    let folded = !!o.folded;
+    const showFold = () => {
+      host.classList.toggle("folded", folded);
+      body.hidden = folded;
+      size.hidden = folded;
+      if (folded) pop.hidden = true;
+      const label = folded ? o.labels.unfold : o.labels.fold;
+      fold.title = label;
+      fold.setAttribute("aria-label", label);
+      fold.setAttribute("aria-expanded", String(!folded));
+      fold.replaceChildren(icon(doc2, folded ? "fold-down" : "fold-up"));
+    };
+    showFold();
+    const toggleFold = () => {
+      folded = !folded;
+      showFold();
+      o.onFold(folded);
+    };
+    fold.addEventListener("click", toggleFold);
+    let picking = 0;
+    const win = doc2.defaultView;
+    grip.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      win.clearTimeout(picking);
+      toggleFold();
+    });
+    dragging(grip, {
+      grab: o.onGrab,
+      drag: o.onDrag,
+      drop: o.onDrop,
+      click: () => {
+        win.clearTimeout(picking);
+        picking = win.setTimeout(o.onPick, CLICK_WAIT_MS);
+      },
+      moving: (on) => host.classList.toggle("moving", on)
+    });
+    dragging(size, {
+      grab: o.onSizeGrab,
+      drag: o.onSize,
+      drop: o.onSizeDrop,
+      moving: (on) => host.classList.toggle("sizing", on)
+    });
+    arrowKeys(grip, o.onKey);
+    arrowKeys(size, o.onSizeKey);
     return {
       /** The whole window, which the layer places. */
       host,
@@ -796,11 +1101,8 @@
       barHeight: () => bar.offsetHeight,
       /** Whether it's folded down to its bar. */
       folded: () => folded,
-      /** Shows marking as on or off (Esc in the view turns it off). */
-      setMarking(on) {
-        marking = !!on;
-        showMark();
-      }
+      /** Shows drawing as on or off (Esc in the view turns it off). */
+      setMarking: (on) => mark2.set(on)
     };
   }
 
@@ -19311,190 +19613,6 @@ void main() {
       return this;
     }
   };
-  var LineBasicMaterial = class extends Material {
-    static get type() {
-      return "LineBasicMaterial";
-    }
-    constructor(parameters) {
-      super();
-      this.isLineBasicMaterial = true;
-      this.color = new Color(16777215);
-      this.map = null;
-      this.linewidth = 1;
-      this.linecap = "round";
-      this.linejoin = "round";
-      this.fog = true;
-      this.setValues(parameters);
-    }
-    copy(source) {
-      super.copy(source);
-      this.color.copy(source.color);
-      this.map = source.map;
-      this.linewidth = source.linewidth;
-      this.linecap = source.linecap;
-      this.linejoin = source.linejoin;
-      this.fog = source.fog;
-      return this;
-    }
-  };
-  var _vStart = /* @__PURE__ */ new Vector3();
-  var _vEnd = /* @__PURE__ */ new Vector3();
-  var _inverseMatrix$1 = /* @__PURE__ */ new Matrix4();
-  var _ray$1 = /* @__PURE__ */ new Ray();
-  var _sphere$1 = /* @__PURE__ */ new Sphere();
-  var _intersectPointOnRay = /* @__PURE__ */ new Vector3();
-  var _intersectPointOnSegment = /* @__PURE__ */ new Vector3();
-  var Line = class extends Object3D {
-    constructor(geometry = new BufferGeometry(), material = new LineBasicMaterial()) {
-      super();
-      this.isLine = true;
-      this.type = "Line";
-      this.geometry = geometry;
-      this.material = material;
-      this.updateMorphTargets();
-    }
-    copy(source, recursive) {
-      super.copy(source, recursive);
-      this.material = Array.isArray(source.material) ? source.material.slice() : source.material;
-      this.geometry = source.geometry;
-      return this;
-    }
-    computeLineDistances() {
-      const geometry = this.geometry;
-      if (geometry.index === null) {
-        const positionAttribute = geometry.attributes.position;
-        const lineDistances = [0];
-        for (let i = 1, l = positionAttribute.count; i < l; i++) {
-          _vStart.fromBufferAttribute(positionAttribute, i - 1);
-          _vEnd.fromBufferAttribute(positionAttribute, i);
-          lineDistances[i] = lineDistances[i - 1];
-          lineDistances[i] += _vStart.distanceTo(_vEnd);
-        }
-        geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
-      } else {
-        console.warn("THREE.Line.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
-      }
-      return this;
-    }
-    raycast(raycaster, intersects) {
-      const geometry = this.geometry;
-      const matrixWorld = this.matrixWorld;
-      const threshold = raycaster.params.Line.threshold;
-      const drawRange = geometry.drawRange;
-      if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
-      _sphere$1.copy(geometry.boundingSphere);
-      _sphere$1.applyMatrix4(matrixWorld);
-      _sphere$1.radius += threshold;
-      if (raycaster.ray.intersectsSphere(_sphere$1) === false) return;
-      _inverseMatrix$1.copy(matrixWorld).invert();
-      _ray$1.copy(raycaster.ray).applyMatrix4(_inverseMatrix$1);
-      const localThreshold = threshold / ((this.scale.x + this.scale.y + this.scale.z) / 3);
-      const localThresholdSq = localThreshold * localThreshold;
-      const step = this.isLineSegments ? 2 : 1;
-      const index = geometry.index;
-      const attributes = geometry.attributes;
-      const positionAttribute = attributes.position;
-      if (index !== null) {
-        const start = Math.max(0, drawRange.start);
-        const end = Math.min(index.count, drawRange.start + drawRange.count);
-        for (let i = start, l = end - 1; i < l; i += step) {
-          const a = index.getX(i);
-          const b = index.getX(i + 1);
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
-          if (intersect2) {
-            intersects.push(intersect2);
-          }
-        }
-        if (this.isLineLoop) {
-          const a = index.getX(end - 1);
-          const b = index.getX(start);
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
-          if (intersect2) {
-            intersects.push(intersect2);
-          }
-        }
-      } else {
-        const start = Math.max(0, drawRange.start);
-        const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
-        for (let i = start, l = end - 1; i < l; i += step) {
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1);
-          if (intersect2) {
-            intersects.push(intersect2);
-          }
-        }
-        if (this.isLineLoop) {
-          const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start);
-          if (intersect2) {
-            intersects.push(intersect2);
-          }
-        }
-      }
-    }
-    updateMorphTargets() {
-      const geometry = this.geometry;
-      const morphAttributes = geometry.morphAttributes;
-      const keys = Object.keys(morphAttributes);
-      if (keys.length > 0) {
-        const morphAttribute = morphAttributes[keys[0]];
-        if (morphAttribute !== void 0) {
-          this.morphTargetInfluences = [];
-          this.morphTargetDictionary = {};
-          for (let m = 0, ml = morphAttribute.length; m < ml; m++) {
-            const name = morphAttribute[m].name || String(m);
-            this.morphTargetInfluences.push(0);
-            this.morphTargetDictionary[name] = m;
-          }
-        }
-      }
-    }
-  };
-  function checkIntersection(object, raycaster, ray, thresholdSq, a, b) {
-    const positionAttribute = object.geometry.attributes.position;
-    _vStart.fromBufferAttribute(positionAttribute, a);
-    _vEnd.fromBufferAttribute(positionAttribute, b);
-    const distSq = ray.distanceSqToSegment(_vStart, _vEnd, _intersectPointOnRay, _intersectPointOnSegment);
-    if (distSq > thresholdSq) return;
-    _intersectPointOnRay.applyMatrix4(object.matrixWorld);
-    const distance = raycaster.ray.origin.distanceTo(_intersectPointOnRay);
-    if (distance < raycaster.near || distance > raycaster.far) return;
-    return {
-      distance,
-      // What do we want? intersection point on the ray or on the segment??
-      // point: raycaster.ray.at( distance ),
-      point: _intersectPointOnSegment.clone().applyMatrix4(object.matrixWorld),
-      index: a,
-      face: null,
-      faceIndex: null,
-      barycoord: null,
-      object
-    };
-  }
-  var _start = /* @__PURE__ */ new Vector3();
-  var _end = /* @__PURE__ */ new Vector3();
-  var LineSegments = class extends Line {
-    constructor(geometry, material) {
-      super(geometry, material);
-      this.isLineSegments = true;
-      this.type = "LineSegments";
-    }
-    computeLineDistances() {
-      const geometry = this.geometry;
-      if (geometry.index === null) {
-        const positionAttribute = geometry.attributes.position;
-        const lineDistances = [];
-        for (let i = 0, l = positionAttribute.count; i < l; i += 2) {
-          _start.fromBufferAttribute(positionAttribute, i);
-          _end.fromBufferAttribute(positionAttribute, i + 1);
-          lineDistances[i] = i === 0 ? 0 : lineDistances[i - 1];
-          lineDistances[i + 1] = lineDistances[i] + _start.distanceTo(_end);
-        }
-        geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
-      } else {
-        console.warn("THREE.LineSegments.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
-      }
-      return this;
-    }
-  };
   var Curve = class {
     constructor() {
       this.type = "Curve";
@@ -22888,8 +23006,13 @@ void main() {
 
   // page-src/markArea.js
   var AREA_POINTS = 32;
-  var LOOP_MAX = 300;
-  var LOOP_GAP = 3;
+  var STROKES = 24;
+  var CLOSE_PX = 22;
+  var STROKE_MAX = 400;
+  var STROKE_GAP = 3;
+  var PEN_PX = 2.5;
+  var PEN_GAP = 2;
+  var PEN_MAX = 600;
   var GRID = 196;
   var SVG = "http://www.w3.org/2000/svg";
   function insidePolygon(p, poly) {
@@ -22916,26 +23039,62 @@ void main() {
     }
     return { points: out, step };
   }
+  var lengthOf = (pts) => pts.reduce(
+    (sum, p, i) => i ? sum + Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0,
+    0
+  );
+  function isLoop(pts) {
+    if (pts.length < 8) return false;
+    const [a, b] = [pts[0], pts.at(-1)];
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) > CLOSE_PX) return false;
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const wide = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    return wide >= 2 * CLOSE_PX && lengthOf(pts) >= 4 * CLOSE_PX;
+  }
+  function along(pts, gap = PEN_GAP, max = PEN_MAX) {
+    if (pts.length < 2) return pts.map((p) => [p[0], p[1]]);
+    const step = Math.max(gap, lengthOf(pts) / Math.max(1, max - 1));
+    const out = [[pts[0][0], pts[0][1]]];
+    let left = step;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1];
+      const [bx, by] = pts[i];
+      const d = Math.hypot(bx - ax, by - ay);
+      let t = left;
+      while (t <= d && out.length < max) {
+        out.push([ax + (bx - ax) * t / d, ay + (by - ay) * t / d]);
+        t += step;
+      }
+      left = t - d;
+    }
+    const last = pts.at(-1);
+    const end = out.at(-1);
+    if ((end[0] !== last[0] || end[1] !== last[1]) && out.length < max) out.push([last[0], last[1]]);
+    return out;
+  }
   function spread(list, n) {
     if (list.length <= n) return list.slice();
     return Array.from({ length: n }, (_, i) => list[Math.floor(i * list.length / n)]);
   }
-  function summarize(hits, view) {
+  function summarize(hits, view, drawn = "area") {
     const counts = /* @__PURE__ */ new Map();
     for (const h of hits) if (h.part) counts.set(h.part, (counts.get(h.part) ?? 0) + 1);
     const parts = [...counts].sort((a, b) => b[1] - a[1]).map(([p]) => p);
     const points = spread(hits, AREA_POINTS).map((h) => h.at.map((n) => Math.round(n * 10) / 10));
-    return { parts, points, view: { yaw: view.yaw, pitch: view.pitch } };
+    const out = { parts, points, view: { yaw: view.yaw, pitch: view.pitch } };
+    if (drawn === "lines" || drawn === "both") out.drawn = drawn;
+    return out;
   }
   function createMarker(o) {
     const { doc: doc2, body, canvas, camera } = o;
     const ray = new Raycaster();
     let on = false;
     let drawing = null;
-    let mark2 = null;
+    let strokes = [];
     const overlay = doc2.createElementNS(SVG, "svg");
     overlay.setAttribute("class", "mark-draw");
-    const line = doc2.createElementNS(SVG, "polygon");
+    const line = doc2.createElementNS(SVG, "polyline");
     overlay.append(line);
     const at = (e) => {
       const r2 = canvas.getBoundingClientRect();
@@ -22949,79 +23108,73 @@ void main() {
       if (normal.dot(ray.ray.direction) > 0) normal.negate();
       return { point: hit.point.clone(), normal, part: hit.object.userData.part ?? null };
     };
-    const clear = () => {
-      if (!mark2) return;
-      o.scene.remove(mark2);
-      mark2.traverse((c) => {
+    const drop = (group) => {
+      o.scene.remove(group);
+      group.traverse((c) => {
         c.geometry?.dispose();
         c.material?.dispose();
       });
-      mark2 = null;
     };
-    const show = (inner, edge, step, h) => {
-      clear();
-      mark2 = new Group();
+    const clear = () => {
+      for (const s of strokes) drop(s.group);
+      strokes = [];
+    };
+    const discs = (hits, px2, opacity, h) => {
       const fov2 = camera.fov * Math.PI / 180;
-      const all = [...inner, ...edge.filter(Boolean)];
-      const discs = new InstancedMesh(
+      const mesh = new InstancedMesh(
         new CircleGeometry(1, 14),
         new MeshBasicMaterial({
           color: o.color,
           transparent: true,
-          opacity: 0.55,
+          opacity,
           side: DoubleSide,
           depthWrite: false,
           polygonOffset: true,
           polygonOffsetFactor: -2,
           polygonOffsetUnits: -2
         }),
-        all.length
+        hits.length
       );
       const z = new Vector3(0, 0, 1);
-      const size = (s) => 2 * camera.position.distanceTo(s.point) * Math.tan(fov2 / 2) * step / h;
-      all.forEach((s, i) => {
-        const r2 = size(s) * 0.75;
+      hits.forEach((s, i) => {
+        const r2 = 2 * camera.position.distanceTo(s.point) * Math.tan(fov2 / 2) * px2 / h;
         const pos = s.point.clone().addScaledVector(s.normal, r2 * 0.08);
         const turn = new Quaternion().setFromUnitVectors(z, s.normal);
-        discs.setMatrixAt(i, new Matrix4().compose(pos, turn, new Vector3(r2, r2, r2)));
+        mesh.setMatrixAt(i, new Matrix4().compose(pos, turn, new Vector3(r2, r2, r2)));
       });
-      mark2.add(discs);
-      const seg = [];
-      for (let i = 0; i < edge.length; i++) {
-        const a = edge[i];
-        const b = edge[(i + 1) % edge.length];
-        if (!a || !b || a.point.distanceTo(b.point) > 2 * Math.max(size(a), size(b))) continue;
-        for (const s of [a, b])
-          seg.push(
-            ...s.point.clone().addScaledVector(s.normal, size(s) * 0.1).toArray()
-          );
-      }
-      if (seg.length) {
-        const g = new BufferGeometry();
-        g.setAttribute("position", new Float32BufferAttribute(seg, 3));
-        mark2.add(new LineSegments(g, new LineBasicMaterial({ color: o.color })));
-      }
-      o.scene.add(mark2);
+      return mesh;
+    };
+    const report = () => {
+      const loops = strokes.filter((s) => s.loop).length;
+      const drawn = loops === strokes.length ? "area" : loops ? "both" : "lines";
+      const hits = strokes.flatMap((s) => s.hits);
+      o.onMark(summarize(hits, o.view(), drawn));
     };
     const finish = () => {
-      const loop = drawing.points;
+      const pts = drawing.points;
       drawing = null;
       overlay.remove();
-      if (loop.length < 3) return;
+      if (pts.length < 2) return;
       const w = canvas.clientWidth || canvas.width;
       const h = canvas.clientHeight || canvas.height;
-      const { points: grid, step } = gridInside(loop);
-      const edge = loop.map((p) => hitAt(p, w, h));
-      const inner = grid.map((p) => hitAt(p, w, h)).filter(Boolean);
-      const hits = [...inner, ...edge.filter(Boolean)];
-      if (!hits.length) return;
-      show(inner, edge, step, h);
-      o.onMark(
-        summarize(
-          hits.map((s) => ({ at: s.point.toArray(), part: s.part })),
-          o.view()
-        )
-      );
+      const loop = isLoop(pts);
+      const pen = along(loop ? [...pts, pts[0]] : pts).map((p) => hitAt(p, w, h)).filter(Boolean);
+      let inner = [];
+      let step = 0;
+      if (loop) {
+        const grid = gridInside(pts);
+        step = grid.step;
+        inner = grid.points.map((p) => hitAt(p, w, h)).filter(Boolean);
+      }
+      if (!pen.length && !inner.length) return;
+      const group = new Group();
+      if (inner.length) group.add(discs(inner, step * 0.75, 0.4, h));
+      if (pen.length) group.add(discs(pen, PEN_PX, 0.95, h));
+      o.scene.add(group);
+      const hits = [...inner, ...pen].map((s) => ({ at: s.point.toArray(), part: s.part }));
+      strokes.push({ group, hits, loop });
+      while (strokes.length > STROKES) drop(strokes.shift().group);
+      report();
     };
     const down = (e) => {
       if (e.target !== canvas || e.button !== 0 || !(on || e.shiftKey)) return;
@@ -23029,7 +23182,7 @@ void main() {
       e.preventDefault();
       drawing = { id: e.pointerId, points: [at(e)] };
       canvas.setPointerCapture?.(e.pointerId);
-      line.setAttribute("points", "");
+      line.setAttribute("points", drawing.points[0].join(","));
       body.append(overlay);
     };
     const move = (e) => {
@@ -23037,7 +23190,7 @@ void main() {
       e.stopPropagation();
       const p = at(e);
       const last = drawing.points.at(-1);
-      if (drawing.points.length >= LOOP_MAX || Math.hypot(p[0] - last[0], p[1] - last[1]) < LOOP_GAP)
+      if (drawing.points.length >= STROKE_MAX || Math.hypot(p[0] - last[0], p[1] - last[1]) < STROKE_GAP)
         return;
       drawing.points.push(p);
       line.setAttribute("points", drawing.points.map((q) => q.join(",")).join(" "));
@@ -23341,6 +23494,10 @@ void main() {
     canvas.addEventListener("pointerdown", takeOver);
     canvas.addEventListener("wheel", takeOver, { passive: true });
     controls.addEventListener("end", () => o.onTurn(now()));
+    const zoom2 = (by) => {
+      const cam = now();
+      place({ ...cam, zoom: Math.min(3, Math.max(0.35, cam.zoom * by)) });
+    };
     canvas.addEventListener("keydown", (e) => {
       const cam = now();
       const step = {
@@ -23350,8 +23507,8 @@ void main() {
         ArrowDown: [0, -10]
       }[e.key];
       if (step) place({ ...cam, yaw: cam.yaw + step[0], pitch: cam.pitch + step[1] });
-      else if (e.key === "+" || e.key === "=") place({ ...cam, zoom: Math.min(3, cam.zoom * 1.2) });
-      else if (e.key === "-") place({ ...cam, zoom: Math.max(0.35, cam.zoom / 1.2) });
+      else if (e.key === "+" || e.key === "=") zoom2(1.2);
+      else if (e.key === "-") zoom2(1 / 1.2);
       else if (e.key === "0") place(start);
       else return;
       e.preventDefault();
@@ -23500,12 +23657,23 @@ void main() {
         picked = part ?? null;
         paint();
       },
-      /** Turns marking an area on or off. */
+      /** Zooms in (`by` more than 1) or out, from the window's buttons. */
+      zoomBy(by) {
+        if (!Number.isFinite(by) || by <= 0) return;
+        takeOver();
+        zoom2(by);
+        o.onTurn(now());
+      },
+      /** Shows or hides the parts' labels. */
+      showLabels(on) {
+        labels2.hidden = !on;
+      },
+      /** Turns drawing on the model on or off. */
       setMarking(on) {
         marker.setMode(on);
         hint.textContent = on ? o.markHint ?? o.hint : o.hint;
       },
-      /** Takes the area's mark off the model. */
+      /** Takes what was drawn off the model. */
       clearMark() {
         marker.clear();
       },
@@ -23542,6 +23710,8 @@ void main() {
     svg.after(layer);
     const views = /* @__PURE__ */ new Map();
     const folded = /* @__PURE__ */ new Set();
+    const solid = /* @__PURE__ */ new Map();
+    const untagged = /* @__PURE__ */ new Set();
     let theme = 0;
     let top = 1;
     const color = (name) => {
@@ -23556,11 +23726,17 @@ void main() {
       y: Math.round(Math.min(Math.max(0, boardH() - s.h), Math.max(0, y)))
     });
     const placeOf = (v) => v.place ?? { x: v.shape.x, y: v.shape.y };
+    const sizeOf = (v) => v.size ?? { w: v.shape.w, h: v.shape.h };
+    const fitSize = (at, w, h) => ({
+      w: Math.round(clamp(w, SCENE_MIN_W, Math.max(SCENE_MIN_W, WIDTH - at.x))),
+      h: Math.round(clamp(h, SCENE_MIN_H, SCENE_MAX_H))
+    });
     const put = (v) => {
       const k = scale();
       const at = placeOf(v);
-      const w = Math.max(1, Math.round(v.shape.w * k));
-      const h = Math.max(1, Math.round(v.shape.h * k));
+      const sz = sizeOf(v);
+      const w = Math.max(1, Math.round(sz.w * k));
+      const h = Math.max(1, Math.round(sz.h * k));
       v.win.host.style.transform = `translate(${Math.round(at.x * k)}px, ${Math.round(at.y * k)}px)`;
       v.win.host.style.width = `${w}px`;
       v.win.host.style.height = v.win.folded() ? "" : `${h}px`;
@@ -23579,34 +23755,72 @@ void main() {
     const raise = (v) => v.win.host.style.zIndex = String(top++);
     function open(s, key) {
       const t = o.labels();
-      const v = { key, shape: s, place: null, grabbed: null, timer: 0 };
+      const v = { key, shape: s, place: null, size: null, grabbed: null, timer: 0 };
+      const tell = () => {
+        const at = placeOf(v);
+        if (v.size) o.onMove(v.shape.id, at.x, at.y, v.size.w, v.size.h);
+        else o.onMove(v.shape.id, at.x, at.y);
+      };
+      const settle = () => {
+        doc2.defaultView.clearTimeout(v.timer);
+        v.timer = doc2.defaultView.setTimeout(tell, KEY_SETTLE_MS);
+      };
       v.win = createFloat(doc2, {
         title: s.label || t.untitled,
         labels: t,
         folded: folded.has(s.id),
+        opacity: solid.get(s.id),
+        tags: !untagged.has(s.id),
         onGrab: () => {
           raise(v);
           v.grabbed = placeOf(v);
         },
         onDrag: (dx, dy) => {
           const k = scale();
-          v.place = inside(v.shape, v.grabbed.x + dx / k, v.grabbed.y + dy / k);
+          v.place = inside(sizeOf(v), v.grabbed.x + dx / k, v.grabbed.y + dy / k);
           put(v);
         },
         onDrop: () => {
           v.grabbed = null;
-          const at = placeOf(v);
-          o.onMove(v.shape.id, at.x, at.y);
+          tell();
         },
         onKey: (dx, dy) => {
           const at = placeOf(v);
-          v.place = inside(v.shape, at.x + dx, at.y + dy);
+          v.place = inside(sizeOf(v), at.x + dx, at.y + dy);
           put(v);
-          doc2.defaultView.clearTimeout(v.timer);
-          v.timer = doc2.defaultView.setTimeout(() => {
-            const now = placeOf(v);
-            o.onMove(v.shape.id, now.x, now.y);
-          }, KEY_SETTLE_MS);
+          settle();
+        },
+        onSizeGrab: () => {
+          raise(v);
+          v.grabbed = sizeOf(v);
+        },
+        onSize: (dx, dy) => {
+          const k = scale();
+          v.size = fitSize(placeOf(v), v.grabbed.w + dx / k, v.grabbed.h + dy / k);
+          put(v);
+        },
+        onSizeDrop: () => {
+          v.grabbed = null;
+          tell();
+        },
+        onSizeKey: (dw, dh) => {
+          const sz = sizeOf(v);
+          v.size = fitSize(placeOf(v), sz.w + dw, sz.h + dh);
+          put(v);
+          settle();
+        },
+        onZoom: (by) => v.view.zoomBy(by),
+        onOpacity: (n) => solid.set(s.id, n),
+        onReset: () => {
+          v.view.clearMark();
+          v.view.highlight(null);
+          o.onReset(s.id);
+        },
+        onClose: () => o.onClose(s.id),
+        onTags: (shown) => {
+          if (shown) untagged.delete(s.id);
+          else untagged.add(s.id);
+          v.view.showLabels(shown);
         },
         onFold: (on) => {
           if (on) folded.add(s.id);
@@ -23634,6 +23848,7 @@ void main() {
         onMarkMode: (on) => v.win.setMarking(on)
       });
       if (v.win.folded()) v.view.pause(true);
+      if (untagged.has(s.id)) v.view.showLabels(false);
       return v;
     }
     function close(v) {
@@ -23641,7 +23856,7 @@ void main() {
       v.view.dispose();
       v.win.host.remove();
     }
-    const keyOf = (s) => `${theme}:${JSON.stringify([s.objects, s.camera, s.w, s.h, s.label ?? null])}`;
+    const keyOf = (s) => `${theme}:${JSON.stringify([s.objects, s.camera, s.label ?? null])}`;
     return {
       /** Shows windows for `scenes` (the scene3d shapes shown now) and drops the rest. */
       sync(scenes) {
@@ -23659,6 +23874,7 @@ void main() {
             views.set(s.id, v);
           } else {
             if (v.place && !v.grabbed && v.place.x === s.x && v.place.y === s.y) v.place = null;
+            if (v.size && !v.grabbed && v.size.w === s.w && v.size.h === s.h) v.size = null;
             v.shape = s;
           }
         }
@@ -23765,7 +23981,12 @@ void main() {
     svg.style.width = zoom === "fit" ? "100%" : `${WIDTH}px`;
     svg.style.minWidth = zoom === "fit" ? `${FIT_MIN}px` : "";
     svg.append(markers(doc, COLORS));
-    const shown = board.shapes.filter((s) => s.step <= board.step);
+    const closed = board.shapes.filter((s) => s.step <= board.step && s.closed).length;
+    $("reopen").hidden = closed === 0;
+    const count = doc.createElement("span");
+    count.textContent = closed ? L("scene-closed", { n: closed }) : "";
+    $("reopen").replaceChildren(icon(doc, "cube"), count);
+    const shown = board.shapes.filter((s) => s.step <= board.step && !s.closed);
     const fresh = board.step > drawnStep ? board.step : -1;
     const under = el(doc, "g", { class: "under" });
     const over = el(doc, "g", { class: "over" });
@@ -23795,7 +24016,7 @@ void main() {
     node?.classList.add("pointed");
     gl?.highlight(pointed?.shape ?? null, pointed?.part ?? null, !!pointed?.area);
     $("pointing").hidden = !pointed;
-    $("pointed").textContent = !pointed ? "" : "line" in pointed ? L("ask-line", { n: pointed.line }) : pointed.area ? `${L("ask-shape")}: ${L("ask-area")}${pointed.area.parts.length ? ` (${pointed.area.parts.join(", ")})` : ""}` : pointed.part ? `${L("ask-shape")}: ${pointed.part}` : L("ask-shape");
+    $("pointed").textContent = !pointed ? "" : "line" in pointed ? L("ask-line", { n: pointed.line }) : pointed.area ? `${L("ask-shape")}: ${L(pointed.area.drawn ? "ask-lines" : "ask-area")}${pointed.area.parts.length ? ` (${pointed.area.parts.join(", ")})` : ""}` : pointed.part ? `${L("ask-shape")}: ${pointed.part}` : L("ask-shape");
   }
   function pointPart(id, part) {
     const next = part ? { shape: id, part } : { shape: id };
@@ -23808,6 +24029,11 @@ void main() {
     pointed = { shape: id, area };
     mark();
     $("question").focus();
+  }
+  function unpointScene(id) {
+    if (pointed?.shape !== id) return;
+    pointed = null;
+    mark();
   }
   function point(e) {
     const shape = e.target.closest?.("[data-shape]");
@@ -23876,9 +24102,10 @@ void main() {
   }
   var suppressClick = false;
   var SCENE_BAR = 24;
-  function moveScene(id, x, y) {
+  function moveScene(id, x, y, w, h) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-    send({ type: "move", id, x: Math.round(x), y: Math.round(y) });
+    const size = Number.isFinite(w) && Number.isFinite(h) ? { w: Math.round(w), h: Math.round(h) } : {};
+    send({ type: "move", id, x: Math.round(x), y: Math.round(y), ...size });
   }
   function wire() {
     $("close").addEventListener("click", () => send({ type: "close" }));
@@ -23893,6 +24120,7 @@ void main() {
       if (suppressClick) return void (suppressClick = false);
       point(e);
     });
+    $("reopen").addEventListener("click", () => send({ type: "reopen" }));
     $("unpoint").addEventListener("click", () => {
       pointed = null;
       mark();
@@ -23924,12 +24152,25 @@ void main() {
       unfold: L("scene-unfold"),
       untitled: L("scene-untitled"),
       mark: L("scene-mark"),
-      marking: L("scene-marking")
+      marking: L("scene-marking"),
+      size: L("scene-size"),
+      zoomIn: L("scene-zoom-in"),
+      zoomOut: L("scene-zoom-out"),
+      clear: L("scene-clear"),
+      tags: L("scene-tags"),
+      opacity: L("scene-opacity"),
+      reset: L("scene-reset"),
+      close: L("scene-close")
     }),
     cameras,
     onPick: pointPart,
     onMove: moveScene,
-    onArea: pointArea
+    onArea: pointArea,
+    onReset: unpointScene,
+    onClose: (id) => {
+      unpointScene(id);
+      send({ type: "hide", id });
+    }
   }) : null;
   wire();
   followTheme(bridge?.theme);

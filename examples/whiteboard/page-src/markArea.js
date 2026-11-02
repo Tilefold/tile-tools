@@ -3,28 +3,26 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Whiteboard page — marking an area on a 3D model
+ * Whiteboard page — drawing on a 3D model
  *
- * With marking on (the Mark button on the window's bar), or Shift held, a
- * drag on a 3D view draws a loop instead of turning the model. When the
- * loop is let go, the page finds where it lands on the model: it casts a
- * ray through points along the loop and on a grid inside it, and each ray
- * that hits the model gives a point on its surface and the part there.
- * Those points become the mark, a tinted patch on the surface that stays
- * where it is as the model turns (the objects never move, only the
- * camera), and what the area covers goes to the page: the parts, up to
- * AREA_POINTS surface points and the view it was marked from. The tile
- * checks all of that again before the agent sees it.
+ * With drawing on (the pencil on the window's bar), or Shift held, a drag
+ * on a 3D view draws freehand instead of turning the model. When a stroke
+ * is let go, the page finds where it lands on the model: it casts a ray
+ * through points along it, and each ray that hits the model gives a point
+ * on its surface and the part there. A stroke stays on the surface as a
+ * line, which keeps its place as the model turns (the objects never move,
+ * only the camera). A stroke that ends where it began is a loop: it also
+ * marks the area inside it, found on a grid of rays, as a tinted patch.
+ * The user can draw several strokes (the oldest go after STROKES); after
+ * each, what they all cover goes to the page: the parts, up to AREA_POINTS
+ * surface points, the view it was drawn from, and whether it's lines, an
+ * area or both. The tile checks all of that again before the agent sees it.
  */
 import {
   CircleGeometry,
   DoubleSide,
   Group,
   InstancedMesh,
-  LineBasicMaterial,
-  LineSegments,
-  BufferGeometry,
-  Float32BufferAttribute,
   Matrix4,
   MeshBasicMaterial,
   Quaternion,
@@ -33,11 +31,20 @@ import {
   Vector3,
 } from "three";
 
-/** The most points of an area the page sends (the tile keeps no more). */
+/** The most points of a drawing the page sends (the tile keeps no more). */
 export const AREA_POINTS = 32;
-/** The most points a loop keeps, and how far apart they are at least, in pixels. */
-const LOOP_MAX = 300;
-const LOOP_GAP = 3;
+/** The most strokes kept on a model; drawing more takes the oldest away. */
+export const STROKES = 24;
+/** How close a stroke's end must come to its start to close a loop, in pixels. */
+export const CLOSE_PX = 22;
+/** The most points a stroke keeps as it's drawn, and how far apart they are at least, in pixels. */
+const STROKE_MAX = 400;
+const STROKE_GAP = 3;
+/** The pen's width on the model, as a radius in pixels, and how often a stroke is sampled. */
+const PEN_PX = 2.5;
+const PEN_GAP = 2;
+/** The most rays one stroke's line casts. */
+const PEN_MAX = 600;
 /** About how many grid points inside a loop are tried. */
 const GRID = 196;
 const SVG = "http://www.w3.org/2000/svg";
@@ -73,6 +80,53 @@ export function gridInside(poly, max = GRID) {
   return { points: out, step };
 }
 
+/** A stroke's length in pixels. */
+const lengthOf = (pts) =>
+  pts.reduce(
+    (sum, p, i) => (i ? sum + Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0),
+    0,
+  );
+
+/**
+ * Whether a stroke closes a loop: it ends within CLOSE_PX of where it
+ * began, after going far enough round to hold an area.
+ */
+export function isLoop(pts) {
+  if (pts.length < 8) return false;
+  const [a, b] = [pts[0], pts.at(-1)];
+  if (Math.hypot(a[0] - b[0], a[1] - b[1]) > CLOSE_PX) return false;
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const wide = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  return wide >= 2 * CLOSE_PX && lengthOf(pts) >= 4 * CLOSE_PX;
+}
+
+/**
+ * Points every `gap` pixels along a stroke, from its first point to its
+ * last, but never more than `max` (the gap grows instead).
+ */
+export function along(pts, gap = PEN_GAP, max = PEN_MAX) {
+  if (pts.length < 2) return pts.map((p) => [p[0], p[1]]);
+  const step = Math.max(gap, lengthOf(pts) / Math.max(1, max - 1));
+  const out = [[pts[0][0], pts[0][1]]];
+  let left = step;
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1];
+    const [bx, by] = pts[i];
+    const d = Math.hypot(bx - ax, by - ay);
+    let t = left;
+    while (t <= d && out.length < max) {
+      out.push([ax + ((bx - ax) * t) / d, ay + ((by - ay) * t) / d]);
+      t += step;
+    }
+    left = t - d;
+  }
+  const last = pts.at(-1);
+  const end = out.at(-1);
+  if ((end[0] !== last[0] || end[1] !== last[1]) && out.length < max) out.push([last[0], last[1]]);
+  return out;
+}
+
 /** At most `n` of `list`, spread evenly over it. */
 export function spread(list, n) {
   if (list.length <= n) return list.slice();
@@ -80,22 +134,25 @@ export function spread(list, n) {
 }
 
 /**
- * What an area covers, for the page to send: its parts (most covered
- * first), up to AREA_POINTS surface points rounded to a tenth, and the
- * view it was marked from.
+ * What a drawing covers, for the page to send: its parts (most covered
+ * first), up to AREA_POINTS surface points rounded to a tenth, the view it
+ * was drawn from, and `drawn` ("lines" or "both") when it isn't only an area.
  * @param {Array<{ at: number[], part: string | null }>} hits
  * @param {{ yaw: number, pitch: number }} view
+ * @param {"area" | "lines" | "both"} [drawn]
  */
-export function summarize(hits, view) {
+export function summarize(hits, view, drawn = "area") {
   const counts = new Map();
   for (const h of hits) if (h.part) counts.set(h.part, (counts.get(h.part) ?? 0) + 1);
   const parts = [...counts].sort((a, b) => b[1] - a[1]).map(([p]) => p);
   const points = spread(hits, AREA_POINTS).map((h) => h.at.map((n) => Math.round(n * 10) / 10));
-  return { parts, points, view: { yaw: view.yaw, pitch: view.pitch } };
+  const out = { parts, points, view: { yaw: view.yaw, pitch: view.pitch } };
+  if (drawn === "lines" || drawn === "both") out.drawn = drawn;
+  return out;
 }
 
 /**
- * Marking for one 3D view.
+ * Drawing for one 3D view.
  * @param {{ doc: Document, body: HTMLElement, canvas: HTMLCanvasElement,
  *   camera: import("three").PerspectiveCamera, scene: import("three").Scene,
  *   parts: import("three").Object3D[], color: string,
@@ -107,15 +164,15 @@ export function createMarker(o) {
   const { doc, body, canvas, camera } = o;
   const ray = new Raycaster();
   let on = false;
-  /** The loop being drawn: its pointer and its points in pixels. */
+  /** The stroke being drawn: its pointer and its points in pixels. */
   let drawing = null;
-  /** The mark shown on the model. */
-  let mark = null;
+  /** The strokes on the model, oldest first: each its group, its hits and whether it's a loop. */
+  let strokes = [];
 
-  // The loop as it's drawn, over the view.
+  // The stroke as it's drawn, over the view.
   const overlay = doc.createElementNS(SVG, "svg");
   overlay.setAttribute("class", "mark-draw");
-  const line = doc.createElementNS(SVG, "polygon");
+  const line = doc.createElementNS(SVG, "polyline");
   overlay.append(line);
 
   /** The pixel point of an event in the canvas. */
@@ -132,104 +189,103 @@ export function createMarker(o) {
     const normal = hit.face
       ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
       : new Vector3(0, 0, 1);
-    // Facing the camera, so the patch sits on the side the user sees.
+    // Facing the camera, so what's drawn sits on the side the user sees.
     if (normal.dot(ray.ray.direction) > 0) normal.negate();
     return { point: hit.point.clone(), normal, part: hit.object.userData.part ?? null };
   };
 
-  /** Takes the mark off the model. */
-  const clear = () => {
-    if (!mark) return;
-    o.scene.remove(mark);
-    mark.traverse((c) => {
+  /** Disposes one stroke's meshes. */
+  const drop = (group) => {
+    o.scene.remove(group);
+    group.traverse((c) => {
       c.geometry?.dispose();
       c.material?.dispose();
     });
-    mark = null;
   };
 
-  /** Puts a tinted patch on the model where `inner` hit, edged along the loop's `edge` hits. */
-  const show = (inner, edge, step, h) => {
-    clear();
-    mark = new Group();
+  /** Takes everything drawn off the model. */
+  const clear = () => {
+    for (const s of strokes) drop(s.group);
+    strokes = [];
+  };
+
+  /**
+   * Flat discs on the surface at `hits`, each `px` pixels across on screen
+   * where it was drawn, so they join up into a line or a patch.
+   */
+  const discs = (hits, px, opacity, h) => {
     const fov = (camera.fov * Math.PI) / 180;
-    const all = [...inner, ...edge.filter(Boolean)];
-    const discs = new InstancedMesh(
+    const mesh = new InstancedMesh(
       new CircleGeometry(1, 14),
       new MeshBasicMaterial({
         color: o.color,
         transparent: true,
-        opacity: 0.55,
+        opacity,
         side: DoubleSide,
         depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -2,
         polygonOffsetUnits: -2,
       }),
-      all.length,
+      hits.length,
     );
     const z = new Vector3(0, 0, 1);
-    /** The size of one grid step on the model at `s`, so the discs join up. */
-    const size = (s) => (2 * camera.position.distanceTo(s.point) * Math.tan(fov / 2) * step) / h;
-    all.forEach((s, i) => {
-      const r = size(s) * 0.75;
+    hits.forEach((s, i) => {
+      const r = (2 * camera.position.distanceTo(s.point) * Math.tan(fov / 2) * px) / h;
       const pos = s.point.clone().addScaledVector(s.normal, r * 0.08);
       const turn = new Quaternion().setFromUnitVectors(z, s.normal);
-      discs.setMatrixAt(i, new Matrix4().compose(pos, turn, new Vector3(r, r, r)));
+      mesh.setMatrixAt(i, new Matrix4().compose(pos, turn, new Vector3(r, r, r)));
     });
-    mark.add(discs);
-    // The loop's edge, where it runs along the model: not where it jumps from one surface to another.
-    const seg = [];
-    for (let i = 0; i < edge.length; i++) {
-      const a = edge[i];
-      const b = edge[(i + 1) % edge.length];
-      if (!a || !b || a.point.distanceTo(b.point) > 2 * Math.max(size(a), size(b))) continue;
-      for (const s of [a, b])
-        seg.push(
-          ...s.point
-            .clone()
-            .addScaledVector(s.normal, size(s) * 0.1)
-            .toArray(),
-        );
-    }
-    if (seg.length) {
-      const g = new BufferGeometry();
-      g.setAttribute("position", new Float32BufferAttribute(seg, 3));
-      mark.add(new LineSegments(g, new LineBasicMaterial({ color: o.color })));
-    }
-    o.scene.add(mark);
+    return mesh;
   };
 
-  /** The loop is let go: mark what it covers, if it covers any of the model. */
+  /** What all the strokes cover, for the page. */
+  const report = () => {
+    const loops = strokes.filter((s) => s.loop).length;
+    const drawn = loops === strokes.length ? "area" : loops ? "both" : "lines";
+    const hits = strokes.flatMap((s) => s.hits);
+    o.onMark(summarize(hits, o.view(), drawn));
+  };
+
+  /** The stroke is let go: draw it on the model where it lands, and say what's drawn. */
   const finish = () => {
-    const loop = drawing.points;
+    const pts = drawing.points;
     drawing = null;
     overlay.remove();
-    if (loop.length < 3) return;
+    if (pts.length < 2) return;
     const w = canvas.clientWidth || canvas.width;
     const h = canvas.clientHeight || canvas.height;
-    const { points: grid, step } = gridInside(loop);
-    const edge = loop.map((p) => hitAt(p, w, h));
-    const inner = grid.map((p) => hitAt(p, w, h)).filter(Boolean);
-    const hits = [...inner, ...edge.filter(Boolean)];
-    if (!hits.length) return;
-    show(inner, edge, step, h);
-    o.onMark(
-      summarize(
-        hits.map((s) => ({ at: s.point.toArray(), part: s.part })),
-        o.view(),
-      ),
-    );
+    const loop = isLoop(pts);
+    // A loop's line runs all the way round, back to where it began.
+    const pen = along(loop ? [...pts, pts[0]] : pts)
+      .map((p) => hitAt(p, w, h))
+      .filter(Boolean);
+    let inner = [];
+    let step = 0;
+    if (loop) {
+      const grid = gridInside(pts);
+      step = grid.step;
+      inner = grid.points.map((p) => hitAt(p, w, h)).filter(Boolean);
+    }
+    if (!pen.length && !inner.length) return;
+    const group = new Group();
+    if (inner.length) group.add(discs(inner, step * 0.75, 0.4, h));
+    if (pen.length) group.add(discs(pen, PEN_PX, 0.95, h));
+    o.scene.add(group);
+    const hits = [...inner, ...pen].map((s) => ({ at: s.point.toArray(), part: s.part }));
+    strokes.push({ group, hits, loop });
+    while (strokes.length > STROKES) drop(strokes.shift().group);
+    report();
   };
 
-  // Caught on the way down to the canvas, so the camera controls never see a marking drag.
+  // Caught on the way down to the canvas, so the camera controls never see a drawing drag.
   const down = (e) => {
     if (e.target !== canvas || e.button !== 0 || !(on || e.shiftKey)) return;
     e.stopPropagation();
     e.preventDefault();
     drawing = { id: e.pointerId, points: [at(e)] };
     canvas.setPointerCapture?.(e.pointerId);
-    line.setAttribute("points", "");
+    line.setAttribute("points", drawing.points[0].join(","));
     body.append(overlay);
   };
   const move = (e) => {
@@ -237,7 +293,10 @@ export function createMarker(o) {
     e.stopPropagation();
     const p = at(e);
     const last = drawing.points.at(-1);
-    if (drawing.points.length >= LOOP_MAX || Math.hypot(p[0] - last[0], p[1] - last[1]) < LOOP_GAP)
+    if (
+      drawing.points.length >= STROKE_MAX ||
+      Math.hypot(p[0] - last[0], p[1] - last[1]) < STROKE_GAP
+    )
       return;
     drawing.points.push(p);
     line.setAttribute("points", drawing.points.map((q) => q.join(",")).join(" "));
@@ -265,7 +324,7 @@ export function createMarker(o) {
   body.addEventListener("pointercancel", cancel, true);
   canvas.addEventListener("keydown", key);
 
-  /** Turns marking on or off. */
+  /** Turns drawing on or off. */
   function setMode(next) {
     on = !!next;
     canvas.classList.toggle("marking", on);

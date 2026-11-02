@@ -9,7 +9,8 @@
  * page, undocking it or quitting Tilefold loses nothing. The page only
  * draws: the tile sends it the board after every change, and the page
  * sends back what the user does (a step back or on, a line or a drawing
- * pointed at, a question, a 3D scene moved to another place).
+ * pointed at, a question, a 3D scene moved to another place, resized,
+ * closed or shown again).
  *
  * Five commands for the AI agent in one of the user's panes, through
  * Tilefold's tile_run: "Show content" (the code or text to explain),
@@ -23,7 +24,7 @@
  *
  * What happens is recorded in the tile's log as one-word actions
  * (tile.<id>.<action>): `opened`, `closed`, `shown`, `drew`, `erased`,
- * `cleared`, `asked`, `moved`, `pointed` and `unpointed`. Never the content, the
+ * `cleared`, `asked`, `moved`, `resized`, `hid`, `reopened`, `pointed` and `unpointed`. Never the content, the
  * drawings, the marks or what the user typed.
  *
  * Event handlers get half a second, so each one starts its work in the
@@ -31,7 +32,19 @@
  */
 import { areaWords } from "./area.js";
 import { askAgent } from "./askAgent.js";
-import { ask, describe, draw, emptyBoard, erase, goTo, isBoard, move, show } from "./board.js";
+import {
+  ask,
+  closeScene,
+  describe,
+  draw,
+  emptyBoard,
+  erase,
+  goTo,
+  isBoard,
+  move,
+  reopenScenes,
+  show,
+} from "./board.js";
 import { pointing } from "./point.js";
 import { pageLabels } from "./strings.js";
 
@@ -143,15 +156,32 @@ export function runWhiteboard(tf) {
     if (where) await tf.page.post({ do: "asked", via }).catch(() => {});
   }
 
-  /** The user moved a 3D scene on the page (they drop it, or move it with the keys). */
-  async function moved(m) {
+  /** Whether another change to a scene from the page fits in the window; a flood doesn't. */
+  function room() {
     const t = Date.now();
     moves = moves.filter((at) => t - at < MOVE_WINDOW_MS);
-    if (moves.length >= MOVES_PER_WINDOW) return;
+    if (moves.length >= MOVES_PER_WINDOW) return false;
     moves.push(t);
+    return true;
+  }
+
+  /** The user closed a 3D scene (`hide`), or showed the closed ones again (`reopen`). */
+  async function shown(m, apply, action) {
+    if (!room()) return;
+    const before = await current();
+    await set(apply(before, m));
+    if (board !== before) audit(action);
+  }
+
+  /** The user moved or resized a 3D scene on the page (they drop it, or use the keys). */
+  async function moved(m) {
+    if (!room()) return;
     const before = await current();
     await set(move(before, m));
-    if (board !== before) audit("moved");
+    if (board === before) return;
+    const was = before.shapes.find((s) => s.id === m.id);
+    const now = board.shapes.find((s) => s.id === m.id);
+    audit(was && now && (was.w !== now.w || was.h !== now.h) ? "resized" : "moved");
   }
 
   /** A message from the page. */
@@ -161,6 +191,8 @@ export function runWhiteboard(tf) {
     if (m.type === "step") return set(goTo(await current(), m.n));
     if (m.type === "ask") return asked(m);
     if (m.type === "move") return moved(m);
+    if (m.type === "hide") return shown(m, closeScene, "hid");
+    if (m.type === "reopen") return shown(m, reopenScenes, "reopened");
     if (m.type === "close") return close();
   }
 

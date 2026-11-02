@@ -15,9 +15,10 @@
  * them, for air or current. A click that isn't a drag points at the part
  * under it (the object's label) for the question box; the part under the
  * pointer glows a little first, with its label, to show what a click would
- * point at. A folded window's view is paused, so it costs nothing. With
- * marking on, or Shift held, a drag draws a loop that marks an area of the
- * model instead (markArea.js).
+ * point at. A folded window's view is paused, so it costs nothing. The
+ * window's buttons zoom it and hide or show its labels. With drawing on,
+ * or Shift held, a drag draws on the model instead: lines that stay on its
+ * surface, and loops that mark an area (markArea.js).
  *
  * Where WebGL isn't available the page draws its flat SVG version instead
  * (`webglAvailable`).
@@ -179,6 +180,12 @@ export function createView(doc, host, shape, o) {
   canvas.addEventListener("wheel", takeOver, { passive: true });
   controls.addEventListener("end", () => o.onTurn(now()));
 
+  /** Zooms by `by` (more than 1 is closer), as far as the camera may go. */
+  const zoom = (by) => {
+    const cam = now();
+    place({ ...cam, zoom: Math.min(3, Math.max(0.35, cam.zoom * by)) });
+  };
+
   // Keys: arrows turn, + and - zoom, 0 puts the agent's view back.
   canvas.addEventListener("keydown", (e) => {
     const cam = now();
@@ -189,8 +196,8 @@ export function createView(doc, host, shape, o) {
       ArrowDown: [0, -10],
     }[e.key];
     if (step) place({ ...cam, yaw: cam.yaw + step[0], pitch: cam.pitch + step[1] });
-    else if (e.key === "+" || e.key === "=") place({ ...cam, zoom: Math.min(3, cam.zoom * 1.2) });
-    else if (e.key === "-") place({ ...cam, zoom: Math.max(0.35, cam.zoom / 1.2) });
+    else if (e.key === "+" || e.key === "=") zoom(1.2);
+    else if (e.key === "-") zoom(1 / 1.2);
     else if (e.key === "0") place(start);
     else return;
     e.preventDefault();
@@ -356,12 +363,23 @@ export function createView(doc, host, shape, o) {
       picked = part ?? null;
       paint();
     },
-    /** Turns marking an area on or off. */
+    /** Zooms in (`by` more than 1) or out, from the window's buttons. */
+    zoomBy(by) {
+      if (!Number.isFinite(by) || by <= 0) return;
+      takeOver();
+      zoom(by);
+      o.onTurn(now());
+    },
+    /** Shows or hides the parts' labels. */
+    showLabels(on) {
+      labels.hidden = !on;
+    },
+    /** Turns drawing on the model on or off. */
     setMarking(on) {
       marker.setMode(on);
       hint.textContent = on ? (o.markHint ?? o.hint) : o.hint;
     },
-    /** Takes the area's mark off the model. */
+    /** Takes what was drawn off the model. */
     clearMark() {
       marker.clear();
     },

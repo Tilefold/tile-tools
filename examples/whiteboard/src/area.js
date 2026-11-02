@@ -3,10 +3,11 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Whiteboard — an area the user marked on a 3D scene
+ * Whiteboard — what the user drew on a 3D scene
  *
- * On the page, the user can draw a loop on a 3D model to mark an area of
- * it. The page sends what the loop covers: the parts it lands on (the
+ * On the page, the user can draw on a 3D model freehand: lines that stay
+ * on its surface, and loops that mark an area of it. The page sends what
+ * the drawing covers, and whether it's lines, an area or both: the parts it lands on (the
  * objects' labels), up to AREA_POINTS points on the model's surface in
  * the scene's own coordinates, and the angle the user saw it from. The
  * page is never trusted: `checkArea` keeps only labels the scene really
@@ -21,6 +22,8 @@
 /** The most points of an area kept, and the most parts named. */
 export const AREA_POINTS = 32;
 export const AREA_PARTS = 8;
+/** What a drawing can be, besides an area (the default, which isn't sent). */
+const DRAWN = ["lines", "both"];
 /** How far from the middle a point may be (objects sit within -100..100, arrows and labels a little out). */
 const ROOM = 400;
 
@@ -41,9 +44,11 @@ function point(p) {
  * middle and extent; or null when it isn't one.
  *
  * @param {{ kind: string, objects: Array<{ label?: string }> }} scene
- * @param {unknown} raw  { parts: string[], points: number[][], view?: { yaw, pitch } }
+ * @param {unknown} raw  { parts: string[], points: number[][], view?: { yaw, pitch },
+ *   drawn?: "lines" | "both" }
  * @returns {null | { parts: string[], points: number[][], center: number[],
- *   min: number[], max: number[], view?: { yaw: number, pitch: number } }}
+ *   min: number[], max: number[], view?: { yaw: number, pitch: number },
+ *   drawn?: "lines" | "both" }}
  */
 export function checkArea(scene, raw) {
   if (scene?.kind !== "scene3d" || !raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -65,6 +70,8 @@ export function checkArea(scene, raw) {
   const max = [0, 1, 2].map((k) => Math.max(...points.map((p) => p[k])));
   const center = [0, 1, 2].map((k) => r1(points.reduce((s, p) => s + p[k], 0) / points.length));
   const out = { parts, points, center, min, max };
+  // Lines drawn, or lines and an area; anything else is an area.
+  if (DRAWN.includes(raw.drawn)) out.drawn = raw.drawn;
   const v = raw.view;
   if (
     v &&
@@ -90,8 +97,9 @@ function viewWords(v) {
 }
 
 /**
- * Where an area is, in a line: the parts it's on, its middle and extent in
- * the scene's coordinates, and the view it was marked from.
+ * Where an area (or the lines drawn) is, in a line: what was drawn, the
+ * parts it's on, its middle and extent in the scene's coordinates, and the
+ * view it was drawn from.
  * @param {ReturnType<typeof checkArea>} area
  */
 export function areaWords(area) {
@@ -99,5 +107,6 @@ export function areaWords(area) {
   const [x, y, z] = area.center;
   const span = ["x", "y", "z"].map((k, i) => `${k} ${area.min[i]}..${area.max[i]}`).join(", ");
   const view = area.view ? `, ${viewWords(area.view)}` : "";
-  return `an area${on} around (${x}, ${y}, ${z}), spanning ${span}${view}`;
+  const what = { lines: "lines drawn", both: "lines and an area drawn" }[area.drawn] ?? "an area";
+  return `${what}${on} around (${x}, ${y}, ${z}), spanning ${span}${view}`;
 }

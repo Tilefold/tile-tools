@@ -4,7 +4,8 @@
   Author: Tilefold
   Released under the MIT License.
 
-  Whiteboard's page: the board's title and Close, the steps of the
+  Whiteboard's page: the board's title, a button that shows the 3D views
+  the user closed, and Close, the steps of the
   explanation (Back, which step, Next, and the fit or actual size of the
   board), what the agent says in the step shown, the board itself (an SVG
   the page draws, with real 3D scenes in windows over it that float.css
@@ -25,6 +26,7 @@
     <main class="app">
       <header>
         <h1 id="title"></h1>
+        <button id="reopen" class="quiet" type="button" hidden></button>
         <button id="zoom" class="quiet" type="button"></button>
         <button id="close" class="icon" type="button">×</button>
       </header>

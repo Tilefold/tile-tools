@@ -20,6 +20,10 @@
 export const WIDTH = 1000;
 /** The tallest a board may grow, in board units. */
 export const MAX_HEIGHT = 6000;
+/** The smallest and the tallest a 3D scene's window may be made on the page, in board units. */
+export const SCENE_MIN_W = 260;
+export const SCENE_MIN_H = 140;
+export const SCENE_MAX_H = 1200;
 /** The shortest board, so a few shapes have room. */
 export const MIN_HEIGHT = 560;
 /** Where the content's first line starts. */

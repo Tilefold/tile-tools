@@ -4,11 +4,30 @@
  * Released under the MIT License.
  *
  * Whiteboard's page: the windows real 3D scenes float in, over the board.
- * Each has a bar to move it by (with the scene's title), a pencil that
- * turns on marking an area, and a button that folds it down to the bar;
- * inside, the 3D view, its labels, a hint and the loop being drawn.
+ * Each has a frosted bar to move it by (with the scene's title), line
+ * icons in groups to zoom, hide the labels, see through the background,
+ * draw on the model, clear it, fold it down to the bar and close it, and
+ * a corner to resize it by; inside, the 3D view, its labels, a hint and
+ * the stroke being drawn.
  * Colors come from board.css's palette, so they follow light and dark.
  */
+
+/* The page's button that shows closed 3D views again: a cube and its words. */
+#reopen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#reopen[hidden] {
+  display: none;
+}
+
+#reopen .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+}
 
 /* The windows sit over the board, in the same scroller, so they scroll with it. */
 .scroller {
@@ -27,25 +46,61 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  /* Mostly see-through, so the board under it still reads; the bar stays solid. */
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 12px;
+  /* As solid as the user set it (--float-solid), so the board under it still reads; the bar stays solid. */
+  background: color-mix(in srgb, var(--bg) var(--float-solid, 55%), transparent);
+  /* A soft lift: a fine edge close in, a wide shade further out. */
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.04),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    0 14px 36px -8px rgba(0, 0, 0, 0.22);
   pointer-events: auto;
 }
 
-.gl-host.moving {
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.26);
-  opacity: 0.94;
+/* The window being worked in has a faint ring of the accent. */
+.gl-host:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 }
 
+/* See-through: only the bar and the model show, the window's edge only when the pointer's over it. */
+.gl-host.clear {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gl-host.clear:hover,
+.gl-host.clear:focus-within {
+  border-color: var(--line);
+  border-style: dashed;
+}
+
+.gl-host.moving,
+.gl-host.sizing {
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.05),
+    0 4px 10px rgba(0, 0, 0, 0.1),
+    0 24px 52px -10px rgba(0, 0, 0, 0.32);
+  opacity: 0.96;
+}
+
+/* The bar: frosted, a touch lighter at the top, solid enough to read on any board. */
 .float-bar {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   flex: none;
-  border-bottom: 1px solid var(--line);
-  background: var(--raised);
+  gap: 1px;
+  height: 32px;
+  padding: 0 4px 0 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--raised) 96%, white 4%),
+    color-mix(in srgb, var(--raised) 92%, transparent)
+  );
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
 }
 
 .gl-host.folded .float-bar {
@@ -54,19 +109,37 @@
 
 .float-bar button {
   border: 0;
-  border-radius: 0;
   background: transparent;
   color: var(--fg);
   font: inherit;
 }
 
+/* The icons: one line weight, the button's color. */
+.icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon .fill {
+  fill: currentColor;
+  stroke: none;
+}
+
 .float-grip {
   display: flex;
   flex: 1;
+  align-self: stretch;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 3px 8px;
+  padding: 0 8px 0 2px;
+  border-radius: 0;
   cursor: grab;
   touch-action: none;
   text-align: start;
@@ -76,50 +149,213 @@
   cursor: grabbing;
 }
 
-/* Six dots, the usual sign of something to drag. */
-.float-dots {
+.float-grip .icon-grip {
   flex: none;
-  width: 8px;
-  height: 12px;
-  background-image: radial-gradient(circle, var(--muted) 1.2px, transparent 1.4px);
-  background-size: 4px 4px;
+  width: 12px;
+  height: 14px;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.float-grip .icon-cube {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
 }
 
 .float-title {
   overflow: hidden;
   font-size: 12.5px;
   font-weight: 600;
+  letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.float-mark {
+.float-bar button:not(.float-grip) {
+  display: grid;
   flex: none;
-  width: 28px;
-  font-size: 14px;
-  line-height: 1;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
 }
 
-/* Marking is on: the pencil looks pressed. */
-.float-bar .float-mark.on {
+.float-bar button:not(.float-grip):hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.float-bar button:not(.float-grip):active {
+  transform: translateY(0.5px);
+}
+
+/* A button that's on (drawing, labels shown, the slider open): tinted with the accent. */
+.float-bar button.on {
   background: var(--soft);
   color: var(--accent);
 }
 
-.float-fold {
-  flex: none;
-  width: 28px;
-  font-size: 15px;
-  line-height: 1;
+.float-bar button.on:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
 }
 
-.float-bar button:hover {
-  background: var(--hover);
+/* Close turns red, as a window's close does. */
+.float-bar .float-close:hover {
+  background: color-mix(in srgb, var(--ink-red) 16%, transparent);
+  color: var(--ink-red);
+}
+
+.float-sep {
+  flex: none;
+  width: 1px;
+  height: 14px;
+  margin: 0 3px;
+  background: var(--line);
 }
 
 .float-bar button:focus-visible {
   outline: 2px solid var(--tf-focus-ring, var(--accent));
   outline-offset: -2px;
+}
+
+/* The corner that resizes the window. */
+.float-size {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 0 10px 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: nwse-resize;
+  opacity: 0.55;
+  touch-action: none;
+  transition: opacity 0.12s ease;
+}
+
+.float-size .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.gl-host:hover .float-size,
+.float-size:focus-visible,
+.gl-host.sizing .float-size {
+  opacity: 1;
+}
+
+.float-size[hidden] {
+  display: none;
+}
+
+.float-size:focus-visible {
+  outline: 2px solid var(--tf-focus-ring, var(--accent));
+  outline-offset: -2px;
+}
+
+/* The slider for how solid the background is, under its button. */
+.float-opacity {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 10px 8px 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--raised) 94%, transparent);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    0 12px 28px -6px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.float-opacity[hidden] {
+  display: none;
+}
+
+/* The slider: a rounded track, filled from the bottom, with a round thumb. Up is more solid. */
+.scrub {
+  display: flex;
+  justify-content: center;
+  width: 22px;
+  height: 104px;
+  padding: 6px 0;
+  cursor: ns-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.scrub-track {
+  position: relative;
+  width: 6px;
+  height: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--muted) 28%, transparent);
+}
+
+.scrub-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.scrub-thumb {
+  position: absolute;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, 50%);
+  transition: transform 0.1s ease;
+}
+
+.scrub:focus-visible .scrub-thumb,
+.scrub.scrubbing .scrub-thumb,
+.gl-host.scrubbing .scrub-thumb {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 1px 4px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, 50%) scale(1.1);
+}
+
+/* Scrubbing from the button: it shows the way to drag. */
+.float-bar .float-clear {
+  cursor: ns-resize;
+}
+
+/* Focused, the card's edge takes the accent. */
+.float-opacity:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.float-opacity output {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
 }
 
 .float-body {
@@ -143,12 +379,12 @@ canvas.gl.over-part {
   cursor: pointer;
 }
 
-/* Marking an area: a drag draws a loop. */
+/* Drawing on the model: a drag draws. */
 canvas.gl.marking {
   cursor: crosshair;
 }
 
-/* The loop while it's drawn. */
+/* The stroke while it's drawn. */
 .mark-draw {
   position: absolute;
   inset: 0;
@@ -157,17 +393,22 @@ canvas.gl.marking {
   pointer-events: none;
 }
 
-.mark-draw polygon {
-  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+.mark-draw polyline {
+  fill: none;
   stroke: var(--accent);
-  stroke-width: 2;
-  stroke-dasharray: 5 4;
+  stroke-width: 5;
+  stroke-linecap: round;
   stroke-linejoin: round;
+  opacity: 0.85;
 }
 
 canvas.gl:focus-visible {
   outline: 2px solid var(--tf-focus-ring, var(--accent));
   outline-offset: -2px;
+}
+
+.gl-labels[hidden] {
+  display: none;
 }
 
 .gl-labels {
@@ -198,10 +439,19 @@ canvas.gl:focus-visible {
 
 .gl-hint {
   position: absolute;
-  right: 10px;
-  bottom: 8px;
+  /* Bottom left, clear of the corner that resizes the window. */
+  inset-inline-start: 8px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  /* Never as far as the corner: a long hint ends in an ellipsis. */
+  max-width: calc(100% - 40px);
+  overflow: hidden;
   color: var(--muted);
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   pointer-events: none;
 }
 

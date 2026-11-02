@@ -41,7 +41,17 @@ export const PAGE_KEYS = [
   "scene-untitled",
   "scene-mark",
   "scene-marking",
+  "scene-size",
+  "scene-zoom-in",
+  "scene-zoom-out",
+  "scene-clear",
+  "scene-opacity",
+  "scene-reset",
+  "scene-close",
+  "scene-closed",
+  "scene-tags",
   "ask-area",
+  "ask-lines",
 ];
 
 /** What the page fills in itself, passed so the message keeps a mark for it. */

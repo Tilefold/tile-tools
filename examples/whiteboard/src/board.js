@@ -19,7 +19,10 @@
  *   a part of a 3D scene, or an area marked on it), and or a question
  *   typed into the page, with a number that grows with each.
  * - A 3D scene the user moved on the page (by its bar) has their `x` and
- *   `y`, and `moved: true`, which keeps it there when the agent redraws it.
+ *   `y`, and `moved: true`, which keeps it there when the agent redraws it;
+ *   one they resized (by its corner) has their `w` and `h`, and `sized: true`;
+ *   one they closed (by its ×) stays on the board with `closed: true`, not
+ *   shown, until they show it again or the agent draws it again.
  *
  * Every operation returns a new board (the old one is left as it was) or
  * throws an Error that says why, for the agent. Pure: no `tf`, no DOM.
@@ -29,6 +32,9 @@ import {
   CONTENT_TOP,
   LINE_H,
   MAX_HEIGHT,
+  SCENE_MAX_H,
+  SCENE_MIN_H,
+  SCENE_MIN_W,
   TEXT_X,
   WIDTH,
   boardHeight,
@@ -194,12 +200,16 @@ export function draw(board, input) {
     const id = s.id ?? `s${nextId++}`;
     const at = shapes.findIndex((o) => o.id === id);
     const old = at >= 0 ? shapes[at] : null;
-    // A 3D scene the user moved stays where they put it when the agent draws it again.
+    // A 3D scene the user resized keeps their size, and one they moved their place,
+    // when the agent draws it again.
+    const both = old?.kind === "scene3d" && s.kind === "scene3d";
+    const sized = both && old.sized ? { w: old.w, h: old.h, sized: true } : {};
+    const w = sized.w ?? s.w;
     const placed =
-      old?.moved && old.kind === "scene3d" && s.kind === "scene3d"
-        ? { x: Math.min(old.x, Math.max(0, WIDTH - s.w)), y: old.y, moved: true }
+      both && old.moved
+        ? { x: Math.min(old.x, Math.max(0, WIDTH - w)), y: old.y, moved: true }
         : {};
-    const shape = { ...s, ...placed, id, step: old ? old.step : step };
+    const shape = { ...s, ...sized, ...placed, id, step: old ? old.step : step };
     if (at >= 0) shapes[at] = shape;
     else shapes.push(shape);
     ids.push(id);
@@ -273,20 +283,57 @@ export function ask(board, input) {
 
 /**
  * The user moved a 3D scene (by the bar along its top) to `x`, `y`, in
- * board units. It keeps its size and stays inside the board; anything else
- * (another kind of shape, an id that isn't there, a number that isn't one)
- * leaves the board as it was. Arrows that point at the scene follow it.
+ * board units, and maybe resized it (by its corner) to `w`, `h`. A size is
+ * kept between SCENE_MIN_W × SCENE_MIN_H and the board's width × SCENE_MAX_H,
+ * and the scene stays inside the board; anything else (another kind of
+ * shape, an id that isn't there, a number that isn't one, a size without
+ * both sides) leaves the board as it was. Arrows that point at the scene
+ * follow it.
  */
 export function move(board, input) {
   const id = typeof input?.id === "string" ? input.id : null;
   const s = id ? finder(board)(id) : null;
   if (!s || s.kind !== "scene3d") return board;
   if (!Number.isFinite(input.x) || !Number.isFinite(input.y)) return board;
-  const x = Math.round(clamp(input.x, 0, Math.max(0, WIDTH - s.w)));
-  const y = Math.round(clamp(input.y, 0, Math.max(0, MAX_HEIGHT - s.h)));
-  if (x === s.x && y === s.y) return board;
-  const moved = { ...s, x, y, moved: true };
-  return done({ ...board, shapes: board.shapes.map((t) => (t === s ? moved : t)) });
+  const sizing = "w" in input || "h" in input;
+  if (sizing && !(Number.isFinite(input.w) && Number.isFinite(input.h))) return board;
+  const w = sizing ? Math.round(clamp(input.w, SCENE_MIN_W, WIDTH)) : s.w;
+  const h = sizing ? Math.round(clamp(input.h, SCENE_MIN_H, SCENE_MAX_H)) : s.h;
+  const x = Math.round(clamp(input.x, 0, Math.max(0, WIDTH - w)));
+  const y = Math.round(clamp(input.y, 0, Math.max(0, MAX_HEIGHT - h)));
+  if (x === s.x && y === s.y && w === s.w && h === s.h) return board;
+  const next = { ...s, x, y, w, h };
+  if (x !== s.x || y !== s.y) next.moved = true;
+  if (w !== s.w || h !== s.h) next.sized = true;
+  return done({ ...board, shapes: board.shapes.map((t) => (t === s ? next : t)) });
+}
+
+/**
+ * The user closed 3D scene `id` (by the × on its window). It isn't erased:
+ * it stays on the board with `closed: true`, and the page doesn't show it.
+ * Anything else leaves the board as it was.
+ */
+export function closeScene(board, input) {
+  const id = typeof input?.id === "string" ? input.id : null;
+  const s = id ? finder(board)(id) : null;
+  if (!s || s.kind !== "scene3d" || s.closed) return board;
+  return done({
+    ...board,
+    shapes: board.shapes.map((t) => (t === s ? { ...s, closed: true } : t)),
+  });
+}
+
+/** The user showed the 3D scenes they closed again: every one of them comes back. */
+export function reopenScenes(board) {
+  if (!board.shapes.some((s) => s.closed)) return board;
+  return done({
+    ...board,
+    shapes: board.shapes.map((s) => {
+      if (!s.closed) return s;
+      const { closed, ...open } = s;
+      return open;
+    }),
+  });
 }
 
 /** What every agent should know about drawing here, in a few lines. */
@@ -294,9 +341,9 @@ const HOW = [
   "The board is 1000 units wide; y grows downwards. Content lines are laid out at fixed places (see content).",
   "Draw with { shapes: [...], say? }: say makes a new step the user steps through; ids let you replace a shape later.",
   "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,camera?:{yaw,pitch},objects:[...]}.",
-  "3D objects (y up, -100..100; the user turns, zooms, clicks parts and marks areas, which asked.area gives as parts, surface points, center, min, max and the view they marked it from): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
+  "3D objects (y up, -100..100; the user turns, zooms, clicks parts and draws on the model, lines or loops that mark an area, which asked.area gives as parts, surface points, center, min, max, the view they drew from and drawn: lines|both when it isn't only an area): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
   "Points: [x,y], { line, col? } (a content line by its number) or { shape: id, side? }. Colors: accent, red, orange, yellow, green, teal, blue, purple, gray.",
-  "Keep drawings right of the content column (x ≥ content.box.w + 20) so they don't cover it, or below it. A scene3d floats over the board in a window the user can move by its bar (and fold away): moved: true means its x,y are where the user put it, and drawing it again keeps them.",
+  "Keep drawings right of the content column (x ≥ content.box.w + 20) so they don't cover it, or below it. A scene3d floats over the board in a window the user can move by its bar, resize by its corner, zoom, see through, fold away and close: moved: true means its x,y are where the user put it, sized: true its w,h, and drawing it again keeps them; closed: true means the user closed it, and drawing it again shows it.",
 ];
 
 /**

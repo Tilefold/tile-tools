@@ -15,13 +15,17 @@
  * `onMove` gives its new place in board units (inside the board, the
  * scene's size kept), for the tile to keep, and the window stays there
  * until the board comes back with it. The arrow keys on the bar move it in
- * steps, and tell the tile once the keys stop. A window the user touches
- * comes to the front; one they fold shows just its bar, and its view
- * pauses. A view is made again only when what it shows (its objects,
- * camera, size or title) or the theme changed, never when it only moved;
+ * steps, and tell the tile once the keys stop. Its corner resizes it the
+ * same way: only the window while dragged, then `onMove` with its new size
+ * too. A window the user touches comes to the front; one they fold shows
+ * just its bar, and its view pauses. Its zoom buttons zoom the view; how
+ * see-through it is and whether its labels show are kept for the scene
+ * while the page is open. Its clear button takes what's drawn and picked
+ * off the model (`onReset`), and its × closes it (`onClose`, for the tile). A view is made again only when what it shows (its objects, camera
+ * or title) or the theme changed, never when it only moved or resized;
  * turning one keeps its camera in `cameras`.
  */
-import { WIDTH } from "../src/layout.js";
+import { SCENE_MAX_H, SCENE_MIN_H, SCENE_MIN_W, WIDTH, clamp } from "../src/layout.js";
 import { createFloat } from "./floatView.js";
 import { createView } from "./three3d.js";
 
@@ -31,11 +35,14 @@ const KEY_SETTLE_MS = 400;
 /**
  * @param {{ doc: Document, svg: SVGSVGElement,
  *   labels: () => { hint: string, move: string, fold: string, unfold: string, untitled: string,
- *     mark: string, marking: string },
+ *     mark: string, marking: string, size: string, zoomIn: string, zoomOut: string,
+ *     clear: string, opacity: string, tags: string, reset: string, close: string },
  *   cameras: Map<string, any>,
  *   onPick: (id: string, part: string | null) => void,
- *   onMove: (id: string, x: number, y: number) => void,
+ *   onMove: (id: string, x: number, y: number, w?: number, h?: number) => void,
  *   onArea: (id: string, area: object) => void,
+ *   onReset: (id: string) => void,
+ *   onClose: (id: string) => void,
  *   makeView?: typeof createView }} o
  *   `makeView` stands in for the WebGL view in tests.
  */
@@ -45,10 +52,12 @@ export function createGlLayer(o) {
   const layer = doc.createElement("div");
   layer.className = "gl-layer";
   svg.after(layer);
-  /** Each scene's window: its key, the window, its view, its shape, and where the user put it. */
+  /** Each scene's window: its key, the window, its view, its shape, and where and how big the user made it. */
   const views = new Map();
-  /** The scenes the user folded, by id; kept while the page is open. */
+  /** The scenes the user folded, how solid they made each background, and those they hid the labels of, by id; kept while the page is open. */
   const folded = new Set();
+  const solid = new Map();
+  const untagged = new Set();
   let theme = 0;
   /** The next window brought to the front gets this. */
   let top = 1;
@@ -65,7 +74,7 @@ export function createGlLayer(o) {
   /** The board's height in units, from what the page draws. */
   const boardH = () => svg.viewBox?.baseVal?.height || Number.POSITIVE_INFINITY;
 
-  /** `x`, `y` kept so the whole of `s` stays on the board. */
+  /** `x`, `y` kept so the whole of a window sized `s` stays on the board. */
   const inside = (s, x, y) => ({
     x: Math.round(Math.min(Math.max(0, WIDTH - s.w), Math.max(0, x))),
     y: Math.round(Math.min(Math.max(0, boardH() - s.h), Math.max(0, y))),
@@ -73,13 +82,24 @@ export function createGlLayer(o) {
 
   /** Where a window is now: where the user put it, else where its scene is. */
   const placeOf = (v) => v.place ?? { x: v.shape.x, y: v.shape.y };
+  /** How big a window is now: as the user is making it, else as its scene is. */
+  const sizeOf = (v) => v.size ?? { w: v.shape.w, h: v.shape.h };
+  /**
+   * A size kept within what a window may be, and inside the board's width
+   * from `at`; it may grow downwards, and the board grows with it.
+   */
+  const fitSize = (at, w, h) => ({
+    w: Math.round(clamp(w, SCENE_MIN_W, Math.max(SCENE_MIN_W, WIDTH - at.x))),
+    h: Math.round(clamp(h, SCENE_MIN_H, SCENE_MAX_H)),
+  });
 
   /** Moves and sizes one window over the board. */
   const put = (v) => {
     const k = scale();
     const at = placeOf(v);
-    const w = Math.max(1, Math.round(v.shape.w * k));
-    const h = Math.max(1, Math.round(v.shape.h * k));
+    const sz = sizeOf(v);
+    const w = Math.max(1, Math.round(sz.w * k));
+    const h = Math.max(1, Math.round(sz.h * k));
     v.win.host.style.transform = `translate(${Math.round(at.x * k)}px, ${Math.round(at.y * k)}px)`;
     v.win.host.style.width = `${w}px`;
     v.win.host.style.height = v.win.folded() ? "" : `${h}px`;
@@ -105,34 +125,74 @@ export function createGlLayer(o) {
   /** Makes the window and the view for scene `s`. */
   function open(s, key) {
     const t = o.labels();
-    const v = { key, shape: s, place: null, grabbed: null, timer: 0 };
+    const v = { key, shape: s, place: null, size: null, grabbed: null, timer: 0 };
+    /** Tells the tile where the window is, and its size when the user changed it. */
+    const tell = () => {
+      const at = placeOf(v);
+      if (v.size) o.onMove(v.shape.id, at.x, at.y, v.size.w, v.size.h);
+      else o.onMove(v.shape.id, at.x, at.y);
+    };
+    /** Tells the tile once the keys stop. */
+    const settle = () => {
+      doc.defaultView.clearTimeout(v.timer);
+      v.timer = doc.defaultView.setTimeout(tell, KEY_SETTLE_MS);
+    };
     v.win = createFloat(doc, {
       title: s.label || t.untitled,
       labels: t,
       folded: folded.has(s.id),
+      opacity: solid.get(s.id),
+      tags: !untagged.has(s.id),
       onGrab: () => {
         raise(v);
         v.grabbed = placeOf(v);
       },
       onDrag: (dx, dy) => {
         const k = scale();
-        v.place = inside(v.shape, v.grabbed.x + dx / k, v.grabbed.y + dy / k);
+        v.place = inside(sizeOf(v), v.grabbed.x + dx / k, v.grabbed.y + dy / k);
         put(v);
       },
       onDrop: () => {
         v.grabbed = null;
-        const at = placeOf(v);
-        o.onMove(v.shape.id, at.x, at.y);
+        tell();
       },
       onKey: (dx, dy) => {
         const at = placeOf(v);
-        v.place = inside(v.shape, at.x + dx, at.y + dy);
+        v.place = inside(sizeOf(v), at.x + dx, at.y + dy);
         put(v);
-        doc.defaultView.clearTimeout(v.timer);
-        v.timer = doc.defaultView.setTimeout(() => {
-          const now = placeOf(v);
-          o.onMove(v.shape.id, now.x, now.y);
-        }, KEY_SETTLE_MS);
+        settle();
+      },
+      onSizeGrab: () => {
+        raise(v);
+        v.grabbed = sizeOf(v);
+      },
+      onSize: (dx, dy) => {
+        const k = scale();
+        v.size = fitSize(placeOf(v), v.grabbed.w + dx / k, v.grabbed.h + dy / k);
+        put(v);
+      },
+      onSizeDrop: () => {
+        v.grabbed = null;
+        tell();
+      },
+      onSizeKey: (dw, dh) => {
+        const sz = sizeOf(v);
+        v.size = fitSize(placeOf(v), sz.w + dw, sz.h + dh);
+        put(v);
+        settle();
+      },
+      onZoom: (by) => v.view.zoomBy(by),
+      onOpacity: (n) => solid.set(s.id, n),
+      onReset: () => {
+        v.view.clearMark();
+        v.view.highlight(null);
+        o.onReset(s.id);
+      },
+      onClose: () => o.onClose(s.id),
+      onTags: (shown) => {
+        if (shown) untagged.delete(s.id);
+        else untagged.add(s.id);
+        v.view.showLabels(shown);
       },
       onFold: (on) => {
         if (on) folded.add(s.id);
@@ -160,6 +220,7 @@ export function createGlLayer(o) {
       onMarkMode: (on) => v.win.setMarking(on),
     });
     if (v.win.folded()) v.view.pause(true);
+    if (untagged.has(s.id)) v.view.showLabels(false);
     return v;
   }
 
@@ -170,9 +231,8 @@ export function createGlLayer(o) {
     v.win.host.remove();
   }
 
-  /** What a view shows: a move alone doesn't make it again. */
-  const keyOf = (s) =>
-    `${theme}:${JSON.stringify([s.objects, s.camera, s.w, s.h, s.label ?? null])}`;
+  /** What a view shows: a move or a resize alone doesn't make it again. */
+  const keyOf = (s) => `${theme}:${JSON.stringify([s.objects, s.camera, s.label ?? null])}`;
 
   return {
     /** Shows windows for `scenes` (the scene3d shapes shown now) and drops the rest. */
@@ -190,8 +250,9 @@ export function createGlLayer(o) {
           v = open(s, key);
           views.set(s.id, v);
         } else {
-          // The board caught up with where the user put it (or the agent moved it).
+          // The board caught up with where the user put it and how big (or the agent changed them).
           if (v.place && !v.grabbed && v.place.x === s.x && v.place.y === s.y) v.place = null;
+          if (v.size && !v.grabbed && v.size.w === s.w && v.size.h === s.h) v.size = null;
           v.shape = s;
         }
       }

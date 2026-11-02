@@ -23,6 +23,7 @@
 // src/area.js
 var AREA_POINTS = 32;
 var AREA_PARTS = 8;
+var DRAWN = ["lines", "both"];
 var ROOM = 400;
 var r1 = (n) => Math.round(n * 10) / 10;
 function point(p) {
@@ -49,6 +50,7 @@ function checkArea(scene, raw) {
   const max = [0, 1, 2].map((k) => Math.max(...points.map((p) => p[k])));
   const center = [0, 1, 2].map((k) => r1(points.reduce((s, p) => s + p[k], 0) / points.length));
   const out = { parts, points, center, min, max };
+  if (DRAWN.includes(raw.drawn)) out.drawn = raw.drawn;
   const v = raw.view;
   if (v && typeof v === "object" && Number.isFinite(v.yaw) && Number.isFinite(v.pitch) && Math.abs(v.yaw) <= 720 && Math.abs(v.pitch) <= 90) {
     out.view = { yaw: Math.round(v.yaw), pitch: Math.round(v.pitch) };
@@ -65,7 +67,8 @@ function areaWords(area) {
   const [x, y, z] = area.center;
   const span = ["x", "y", "z"].map((k, i) => `${k} ${area.min[i]}..${area.max[i]}`).join(", ");
   const view = area.view ? `, ${viewWords(area.view)}` : "";
-  return `an area${on} around (${x}, ${y}, ${z}), spanning ${span}${view}`;
+  const what = { lines: "lines drawn", both: "lines and an area drawn" }[area.drawn] ?? "an area";
+  return `${what}${on} around (${x}, ${y}, ${z}), spanning ${span}${view}`;
 }
 
 // src/askAgent.js
@@ -105,6 +108,9 @@ async function askAgent(tf, board) {
 // src/layout.js
 var WIDTH = 1e3;
 var MAX_HEIGHT = 6e3;
+var SCENE_MIN_W = 260;
+var SCENE_MIN_H = 140;
+var SCENE_MAX_H = 1200;
 var MIN_HEIGHT = 560;
 var CONTENT_TOP = 20;
 var LINE_H = 22;
@@ -683,8 +689,11 @@ function draw(board, input) {
     const id = s.id ?? `s${nextId++}`;
     const at = shapes.findIndex((o) => o.id === id);
     const old = at >= 0 ? shapes[at] : null;
-    const placed = old?.moved && old.kind === "scene3d" && s.kind === "scene3d" ? { x: Math.min(old.x, Math.max(0, WIDTH - s.w)), y: old.y, moved: true } : {};
-    const shape = { ...s, ...placed, id, step: old ? old.step : step };
+    const both = old?.kind === "scene3d" && s.kind === "scene3d";
+    const sized = both && old.sized ? { w: old.w, h: old.h, sized: true } : {};
+    const w = sized.w ?? s.w;
+    const placed = both && old.moved ? { x: Math.min(old.x, Math.max(0, WIDTH - w)), y: old.y, moved: true } : {};
+    const shape = { ...s, ...sized, ...placed, id, step: old ? old.step : step };
     if (at >= 0) shapes[at] = shape;
     else shapes.push(shape);
     ids.push(id);
@@ -742,19 +751,45 @@ function move(board, input) {
   const s = id ? finder(board)(id) : null;
   if (!s || s.kind !== "scene3d") return board;
   if (!Number.isFinite(input.x) || !Number.isFinite(input.y)) return board;
-  const x = Math.round(clamp(input.x, 0, Math.max(0, WIDTH - s.w)));
-  const y = Math.round(clamp(input.y, 0, Math.max(0, MAX_HEIGHT - s.h)));
-  if (x === s.x && y === s.y) return board;
-  const moved = { ...s, x, y, moved: true };
-  return done({ ...board, shapes: board.shapes.map((t) => t === s ? moved : t) });
+  const sizing = "w" in input || "h" in input;
+  if (sizing && !(Number.isFinite(input.w) && Number.isFinite(input.h))) return board;
+  const w = sizing ? Math.round(clamp(input.w, SCENE_MIN_W, WIDTH)) : s.w;
+  const h = sizing ? Math.round(clamp(input.h, SCENE_MIN_H, SCENE_MAX_H)) : s.h;
+  const x = Math.round(clamp(input.x, 0, Math.max(0, WIDTH - w)));
+  const y = Math.round(clamp(input.y, 0, Math.max(0, MAX_HEIGHT - h)));
+  if (x === s.x && y === s.y && w === s.w && h === s.h) return board;
+  const next = { ...s, x, y, w, h };
+  if (x !== s.x || y !== s.y) next.moved = true;
+  if (w !== s.w || h !== s.h) next.sized = true;
+  return done({ ...board, shapes: board.shapes.map((t) => t === s ? next : t) });
+}
+function closeScene(board, input) {
+  const id = typeof input?.id === "string" ? input.id : null;
+  const s = id ? finder(board)(id) : null;
+  if (!s || s.kind !== "scene3d" || s.closed) return board;
+  return done({
+    ...board,
+    shapes: board.shapes.map((t) => t === s ? { ...s, closed: true } : t)
+  });
+}
+function reopenScenes(board) {
+  if (!board.shapes.some((s) => s.closed)) return board;
+  return done({
+    ...board,
+    shapes: board.shapes.map((s) => {
+      if (!s.closed) return s;
+      const { closed, ...open } = s;
+      return open;
+    })
+  });
 }
 var HOW = [
   "The board is 1000 units wide; y grows downwards. Content lines are laid out at fixed places (see content).",
   "Draw with { shapes: [...], say? }: say makes a new step the user steps through; ids let you replace a shape later.",
   "Kinds: box/ellipse {x,y,w,h,label?}, note {x,y,w?,text}, text {x,y,text,size?}, arrow/line {from,to,label?,curve?}, highlight {lines:[a,b] or line, cols?, label?}, path {d}, scene3d {x,y,w,h,camera?:{yaw,pitch},objects:[...]}.",
-  "3D objects (y up, -100..100; the user turns, zooms, clicks parts and marks areas, which asked.area gives as parts, surface points, center, min, max and the view they marked it from): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
+  "3D objects (y up, -100..100; the user turns, zooms, clicks parts and draws on the model, lines or loops that mark an area, which asked.area gives as parts, surface points, center, min, max, the view they drew from and drawn: lines|both when it isn't only an area): box {at,size}, sphere {at,r}, point, label {at,text}, line {at,to}, cylinder {at,to,r,r2?} (r2:0 is a cone), arrow {at,to,r?} (forces, directions), lathe {at,profile:[[radius,h],...],axis?:x|y|z} (bodies spun round an axis: fuselage, bottle, rocket), wing {at,span,chord,thickness?,camber?,taper?,sweep?,dihedral?,mirror?=true,vertical?} (a real airfoil; nose to +x, span along z, vertical for a fin), tube {points:[[x,y,z],...],r?,flow?} (smooth curve; flow:true moves beads along it, for air or current). Any object: color, label (the part's name, which the user can click to ask about), rot [x,y,z] degrees, opacity. Build real things from these parts, each with a label.",
   "Points: [x,y], { line, col? } (a content line by its number) or { shape: id, side? }. Colors: accent, red, orange, yellow, green, teal, blue, purple, gray.",
-  "Keep drawings right of the content column (x \u2265 content.box.w + 20) so they don't cover it, or below it. A scene3d floats over the board in a window the user can move by its bar (and fold away): moved: true means its x,y are where the user put it, and drawing it again keeps them."
+  "Keep drawings right of the content column (x \u2265 content.box.w + 20) so they don't cover it, or below it. A scene3d floats over the board in a window the user can move by its bar, resize by its corner, zoom, see through, fold away and close: moved: true means its x,y are where the user put it, sized: true its w,h, and drawing it again keeps them; closed: true means the user closed it, and drawing it again shows it."
 ];
 function describe(board, { lines = false, maxChars = 2e4 } = {}) {
   const find = finder(board);
@@ -904,7 +939,17 @@ var PAGE_KEYS = [
   "scene-untitled",
   "scene-mark",
   "scene-marking",
-  "ask-area"
+  "scene-size",
+  "scene-zoom-in",
+  "scene-zoom-out",
+  "scene-clear",
+  "scene-opacity",
+  "scene-reset",
+  "scene-close",
+  "scene-closed",
+  "scene-tags",
+  "ask-area",
+  "ask-lines"
 ];
 var MARKS = { n: "{n}", total: "{total}" };
 var pageLabels = (tf) => Object.fromEntries(PAGE_KEYS.map((key) => [key, tf.t(key, MARKS)]));
@@ -974,14 +1019,27 @@ function runWhiteboard(tf) {
     if (where) await tf.page.post({ do: "asked", via }).catch(() => {
     });
   }
-  async function moved(m) {
+  function room() {
     const t = Date.now();
     moves = moves.filter((at) => t - at < MOVE_WINDOW_MS);
-    if (moves.length >= MOVES_PER_WINDOW) return;
+    if (moves.length >= MOVES_PER_WINDOW) return false;
     moves.push(t);
+    return true;
+  }
+  async function shown(m, apply, action) {
+    if (!room()) return;
+    const before = await current();
+    await set(apply(before, m));
+    if (board !== before) audit(action);
+  }
+  async function moved(m) {
+    if (!room()) return;
     const before = await current();
     await set(move(before, m));
-    if (board !== before) audit("moved");
+    if (board === before) return;
+    const was = before.shapes.find((s) => s.id === m.id);
+    const now = board.shapes.find((s) => s.id === m.id);
+    audit(was && now && (was.w !== now.w || was.h !== now.h) ? "resized" : "moved");
   }
   async function hear(m) {
     if (!m || typeof m !== "object") return;
@@ -989,6 +1047,8 @@ function runWhiteboard(tf) {
     if (m.type === "step") return set(goTo(await current(), m.n));
     if (m.type === "ask") return asked(m);
     if (m.type === "move") return moved(m);
+    if (m.type === "hide") return shown(m, closeScene, "hid");
+    if (m.type === "reopen") return shown(m, reopenScenes, "reopened");
     if (m.type === "close") return close();
   }
   async function change(action, apply) {

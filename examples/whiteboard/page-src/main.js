@@ -42,6 +42,7 @@ import {
 import { COLORS } from "../src/scene.js";
 import { el, markers, sceneNode, shapeNode } from "./svg.js";
 import { createGlLayer } from "./glLayer.js";
+import { icon } from "./icons.js";
 import { webglAvailable } from "./three3d.js";
 
 const bridge = window.tilefold;
@@ -152,7 +153,13 @@ function draw() {
   svg.style.width = zoom === "fit" ? "100%" : `${WIDTH}px`;
   svg.style.minWidth = zoom === "fit" ? `${FIT_MIN}px` : "";
   svg.append(markers(doc, COLORS));
-  const shown = board.shapes.filter((s) => s.step <= board.step);
+  // A 3D scene the user closed stays on the board, but isn't shown until they show it again.
+  const closed = board.shapes.filter((s) => s.step <= board.step && s.closed).length;
+  $("reopen").hidden = closed === 0;
+  const count = doc.createElement("span");
+  count.textContent = closed ? L("scene-closed", { n: closed }) : "";
+  $("reopen").replaceChildren(icon(doc, "cube"), count);
+  const shown = board.shapes.filter((s) => s.step <= board.step && !s.closed);
   const fresh = board.step > drawnStep ? board.step : -1;
   // Highlights go under the content's text, everything else over it.
   const under = el(doc, "g", { class: "under" });
@@ -193,7 +200,7 @@ function mark() {
     : "line" in pointed
       ? L("ask-line", { n: pointed.line })
       : pointed.area
-        ? `${L("ask-shape")}: ${L("ask-area")}${
+        ? `${L("ask-shape")}: ${L(pointed.area.drawn ? "ask-lines" : "ask-area")}${
             pointed.area.parts.length ? ` (${pointed.area.parts.join(", ")})` : ""
           }`
         : pointed.part
@@ -210,11 +217,18 @@ function pointPart(id, part) {
   if (pointed) $("question").focus();
 }
 
-/** Points at an area the user marked on a real 3D scene; a new mark always replaces the last. */
+/** Points at what the user drew on a real 3D scene; each stroke adds to what's pointed at. */
 function pointArea(id, area) {
   pointed = { shape: id, area };
   mark();
   $("question").focus();
+}
+
+/** Stops pointing at 3D scene `id` (or anything in it), when that's what's pointed at. */
+function unpointScene(id) {
+  if (pointed?.shape !== id) return;
+  pointed = null;
+  mark();
 }
 
 /** A click on the board: point at the line or the drawing under it (again: stop pointing). */
@@ -299,10 +313,12 @@ let suppressClick = false;
 /** The strip along a flat 3D scene's top that moves it, in board units. */
 const SCENE_BAR = 24;
 
-/** The user moved 3D scene `id` to `x`, `y` (board units): the tile keeps it, inside the board. */
-function moveScene(id, x, y) {
+/** The user moved 3D scene `id` to `x`, `y`, maybe resized to `w`, `h` (board units): the tile keeps it, inside the board. */
+function moveScene(id, x, y, w, h) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-  send({ type: "move", id, x: Math.round(x), y: Math.round(y) });
+  const size =
+    Number.isFinite(w) && Number.isFinite(h) ? { w: Math.round(w), h: Math.round(h) } : {};
+  send({ type: "move", id, x: Math.round(x), y: Math.round(y), ...size });
 }
 
 /** The page's buttons and keys. */
@@ -319,6 +335,7 @@ function wire() {
     if (suppressClick) return void (suppressClick = false);
     point(e);
   });
+  $("reopen").addEventListener("click", () => send({ type: "reopen" }));
   $("unpoint").addEventListener("click", () => {
     pointed = null;
     mark();
@@ -357,11 +374,24 @@ const gl = webglAvailable(doc)
         untitled: L("scene-untitled"),
         mark: L("scene-mark"),
         marking: L("scene-marking"),
+        size: L("scene-size"),
+        zoomIn: L("scene-zoom-in"),
+        zoomOut: L("scene-zoom-out"),
+        clear: L("scene-clear"),
+        tags: L("scene-tags"),
+        opacity: L("scene-opacity"),
+        reset: L("scene-reset"),
+        close: L("scene-close"),
       }),
       cameras,
       onPick: pointPart,
       onMove: moveScene,
       onArea: pointArea,
+      onReset: unpointScene,
+      onClose: (id) => {
+        unpointScene(id);
+        send({ type: "hide", id });
+      },
     })
   : null;
 
