@@ -253,7 +253,7 @@ Run with `npm test` (1967 tests in 101 files, all passing on 2026-11-02).
 - Tile Tools 0.2.0 (the `tf` types, the docs and the examples) is prepared in this repository but not published; npm still has 0.1.0.
 - Most examples have been tried only against the fake host, not against their real service in a running Tilefold; [examples/README.md](examples/README.md) says which.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
-- Gomoku has been played through Tilefold's relay at `play.tilefold.com` from its own client code, and in a browser against a local relay, but not yet as a tile inside a running Tilefold. TileGo has been played only in tests (two pages through a fake relay, and against an agent's requests), not yet through the real relay or in a running Tilefold. Whiteboard has been drawn on only in tests and a browser preview, not yet by an agent in a running Tilefold; its Point on screen needs Tilefold 0.1.23 or later (`tf.annotate`).
+- Gomoku has been played through Tilefold's relay at `play.tilefold.com` from its own client code, and in a browser against a local relay, but not yet as a tile inside a running Tilefold. TileGo has been played only in tests (two pages through a fake relay, and against an agent's requests), not yet through the real relay or in a running Tilefold. Whiteboard has been drawn on only in tests and a browser preview, not yet by an agent in a running Tilefold; pointing at things in your panes needs Tilefold 0.1.23 or later.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`).
 - No `new` (scaffold a tile) command yet, and the command-line messages are English only.
 
