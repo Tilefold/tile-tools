@@ -75,6 +75,14 @@
  *   beside the panes (`host.page.side`; `host.undock()` plays the user
  *   undocking it), and `theme` adds `tf.theme()` (`host.theme`;
  *   `host.setTheme(theme)` plays a change, firing `theme.changed`).
+ * Modified 2026-10-30 (Tilefold 0.1.23): `annotate` adds `tf.annotate`
+ *   (fake-annotate.mjs): marks are kept in `host.marks`.
+ *
+ * Modified 2026-10-31 (plain JSON): `store.set` and `page.post` refuse what
+ *   Tilefold refuses, so a value with an `undefined` field fails here first.
+ * Modified 2026-10-31 (Tilefold 0.1.23): `agentAsk` adds `tf.agent.ask`;
+ *   the questions are kept in `host.asks`, and it answers `{ shown: true }`
+ *   or the object `agentAsk` gives (such as `{ shown: false, why: "busy" }`).
  *
  * Last updated by: Tilefold
  */
@@ -82,6 +90,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addScreensaver } from "./fake-screensaver.mjs";
+import { addAnnotate } from "./fake-annotate.mjs";
 import { addFileWrites } from "./fake-files.mjs";
 import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
@@ -126,6 +135,23 @@ export async function drain(rounds = 50) {
  *           net?: (url: string, init: object) => any, credentials?: string[],
  *           ai?: (input: unknown) => string | Promise<string> }} [opts]
  */
+/**
+ * Whether `value` is plain JSON data, as Tilefold checks stored values and
+ * page messages: null, finite numbers, strings, booleans, arrays and plain
+ * objects of the same. Tilefold 0.1.22 and earlier refuse an object property
+ * left `undefined` as well, so this does too: a tile that passes here works
+ * on every Tilefold.
+ */
+export function isPlainJson(value, depth = 0) {
+  if (depth > 32) return false;
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every((v) => isPlainJson(v, depth + 1));
+  if (typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype)
+    return Object.values(value).every((v) => isPlainJson(v, depth + 1));
+  return false;
+}
+
 export async function startTile(dir, opts = {}) {
   const messages = messagesOf(dir, opts.locale ?? "en");
   const handlers = new Map();
@@ -227,7 +253,13 @@ export async function startTile(dir, opts = {}) {
     settings: { get: (key) => (values.has(key) ? values.get(key) : defaults.get(key)) },
     store: {
       get: async (key) => (host.store.has(key) ? host.store.get(key) : null),
-      set: async (key, value) => void host.store.set(key, structuredClone(value)),
+      set: async (key, value) => {
+        if (!isPlainJson(value))
+          throw Object.assign(new Error("stored values must be plain JSON data"), {
+            name: "TypeError",
+          });
+        host.store.set(key, structuredClone(value));
+      },
       delete: async (key) => host.store.delete(key),
     },
     audit: async (action, details) => void host.audits.push({ action, details }),
@@ -331,6 +363,18 @@ export async function startTile(dir, opts = {}) {
   if (opts.panel) addPanel(tf, host, named);
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
   if (opts.screensaver) addScreensaver(tf, host, named);
+  if (opts.annotate) addAnnotate(tf, host, named, opts.annotate);
+  if (opts.agentAsk) {
+    host.asks = [];
+    tf.agent = {
+      async ask(request) {
+        if (!isPlainJson(request) || typeof request?.question !== "string")
+          throw named("TypeError", "agent.ask takes { question, about? }");
+        host.asks.push(structuredClone(request));
+        return typeof opts.agentAsk === "object" ? { ...opts.agentAsk } : { shown: true };
+      },
+    };
+  }
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;
@@ -469,6 +513,10 @@ function addPage(tf, host, { dock = false, side = false } = {}) {
     async post(message) {
       if (!host.page.open)
         throw Object.assign(new Error("the page is not open"), { name: "PageError" });
+      if (!isPlainJson(message))
+        throw Object.assign(new Error("a page message must be plain JSON"), {
+          name: "TypeError",
+        });
       host.page.posted.push(structuredClone(message));
       return null;
     },

@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Tilefold
+  Author: Tilefold
+  Released under the MIT License.
+
+  Whiteboard's page: the board's title, a button that shows the 3D views
+  the user closed, and Close, the steps of the
+  explanation (Back, which step, Next, and the fit or actual size of the
+  board), what the agent says in the step shown, the board itself (an SVG
+  the page draws, with real 3D scenes in windows over it that float.css
+  styles), and at the bottom what the user points at and a question
+  to ask about it. All text arrives from the tile in the user's language;
+  main.js is built from page-src/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Whiteboard</title>
+    <link rel="stylesheet" href="board.css" />
+    <link rel="stylesheet" href="float.css" />
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1 id="title"></h1>
+        <button id="reopen" class="quiet" type="button" hidden></button>
+        <button id="zoom" class="quiet" type="button"></button>
+        <button id="close" class="icon" type="button">×</button>
+      </header>
+
+      <nav id="steps" class="steps" hidden>
+        <button id="back" type="button"></button>
+        <span id="count" class="count" aria-live="polite"></span>
+        <button id="next" class="primary" type="button"></button>
+      </nav>
+      <p id="caption" class="caption" role="status" aria-live="polite" hidden></p>
+
+      <section id="empty" class="empty">
+        <p id="empty-title" class="lead"></p>
+        <p id="empty-hint" class="hint"></p>
+      </section>
+      <div class="scroller">
+        <svg id="board" class="board" role="img" xmlns="http://www.w3.org/2000/svg" hidden></svg>
+      </div>
+
+      <form id="ask" class="ask">
+        <p id="pointing" class="pointing" hidden>
+          <span id="pointed"></span>
+          <button id="unpoint" class="quiet" type="button"></button>
+        </p>
+        <div class="ask-row">
+          <input id="question" type="text" autocomplete="off" maxlength="500" />
+          <button id="send" class="primary" type="submit"></button>
+        </div>
+        <p id="ask-hint" class="hint"></p>
+        <p id="ask-status" class="message" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+  </body>
+</html>

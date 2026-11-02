@@ -52,6 +52,8 @@ Each entry is either a plain string, `"window.curtain"`, or a one-key object wit
 | `window.lock` | Make that curtain a lock that only the user's unlock methods open (`tf.curtain.show({ lock: true })`) | medium |
 | `window.protect` | Leave Tilefold's window out of screen sharing and screenshots (`tf.window.protect`) | low |
 | `window.overlay` | Draw pictures above the panes (`tf.overlay`) | low |
+| `window.annotate` | Mark text on the user's panes and in the document viewer with arrows, boxes and notes (`tf.annotate`; Tilefold 0.1.23) | medium |
+| `agent.ask` | Bring a question to the user's AI agent on Tilefold's ask card, which the user sends (`tf.agent.ask`; Tilefold 0.1.23) | medium |
 | `sound.play` | Play short sounds (`tf.sound.play`) | low |
 | `net:<host>` | Send requests to that host with `tf.net.fetch` | shown per host |
 | `ai.ask` | Ask Claude with the user's own Anthropic key (`tf.ai.ask`) | medium |

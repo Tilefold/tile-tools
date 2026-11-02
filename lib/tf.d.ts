@@ -24,6 +24,10 @@
  * `panel.edit`; panels per tab (`perTab`, the `panel.opened` event).
  * Modified 2026-10-26 (Tilefold 0.1.20): `tf.page.open({ side })`,
  *   `tf.theme()`, and the `page.undocked` and `theme.changed` events.
+ * Modified 2026-10-30 (Tilefold 0.1.23): `tf.annotate` (marks on what a
+ *   pane or the document viewer shows) and the `annotate.cleared` event.
+ * Modified 2026-10-31 (Tilefold 0.1.23): `tf.agent.ask` (a question for the
+ *   user's agent on Tilefold's ask card).
  *
  * Last updated by: Tilefold
  */
@@ -46,6 +50,7 @@ export type TileEvent =
   | "overlay.pointer"
   | "overlay.layout"
   | "overlay.hidden"
+  | "annotate.cleared"
   | "page.closed"
   | "page.message"
   | "page.undocked"
@@ -117,6 +122,8 @@ export interface TileEventPayloads {
   };
   "overlay.layout": OverlayLayout;
   "overlay.hidden": { by: "user" };
+  /** The user cleared every tile's marks (Clear annotations; Tilefold 0.1.23). */
+  "annotate.cleared": { by: "user" };
   "page.closed": Record<string, never>;
   /** Plain JSON the tile's page sent with `window.tilefold.post`. */
   "page.message": { message: unknown };
@@ -291,6 +298,35 @@ export interface OverlayUpdate {
   remove?: string[];
 }
 
+/**
+ * Where a mark goes, named by what is there (Tilefold 0.1.23). On a
+ * terminal pane's screen: `pane` is its session (TILEFOLD_SESSION_ID), the
+ * name the user gave it, "focused", or its place in the active tab (1 =
+ * first); then `text` on the screen (the bottom match, or `nth`: 1 = top,
+ * -1 = bottom) or a `row` (1 = top) with `col`/`cols`. In the document
+ * viewer: the absolute path of the file its current tab shows in the Raw
+ * view, a `line`, and `text` on it or `col`/`cols`.
+ */
+export type AnnotationTarget =
+  | { pane: string | number; text: string; nth?: number; row?: number }
+  | { pane: string | number; row: number; col?: number; cols?: number }
+  | { file: string; line: number; text?: string; col?: number; cols?: number };
+
+/** One mark: a note needs `text`; an arrow may have `text` at its tail and a `from`. */
+export interface AnnotationItem {
+  kind: "highlight" | "box" | "underline" | "arrow" | "note";
+  at: AnnotationTarget;
+  /** 1–32 of a-z, 0-9 and -; drawing an id again replaces that mark. */
+  id?: string;
+  color?: "accent" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "purple" | "gray";
+  /** 1–300 characters. */
+  text?: string;
+  from?: AnnotationTarget;
+}
+
+/** Why a mark wasn't placed. */
+export type AnnotationMiss = "no-pane" | "not-found" | "no-row" | "not-shown";
+
 /** Options for `tf.net.fetch`. */
 export interface NetFetchInit {
   method?: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -369,6 +405,7 @@ export interface ScreensaverFrame {
 export type TileErrorName =
   | "PermissionDeniedError"
   | "RateLimitError"
+  | "RangeError"
   | "TypeError"
   | "NotSupportedError"
   | "LockNotSetUpError"
@@ -456,6 +493,39 @@ export interface Tf {
     update(changes: OverlayUpdate): Promise<boolean>;
     hide(): Promise<null>;
     layout(): Promise<OverlayLayout>;
+  };
+  /**
+   * Needs window.annotate (Tilefold 0.1.23; missing before). Marks things on
+   * screen by what they are; the tile learns only whether each was placed.
+   * At most 20 marks at once and 4 draws a second (120 a minute).
+   */
+  readonly annotate?: {
+    draw(
+      items: AnnotationItem[],
+      options?: { clear?: boolean },
+    ): Promise<{
+      items: Array<{ id: string; placed: boolean; why?: AnnotationMiss }>;
+      /** False while the user hides overlays: the marks are kept, not drawn. */
+      shown: boolean;
+    }>;
+    clear(ids?: string[]): Promise<{ cleared: number }>;
+    list(): Promise<{
+      items: Array<{ id: string; kind: AnnotationItem["kind"]; placed: boolean }>;
+    }>;
+  };
+  /**
+   * Needs agent.ask (Tilefold 0.1.23; missing before). Opens Tilefold's ask
+   * card with `question` for the AI agent in the pane the user works in, and
+   * a line naming the tile and `about`. The user sends it (or not); the tile
+   * never learns what they did. `why`: a card is already open (`busy`), or
+   * there is no pane to send to (`no-pane`). Six asks a minute; `question`
+   * 1–4,000 characters, `about` 600 on one line.
+   */
+  readonly agent?: {
+    ask(request: { question: string; about?: string }): Promise<{
+      shown: boolean;
+      why?: "busy" | "no-pane";
+    }>;
   };
   /** Needs sound.play. Resolves whether the sound will be heard. */
   readonly sound: {

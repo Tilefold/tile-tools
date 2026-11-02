@@ -17,6 +17,8 @@
  * Modified 2026-10-28 (Gomoku example): Gomoku ships all twelve languages.
  * Modified 2026-10-28 (TileGo example): TileGo ships all twelve languages, its
  *   name never translated.
+ * Modified 2026-10-30 (Whiteboard example): Whiteboard ships all twelve
+ *   languages, its name never translated.
  *
  * Last updated by: Tilefold
  */
@@ -29,6 +31,7 @@ const LOCALES = ["ar", "de", "en", "es", "fr", "hi", "it", "ja", "ko", "pt-BR", 
 /** The examples checked here. */
 const EXAMPLES = [
   "brickfold",
+  "whiteboard",
   "folder-tree",
   "girder-jump",
   "github-inbox",
@@ -63,6 +66,7 @@ const KEPT = [
   "Watchpane",
   "Folder Tree",
   "TileGo",
+  "Whiteboard",
 ];
 
 /** The messages of one locale, checking every line on the way. */

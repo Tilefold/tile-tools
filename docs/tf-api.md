@@ -205,6 +205,10 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 `tf.overlay` draws pictures and animations above the panes (`window.overlay`), and `tf.sound.play` plays short sounds (`sound.play`). Both are in [Overlays and sounds](overlays-and-sounds.md).
 
+## Asking the user's agent
+
+`tf.agent.ask({ question, about })` needs `agent.ask` (Tilefold 0.1.23). It brings a question to the AI agent in the pane the user works in, such as one the user typed on the tile's page. Tilefold opens its ask card at the top of the window with the question and a line naming your tile and `about`, and the user presses Return to send it, edits it, or drops it. Your tile never types into a pane. It resolves `{ shown, why }`: `why` is `busy` while a card is already open, or `no-pane` when there's no pane to send to, so keep the question somewhere the agent can still find it, as the Whiteboard keeps it on its board.
+
 ## The internet, keys and sign-ins
 
 `tf.net.fetch(url, init?)` sends a request through Tilefold to a host the tile asked for with `net:<host>`. `tf.auth.has(name)` says whether the user has entered a key or signed in for a credential declared in `tile.json`. Both are in [Network, keys and sign-ins](network.md).
