@@ -162,9 +162,17 @@ describe("Folder Tree's right-click menus", () => {
     expect(rowOf(host, "src").menu).toBe("dir");
     expect(rowOf(host, "README.md").menu).toBe("file");
     expect(c.menu).toBe("space");
-    expect(items(host, "dir")).toEqual(["New file", "New folder", "—", "Rename…", "Move to Trash"]);
+    expect(items(host, "dir")).toEqual([
+      "Show only this folder",
+      "—",
+      "New file",
+      "New folder",
+      "—",
+      "Rename…",
+      "Move to Trash",
+    ]);
     expect(items(host, "file")).toEqual(["Open", "Edit", "—", "Rename…", "Move to Trash"]);
-    expect(items(host, "space")).toEqual(["New file", "New folder"]);
+    expect(items(host, "space")).toEqual(["New file", "New folder", "—", "Pin this folder"]);
     expect(c.menus.dir.at(-1).tone).toBe("error");
   });
 

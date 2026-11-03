@@ -90,3 +90,20 @@ page-name-label = 新しい名前
 page-tools = ファイルツール
 menu-open = 開く
 menu-rename = 名前を変更…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: このフォルダーを固定
+cmd-follow = Folder Tree: ペインに追従
+cmd-show-only = Folder Tree: 選んだフォルダーだけを表示
+cmd-up = Folder Tree: 1 つ上のフォルダーへ
+menu-show-only = このフォルダーだけを表示
+menu-pin = このフォルダーを固定
+view-pinned = 固定中: { $folder }
+view-gone = このフォルダーにいるペインはもうありません
+view-up = { $folder } へ上がる
+view-follow = ペインに追従
+section-elsewhere = ほかの場所
+page-view-label = ツリーに表示するもの
+page-view-following = 今いるペインに追従中
+page-view-pinned = このフォルダーに固定中
+error-choose-folder = 先にツリーのフォルダーをクリックしてください

@@ -19,6 +19,11 @@
  *   toolbar, renaming in place, dragging to move, F2 and ⌘⌫; the tree
  *   isn't redrawn while a name is being typed; { type: "rename", id } from
  *   the tile starts renaming.
+ * Modified 2026-11-02 (pinned folders): a bar under the header says
+ *   whether the tree follows the pane or is pinned, with Up, Show only this
+ *   folder (for a chosen folder) and Pin this folder / Follow the pane,
+ *   sent as { type: "up" | "show-only" | "pin" | "follow", id? }; recent
+ *   files outside the shown folder come after an "Elsewhere" line.
  *
  * Last updated by: Tilefold
  */
@@ -122,6 +127,12 @@ function drawStrings() {
   $("now-title").textContent = strings.now;
   $("files-title").textContent = strings.files;
   $("recent-title").textContent = strings.recent;
+  // A tile that sends no labels for the view bar gets no bar.
+  $("view").hidden = !strings.view;
+  if (strings.view) {
+    $("view").setAttribute("aria-label", strings.view.label);
+    $("view-show-only").textContent = strings.view.showOnly;
+  }
   tools.setStrings(strings);
   const s = strings.setup;
   $("setup-open").textContent = s.open;
@@ -133,6 +144,20 @@ function drawStrings() {
   $("setup-command").textContent = s.command;
   $("setup-copy").textContent = s.copy;
   $("setup-close").textContent = s.close;
+}
+
+/** The view bar: following or pinned, with what can be done from there. */
+function drawView() {
+  const v = state.view ?? { pinned: false };
+  const s = strings.view;
+  if (!s) return;
+  $("view").classList.toggle("pinned", v.pinned);
+  $("view-text").textContent = v.pinned ? (v.gone ? s.gone : s.pinned) : s.following;
+  const up = $("view-up");
+  up.hidden = !v.up;
+  up.textContent = v.up ? fill(s.up, v.up) : "";
+  $("view-show-only").disabled = !state.selectedDir;
+  $("view-pin").textContent = v.pinned ? s.follow : s.pin;
 }
 
 /** Draws the state. */
@@ -153,6 +178,7 @@ function draw() {
       : [idleLine()]),
   );
   tools.setState(state);
+  drawView();
   // Never redraw the tree under a name being typed.
   if (!tools.busy()) $("tree").replaceChildren(...state.tree.map(treeRow));
 
@@ -163,11 +189,15 @@ function draw() {
     ? `${state.recent.length} · ${fill(strings.panes, state.panes)}`
     : "";
   const list = shownRecent(state.recent, showAll);
-  $("recent").replaceChildren(
-    ...(list.length
-      ? list.map((e) => fileLine(e, { live: false, card: false }))
-      : [el("li", "empty", strings.emptyRecent)]),
-  );
+  const lines = [];
+  for (const e of list) {
+    // One line before the first file outside the shown folder.
+    if (e.elsewhere && strings.view && !lines.some((l) => l.classList.contains("elsewhere"))) {
+      lines.push(el("li", "elsewhere", strings.view.elsewhere));
+    }
+    lines.push(fileLine(e, { live: false, card: false }));
+  }
+  $("recent").replaceChildren(...(lines.length ? lines : [el("li", "empty", strings.emptyRecent)]));
   const more = $("recent-more");
   more.hidden = state.recent.length <= RECENT_FEW;
   more.textContent = showAll ? strings.showFewer : fill(strings.showAll, state.recent.length);
@@ -187,6 +217,13 @@ $("recent-more").addEventListener("click", () => {
   // Showing fewer brings the newest back into view.
   if (!showAll) $("recent").scrollTop = 0;
 });
+$("view-up").addEventListener("click", () => send({ type: "up" }));
+$("view-show-only").addEventListener("click", () => {
+  if (state?.selected) send({ type: "show-only", id: state.selected });
+});
+$("view-pin").addEventListener("click", () =>
+  send({ type: state?.view?.pinned ? "follow" : "pin" }),
+);
 $("setup-open").addEventListener("click", () => $("setup").showModal());
 $("setup-copy").addEventListener("click", async () => {
   try {

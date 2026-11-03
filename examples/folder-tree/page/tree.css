@@ -511,3 +511,38 @@ dialog form {
   justify-content: flex-end;
   margin-top: 12px;
 }
+
+/* The view bar: following the pane, or pinned on a folder (Up, Show only, Pin / Follow). */
+.view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--muted);
+  border-block-end: 1px solid var(--line);
+}
+
+.view.pinned .view-text {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.view-text {
+  margin-inline-end: auto;
+}
+
+.view .ghost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The line before recent files outside the shown folder. */
+.list .elsewhere {
+  padding: 6px 0 2px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

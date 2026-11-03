@@ -90,3 +90,20 @@ page-name-label = Novo nome
 page-tools = Ferramentas de arquivos
 menu-open = Abrir
 menu-rename = Renomear…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: Fixar esta pasta
+cmd-follow = Folder Tree: Seguir o painel
+cmd-show-only = Folder Tree: Mostrar só a pasta escolhida
+cmd-up = Folder Tree: Subir uma pasta
+menu-show-only = Mostrar só esta pasta
+menu-pin = Fixar esta pasta
+view-pinned = Fixada: { $folder }
+view-gone = Nenhum painel está mais nesta pasta
+view-up = Subir para { $folder }
+view-follow = Seguir o painel
+section-elsewhere = Em outros lugares
+page-view-label = O que a árvore mostra
+page-view-following = Seguindo o painel em que você está
+page-view-pinned = Fixada nesta pasta
+error-choose-folder = Clique primeiro em uma pasta da árvore

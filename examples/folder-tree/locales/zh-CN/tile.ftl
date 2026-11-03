@@ -90,3 +90,20 @@ page-name-label = 新名称
 page-tools = 文件工具
 menu-open = 打开
 menu-rename = 重命名…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree：固定此文件夹
+cmd-follow = Folder Tree：跟随窗格
+cmd-show-only = Folder Tree：只显示所选文件夹
+cmd-up = Folder Tree：上移一级文件夹
+menu-show-only = 只显示此文件夹
+menu-pin = 固定此文件夹
+view-pinned = 已固定：{ $folder }
+view-gone = 已没有窗格在此文件夹中
+view-up = 上移到 { $folder }
+view-follow = 跟随窗格
+section-elsewhere = 其他位置
+page-view-label = 树中显示的内容
+page-view-following = 正在跟随你所在的窗格
+page-view-pinned = 已固定在此文件夹
+error-choose-folder = 请先点按树中的文件夹

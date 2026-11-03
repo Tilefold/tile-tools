@@ -90,3 +90,20 @@ page-name-label = Nombre nuevo
 page-tools = Herramientas de archivos
 menu-open = Abrir
 menu-rename = Renombrar…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: Fijar esta carpeta
+cmd-follow = Folder Tree: Seguir el panel
+cmd-show-only = Folder Tree: Mostrar solo la carpeta elegida
+cmd-up = Folder Tree: Subir una carpeta
+menu-show-only = Mostrar solo esta carpeta
+menu-pin = Fijar esta carpeta
+view-pinned = Fijada: { $folder }
+view-gone = Ya no hay ningún panel en esta carpeta
+view-up = Subir a { $folder }
+view-follow = Seguir el panel
+section-elsewhere = En otros sitios
+page-view-label = Lo que muestra el árbol
+page-view-following = Sigue el panel en el que estás
+page-view-pinned = Fijado en esta carpeta
+error-choose-folder = Primero haz clic en una carpeta del árbol

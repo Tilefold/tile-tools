@@ -17,11 +17,17 @@
  *   chosen and whether this Tilefold can change files; the strings carry
  *   the file tools' labels.
  *
+ * Modified 2026-11-02 (pinned folders): the state carries the view (pinned,
+ *   the folder above, unreachable), whether the chosen row is a folder,
+ *   and the recent files of the shown folder first, the rest marked
+ *   `elsewhere`; the strings carry the view bar's labels.
+ *
  * Last updated by: Tilefold
  */
 import { activeFiles, hotFolders, paneCount, recentFiles } from "./activity.js";
 import { treeRows } from "./model.js";
 import { basename, parent, shownPath } from "./paths.js";
+import { splitByRoot } from "./view.js";
 import { folderName } from "./tree.js";
 
 /** Most recent files the window lists. */
@@ -44,7 +50,7 @@ function pageEvent(e, root, prefix) {
 }
 
 /** The state for the page, and the targets of its clickable rows. */
-export function pageView({ tree, events, now, t, opts, selected = null }) {
+export function pageView({ tree, events, now, t, opts, selected = null, view = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
@@ -77,7 +83,10 @@ export function pageView({ tree, events, now, t, opts, selected = null }) {
     };
   });
   const nowList = active.slice(0, PAGE_NOW).map((e) => pageEvent(e, root, "now:"));
-  const recent = recentFiles(activity, PAGE_RECENT);
+  // The shown folder's recent files first; the rest are marked `elsewhere`.
+  const split = splitByRoot(recentFiles(activity, PAGE_RECENT), root);
+  const recent = [...split.here, ...split.elsewhere];
+  const away = new Set(split.elsewhere);
   for (const e of active.slice(0, PAGE_NOW))
     targets.set(`now:${e.abs}`, { kind: "file", path: e.abs });
   for (const e of recent) targets.set(`recent:${e.abs}`, { kind: "file", path: e.abs });
@@ -89,10 +98,17 @@ export function pageView({ tree, events, now, t, opts, selected = null }) {
       live: nowList.length > 0,
       now: nowList,
       tree: rows,
-      recent: recent.map((e) => pageEvent(e, root, "recent:")),
+      recent: recent.map((e) => ({
+        ...pageEvent(e, root, "recent:"),
+        ...(away.has(e) ? { elsewhere: true } : {}),
+      })),
       panes: paneCount(recent),
       activity: opts.showActivity,
       selected: selected && targets.has(selected) ? selected : null,
+      selectedDir: Boolean(selected && targets.get(selected)?.kind === "dir"),
+      view: view?.pinned
+        ? { pinned: true, gone: view.gone === true, up: view.up ? folderName(view.up) : null }
+        : { pinned: false },
       canEdit: opts.canEdit === true,
     },
     targets,
@@ -132,6 +148,17 @@ export function pageStrings(t, hookCommand) {
       trash: t("page-trash"),
       nameLabel: t("page-name-label"),
       tools: t("page-tools"),
+    },
+    view: {
+      label: t("page-view-label"),
+      following: t("page-view-following"),
+      pinned: t("page-view-pinned"),
+      gone: t("view-gone"),
+      up: t("view-up", { folder: n }),
+      follow: t("view-follow"),
+      pin: t("menu-pin"),
+      showOnly: t("menu-show-only"),
+      elsewhere: t("section-elsewhere"),
     },
     setup: {
       title: t("setup-title"),
