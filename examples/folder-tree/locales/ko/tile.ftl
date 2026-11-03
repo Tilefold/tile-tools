@@ -107,3 +107,16 @@ page-view-label = 트리에 보여 줄 것
 page-view-following = 지금 있는 창을 따라가는 중
 page-view-pinned = 이 폴더에 고정됨
 error-choose-folder = 먼저 트리에서 폴더를 클릭하세요
+
+# The pinned folders list
+section-folders = 폴더
+pin-shown = 표시 중
+pins-empty = 폴더를 고정하면 한 번의 클릭으로 돌아올 수 있습니다
+pins-already = 이미 고정된 폴더입니다
+pins-full = 폴더는 최대 { $max }개까지 고정할 수 있습니다. 먼저 하나를 고정 해제하세요
+view-showing = { $folder } 표시 중
+menu-pin-show = 이 폴더 표시
+menu-move-up = 위로 이동
+menu-move-down = 아래로 이동
+menu-unpin = 고정 해제
+page-pins-label = 고정한 폴더

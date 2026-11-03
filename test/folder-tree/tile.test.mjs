@@ -21,6 +21,11 @@ import { markerName } from "../../examples/folder-tree/hooks/marker.mjs";
 import { POLL_MS } from "../../examples/folder-tree/src/session.js";
 import { startTile } from "../fake-host.mjs";
 
+/** The Folders section's rows (folders-view.js), which have tests of their own. */
+const isFolderRow = (id) =>
+  ["folders", "view-follow", "view-pinned", "view-up", "view-gone", "pins-empty"].includes(id) ||
+  id.startsWith("pin:");
+
 const DIR = fileURLToPath(new URL("../../examples/folder-tree/", import.meta.url));
 const NOW = Date.UTC(2026, 9, 14, 12);
 let nonce = 0;
@@ -53,7 +58,9 @@ const start = (opts = {}) =>
     ...opts,
   });
 /** Row ids of the panel's rows, or of its footer. */
-const ids = (host) => host.panel.content.rows.map((r) => r.id);
+/** The panel's rows below the Folders section. */
+const rowsOf = (host) => host.panel.content.rows.filter((r) => !isFolderRow(r.id));
+const ids = (host) => rowsOf(host).map((r) => r.id);
 const footerIds = (host) => host.panel.content.footer?.rows.map((r) => r.id) ?? [];
 
 beforeEach(() => {
@@ -78,12 +85,12 @@ describe("Folder Tree with agent activity", () => {
       "/work/app/README.md",
     ]);
     expect(host.panel.content.subtitle).toBe("api is editing src/main.js");
-    expect(host.panel.content.rows[1]).toMatchObject({
+    expect(rowsOf(host)[1]).toMatchObject({
       pulse: true,
       tone: "warning",
       badge: "api",
     });
-    expect(host.panel.content.rows[5]).toMatchObject({ label: "src", pulse: true, badge: "1" });
+    expect(rowsOf(host)[5]).toMatchObject({ label: "src", pulse: true, badge: "1" });
     expect(footerIds(host)).toEqual([
       "recent",
       "recent:/work/app/src/main.js",
@@ -162,7 +169,7 @@ describe("Folder Tree with agent activity", () => {
     expect(footerIds(host).filter((id) => id.startsWith("recent:"))).toHaveLength(9);
     await host.emit("panel.click", { row: "recent", action: "collapse" });
     expect(footerIds(host)).toEqual(["recent"]);
-    expect(host.store.get("ui")).toEqual({ recentOpen: false, recentAll: true });
+    expect(host.store.get("ui")).toEqual({ recentOpen: false, recentAll: true, foldersOpen: true });
 
     const again = await start({
       folders: { cwd: "/work/app", roots: ["/work/app"], files: files() },

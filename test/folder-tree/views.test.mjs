@@ -26,8 +26,24 @@ import {
 } from "../../examples/folder-tree/src/activity.js";
 import { emptyTree, withListing } from "../../examples/folder-tree/src/model.js";
 import { pageStrings, pageView } from "../../examples/folder-tree/src/page-view.js";
-import { clamp, PANEL_RECENT, panelView } from "../../examples/folder-tree/src/panel-view.js";
+import {
+  clamp,
+  PANEL_RECENT,
+  panelView as buildPanel,
+} from "../../examples/folder-tree/src/panel-view.js";
 import { ago, fill, shownRecent } from "../../examples/folder-tree/page-src/format.js";
+
+/** The Folders section's rows (folders-view.js), which have tests of their own. */
+const isFolderRow = (id) =>
+  ["folders", "view-follow", "view-pinned", "view-up", "view-gone", "pins-empty"].includes(id) ||
+  id.startsWith("pin:");
+
+/** The panel below the Folders section, as these tests look at it. */
+function panelView(args) {
+  const built = buildPanel(args);
+  const rows = built.content.rows.filter((r) => !isFolderRow(r.id));
+  return { ...built, content: { ...built.content, rows } };
+}
 
 const NOW = 1_000_000_000;
 /** Messages as "key(args)", so tests see what was asked for. */

@@ -107,3 +107,16 @@ page-view-label = ツリーに表示するもの
 page-view-following = 今いるペインに追従中
 page-view-pinned = このフォルダーに固定中
 error-choose-folder = 先にツリーのフォルダーをクリックしてください
+
+# The pinned folders list
+section-folders = フォルダー
+pin-shown = 表示中
+pins-empty = フォルダーを固定すると、ワンクリックで戻れます
+pins-already = そのフォルダーはすでに固定されています
+pins-full = 固定できるのは { $max } 個までです。先にどれかの固定を外してください
+view-showing = { $folder } を表示中
+menu-pin-show = このフォルダーを表示
+menu-move-up = 上へ移動
+menu-move-down = 下へ移動
+menu-unpin = 固定を外す
+page-pins-label = 固定したフォルダー

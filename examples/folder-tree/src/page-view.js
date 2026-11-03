@@ -22,11 +22,16 @@
  *   and the recent files of the shown folder first, the rest marked
  *   `elsewhere`; the strings carry the view bar's labels.
  *
+ * Modified 2026-11-03 (pinned folders list): the view carries the pinned
+ *   folders (name, shown, no pane reaches it) and whether the folder shown
+ *   is one of them; the strings carry the list's labels.
+ *
  * Last updated by: Tilefold
  */
 import { activeFiles, hotFolders, paneCount, recentFiles } from "./activity.js";
 import { treeRows } from "./model.js";
 import { basename, parent, shownPath } from "./paths.js";
+import { pinLabels } from "./pins.js";
 import { splitByRoot } from "./view.js";
 import { folderName } from "./tree.js";
 
@@ -106,12 +111,30 @@ export function pageView({ tree, events, now, t, opts, selected = null, view = n
       activity: opts.showActivity,
       selected: selected && targets.has(selected) ? selected : null,
       selectedDir: Boolean(selected && targets.get(selected)?.kind === "dir"),
-      view: view?.pinned
-        ? { pinned: true, gone: view.gone === true, up: view.up ? folderName(view.up) : null }
-        : { pinned: false },
+      view: pageViewState(view),
       canEdit: opts.canEdit === true,
     },
     targets,
+  };
+}
+
+/** The view as the window's bar shows it, with the pinned folders. */
+function pageViewState(view) {
+  const pins = view?.pins ?? [];
+  const labels = pinLabels(pins.map((p) => p.path));
+  const list = pins.map((p) => ({
+    id: p.path,
+    label: labels.get(p.path),
+    ...(p.shown ? { shown: true } : {}),
+    ...(p.gone ? { gone: true } : {}),
+  }));
+  if (!view?.pinned) return { pinned: false, pins: list };
+  return {
+    pinned: true,
+    listed: view.listed === true,
+    gone: view.gone === true,
+    up: view.up ? folderName(view.up) : null,
+    pins: list,
   };
 }
 
@@ -159,6 +182,9 @@ export function pageStrings(t, hookCommand) {
       pin: t("menu-pin"),
       showOnly: t("menu-show-only"),
       elsewhere: t("section-elsewhere"),
+      pins: t("page-pins-label"),
+      showing: t("view-showing", { folder: n }),
+      unpin: t("menu-unpin"),
     },
     setup: {
       title: t("setup-title"),

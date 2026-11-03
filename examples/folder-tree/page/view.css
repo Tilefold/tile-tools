@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Folder Tree's window — the view bar: whether the tree follows the pane
+ * or shows a folder of its own, the pinned folders to pick from, and Up,
+ * Unpin, Show only this folder and Pin / Follow the pane. Uses the colours
+ * tree.css defines for both themes.
+ */
+
+/* The view bar: following the pane, or pinned on a folder (Up, Show only, Pin / Follow). */
+.view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--muted);
+  border-block-end: 1px solid var(--line);
+}
+
+.view.pinned .view-text {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.view-text {
+  margin-inline-end: auto;
+}
+
+.view .ghost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.view-pins {
+  max-inline-size: 40ch;
+  padding: 2px 6px;
+  font: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.view-pins:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

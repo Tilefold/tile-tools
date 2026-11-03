@@ -107,3 +107,16 @@ page-view-label = ट्री क्या दिखाता है
 page-view-following = जिस पेन में आप हैं उसके साथ
 page-view-pinned = इस फ़ोल्डर पर पिन किया गया
 error-choose-folder = पहले ट्री में किसी फ़ोल्डर पर क्लिक करें
+
+# The pinned folders list
+section-folders = फ़ोल्डर
+pin-shown = दिख रहा है
+pins-empty = किसी फ़ोल्डर को पिन करें ताकि एक क्लिक में उस पर लौट सकें
+pins-already = वह फ़ोल्डर पहले से पिन है
+pins-full = आप { $max } फ़ोल्डर पिन कर चुके हैं, इससे ज़्यादा नहीं हो सकते। पहले एक को अनपिन करें
+view-showing = { $folder } दिखा रहा है
+menu-pin-show = यह फ़ोल्डर दिखाएँ
+menu-move-up = ऊपर ले जाएँ
+menu-move-down = नीचे ले जाएँ
+menu-unpin = अनपिन करें
+page-pins-label = पिन किए फ़ोल्डर

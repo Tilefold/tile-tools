@@ -107,3 +107,16 @@ page-view-label = Lo que muestra el árbol
 page-view-following = Sigue el panel en el que estás
 page-view-pinned = Fijado en esta carpeta
 error-choose-folder = Primero haz clic en una carpeta del árbol
+
+# The pinned folders list
+section-folders = Carpetas
+pin-shown = visible
+pins-empty = Fija una carpeta para volver a ella con un clic
+pins-already = Esa carpeta ya está fijada
+pins-full = Has fijado { $max } carpetas, el máximo. Quita una primero
+view-showing = Mostrando { $folder }
+menu-pin-show = Mostrar esta carpeta
+menu-move-up = Subir
+menu-move-down = Bajar
+menu-unpin = Quitar
+page-pins-label = Carpetas fijadas

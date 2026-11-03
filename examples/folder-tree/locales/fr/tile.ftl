@@ -107,3 +107,16 @@ page-view-label = Ce que montre l'arborescence
 page-view-following = Suit le volet où vous êtes
 page-view-pinned = Épinglé sur ce dossier
 error-choose-folder = Cliquez d'abord sur un dossier de l'arborescence
+
+# The pinned folders list
+section-folders = Dossiers
+pin-shown = affiché
+pins-empty = Épinglez un dossier pour y revenir en un clic
+pins-already = Ce dossier est déjà épinglé
+pins-full = Vous avez épinglé { $max } dossiers, le maximum. Désépinglez-en un d'abord
+view-showing = Affiche { $folder }
+menu-pin-show = Afficher ce dossier
+menu-move-up = Monter
+menu-move-down = Descendre
+menu-unpin = Désépingler
+page-pins-label = Dossiers épinglés

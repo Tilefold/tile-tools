@@ -164,6 +164,7 @@ describe("Folder Tree's right-click menus", () => {
     expect(c.menu).toBe("space");
     expect(items(host, "dir")).toEqual([
       "Show only this folder",
+      "Pin this folder",
       "—",
       "New file",
       "New folder",

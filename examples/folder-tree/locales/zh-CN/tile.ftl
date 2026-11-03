@@ -107,3 +107,16 @@ page-view-label = 树中显示的内容
 page-view-following = 正在跟随你所在的窗格
 page-view-pinned = 已固定在此文件夹
 error-choose-folder = 请先点按树中的文件夹
+
+# The pinned folders list
+section-folders = 文件夹
+pin-shown = 显示中
+pins-empty = 固定一个文件夹，一键即可回到它
+pins-already = 该文件夹已固定
+pins-full = 最多只能固定 { $max } 个文件夹。请先取消固定一个
+view-showing = 正在显示 { $folder }
+menu-pin-show = 显示此文件夹
+menu-move-up = 上移
+menu-move-down = 下移
+menu-unpin = 取消固定
+page-pins-label = 已固定的文件夹

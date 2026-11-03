@@ -107,3 +107,16 @@ page-view-label = Cosa mostra l'albero
 page-view-following = Segue il riquadro in cui sei
 page-view-pinned = Fissato su questa cartella
 error-choose-folder = Fai prima clic su una cartella dell'albero
+
+# The pinned folders list
+section-folders = Cartelle
+pin-shown = mostrata
+pins-empty = Fissa una cartella per tornarci con un clic
+pins-already = Quella cartella è già fissata
+pins-full = Hai fissato { $max } cartelle, il massimo. Togline una prima
+view-showing = Mostra { $folder }
+menu-pin-show = Mostra questa cartella
+menu-move-up = Sposta su
+menu-move-down = Sposta giù
+menu-unpin = Togli
+page-pins-label = Cartelle fissate
