@@ -90,3 +90,20 @@ page-name-label = नया नाम
 page-tools = फ़ाइल टूल
 menu-open = खोलें
 menu-rename = नाम बदलें…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: यह फ़ोल्डर पिन करें
+cmd-follow = Folder Tree: पेन के साथ चलें
+cmd-show-only = Folder Tree: केवल चुना हुआ फ़ोल्डर दिखाएँ
+cmd-up = Folder Tree: एक फ़ोल्डर ऊपर
+menu-show-only = केवल यह फ़ोल्डर दिखाएँ
+menu-pin = यह फ़ोल्डर पिन करें
+view-pinned = पिन किया गया: { $folder }
+view-gone = अब कोई पेन इस फ़ोल्डर में नहीं है
+view-up = { $folder } पर ऊपर जाएँ
+view-follow = पेन के साथ चलें
+section-elsewhere = कहीं और
+page-view-label = ट्री क्या दिखाता है
+page-view-following = जिस पेन में आप हैं उसके साथ
+page-view-pinned = इस फ़ोल्डर पर पिन किया गया
+error-choose-folder = पहले ट्री में किसी फ़ोल्डर पर क्लिक करें

@@ -90,3 +90,20 @@ page-name-label = New name
 page-tools = File tools
 menu-open = Open
 menu-rename = Rename…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: Pin this folder
+cmd-follow = Folder Tree: Follow the pane
+cmd-show-only = Folder Tree: Show only the chosen folder
+cmd-up = Folder Tree: Up one folder
+menu-show-only = Show only this folder
+menu-pin = Pin this folder
+view-pinned = Pinned: { $folder }
+view-gone = No pane is in this folder any more
+view-up = Up to { $folder }
+view-follow = Follow the pane
+section-elsewhere = Elsewhere
+page-view-label = What the tree shows
+page-view-following = Following the pane you're in
+page-view-pinned = Pinned on this folder
+error-choose-folder = Click a folder in the tree first

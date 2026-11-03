@@ -41,6 +41,8 @@
  *   handlers that wait for the user aren't waited for. A double-click on a
  *   file renames it in place (panel.dblclick, and in the window). The
  *   panel belongs to the tabs it is opened on (panel.opened on coming back).
+ * Modified 2026-11-02 (pinned folders): Pin this folder, Follow the pane,
+ *   Show only the chosen folder and Up one folder.
  *
  * Last updated by: Tilefold
  */
@@ -373,6 +375,69 @@ function createEdits(tf, host) {
   };
 }
 
+// src/options.js
+var MAX_ARG = 4096;
+var arg = (value) => typeof value === "string" && value.length > 0 && value.length <= MAX_ARG ? value : null;
+var ERROR_KEYS = {
+  PathNotAllowedError: "error-not-allowed",
+  NotFoundError: "error-not-found",
+  UnreadableError: "error-unreadable",
+  RateLimitError: "error-busy"
+};
+function explainError(tf, err) {
+  const key = ERROR_KEYS[err?.name];
+  if (!key) void tf.log.warn(`Folder Tree: ${err?.name ?? "Error"}: ${err?.message ?? err}`);
+  return tf.t(key ?? "error-other");
+}
+function readOptions(tf, ui) {
+  return {
+    activeMs: Math.max(5, Number(tf.settings.get("activeSeconds")) || 20) * 1e3,
+    recentMs: Math.max(1, Number(tf.settings.get("recentMinutes")) || 30) * 6e4,
+    showActivity: tf.settings.get("showActivity") !== false,
+    filters: {
+      showHidden: tf.settings.get("showHidden") === true,
+      skip: parseSkip(tf.settings.get("skipFolders"))
+    },
+    canEdit: canEdit(tf),
+    ...ui
+  };
+}
+
+// src/view.js
+var VIEW_KEY = "view";
+var MAX_PATH = 4096;
+var followView = () => ({ mode: "follow", folder: null });
+function pinView(folder) {
+  return usable(folder) ? { mode: "pinned", folder: normalize(folder) } : followView();
+}
+function usable(folder) {
+  return typeof folder === "string" && folder.startsWith("/") && folder.length <= MAX_PATH && // No control characters (and no bidirectional overrides) in a path to show.
+  !/[\u0000-\u001f\u007f‪-‮⁦-⁩]/.test(folder);
+}
+function restoreView(saved) {
+  if (!saved || typeof saved !== "object" || saved.mode !== "pinned") return followView();
+  return pinView(saved.folder);
+}
+var isPinned = (view) => view.mode === "pinned" && typeof view.folder === "string";
+var rootFor = (view, paneFolder) => isPinned(view) ? view.folder : paneFolder;
+function reachable(folder, places) {
+  const known = places.filter(Boolean);
+  if (!folder || !known.length) return null;
+  return known.some((p) => isInside(folder, p));
+}
+function upFrom(folder, places) {
+  if (!folder || folder === "/") return null;
+  const up = parent(folder);
+  return reachable(up, places) ? up : null;
+}
+function splitByRoot(events, root) {
+  if (!root) return { here: events, elsewhere: [] };
+  const here = [];
+  const elsewhere = [];
+  for (const e of events) (isInside(e.abs, root) ? here : elsewhere).push(e);
+  return { here, elsewhere };
+}
+
 // src/page-view.js
 var PAGE_RECENT = 100;
 var PAGE_NOW = 8;
@@ -388,7 +453,7 @@ function pageEvent(e, root, prefix) {
     ts: e.ts
   };
 }
-function pageView({ tree, events, now, t, opts, selected = null }) {
+function pageView({ tree, events, now, t, opts, selected = null, view = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
@@ -421,7 +486,9 @@ function pageView({ tree, events, now, t, opts, selected = null }) {
     };
   });
   const nowList = active.slice(0, PAGE_NOW).map((e) => pageEvent(e, root, "now:"));
-  const recent = recentFiles(activity, PAGE_RECENT);
+  const split = splitByRoot(recentFiles(activity, PAGE_RECENT), root);
+  const recent = [...split.here, ...split.elsewhere];
+  const away = new Set(split.elsewhere);
   for (const e of active.slice(0, PAGE_NOW))
     targets.set(`now:${e.abs}`, { kind: "file", path: e.abs });
   for (const e of recent) targets.set(`recent:${e.abs}`, { kind: "file", path: e.abs });
@@ -433,10 +500,15 @@ function pageView({ tree, events, now, t, opts, selected = null }) {
       live: nowList.length > 0,
       now: nowList,
       tree: rows,
-      recent: recent.map((e) => pageEvent(e, root, "recent:")),
+      recent: recent.map((e) => ({
+        ...pageEvent(e, root, "recent:"),
+        ...away.has(e) ? { elsewhere: true } : {}
+      })),
       panes: paneCount(recent),
       activity: opts.showActivity,
       selected: selected && targets.has(selected) ? selected : null,
+      selectedDir: Boolean(selected && targets.get(selected)?.kind === "dir"),
+      view: view?.pinned ? { pinned: true, gone: view.gone === true, up: view.up ? folderName(view.up) : null } : { pinned: false },
       canEdit: opts.canEdit === true
     },
     targets
@@ -474,6 +546,17 @@ function pageStrings(t, hookCommand) {
       trash: t("page-trash"),
       nameLabel: t("page-name-label"),
       tools: t("page-tools")
+    },
+    view: {
+      label: t("page-view-label"),
+      following: t("page-view-following"),
+      pinned: t("page-view-pinned"),
+      gone: t("view-gone"),
+      up: t("view-up", { folder: n }),
+      follow: t("view-follow"),
+      pin: t("menu-pin"),
+      showOnly: t("menu-show-only"),
+      elsewhere: t("section-elsewhere")
     },
     setup: {
       title: t("setup-title"),
@@ -610,12 +693,14 @@ function tallyRow(t, events, lately) {
 
 // src/panel-actions.js
 var ROW_MENU = { dir: "dir", file: "file", link: "file" };
-function panelMenus(t, canEdit2) {
+function panelMenus(t, canEdit2, pinned = false) {
   if (!canEdit2) return null;
   const item = (id, key, extra = {}) => ({ id, label: t(key), ...extra });
   const trash = item("trash", "page-trash", { tone: "error" });
   return {
     dir: [
+      item("show-only", "menu-show-only"),
+      { separator: true },
       item("new-file", "page-new-file"),
       item("new-folder", "page-new-folder"),
       { separator: true },
@@ -629,7 +714,12 @@ function panelMenus(t, canEdit2) {
       item("rename", "menu-rename"),
       trash
     ],
-    space: [item("new-file", "page-new-file"), item("new-folder", "page-new-folder")]
+    space: [
+      item("new-file", "page-new-file"),
+      item("new-folder", "page-new-folder"),
+      { separator: true },
+      pinned ? item("follow", "view-follow") : item("pin", "menu-pin")
+    ]
   };
 }
 
@@ -645,6 +735,33 @@ function headline(t, active, root) {
   });
   const text = active.length > 1 ? t("now-more", { line, count: active.length - 1 }) : line;
   return clamp(text, 512);
+}
+function viewRows(t, root, view) {
+  const rows = [];
+  const targets = /* @__PURE__ */ new Map();
+  if (!view?.pinned) return { rows, targets };
+  rows.push({
+    id: "view-pinned",
+    label: clamp(t("view-pinned", { folder: root ? folderName(root) : "" }), 256),
+    icon: "folder",
+    tone: "accent",
+    section: true,
+    ...root ? { hint: clamp(root, 512) } : {}
+  });
+  if (view.gone) {
+    rows.push({ id: "view-gone", label: t("view-gone"), icon: "error", tone: "warning" });
+  }
+  if (view.up) {
+    rows.push({
+      id: "view-up",
+      label: clamp(t("view-up", { folder: folderName(view.up) }), 256),
+      icon: "folder"
+    });
+    targets.set("view-up", { kind: "view-up" });
+  }
+  rows.push({ id: "view-follow", label: t("view-follow"), icon: "link", tone: "accent" });
+  targets.set("view-follow", { kind: "view-follow" });
+  return { rows, targets };
 }
 function recentFooter(t, events, root, now, { open, all }) {
   const rows = [];
@@ -670,7 +787,18 @@ function recentFooter(t, events, root, now, { open, all }) {
     });
     return { rows, targets };
   }
-  for (const e of all ? recent : recent.slice(0, PANEL_RECENT)) {
+  const { here, elsewhere } = splitByRoot(recent, root);
+  const listed = all ? [...here, ...elsewhere] : [...here, ...elsewhere].slice(0, PANEL_RECENT);
+  for (const e of listed) {
+    if (e === elsewhere[0]) {
+      rows.push({
+        id: "recent-elsewhere",
+        label: t("section-elsewhere"),
+        icon: "none",
+        depth: 1,
+        muted: true
+      });
+    }
     const id = `recent:${e.abs}`;
     rows.push({
       id,
@@ -689,14 +817,14 @@ function recentFooter(t, events, root, now, { open, all }) {
   }
   return { rows, targets };
 }
-function panelView({ tree, events, now, t, opts, selected = null }) {
+function panelView({ tree, events, now, t, opts, selected = null, view = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
   const latest = /* @__PURE__ */ new Map();
   for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
   const hot = hotFolders(active, root);
-  const menus = panelMenus(t, opts.canEdit === true);
+  const menus = panelMenus(t, opts.canEdit === true, view?.pinned === true);
   const decorate = (row, where) => {
     const marks = activityMarks(row, where);
     const menu = menus && ROW_MENU[where.kind] ? { menu: ROW_MENU[where.kind] } : {};
@@ -728,8 +856,9 @@ ${path}`, 512)
     filters: opts.filters,
     decorate
   });
-  const rows = [];
-  const targets = new Map(built.targets);
+  const pinned = viewRows(t, root, view);
+  const rows = [...pinned.rows];
+  const targets = new Map([...built.targets, ...pinned.targets]);
   if (opts.showActivity) {
     const section = nowRows(t, { active, events: activity, now, root });
     rows.push(...section.rows);
@@ -981,19 +1110,70 @@ function createScanner(tf) {
   };
 }
 
+// src/view-control.js
+function createViewControl(tf, ctx) {
+  let view = followView();
+  let paneFolder = null;
+  const ready = tf.store.get(VIEW_KEY).then((saved) => void (view = restoreView(saved))).catch(() => void 0);
+  const change = async (next, action) => {
+    await ready;
+    view = next;
+    await tf.store.set(VIEW_KEY, { ...view });
+    await tf.audit(action, {});
+    if (!ctx.showing()) return void 0;
+    return ctx.restart(rootFor(view, paneFolder ?? await tf.pane.cwd()));
+  };
+  const control = {
+    /** True while the tree is pinned. */
+    pinned: () => isPinned(view),
+    /** The folder to show now: the pinned one, or the focused pane's. */
+    async root() {
+      await ready;
+      paneFolder = await tf.pane.cwd();
+      return rootFor(view, paneFolder);
+    },
+    /** The focused pane moved to `path`; true when the tree should follow it. */
+    paneMoved(path) {
+      paneFolder = path;
+      return !isPinned(view);
+    },
+    /** The view as the panel and window draw it. */
+    info() {
+      if (!isPinned(view)) return { pinned: false };
+      const all = [...ctx.places(), paneFolder];
+      return {
+        pinned: true,
+        up: upFrom(view.folder, all),
+        gone: reachable(view.folder, all) === false
+      };
+    },
+    /** Keeps showing the tree's folder, whatever the panes do. */
+    pin() {
+      const root = ctx.root();
+      return root ? change(pinView(root), "pinned") : tf.toast(tf.t("error-no-folder"));
+    },
+    /** Follows the focused pane's folder again. */
+    follow: () => change(followView(), "followed"),
+    /** Shows only folder `id` (the chosen row by default), pinned. */
+    showOnly(id = ctx.chosen()) {
+      const target = id ? ctx.target(id) : null;
+      if (target?.kind !== "dir") return tf.toast(tf.t("error-choose-folder"));
+      return change(pinView(target.path), "rerooted");
+    },
+    /** Shows the folder above the pinned one, while a pane still reaches it. */
+    up() {
+      const above = control.info().up;
+      return above ? change(pinView(above), "rerooted") : void 0;
+    }
+  };
+  return control;
+}
+
 // src/session.js
 var POLL_MS = 2e3;
 var AGE_REDRAW_MS = 1e4;
 var HOOK_COMMAND = "node hooks/install.mjs";
 var UI_KEY = "ui";
-var MAX_ARG = 4096;
-var arg = (value) => typeof value === "string" && value.length > 0 && value.length <= MAX_ARG ? value : null;
-var ERROR_KEYS = {
-  PathNotAllowedError: "error-not-allowed",
-  NotFoundError: "error-not-found",
-  UnreadableError: "error-unreadable",
-  RateLimitError: "error-busy"
-};
 function createFolderTree(tf) {
   const scanner = createScanner(tf);
   let tree = emptyTree(null);
@@ -1007,27 +1187,14 @@ function createFolderTree(tf) {
   let timer = null;
   let selected = null;
   const ui = { recentOpen: true, recentAll: false };
-  const explain = (err) => {
-    const key = ERROR_KEYS[err?.name];
-    if (!key) void tf.log.warn(`Folder Tree: ${err?.name ?? "Error"}: ${err?.message ?? err}`);
-    return tf.t(key ?? "error-other");
-  };
-  const options = () => ({
-    activeMs: Math.max(5, Number(tf.settings.get("activeSeconds")) || 20) * 1e3,
-    recentMs: Math.max(1, Number(tf.settings.get("recentMinutes")) || 30) * 6e4,
-    showActivity: tf.settings.get("showActivity") !== false,
-    filters: {
-      showHidden: tf.settings.get("showHidden") === true,
-      skip: parseSkip(tf.settings.get("skipFolders"))
-    },
-    canEdit: canEdit(tf),
-    ...ui
-  });
+  const explain = (err) => explainError(tf, err);
+  const options = () => readOptions(tf, ui);
   const draw = async () => {
     const now = Date.now();
     lastDraw = now;
     const next = /* @__PURE__ */ new Map();
     const args = { tree, events, now, t: (k, a) => tf.t(k, a), opts: options(), selected };
+    args.view = views.info();
     if (shown) {
       const view = panelView(args);
       for (const [id, target] of view.targets) next.set(id, target);
@@ -1175,6 +1342,8 @@ function createFolderTree(tf) {
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
     if (target.kind === "setup") return api.openWindow(true);
+    if (target.kind === "view-follow") return views.follow();
+    if (target.kind === "view-up") return views.up();
     return void 0;
   };
   const renameChosen = async () => {
@@ -1213,8 +1382,19 @@ function createFolderTree(tf) {
     if (item === "edit") return edits.edit(id);
     if (item === "rename") return renameChosen();
     if (item === "trash") return edits.trash(id);
+    if (item === "show-only") return views.showOnly(id);
+    if (item === "pin") return views.pin();
+    if (item === "follow") return views.follow();
     return void 0;
   };
+  const views = createViewControl(tf, {
+    places,
+    root: () => tree.root,
+    target: (id) => targets.get(id),
+    chosen: () => selected,
+    showing: () => shown || pageOpen,
+    restart: (root) => (selected = null, start(root))
+  });
   const ensureRoot = async (root) => {
     if (root !== tree.root || !isLoaded(tree, root ?? "")) await start(root);
     else await draw();
@@ -1237,7 +1417,7 @@ function createFolderTree(tf) {
       shown = true;
       pace();
       await loadPanes();
-      const root = await tf.pane.cwd();
+      const root = await views.root();
       await tf.audit("shown", { hasFolder: root !== null, window: pageOpen });
       return ensureRoot(root);
     },
@@ -1251,7 +1431,7 @@ function createFolderTree(tf) {
       await loadPanes();
       await tf.page.post(pageStrings((k, a) => tf.t(k, a), HOOK_COMMAND));
       if (setup) await tf.page.post({ type: "setup" });
-      return ensureRoot(await tf.pane.cwd());
+      return ensureRoot(await views.root());
     },
     /** Lists everything again from the top. */
     refresh: () => shown || pageOpen ? start(tree.root) : void 0,
@@ -1285,6 +1465,10 @@ function createFolderTree(tf) {
       if (m.type === "move" && id) return edits.move(id, arg(m.to));
       if (m.type === "trash" && id) return edits.trash(id);
       if (m.type === "edit" && id) return edits.edit(id);
+      if (m.type === "show-only" && id) return views.showOnly(id);
+      if (m.type === "pin") return views.pin();
+      if (m.type === "follow") return views.follow();
+      if (m.type === "up") return views.up();
       return void 0;
     },
     /** Palette commands: a new file or folder where the user last chose. */
@@ -1294,10 +1478,16 @@ function createFolderTree(tf) {
     trashSelected: () => selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
     /** Palette command: renaming happens in the window, where there is a text field. */
     renameSelected: () => renameChosen(),
+    /** Palette commands: pin, follow the pane, show only the chosen folder, up. */
+    pin: () => views.pin(),
+    follow: () => views.follow(),
+    showOnly: () => views.showOnly(),
+    up: () => views.up(),
     /** Whether this Tilefold lets the tile change files. */
     canEdit: () => canEdit(tf),
     /** The focused pane's folder changed. */
     async paneChanged(path) {
+      if (!views.paneMoved(path)) return shown || pageOpen ? draw() : void 0;
       if (path === tree.root) return void 0;
       if (shown || pageOpen) return start(path);
       tree = emptyTree(path);
@@ -1323,7 +1513,7 @@ function createFolderTree(tf) {
       shown = true;
       pace();
       await loadPanes();
-      return ensureRoot(await tf.pane.cwd());
+      return ensureRoot(await views.root());
     },
     /** The window was closed. */
     pageClosed() {
@@ -1371,6 +1561,12 @@ var main_default = (tf) => {
   tf.command(tf.t("cmd-trash"), () => void (tree ? tree.trashSelected() : unsupported()), {
     id: "trash"
   });
+  tf.command(tf.t("cmd-pin"), () => tree ? tree.pin() : unsupported(), { id: "pin" });
+  tf.command(tf.t("cmd-follow"), () => tree ? tree.follow() : unsupported(), { id: "follow" });
+  tf.command(tf.t("cmd-show-only"), () => tree ? tree.showOnly() : unsupported(), {
+    id: "show-only"
+  });
+  tf.command(tf.t("cmd-up"), () => tree ? tree.up() : unsupported(), { id: "up" });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));

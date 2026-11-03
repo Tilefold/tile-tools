@@ -41,6 +41,8 @@
  *   handlers that wait for the user aren't waited for. A double-click on a
  *   file renames it in place (panel.dblclick, and in the window). The
  *   panel belongs to the tabs it is opened on (panel.opened on coming back).
+ * Modified 2026-11-02 (pinned folders): Pin this folder, Follow the pane,
+ *   Show only the chosen folder and Up one folder.
  *
  * Last updated by: Tilefold
  */
@@ -86,6 +88,13 @@ export default (tf) => {
   tf.command(tf.t("cmd-trash"), () => void (tree ? tree.trashSelected() : unsupported()), {
     id: "trash",
   });
+  // What the tree shows: pinned on a folder, or following the pane.
+  tf.command(tf.t("cmd-pin"), () => (tree ? tree.pin() : unsupported()), { id: "pin" });
+  tf.command(tf.t("cmd-follow"), () => (tree ? tree.follow() : unsupported()), { id: "follow" });
+  tf.command(tf.t("cmd-show-only"), () => (tree ? tree.showOnly() : unsupported()), {
+    id: "show-only",
+  });
+  tf.command(tf.t("cmd-up"), () => (tree ? tree.up() : unsupported()), { id: "up" });
   tf.on("pane.cwd", (e) => tree?.paneChanged(e.path ?? null));
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));

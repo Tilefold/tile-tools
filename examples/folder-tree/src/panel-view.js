@@ -29,6 +29,10 @@
  *   activity is on even with no recent files yet, with a note saying so.
  * Modified 2026-10-28 (a livelier Now): the "Now" section moved to
  *   now-view.js, and the row helpers to row-marks.js.
+ * Modified 2026-11-02 (pinned folders): a pinned tree starts with rows
+ *   saying so (Up, Follow the pane, or that no pane reaches it any more);
+ *   Recent lists the shown folder's files first and the rest under
+ *   "Elsewhere".
  *
  * Last updated by: Tilefold
  */
@@ -39,6 +43,7 @@ import { treeRows } from "./model.js";
 import { panelMenus, ROW_MENU } from "./panel-actions.js";
 import { basename, shownPath } from "./paths.js";
 import { folderName } from "./tree.js";
+import { splitByRoot } from "./view.js";
 
 /** Recent files shown in the panel before "Show all". */
 export const PANEL_RECENT = 5;
@@ -57,6 +62,39 @@ function headline(t, active, root) {
   });
   const text = active.length > 1 ? t("now-more", { line, count: active.length - 1 }) : line;
   return clamp(text, 512);
+}
+
+/**
+ * The rows that say the tree is pinned: the pinned folder, Up while a pane
+ * still reaches the folder above, and Follow the pane; or that no pane
+ * reaches the pinned folder any more. None while the tree follows the pane.
+ */
+function viewRows(t, root, view) {
+  const rows = [];
+  const targets = new Map();
+  if (!view?.pinned) return { rows, targets };
+  rows.push({
+    id: "view-pinned",
+    label: clamp(t("view-pinned", { folder: root ? folderName(root) : "" }), 256),
+    icon: "folder",
+    tone: "accent",
+    section: true,
+    ...(root ? { hint: clamp(root, 512) } : {}),
+  });
+  if (view.gone) {
+    rows.push({ id: "view-gone", label: t("view-gone"), icon: "error", tone: "warning" });
+  }
+  if (view.up) {
+    rows.push({
+      id: "view-up",
+      label: clamp(t("view-up", { folder: folderName(view.up) }), 256),
+      icon: "folder",
+    });
+    targets.set("view-up", { kind: "view-up" });
+  }
+  rows.push({ id: "view-follow", label: t("view-follow"), icon: "link", tone: "accent" });
+  targets.set("view-follow", { kind: "view-follow" });
+  return { rows, targets };
 }
 
 /** The "Recent" footer rows, and their targets. */
@@ -84,7 +122,19 @@ function recentFooter(t, events, root, now, { open, all }) {
     });
     return { rows, targets };
   }
-  for (const e of all ? recent : recent.slice(0, PANEL_RECENT)) {
+  // What happened in the shown folder first; the rest under "Elsewhere".
+  const { here, elsewhere } = splitByRoot(recent, root);
+  const listed = all ? [...here, ...elsewhere] : [...here, ...elsewhere].slice(0, PANEL_RECENT);
+  for (const e of listed) {
+    if (e === elsewhere[0]) {
+      rows.push({
+        id: "recent-elsewhere",
+        label: t("section-elsewhere"),
+        icon: "none",
+        depth: 1,
+        muted: true,
+      });
+    }
     const id = `recent:${e.abs}`;
     rows.push({
       id,
@@ -111,7 +161,7 @@ function recentFooter(t, events, root, now, { open, all }) {
  * colour it already.
  * Returns { content, targets, live } (live: something is happening now).
  */
-export function panelView({ tree, events, now, t, opts, selected = null }) {
+export function panelView({ tree, events, now, t, opts, selected = null, view = null }) {
   const root = tree.root;
   const activity = opts.showActivity ? events : [];
   const active = activeFiles(activity, now, opts.activeMs).filter((e) => e.action !== "d");
@@ -119,7 +169,7 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
   for (const e of activity) if (!latest.has(e.abs)) latest.set(e.abs, e);
   const hot = hotFolders(active, root);
 
-  const menus = panelMenus(t, opts.canEdit === true);
+  const menus = panelMenus(t, opts.canEdit === true, view?.pinned === true);
   const decorate = (row, where) => {
     const marks = activityMarks(row, where);
     const menu = menus && ROW_MENU[where.kind] ? { menu: ROW_MENU[where.kind] } : {};
@@ -153,8 +203,9 @@ export function panelView({ tree, events, now, t, opts, selected = null }) {
     decorate,
   });
 
-  const rows = [];
-  const targets = new Map(built.targets);
+  const pinned = viewRows(t, root, view);
+  const rows = [...pinned.rows];
+  const targets = new Map([...built.targets, ...pinned.targets]);
   if (opts.showActivity) {
     const section = nowRows(t, { active, events: activity, now, root });
     rows.push(...section.rows);

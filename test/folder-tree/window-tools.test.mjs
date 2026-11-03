@@ -54,6 +54,17 @@ const STRINGS = {
     nameLabel: "New name",
     tools: "File tools",
   },
+  view: {
+    label: "What the tree shows",
+    following: "Following the pane",
+    pinned: "Pinned on this folder",
+    gone: "No pane is in this folder any more",
+    up: "Up to §",
+    follow: "Follow the pane",
+    pin: "Pin this folder",
+    showOnly: "Show only this folder",
+    elsewhere: "Elsewhere",
+  },
   setup: {
     title: "t",
     intro: "i",
@@ -246,6 +257,61 @@ describe("Folder Tree window tools", () => {
     const field = document.querySelector("input.rename");
     expect(field).not.toBeNull();
     field.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
+
+  it("say whether the tree follows the pane or is pinned, and send the bar's choices", async () => {
+    await post(state({ view: { pinned: false }, selected: null, selectedDir: false }));
+    expect(document.getElementById("view-text").textContent).toBe("Following the pane");
+    expect(document.getElementById("view-up").hidden).toBe(true);
+    expect(document.getElementById("view-show-only").disabled).toBe(true);
+    document.getElementById("view-pin").click();
+    expect(sent.at(-1)).toEqual({ type: "pin" });
+
+    await post(state({ selected: "/work/app/src", selectedDir: true }));
+    document.getElementById("view-show-only").click();
+    expect(sent.at(-1)).toEqual({ type: "show-only", id: "/work/app/src" });
+
+    await post(state({ view: { pinned: true, gone: false, up: "work" } }));
+    expect(document.getElementById("view").classList.contains("pinned")).toBe(true);
+    expect(document.getElementById("view-text").textContent).toBe("Pinned on this folder");
+    const up = document.getElementById("view-up");
+    expect([up.hidden, up.textContent]).toEqual([false, "Up to work"]);
+    up.click();
+    expect(sent.at(-1)).toEqual({ type: "up" });
+    expect(document.getElementById("view-pin").textContent).toBe("Follow the pane");
+    document.getElementById("view-pin").click();
+    expect(sent.at(-1)).toEqual({ type: "follow" });
+
+    await post(state({ view: { pinned: true, gone: true, up: null } }));
+    expect(document.getElementById("view-text").textContent).toBe(
+      "No pane is in this folder any more",
+    );
+  });
+
+  it("list recent files outside the shown folder after an Elsewhere line", async () => {
+    const line = (id, extra = {}) => ({
+      id,
+      file: id,
+      dir: "",
+      pane: "api",
+      action: "e",
+      ts: 1,
+      ...extra,
+    });
+    await post(
+      state({
+        activity: true,
+        recent: [
+          line("recent:a"),
+          line("recent:b", { elsewhere: true }),
+          line("recent:c", { elsewhere: true }),
+        ],
+      }),
+    );
+    const items = [...document.querySelectorAll("#recent > li")];
+    const marks = items.filter((li) => li.classList.contains("elsewhere"));
+    expect(marks.map((li) => li.textContent)).toEqual(["Elsewhere"]);
+    expect(items.indexOf(marks[0])).toBe(1);
   });
 
   it("show names as text, never as markup", async () => {

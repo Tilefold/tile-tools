@@ -90,3 +90,20 @@ page-name-label = اسم جديد
 page-tools = أدوات الملفات
 menu-open = فتح
 menu-rename = إعادة تسمية…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: تثبيت هذا المجلد
+cmd-follow = Folder Tree: اتباع الجزء
+cmd-show-only = Folder Tree: إظهار المجلد المختار فقط
+cmd-up = Folder Tree: مجلد واحد للأعلى
+menu-show-only = إظهار هذا المجلد فقط
+menu-pin = تثبيت هذا المجلد
+view-pinned = مثبّت: { $folder }
+view-gone = لم يعد أي جزء في هذا المجلد
+view-up = للأعلى إلى { $folder }
+view-follow = اتباع الجزء
+section-elsewhere = في أماكن أخرى
+page-view-label = ما تعرضه الشجرة
+page-view-following = يتبع الجزء الذي أنت فيه
+page-view-pinned = مثبّت على هذا المجلد
+error-choose-folder = انقر أولًا على مجلد في الشجرة

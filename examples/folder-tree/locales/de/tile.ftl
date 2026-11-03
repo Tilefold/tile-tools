@@ -90,3 +90,20 @@ page-name-label = Neuer Name
 page-tools = Dateiwerkzeuge
 menu-open = Öffnen
 menu-rename = Umbenennen …
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: Diesen Ordner anheften
+cmd-follow = Folder Tree: Dem Bereich folgen
+cmd-show-only = Folder Tree: Nur den gewählten Ordner zeigen
+cmd-up = Folder Tree: Einen Ordner nach oben
+menu-show-only = Nur diesen Ordner zeigen
+menu-pin = Diesen Ordner anheften
+view-pinned = Angeheftet: { $folder }
+view-gone = Kein Bereich ist mehr in diesem Ordner
+view-up = Nach oben zu { $folder }
+view-follow = Dem Bereich folgen
+section-elsewhere = Anderswo
+page-view-label = Was der Baum zeigt
+page-view-following = Folgt dem Bereich, in dem Sie sind
+page-view-pinned = An diesen Ordner angeheftet
+error-choose-folder = Klicken Sie zuerst auf einen Ordner im Baum

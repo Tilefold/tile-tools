@@ -42,6 +42,10 @@
  *   `panel.opened`, which shows it again for that tab's pane.
  * Modified 2026-10-28 (a livelier Now): the Now section's setup row opens
  *   the hooks' guide.
+ * Modified 2026-11-02 (pinned folders): what the tree shows comes from the
+ *   view control (view-control.js): it follows the pane, or stays pinned on
+ *   a folder, while agents are watched in every pane either way; settings
+ *   and error messages moved to options.js.
  *
  * Last updated by: Tilefold
  */
@@ -56,10 +60,11 @@ import {
   withListing,
 } from "./model.js";
 import { canEdit, createEdits } from "./edits.js";
+import { arg, explainError, readOptions } from "./options.js";
 import { pageStrings, pageView } from "./page-view.js";
 import { panelView } from "./panel-view.js";
 import { createScanner } from "./scan.js";
-import { parseSkip } from "./tree.js";
+import { createViewControl } from "./view-control.js";
 
 /** How often markers are read while the tree is showing. */
 export const POLL_MS = 2000;
@@ -69,20 +74,6 @@ export const AGE_REDRAW_MS = 10_000;
 export const HOOK_COMMAND = "node hooks/install.mjs";
 /** Where the Recent section's open/all choice is kept. */
 const UI_KEY = "ui";
-/** Longest id or name a window message may carry. */
-const MAX_ARG = 4096;
-
-/** `value` when it is a usable string argument, else null. */
-const arg = (value) =>
-  typeof value === "string" && value.length > 0 && value.length <= MAX_ARG ? value : null;
-
-/** The message for an error from Tilefold, by its name. */
-const ERROR_KEYS = {
-  PathNotAllowedError: "error-not-allowed",
-  NotFoundError: "error-not-found",
-  UnreadableError: "error-unreadable",
-  RateLimitError: "error-busy",
-};
 
 /** Starts the Folder Tree for `tf`; returns its handlers (for main.js and tests). */
 export function createFolderTree(tf) {
@@ -104,26 +95,8 @@ export function createFolderTree(tf) {
   /** The row the user last chose (a folder or file), the target of changes. */
   let selected = null;
   const ui = { recentOpen: true, recentAll: false };
-
-  /** A short message for an error, in the user's language. */
-  const explain = (err) => {
-    const key = ERROR_KEYS[err?.name];
-    if (!key) void tf.log.warn(`Folder Tree: ${err?.name ?? "Error"}: ${err?.message ?? err}`);
-    return tf.t(key ?? "error-other");
-  };
-
-  /** The settings, as the views take them. */
-  const options = () => ({
-    activeMs: Math.max(5, Number(tf.settings.get("activeSeconds")) || 20) * 1000,
-    recentMs: Math.max(1, Number(tf.settings.get("recentMinutes")) || 30) * 60_000,
-    showActivity: tf.settings.get("showActivity") !== false,
-    filters: {
-      showHidden: tf.settings.get("showHidden") === true,
-      skip: parseSkip(tf.settings.get("skipFolders")),
-    },
-    canEdit: canEdit(tf),
-    ...ui,
-  });
+  const explain = (err) => explainError(tf, err);
+  const options = () => readOptions(tf, ui);
 
   /** Draws the panel and the window (whichever is showing). */
   const draw = async () => {
@@ -131,6 +104,7 @@ export function createFolderTree(tf) {
     lastDraw = now;
     const next = new Map();
     const args = { tree, events, now, t: (k, a) => tf.t(k, a), opts: options(), selected };
+    args.view = views.info();
     if (shown) {
       const view = panelView(args);
       for (const [id, target] of view.targets) next.set(id, target);
@@ -311,6 +285,8 @@ export function createFolderTree(tf) {
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
     // The Now section's setup row, before any agent activity: the hooks' guide.
     if (target.kind === "setup") return api.openWindow(true);
+    if (target.kind === "view-follow") return views.follow();
+    if (target.kind === "view-up") return views.up();
     return undefined;
   };
 
@@ -363,8 +339,21 @@ export function createFolderTree(tf) {
     if (item === "edit") return edits.edit(id);
     if (item === "rename") return renameChosen();
     if (item === "trash") return edits.trash(id);
+    if (item === "show-only") return views.showOnly(id);
+    if (item === "pin") return views.pin();
+    if (item === "follow") return views.follow();
     return undefined;
   };
+
+  /** What the tree shows: the pane's folder, or a pinned one (view-control.js). */
+  const views = createViewControl(tf, {
+    places,
+    root: () => tree.root,
+    target: (id) => targets.get(id),
+    chosen: () => selected,
+    showing: () => shown || pageOpen,
+    restart: (root) => ((selected = null), start(root)),
+  });
 
   /** The tree's folder (`root`, the pane's), listed when it is new. */
   const ensureRoot = async (root) => {
@@ -392,7 +381,7 @@ export function createFolderTree(tf) {
       shown = true;
       pace();
       await loadPanes();
-      const root = await tf.pane.cwd();
+      const root = await views.root();
       await tf.audit("shown", { hasFolder: root !== null, window: pageOpen });
       return ensureRoot(root);
     },
@@ -406,7 +395,7 @@ export function createFolderTree(tf) {
       await loadPanes();
       await tf.page.post(pageStrings((k, a) => tf.t(k, a), HOOK_COMMAND));
       if (setup) await tf.page.post({ type: "setup" });
-      return ensureRoot(await tf.pane.cwd());
+      return ensureRoot(await views.root());
     },
     /** Lists everything again from the top. */
     refresh: () => (shown || pageOpen ? start(tree.root) : undefined),
@@ -441,6 +430,10 @@ export function createFolderTree(tf) {
       if (m.type === "move" && id) return edits.move(id, arg(m.to));
       if (m.type === "trash" && id) return edits.trash(id);
       if (m.type === "edit" && id) return edits.edit(id);
+      if (m.type === "show-only" && id) return views.showOnly(id);
+      if (m.type === "pin") return views.pin();
+      if (m.type === "follow") return views.follow();
+      if (m.type === "up") return views.up();
       return undefined;
     },
     /** Palette commands: a new file or folder where the user last chose. */
@@ -451,10 +444,17 @@ export function createFolderTree(tf) {
       selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
     /** Palette command: renaming happens in the window, where there is a text field. */
     renameSelected: () => renameChosen(),
+    /** Palette commands: pin, follow the pane, show only the chosen folder, up. */
+    pin: () => views.pin(),
+    follow: () => views.follow(),
+    showOnly: () => views.showOnly(),
+    up: () => views.up(),
     /** Whether this Tilefold lets the tile change files. */
     canEdit: () => canEdit(tf),
     /** The focused pane's folder changed. */
     async paneChanged(path) {
+      // Pinned: the tree stays; whether a pane still reaches it may have changed.
+      if (!views.paneMoved(path)) return shown || pageOpen ? draw() : undefined;
       if (path === tree.root) return undefined;
       if (shown || pageOpen) return start(path);
       tree = emptyTree(path);
@@ -482,7 +482,7 @@ export function createFolderTree(tf) {
       shown = true;
       pace();
       await loadPanes();
-      return ensureRoot(await tf.pane.cwd());
+      return ensureRoot(await views.root());
     },
     /** The window was closed. */
     pageClosed() {

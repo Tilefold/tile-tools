@@ -90,3 +90,20 @@ page-name-label = Nouveau nom
 page-tools = Outils de fichiers
 menu-open = Ouvrir
 menu-rename = Renommer…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree : Épingler ce dossier
+cmd-follow = Folder Tree : Suivre le volet
+cmd-show-only = Folder Tree : Afficher seulement le dossier choisi
+cmd-up = Folder Tree : Remonter d'un dossier
+menu-show-only = Afficher seulement ce dossier
+menu-pin = Épingler ce dossier
+view-pinned = Épinglé : { $folder }
+view-gone = Plus aucun volet n'est dans ce dossier
+view-up = Remonter à { $folder }
+view-follow = Suivre le volet
+section-elsewhere = Ailleurs
+page-view-label = Ce que montre l'arborescence
+page-view-following = Suit le volet où vous êtes
+page-view-pinned = Épinglé sur ce dossier
+error-choose-folder = Cliquez d'abord sur un dossier de l'arborescence

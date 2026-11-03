@@ -10,6 +10,17 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 - **Recent**, pinned to the bottom, shows the newest five. It is always there while activity is shown, saying so until an agent has used a file in the folder. **Show all** lets it grow upward to half the panel, scrolling inside; **Show fewer** shrinks it back. Folder Tree remembers which you chose.
 - **Folder Tree: Open window** shows the same in a window of its own.
 
+## Looking at a particular folder
+
+The tree follows the pane you're in, but you can keep it on one folder while you work elsewhere. The agents' activity keeps coming in from every pane either way.
+
+- **Pin this folder** (right-click the empty space under the tree, or the command palette) keeps the tree on the folder it shows now, while you switch panes or `cd`.
+- **Show only this folder** (right-click a folder) shows that folder on its own. **Up to …** at the top goes back up, as far as the folder your pane is in.
+- **Follow the pane** goes back to following the pane you're in.
+- While the tree is pinned, **Recent** lists the files agents used in that folder first, and the rest under **Elsewhere**, so you don't miss what agents are doing in other places.
+- Folder Tree can only show folders one of your panes is in (or folders inside them). If you close or move every pane away from a pinned folder, the tree says so; **Follow the pane** brings it back.
+- The window (**Folder Tree: Open window**) has the same choices in the bar under its title. Folder Tree remembers a pinned folder the next time Tilefold starts.
+
 ## Changing files
 
 From Tilefold 0.1.16, Folder Tree can also add, rename, move and trash files and folders, and you edit files right in the document viewer.
@@ -66,4 +77,4 @@ The **Folder Tree: Set up agent activity** command shows the same steps in the w
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-28 by Tilefold
+Last updated: 2026-11-02 by Tilefold

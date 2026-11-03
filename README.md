@@ -234,7 +234,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (1967 tests in 101 files, all passing on 2026-11-02).
+Run with `npm test` (1981 tests in 102 files, all passing on 2026-11-02).
 
 | Area | Covers |
 |---|---|

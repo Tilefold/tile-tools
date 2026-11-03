@@ -90,3 +90,20 @@ page-name-label = 새 이름
 page-tools = 파일 도구
 menu-open = 열기
 menu-rename = 이름 변경…
+
+# What the tree shows: following the pane or pinned on a folder
+cmd-pin = Folder Tree: 이 폴더 고정
+cmd-follow = Folder Tree: 창 따라가기
+cmd-show-only = Folder Tree: 선택한 폴더만 보기
+cmd-up = Folder Tree: 한 폴더 위로
+menu-show-only = 이 폴더만 보기
+menu-pin = 이 폴더 고정
+view-pinned = 고정됨: { $folder }
+view-gone = 이 폴더에 있는 창이 더 이상 없습니다
+view-up = { $folder }(으)로 위로
+view-follow = 창 따라가기
+section-elsewhere = 다른 곳
+page-view-label = 트리에 보여 줄 것
+page-view-following = 지금 있는 창을 따라가는 중
+page-view-pinned = 이 폴더에 고정됨
+error-choose-folder = 먼저 트리에서 폴더를 클릭하세요
