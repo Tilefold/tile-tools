@@ -38,6 +38,11 @@
  *
  * Modified 2026-10-19 (port ranges): the address setting takes ranges of ports.
  *
+ * Modified 2026-11-04 (panel at startup): the panel no longer comes back by
+ * itself when Tilefold starts. It shows once Web View opens a page, and a
+ * panel the user closed stays closed (across restarts too) until they run
+ * Open again or turn the panel setting back on.
+ *
  * Last updated by: Tilefold
  *
  * Build:  npx @tilefold/tile-tools build
@@ -175,9 +180,16 @@ function errorKey(err) {
 // src/main.js
 var main_default = (tf) => {
   let recent = [];
+  let opened = false;
+  let closed = false;
+  async function setClosed(value) {
+    if (closed === value) return;
+    closed = value;
+    await tf.store.set("panelClosed", value);
+  }
   async function showPanel() {
     if (!tf.panel) return;
-    if (!tf.settings.get("panel") || recent.length === 0) {
+    if (!opened || closed || !tf.settings.get("panel") || recent.length === 0) {
       await tf.panel.hide();
       return;
     }
@@ -213,9 +225,16 @@ var main_default = (tf) => {
   const eachPage = (step) => steer(async (b) => {
     for (const p of await pages(b)) await step(p);
   });
-  tf.command(tf.t("cmd-open"), () => void eachPage((p) => open(p.b, p.address)), {
-    id: "open"
-  });
+  tf.command(
+    tf.t("cmd-open"),
+    async () => {
+      opened = true;
+      await setClosed(false);
+      await showPanel();
+      void eachPage((p) => open(p.b, p.address));
+    },
+    { id: "open" }
+  );
   tf.command(
     tf.t("cmd-move"),
     () => void steer(async (b) => {
@@ -251,14 +270,21 @@ var main_default = (tf) => {
   );
   tf.on("app.ready", async () => {
     recent = readRecent(await tf.store.get("recent"));
-    await showPanel();
+    closed = await tf.store.get("panelClosed") === true;
   });
   tf.on("browser.navigated", async ({ url, title, page }) => {
+    const first = !opened;
+    opened = true;
     const next = remember(recent, { url, title, page });
-    if (next === recent) return;
-    recent = next;
-    await tf.store.set("recent", recent);
+    if (next === recent && !first) return;
+    if (next !== recent) {
+      recent = next;
+      await tf.store.set("recent", recent);
+    }
     await showPanel();
+  });
+  tf.on("panel.closed", ({ by } = {}) => {
+    if (by === "user") void setClosed(true);
   });
   tf.on("panel.click", ({ row }) => {
     const hit = readRowId(row);
@@ -268,8 +294,10 @@ var main_default = (tf) => {
       return open(target, hit.url);
     });
   });
-  tf.on("setting.changed", ({ key }) => {
-    if (key === "panel") void showPanel();
+  tf.on("setting.changed", async ({ key }) => {
+    if (key !== "panel") return;
+    if (tf.settings.get("panel")) await setClosed(false);
+    await showPanel();
   });
 };
 export default main_default;
