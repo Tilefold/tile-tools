@@ -120,3 +120,5 @@ menu-move-up = Nach oben
 menu-move-down = Nach unten
 menu-unpin = Lösen
 page-pins-label = Angeheftete Ordner
+pins-add-label = Ordner hinzufügen
+pins-add-placeholder = Ordner über seinen Pfad hinzufügen

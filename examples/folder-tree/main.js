@@ -43,6 +43,8 @@
  *   panel belongs to the tabs it is opened on (panel.opened on coming back).
  * Modified 2026-11-02 (pinned folders): Pin this folder, Follow the pane,
  *   Show only the chosen folder and Up one folder.
+ * Modified 2026-11-03 (folder field): the panel's folder field
+ *   (panel.input) pins the folder the user typed or picked.
  *
  * Last updated by: Tilefold
  */
@@ -800,6 +802,25 @@ function panelMenus(t, canEdit2, pinned = false) {
   };
 }
 
+// src/folder-field.js
+var FIELD_ROW = "pins-add";
+var GRANTED_KEY = "granted";
+var MAX_GRANTED = 12;
+function restoreGranted(saved) {
+  if (!Array.isArray(saved)) return [];
+  const out = [];
+  for (const p of saved) if (usable(p) && !out.includes(p)) out.push(p);
+  return out.slice(-MAX_GRANTED);
+}
+function fieldRow(t) {
+  return {
+    id: FIELD_ROW,
+    label: t("pins-add-label"),
+    depth: 1,
+    input: { kind: "folder", placeholder: t("pins-add-placeholder"), browse: true }
+  };
+}
+
 // src/folders-view.js
 var TRAIL_MAX = 32;
 var trailOf = (text) => text.length > TRAIL_MAX ? `\u2026${text.slice(-(TRAIL_MAX - 1))}` : text;
@@ -817,6 +838,7 @@ function foldersRows(t, { root, view, active, open, menus }) {
   });
   targets.set("folders", { kind: "folders" });
   if (!open) return { rows, targets };
+  if (view?.ask) rows.push(fieldRow(t));
   const following = !view?.pinned;
   rows.push({
     id: "view-follow",
@@ -1259,14 +1281,17 @@ function createViewControl(tf, ctx) {
   let view = followView();
   let pins = [];
   let paneFolder = null;
+  let granted = [];
   const ready = Promise.all([
     tf.store.get(VIEW_KEY).catch(() => null),
-    tf.store.get(PINS_KEY).catch(() => null)
-  ]).then(([savedView, savedPins]) => {
+    tf.store.get(PINS_KEY).catch(() => null),
+    tf.store.get(GRANTED_KEY).catch(() => null)
+  ]).then(([savedView, savedPins, savedGranted]) => {
     view = restoreView(savedView);
     pins = restorePins(savedPins, savedView);
+    granted = restoreGranted(savedGranted);
   });
-  const reach = () => [...ctx.places(), paneFolder];
+  const reach = () => [...ctx.places(), paneFolder, ...granted];
   const reshow = async () => {
     if (!ctx.showing()) return void 0;
     return ctx.restart(rootFor(view, paneFolder ?? await tf.pane.cwd()));
@@ -1284,7 +1309,7 @@ function createViewControl(tf, ctx) {
     await tf.audit(action, { count: pins.length });
     return show ? reshow() : ctx.redraw();
   };
-  const pinFolder = async (folder) => {
+  const pinFolder = async (folder, from = "menu") => {
     await ready;
     if (!folder) return tf.toast(tf.t("error-no-folder"));
     const added = addPin(pins, folder);
@@ -1292,7 +1317,7 @@ function createViewControl(tf, ctx) {
     if (added.error) return tf.toast(tf.t(PIN_ERRORS[added.error], { max: MAX_PINS }));
     pins = added.pins;
     await tf.store.set(PINS_KEY, [...pins]);
-    return change(pinView(folder), "pinned", { count: pins.length });
+    return change(pinView(folder), "pinned", { count: pins.length, from });
   };
   const showPin = async (folder) => {
     if (!pins.includes(folder)) return void 0;
@@ -1335,8 +1360,10 @@ function createViewControl(tf, ctx) {
         shown: path === shown,
         gone: reachable(path, all) === false
       }));
-      if (!shown) return { pinned: false, pins: list };
+      const ask = typeof tf.fs?.chooseFolder === "function";
+      if (!shown) return { pinned: false, pins: list, ask };
       return {
+        ask,
         pinned: true,
         listed: pins.includes(shown),
         up: upFrom(shown, all),
@@ -1379,6 +1406,27 @@ function createViewControl(tf, ctx) {
       }
       if (item === "unpin") return unpin(target.path);
       return null;
+    },
+    /**
+     * What the user submitted in the panel's folder field (`panel.input`):
+     * a folder Tilefold gave the tile is kept and pinned; a refusal is only
+     * recorded (Tilefold shows why under the field). Never a path in the log.
+     */
+    async field({ row, path, error, via } = {}) {
+      if (row !== FIELD_ROW) return void 0;
+      await ready;
+      const from = via === "dialog" ? "dialog" : "typed";
+      if (typeof path !== "string" || !path.startsWith("/")) {
+        return tf.audit("pin-refused", {
+          from,
+          reason: typeof error === "string" ? error : "none"
+        });
+      }
+      if (!granted.includes(path)) {
+        granted = restoreGranted([...granted, path]);
+        await tf.store.set(GRANTED_KEY, [...granted]);
+      }
+      return pinFolder(path, from);
     },
     /** A window message about the view (`id`: its checked path); null when not one. */
     message(type, id) {
@@ -1665,6 +1713,7 @@ function createFolderTree(tf) {
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
     /** A double-click on a row of the panel. */
     doubled: ({ row } = {}) => typeof row === "string" ? doubled(row) : void 0,
+    fieldInput: (e) => views.field(e),
     /** A choice from a panel row's right-click menu. */
     menuChosen: ({ row, item } = {}) => typeof item === "string" ? fromMenu(typeof row === "string" ? row : null, item) : void 0,
     /** A message from the window. */
@@ -1796,6 +1845,7 @@ var main_default = (tf) => {
   tf.on("panel.opened", () => void tree?.reopened());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
   tf.on("panel.dblclick", (e) => void tree?.doubled(e));
+  tf.on("panel.input", (e) => void tree?.fieldInput(e));
   tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());

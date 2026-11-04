@@ -120,3 +120,5 @@ menu-move-up = 上へ移動
 menu-move-down = 下へ移動
 menu-unpin = 固定を外す
 page-pins-label = 固定したフォルダー
+pins-add-label = フォルダーを追加
+pins-add-placeholder = パスでフォルダーを追加

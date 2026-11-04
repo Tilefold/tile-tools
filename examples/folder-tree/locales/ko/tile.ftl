@@ -120,3 +120,5 @@ menu-move-up = 위로 이동
 menu-move-down = 아래로 이동
 menu-unpin = 고정 해제
 page-pins-label = 고정한 폴더
+pins-add-label = 폴더 추가
+pins-add-placeholder = 경로로 폴더 추가

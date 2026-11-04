@@ -120,3 +120,5 @@ menu-move-up = 上移
 menu-move-down = 下移
 menu-unpin = 取消固定
 page-pins-label = 已固定的文件夹
+pins-add-label = 添加文件夹
+pins-add-placeholder = 按路径添加文件夹

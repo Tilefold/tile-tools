@@ -9,6 +9,7 @@ From **Tilefold 0.1.9**, a tile can follow the folder the user is working in, li
 | `fs.list` | See the names and kinds in a folder, one level at a time. Never what's in a file | `tf.fs.list(path)` |
 | `viewer.open` | Show a file in the document viewer, or open it ready to edit (0.1.16). The tile never receives the file's contents | `tf.viewer.open(path, { edit? })` |
 | `fs.write` | Create empty files and folders, rename and move them (never over another), and move them to the Trash after Tilefold asks the user (Tilefold 0.1.16). Never what's in a file | `tf.fs.create`, `mkdir`, `rename`, `move`, `trash` |
+| `fs.choose` | Ask the user for a folder, in Tilefold's folder dialog or a folder field in the tile's panel; the folder they give is then reachable like a pane's folder (Tilefold 0.1.25) | `tf.fs.chooseFolder`, a panel row's `input: { kind: "folder" }` |
 
 The **Folder Tree** example (`examples/folder-tree`) uses all of them, and shows the tree in a [docked panel](panels.md).
 
@@ -96,11 +97,26 @@ const gone = await tf.fs.trash(plan);                // true, or false when the 
 if (typeof tf.fs?.create !== "function") return tf.toast("This needs Tilefold 0.1.16 or later");
 ```
 
+## 6. Ask the user for a folder (Tilefold 0.1.25)
+
+With `fs.choose`, a tile can reach folders no pane is in, but only ones the user gives it. Either show Tilefold's folder dialog:
+
+```js
+const r = await tf.fs.chooseFolder({ title: "Pick a project" });
+if (r.path) showTree(r.path); // { cancelled: true } or { error } otherwise
+```
+
+or a folder field in your panel, where the user types or pastes a path (see [Panels](panels.md#8-fields)). Either way, the folder they give is resolved by Tilefold (quotes, `~`, links and `..`), must be an existing folder, not their home folder itself, the disk, a system folder or inside `.git`, and is listed in **Settings → Tiles → Folders**, where they can remove it. A tile is given at most 12 folders (`error: "full"` after that) and may ask 6 times a minute. The tile never sees what the user types before they press Enter.
+
+```js
+if (typeof tf.fs?.chooseFolder !== "function") return; // before 0.1.25: pane folders only
+```
+
 ## Where a tile can reach
 
-Listing and opening work only **inside a folder one of the user's panes is in**, and below it. With a single pane in `~/projects/app`, `~/projects/app/src` can be listed but `~/projects` can't. Tilefold resolves links before it checks, so a link inside the project that leads elsewhere is refused. When a pane closes, its folder is no longer reachable unless another pane is in it.
+Listing and opening work only **inside a folder one of the user's panes is in, or one the user gave the tile** (`fs.choose`), and below it. With a single pane in `~/projects/app`, `~/projects/app/src` can be listed but `~/projects` can't. Tilefold resolves links before it checks, so a link inside the project that leads elsewhere is refused. When a pane closes, its folder is no longer reachable unless another pane is in it.
 
-Tilefold checks this itself, and records every listing (`tile.fs.list`, with how many entries), every opened file (`tile.viewer.open`), every change (`tile.fs.create`, `tile.fs.rename`, `tile.fs.trash`, with the kind only), every answer to the Trash question (`ui.tile.trash.answer`) and every refusal (`tile.fs.denied`) in the activity log. Paths and names are never recorded.
+Tilefold checks this itself, and records every listing (`tile.fs.list`, with how many entries), every opened file (`tile.viewer.open`), every change (`tile.fs.create`, `tile.fs.rename`, `tile.fs.trash`, with the kind only), every answer to the Trash question (`ui.tile.trash.answer`), every folder given or removed (`tile.fs.grant`, `tile.fs.grant.remove`, with how and a count) and every refusal (`tile.fs.denied`) in the activity log. Paths and names are never recorded.
 
 ## Errors
 

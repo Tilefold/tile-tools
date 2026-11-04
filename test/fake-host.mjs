@@ -55,6 +55,8 @@
  * promise jobs the tile's background handlers leave behind.
  *
  * Modified 2026-10-18 (screensaver themes): the `screensaver` option.
+ * Modified 2026-11-03 (folder field): `folders.choose: true` adds
+ *   `tf.fs.chooseFolder` (Tilefold 0.1.25), answering `host.chosen`.
  *
  * `host.command(id, input?)` runs a command the way Tilefold does: from the
  * palette with `null`, or as an AI agent would with `input`, which only a
@@ -394,7 +396,7 @@ const parentOf = (path) => {
 function addFolders(
   tf,
   host,
-  { cwd = null, roots = [], files = [], links = {}, panes, write = false },
+  { cwd = null, roots = [], files = [], links = {}, panes, write = false, choose = false },
   named,
 ) {
   host.cwd = cwd;
@@ -459,6 +461,11 @@ function addFolders(
     },
   };
   if (write) addFileWrites(tf, host, { dirs, check, named, parentOf });
+  // tf.fs.chooseFolder() exists only where Tilefold has it (0.1.25).
+  if (choose) {
+    host.chosen = { cancelled: true };
+    tf.fs.chooseFolder = async () => structuredClone(host.chosen);
+  }
 }
 
 /**

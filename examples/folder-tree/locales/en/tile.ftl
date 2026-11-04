@@ -120,3 +120,5 @@ menu-move-up = Move up
 menu-move-down = Move down
 menu-unpin = Unpin
 page-pins-label = Pinned folders
+pins-add-label = Add a folder
+pins-add-placeholder = Add a folder by its path

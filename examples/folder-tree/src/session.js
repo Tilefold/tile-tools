@@ -48,7 +48,7 @@
  *   and error messages moved to options.js.
  * Modified 2026-11-03 (pinned folders list): the Folders section opens
  *   and closes; its rows, menu choices and the window's messages about the
- *   view go to the view control.
+ *   view, and what the folder field gets, go to the view control.
  *
  * Last updated by: Tilefold
  */
@@ -408,6 +408,7 @@ export function createFolderTree(tf) {
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
     /** A double-click on a row of the panel. */
     doubled: ({ row } = {}) => (typeof row === "string" ? doubled(row) : undefined),
+    fieldInput: (e) => views.field(e),
     /** A choice from a panel row's right-click menu. */
     menuChosen: ({ row, item } = {}) =>
       typeof item === "string" ? fromMenu(typeof row === "string" ? row : null, item) : undefined,

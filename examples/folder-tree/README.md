@@ -15,6 +15,7 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 The tree follows the pane you're in, but you can keep it on one folder while you work elsewhere. The agents' activity keeps coming in from every pane either way.
 
 - **Folders**, at the top of the panel, lists the folders you pinned, like Web View's list of pages. Click one to show it; **Follow the pane** at the top of the list goes back to the pane you're in. A pinned folder where an agent is busy pulses with how many files, even while you look at another one. Right-click a pinned folder to move it up or down, or to unpin it. You can pin up to 12, and Folder Tree keeps them, in your order, the next time Tilefold starts.
+- From Tilefold 0.1.25, **Add a folder** at the top of that list takes any folder: type or paste its path and press Enter, or click **Browse…** to pick it. It's pinned and shown, even when no pane is in it. Tilefold asks you first, when you turn the tile on, to let Folder Tree ask for folders, and lists the folders you gave it in **Settings → Tiles**, where you can remove them.
 - **Pin this folder** (right-click a folder, the empty space under the tree, or the command palette) adds the folder to the list and shows it, while you switch panes or `cd`.
 - **Show only this folder** (right-click a folder) shows that folder on its own. **Up to …** at the top goes back up, as far as the folder your pane is in.
 - **Follow the pane** goes back to following the pane you're in.

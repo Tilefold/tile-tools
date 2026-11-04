@@ -1,6 +1,6 @@
 {
   "id": "example.folder-tree",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
@@ -21,6 +21,9 @@
     },
     {
       "fs.write": "to add new files and folders, rename and move them, and move them to the Trash when you say so (never what's in a file: you edit in the document viewer)"
+    },
+    {
+      "fs.choose": "to pin a folder you type, paste or pick in its panel, even one no pane is in"
     },
     {
       "page": "to show the tree, what your agents are doing and the recent files in a window of its own"

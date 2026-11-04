@@ -163,6 +163,31 @@ tf.on("panel.opened", () => {
 
 Older Tilefolds ignore `perTab` and show the panel on every tab, and never send `panel.opened`.
 
+## 8. Fields
+
+From **Tilefold 0.1.25**, a row with `input` is a text field Tilefold draws. Its `label` names the field for screen readers; `placeholder` shows inside it. Your tile never sees keystrokes, only what the user submits with Enter, as `panel.input`:
+
+```js
+tf.panel.show({
+  title: "Bookmarks",
+  rows: [
+    { id: "add-url", label: "Add an address", input: { kind: "text", placeholder: "https://…" } },
+    { id: "add-dir", label: "Add a folder", input: { kind: "folder", browse: true } },
+  ],
+});
+
+tf.on("panel.input", (e) => {
+  if (e.row === "add-url") addBookmark(e.text);
+  if (e.row === "add-dir" && e.path) addFolder(e.path); // e.error says why not
+});
+```
+
+- A `"text"` field gives `{ row, text }`, with control characters removed, at most 4,096 characters.
+- A `"folder"` field needs `fs.choose`. Tilefold resolves what was typed and, when it is a folder that may be given, gives it to your tile and sends `{ row, path, via: "typed" }`; otherwise `{ row, error, via }`, and it shows why under the field in the user's language. `browse: true` adds **Browse…** beside it, which opens the folder dialog (`via: "dialog"`; nothing is sent when the user cancels).
+- At most 4 fields per panel, footer included. Older Tilefolds draw the row as a plain row, so check `tf.fs.chooseFolder` (or offer the field only to 0.1.25 and later) before showing one.
+
+Submitting is recorded in the activity log as `ui.tile.panel.input`, with the kind and the outcome, never the text.
+
 ## Limits
 
 At most 5,000 rows, 30 `show` calls a second, a title of 120 characters and a subtitle of 512. Malformed content fails with `TypeError` and the reason; too many updates with `RateLimitError`. `tf.panel` is missing before Tilefold 0.1.9:

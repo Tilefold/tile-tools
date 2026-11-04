@@ -120,3 +120,5 @@ menu-move-up = Monter
 menu-move-down = Descendre
 menu-unpin = Désépingler
 page-pins-label = Dossiers épinglés
+pins-add-label = Ajouter un dossier
+pins-add-placeholder = Ajouter un dossier par son chemin

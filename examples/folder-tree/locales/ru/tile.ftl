@@ -120,3 +120,5 @@ menu-move-up = Выше
 menu-move-down = Ниже
 menu-unpin = Открепить
 page-pins-label = Закреплённые папки
+pins-add-label = Добавить папку
+pins-add-placeholder = Добавьте папку по её пути
