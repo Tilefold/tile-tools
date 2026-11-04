@@ -120,3 +120,5 @@ menu-move-up = نقل لأعلى
 menu-move-down = نقل لأسفل
 menu-unpin = إلغاء التثبيت
 page-pins-label = المجلدات المثبّتة
+pins-add-label = إضافة مجلد
+pins-add-placeholder = أضف مجلدًا بمساره

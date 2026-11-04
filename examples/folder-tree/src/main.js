@@ -43,6 +43,8 @@
  *   panel belongs to the tabs it is opened on (panel.opened on coming back).
  * Modified 2026-11-02 (pinned folders): Pin this folder, Follow the pane,
  *   Show only the chosen folder and Up one folder.
+ * Modified 2026-11-03 (folder field): the panel's folder field
+ *   (panel.input) pins the folder the user typed or picked.
  *
  * Last updated by: Tilefold
  */
@@ -102,6 +104,7 @@ export default (tf) => {
   tf.on("panel.opened", () => void tree?.reopened());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
   tf.on("panel.dblclick", (e) => void tree?.doubled(e));
+  tf.on("panel.input", (e) => void tree?.fieldInput(e));
   tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());

@@ -245,7 +245,7 @@ tf.on("browser.navigated", ({ url, page }) => tf.log(page ?? "main", url));
 
 ## Your folders
 
-`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). With `fs.write` (Tilefold 0.1.16), `tf.fs.create`, `mkdir`, `rename`, `move` and `trash` change files there, and `tf.viewer.open(path, { edit: true })` opens one ready to edit. See [Folders](folders.md).
+`tf.pane.cwd()` gives the folder the focused pane is in (`pane.cwd`), `tf.pane.list()` every pane with its name, folder and session (`pane.list`, Tilefold 0.1.11), `tf.fs.list(path)` lists the names in a folder (`fs.list`), and `tf.viewer.open(path)` shows a file in the document viewer (`viewer.open`), only inside folders the user's panes are in (Tilefold 0.1.9). With `fs.write` (Tilefold 0.1.16), `tf.fs.create`, `mkdir`, `rename`, `move` and `trash` change files there, and `tf.viewer.open(path, { edit: true })` opens one ready to edit. With `fs.choose` (Tilefold 0.1.25), `tf.fs.chooseFolder({ title })` asks the user for a folder (or a panel row's `input: { kind: "folder" }` does, with `panel.input`), which the tile then reaches like a pane's folder. See [Folders](folders.md).
 
 ## Asking Claude
 

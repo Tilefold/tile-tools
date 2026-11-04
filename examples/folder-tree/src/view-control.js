@@ -17,8 +17,13 @@
  * Modified 2026-11-03 (pinned folders list): Pin adds the folder to a list
  *   of pinned folders the panel and window show; a pin is shown with a
  *   click, moved up or down, or unpinned; the list is kept as `pins`.
+ * Modified 2026-11-03 (folder field): on a Tilefold that lets tiles ask for
+ *   folders (fs.chooseFolder), the panel's folder field pins the folder the
+ *   user typed or picked (`field`); Tilefold gave it to the tile, so it is
+ *   reached like a pane's folder and kept as `granted`.
  */
 import { addPin, MAX_PINS, movePin, PINS_KEY, removePin, restorePins } from "./pins.js";
+import { FIELD_ROW, GRANTED_KEY, restoreGranted } from "./folder-field.js";
 import {
   followView,
   isPinned,
@@ -45,16 +50,20 @@ export function createViewControl(tf, ctx) {
   let pins = [];
   /** The focused pane's folder, as last heard. */
   let paneFolder = null;
+  /** Folders the user gave the tile through the folder field. */
+  let granted = [];
   const ready = Promise.all([
     tf.store.get(VIEW_KEY).catch(() => null),
     tf.store.get(PINS_KEY).catch(() => null),
-  ]).then(([savedView, savedPins]) => {
+    tf.store.get(GRANTED_KEY).catch(() => null),
+  ]).then(([savedView, savedPins, savedGranted]) => {
     view = restoreView(savedView);
     pins = restorePins(savedPins, savedView);
+    granted = restoreGranted(savedGranted);
   });
 
-  /** Every pane's folder and the focused one's: what the tile may reach. */
-  const reach = () => [...ctx.places(), paneFolder];
+  /** Every pane's folder, the focused one's and those given: what the tile may reach. */
+  const reach = () => [...ctx.places(), paneFolder, ...granted];
 
   /** Shows the view as it is now, when the tree is up. */
   const reshow = async () => {
@@ -79,8 +88,8 @@ export function createViewControl(tf, ctx) {
     return show ? reshow() : ctx.redraw();
   };
 
-  /** Pins `folder` and shows it; says why when it can't be pinned. */
-  const pinFolder = async (folder) => {
+  /** Pins `folder` and shows it; says why when it can't be pinned. `from` says how. */
+  const pinFolder = async (folder, from = "menu") => {
     await ready;
     if (!folder) return tf.toast(tf.t("error-no-folder"));
     const added = addPin(pins, folder);
@@ -88,7 +97,7 @@ export function createViewControl(tf, ctx) {
     if (added.error) return tf.toast(tf.t(PIN_ERRORS[added.error], { max: MAX_PINS }));
     pins = added.pins;
     await tf.store.set(PINS_KEY, [...pins]);
-    return change(pinView(folder), "pinned", { count: pins.length });
+    return change(pinView(folder), "pinned", { count: pins.length, from });
   };
 
   /** Shows pinned folder `folder`, while a pane still reaches it. */
@@ -136,8 +145,11 @@ export function createViewControl(tf, ctx) {
         shown: path === shown,
         gone: reachable(path, all) === false,
       }));
-      if (!shown) return { pinned: false, pins: list };
+      // The folder field, on a Tilefold that lets tiles ask for folders.
+      const ask = typeof tf.fs?.chooseFolder === "function";
+      if (!shown) return { pinned: false, pins: list, ask };
       return {
+        ask,
         pinned: true,
         listed: pins.includes(shown),
         up: upFrom(shown, all),
@@ -180,6 +192,27 @@ export function createViewControl(tf, ctx) {
       }
       if (item === "unpin") return unpin(target.path);
       return null;
+    },
+    /**
+     * What the user submitted in the panel's folder field (`panel.input`):
+     * a folder Tilefold gave the tile is kept and pinned; a refusal is only
+     * recorded (Tilefold shows why under the field). Never a path in the log.
+     */
+    async field({ row, path, error, via } = {}) {
+      if (row !== FIELD_ROW) return undefined;
+      await ready;
+      const from = via === "dialog" ? "dialog" : "typed";
+      if (typeof path !== "string" || !path.startsWith("/")) {
+        return tf.audit("pin-refused", {
+          from,
+          reason: typeof error === "string" ? error : "none",
+        });
+      }
+      if (!granted.includes(path)) {
+        granted = restoreGranted([...granted, path]);
+        await tf.store.set(GRANTED_KEY, [...granted]);
+      }
+      return pinFolder(path, from);
     },
     /** A window message about the view (`id`: its checked path); null when not one. */
     message(type, id) {

@@ -120,3 +120,5 @@ menu-move-up = Sposta su
 menu-move-down = Sposta giù
 menu-unpin = Togli
 page-pins-label = Cartelle fissate
+pins-add-label = Aggiungi una cartella
+pins-add-placeholder = Aggiungi una cartella dal suo percorso

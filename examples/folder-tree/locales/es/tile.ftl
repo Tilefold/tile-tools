@@ -120,3 +120,5 @@ menu-move-up = Subir
 menu-move-down = Bajar
 menu-unpin = Quitar
 page-pins-label = Carpetas fijadas
+pins-add-label = Añadir una carpeta
+pins-add-placeholder = Añade una carpeta por su ruta

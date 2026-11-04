@@ -64,6 +64,7 @@ Each entry is either a plain string, `"window.curtain"`, or a one-key object wit
 | `fs.list` | See the names in folders inside the panes' folders, never file contents (`tf.fs.list`; Tilefold 0.1.9) | medium |
 | `viewer.open` | Open a file from the panes' folders in the document viewer (`tf.viewer.open`; Tilefold 0.1.9) | low |
 | `fs.write` | Create, rename and move files and folders inside the panes' folders, and move them to the Trash after Tilefold asks the user; never file contents (`tf.fs.create`, `mkdir`, `rename`, `move`, `trash`; Tilefold 0.1.16) | high |
+| `fs.choose` | Ask the user for a folder (Tilefold's folder dialog, or a folder field in the tile's panel); the folder they give is then reachable like a pane's folder (`tf.fs.chooseFolder`, a panel row's `input`; Tilefold 0.1.25) | medium |
 | `window.panel` | Show a panel docked beside the panes, drawn by Tilefold from rows (`tf.panel`; Tilefold 0.1.9) | low |
 | `browser` | Open web pages, local ones included, in a browser window Tilefold draws; the tile steers it but can't read it (`tf.browser`; Tilefold 0.1.11) | high |
 | `screensaver.theme` | Draw themes for Tilefold's screensaver (`tf.screensaver`; Tilefold 0.1.12). A tile asking for it may ask for nothing else: no other permission, no `auth` | low |

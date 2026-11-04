@@ -120,3 +120,5 @@ menu-move-up = Mover para cima
 menu-move-down = Mover para baixo
 menu-unpin = Desafixar
 page-pins-label = Pastas fixadas
+pins-add-label = Adicionar uma pasta
+pins-add-placeholder = Adicione uma pasta pelo caminho

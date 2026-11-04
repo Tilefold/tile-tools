@@ -29,6 +29,10 @@
  * Modified 2026-10-31 (Tilefold 0.1.23): `tf.agent.ask` (a question for the
  *   user's agent on Tilefold's ask card).
  *
+ * Modified 2026-11-03 (Tilefold 0.1.25): `tf.fs.chooseFolder`, a panel
+ *   row's `input` (a text or folder field Tilefold draws) and the
+ *   `panel.input` event.
+ *
  * Last updated by: Tilefold
  */
 
@@ -146,6 +150,18 @@ export interface TileEventPayloads {
   /** A row of the panel was double-clicked, after its two `panel.click` events (Tilefold 0.1.16). */
   "panel.dblclick": { row: string };
   /**
+   * The user submitted a row's field (Tilefold 0.1.25): a text field's
+   * `text`, or for a folder field the folder Tilefold gave the tile
+   * (`path`, needs fs.choose) or why not (`error`: empty, relative,
+   * missing, not-folder, in-git, too-broad, bad-chars, full, not-granted…;
+   * Tilefold shows it under the field too). `via` says whether it was typed
+   * or picked with Browse….
+   */
+  "panel.input":
+    | { row: string; text: string }
+    | { row: string; path: string; via: "typed" | "dialog" }
+    | { row: string; error: string; via: "typed" | "dialog" };
+  /**
    * The tile's browser finished loading a page, or its title changed (needs
    * browser). `page` names which of the tile's pages, for a named one.
    */
@@ -192,6 +208,15 @@ export interface PanelRow {
    */
   page?: string; /** The menu (one of the panel's `menus`) a right-click on the row opens (Tilefold 0.1.16). */
   menu?: string;
+  /**
+   * Makes the row a field Tilefold draws (Tilefold 0.1.25; at most 4 per
+   * panel): the label names it for screen readers, `placeholder` shows in
+   * it (at most 120 characters). The tile gets only what the user submits
+   * with Enter, as `panel.input`. A `"folder"` field (needs fs.choose) gives
+   * the folder typed or pasted to the tile; `browse: true` adds Browse…
+   * beside it for the folder dialog. Earlier Tilefolds draw a plain row.
+   */
+  input?: { kind: "text" | "folder"; placeholder?: string; browse?: boolean };
 }
 
 /** The page a tile's browser window shows. */
@@ -623,8 +648,8 @@ export interface Tf {
   };
   /**
    * Needs fs.list. One level of a folder inside a folder one of the user's
-   * panes is in: names and kinds only, never file contents. Missing before
-   * Tilefold 0.1.9.
+   * panes is in, or one the user gave the tile (Tilefold 0.1.25): names and
+   * kinds only, never file contents. Missing before Tilefold 0.1.9.
    */
   readonly fs?: {
     list(path: string): Promise<FolderListing>;
@@ -646,6 +671,16 @@ export interface Tf {
      * Tilefold 0.1.16.
      */
     trash?(path: string): Promise<boolean>;
+    /**
+     * Needs fs.choose. Tilefold shows its folder dialog (with `title`, at
+     * most 80 characters); the folder the user picks is given to the tile,
+     * which then reaches it like a pane's folder with its other
+     * permissions. Resolves to `{ path }`, `{ cancelled: true }` or
+     * `{ error }`. At most 6 asks a minute. Missing before Tilefold 0.1.25.
+     */
+    chooseFolder?(options?: {
+      title?: string;
+    }): Promise<{ path: string } | { cancelled: true } | { error: string }>;
   };
   /**
    * Needs viewer.open. Shows a file from inside a pane's folder in

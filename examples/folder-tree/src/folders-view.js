@@ -15,11 +15,14 @@
  *   reaches any more is greyed with a warning;
  * - a folder shown without being pinned (Show only this folder, Up), with
  *   Up while a pane still reaches the folder above;
- * - a note on how to pin, while nothing is pinned.
+ * - a note on how to pin, while nothing is pinned;
+ * - on a Tilefold that lets tiles ask for folders, a field first: type or
+ *   paste a folder's path, or Browse… for one (folder-field.js).
  * The section opens and closes like Recent. Rows about a pin carry the
  * pin's menu (Show, Move up, Move down, Unpin) where Tilefold draws menus.
  * Text comes from `t`, so it is tested directly.
  */
+import { fieldRow } from "./folder-field.js";
 import { pinLabels } from "./pins.js";
 import { isInside, parent } from "./paths.js";
 import { clamp } from "./row-marks.js";
@@ -50,6 +53,7 @@ export function foldersRows(t, { root, view, active, open, menus }) {
   });
   targets.set("folders", { kind: "folders" });
   if (!open) return { rows, targets };
+  if (view?.ask) rows.push(fieldRow(t));
 
   const following = !view?.pinned;
   rows.push({
