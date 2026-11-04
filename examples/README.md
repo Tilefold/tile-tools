@@ -16,7 +16,7 @@ npx @tilefold/tile-tools build
 | `hello` | The smallest useful tile: a setting, a command and translated messages | any |
 | `break-timer` | A break reminder written in TypeScript that survives a restart | any |
 | `with-npm-package` | A tile that bundles an npm package | any |
-| `tilefold-pet` | A pet that roams over your panes | 0.1.4 |
+| `tilefold-pet` | A pet that roams over your panes, naps when you step away and loves a pat: Tessa the tile creature, Coco the poodle, Biscuit the terrier, Pebble the penguin, Volta the spark fox or Rumble the T. rex | 0.1.4 |
 | `tilefall` | A falling-blocks game | 0.1.4 |
 | `orbit-guard`, `brickfold`, `girder-jump` | Arcade games: a shooter, a brick breaker and a platformer | 0.1.4 |
 | `service-status` | A service's status, from a public web page | 0.1.6 |

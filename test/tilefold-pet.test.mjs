@@ -12,10 +12,16 @@
  * another pane; a click pats it, a double-click plays, a drag carries it and
  * it stays where it is dropped; it naps when you step away and greets you
  * when you return; the commands show, hide, call and send it to bed. The
- * Character setting offers Tessa, Coco and Biscuit with translated labels;
+ * Character setting offers Tessa, Coco, Biscuit, Pebble, Volta and Rumble
+ * with translated labels;
  * switching redraws at once and is recorded; an unknown character falls
  * back to Tessa. Dogs bark with valid WAV clips (once at a pat, twice at
- * play), never when Bark is off; Tessa never barks.
+ * play), never when Bark is off; Tessa never barks. Volta crackles and
+ * Rumble roars in a bubble when played with, silently, whatever Bark says.
+ *
+ * Modified 2026-11-04 (three more characters): Pebble, Volta and Rumble.
+ *
+ * Last updated by: Tilefold
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -167,7 +173,7 @@ describe("Tilefold Pet", () => {
 });
 
 describe("Tilefold Pet characters", () => {
-  it("offers Tessa, Coco and Biscuit, Tessa first, with translated labels", async () => {
+  it("offers all six characters, Tessa first, with translated labels", async () => {
     const host = await startTile(DIR);
     const setting = host.regs.find((r) => r.kind === "setting" && r.key === "character");
     expect(setting.default).toBe("tessa");
@@ -175,6 +181,9 @@ describe("Tilefold Pet characters", () => {
       { value: "tessa", label: "Tessa, the tile creature" },
       { value: "poodle", label: "Coco, the white poodle" },
       { value: "terrier", label: "Biscuit, the scruffy terrier" },
+      { value: "penguin", label: "Pebble, the emperor penguin" },
+      { value: "volta", label: "Volta, the spark fox" },
+      { value: "trex", label: "Rumble, the T. rex" },
     ]);
     const ja = await startTile(DIR, { locale: "ja" });
     const jaSetting = ja.regs.find((r) => r.kind === "setting" && r.key === "character");
@@ -187,6 +196,12 @@ describe("Tilefold Pet characters", () => {
     const biscuit = await started({ settings: { character: "terrier" } });
     expect([pet(coco).label, pet(biscuit).label]).toEqual(["Coco", "Biscuit"]);
     expect(new Set([pet(tessa).image, pet(coco).image, pet(biscuit).image]).size).toBe(3);
+    const more = await Promise.all(
+      ["penguin", "volta", "trex"].map((character) => started({ settings: { character } })),
+    );
+    expect(more.map((h) => pet(h).label)).toEqual(["Pebble", "Volta", "Rumble"]);
+    const images = [tessa, coco, biscuit, ...more].map((h) => pet(h).image);
+    expect(new Set(images).size).toBe(6);
     const named = await started({ settings: { character: "poodle", name: "  Bijou " } });
     expect(pet(named).label).toBe("Bijou");
   });
@@ -227,6 +242,18 @@ describe("Tilefold Pet barking", () => {
       await host.emit("overlay.pointer", { item: "pet", type: "click", x: 1, y: 1 });
     }
     expect(biscuit.sounds[0].src).not.toBe(coco.sounds[0].src);
+  });
+
+  it("Volta crackles and Rumble roars in a bubble, never out loud", async () => {
+    for (const [character, said] of [
+      ["volta", "Bzzzt!"],
+      ["trex", "ROAR!"],
+    ]) {
+      const host = await started({ settings: { character } });
+      await host.emit("overlay.pointer", { item: "pet", type: "dblclick", x: 1, y: 1 });
+      expect(pet(host).bubble).toBe(said);
+      expect(host.sounds).toEqual([]);
+    }
   });
 
   it("stays quiet when Bark is off, and Tessa never barks", async () => {
