@@ -54,6 +54,8 @@ Once a page is open, type any address in the bar above it. Docked pages stack be
 
 The recent list keeps each page's addresses separately. Click a row to open that address again in the page it came from.
 
+The list shows once Web View opens a page, not when Tilefold starts. If you close it, it stays closed, even after a restart, until you use **Web View: Open** again or turn the setting off and back on.
+
 If a page says nothing is answering, the server for that port isn't running. Start it (for example `npm run dev`), then use **Web View: Reload**.
 
 ## Let your AI agents use it
@@ -143,4 +145,4 @@ The address rules are in `src/addresses.js`, the recent list in `src/recent.js`,
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-10-28 by Tilefold
+Last updated: 2026-11-04 by Tilefold

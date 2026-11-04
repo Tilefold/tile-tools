@@ -26,6 +26,9 @@
  * Modified 2026-10-19 (port ranges): `3000-3010` / `3000~3010` and the
  * 12-page cap.
  *
+ * Modified 2026-11-04 (panel at startup): restored recent pages stay out of
+ * sight until a page opens.
+ *
  * Last updated by: Tilefold
  */
 import { fileURLToPath } from "node:url";
@@ -407,6 +410,10 @@ describe("the tile", () => {
     const stored = first.store.get("recent");
     expect(stored).toEqual([{ url: "http://localhost:5173/", title: "My app", page: "" }]);
     const again = await ready({ store: { recent: stored } });
+    // Kept, but not shown until a page opens.
+    expect(again.panel.content).toBeNull();
+    await again.command("open");
+    await again.advance(0);
     expect(again.panel.content.rows).toHaveLength(1);
     await again.command("clear");
     expect(again.store.get("recent")).toEqual([]);

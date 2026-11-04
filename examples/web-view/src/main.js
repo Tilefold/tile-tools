@@ -38,6 +38,11 @@
  *
  * Modified 2026-10-19 (port ranges): the address setting takes ranges of ports.
  *
+ * Modified 2026-11-04 (panel at startup): the panel no longer comes back by
+ * itself when Tilefold starts. It shows once Web View opens a page, and a
+ * panel the user closed stays closed (across restarts too) until they run
+ * Open again or turn the panel setting back on.
+ *
  * Last updated by: Tilefold
  *
  * Build:  npx @tilefold/tile-tools build
@@ -48,11 +53,26 @@ import { errorKey, panelRows, readRecent, readRowId, remember } from "./recent.j
 export default (tf) => {
   /** Recent pages, newest first (read from the store when Tilefold is ready). */
   let recent = [];
+  /** Whether Web View opened a page since Tilefold started; no panel before that. */
+  let opened = false;
+  /** Whether the user closed the panel (kept in the store as `panelClosed`). */
+  let closed = false;
 
-  /** Shows the recent pages in the docked panel, or hides it. */
+  /** Remembers whether the user closed the panel, here and across restarts. */
+  async function setClosed(value) {
+    if (closed === value) return;
+    closed = value;
+    await tf.store.set("panelClosed", value);
+  }
+
+  /**
+   * Shows the recent pages in the docked panel, or hides it: shown only
+   * after a page was opened, while the setting is on, the user hasn't
+   * closed it and there is something to list.
+   */
   async function showPanel() {
     if (!tf.panel) return;
-    if (!tf.settings.get("panel") || recent.length === 0) {
+    if (!opened || closed || !tf.settings.get("panel") || recent.length === 0) {
       await tf.panel.hide();
       return;
     }
@@ -103,9 +123,17 @@ export default (tf) => {
       for (const p of await pages(b)) await step(p);
     });
 
-  tf.command(tf.t("cmd-open"), () => void eachPage((p) => open(p.b, p.address)), {
-    id: "open",
-  });
+  // Opening the pages on purpose brings back a panel the user closed.
+  tf.command(
+    tf.t("cmd-open"),
+    async () => {
+      opened = true;
+      await setClosed(false);
+      await showPanel();
+      void eachPage((p) => open(p.b, p.address));
+    },
+    { id: "open" },
+  );
   // Moves the pages between the dock and a window (all the way the first
   // goes); opens a closed one docked.
   tf.command(
@@ -144,19 +172,31 @@ export default (tf) => {
     { id: "clear" },
   );
 
+  // Only reads what was kept: the panel waits until a page is opened.
   tf.on("app.ready", async () => {
     recent = readRecent(await tf.store.get("recent"));
-    await showPanel();
+    closed = (await tf.store.get("panelClosed")) === true;
   });
 
   // Each page the browser lands on goes to the top of the list, with the
-  // browser page it was in (none named: the first page).
+  // browser page it was in (none named: the first page). A page landing
+  // counts as opened, so the panel may show (unless the user closed it).
   tf.on("browser.navigated", async ({ url, title, page }) => {
+    const first = !opened;
+    opened = true;
     const next = remember(recent, { url, title, page });
-    if (next === recent) return;
-    recent = next;
-    await tf.store.set("recent", recent);
+    if (next === recent && !first) return;
+    if (next !== recent) {
+      recent = next;
+      await tf.store.set("recent", recent);
+    }
     await showPanel();
+  });
+
+  // The user closing the panel keeps it closed; another tile's panel
+  // taking the dock, or leaving a tab, doesn't count.
+  tf.on("panel.closed", ({ by } = {}) => {
+    if (by === "user") void setClosed(true);
   });
 
   // A recent address opens again in the browser page it was seen in.
@@ -169,7 +209,10 @@ export default (tf) => {
     });
   });
 
-  tf.on("setting.changed", ({ key }) => {
-    if (key === "panel") void showPanel();
+  // Turning the panel setting back on undoes the user's close.
+  tf.on("setting.changed", async ({ key }) => {
+    if (key !== "panel") return;
+    if (tf.settings.get("panel")) await setClosed(false);
+    await showPanel();
   });
 };
