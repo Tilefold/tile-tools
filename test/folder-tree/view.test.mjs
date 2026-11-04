@@ -140,13 +140,17 @@ describe("Folder Tree pinned on a folder", () => {
     expect(host.panel.content.title).toBe("app");
     expect(ids(host)).not.toContain("view-pinned");
     await host.command("pin");
-    expect(ids(host).slice(0, 2)).toEqual(["view-pinned", "view-follow"]);
+    expect(ids(host).slice(0, 3)).toEqual(["folders", "view-follow", "pin:/work/app"]);
+    expect(rowOf(host, "pin:/work/app")).toMatchObject({ tone: "accent", trail: "shown" });
     host.cwd = "/work/game";
     await host.emit("pane.cwd", { path: "/work/game" });
     expect(host.panel.content.title).toBe("app");
     await host.emit("panel.click", { row: "view-follow", action: "activate" });
     expect(host.panel.content.title).toBe("game");
     expect(ids(host)).not.toContain("view-pinned");
+    // Following again, the folder stays pinned in the list.
+    expect(rowOf(host, "pin:/work/app").tone).toBeUndefined();
+    expect(rowOf(host, "view-follow")).toMatchObject({ tone: "accent", trail: "shown" });
     expect(host.audits.map((a) => a.action)).toEqual(
       expect.arrayContaining(["pinned", "followed"]),
     );
@@ -189,7 +193,12 @@ describe("Folder Tree pinned on a folder", () => {
     host.cwd = "/work/game";
     await host.emit("pane.list", { panes: host.panes });
     await host.emit("pane.cwd", { path: "/work/game" });
-    expect(ids(host)).toContain("view-gone");
+    expect(rowOf(host, "pin:/work/app")).toMatchObject({
+      icon: "error",
+      tone: "warning",
+      muted: true,
+      hint: "/work/app\nNo pane is in this folder any more",
+    });
   });
 
   it("keeps the view between launches, and starts on the pinned folder", async () => {
@@ -225,7 +234,13 @@ describe("Folder Tree pinned on a folder", () => {
     await host.command("window");
     await host.emit("page.message", { message: { type: "pin" } });
     const state = host.page.posted.filter((m) => m.type === "state").at(-1);
-    expect(state.view).toEqual({ pinned: true, gone: false, up: null });
+    expect(state.view).toEqual({
+      pinned: true,
+      listed: true,
+      gone: false,
+      up: null,
+      pins: [{ id: "/work/app", label: "app", shown: true }],
+    });
     expect(state.recent.map((e) => [e.id, e.elsewhere === true])).toEqual([
       ["recent:/work/app/src/main.js", false],
       ["recent:/work/game/src/hud.js", true],
@@ -233,6 +248,7 @@ describe("Folder Tree pinned on a folder", () => {
     await host.emit("page.message", { message: { type: "follow" } });
     expect(host.page.posted.filter((m) => m.type === "state").at(-1).view).toEqual({
       pinned: false,
+      pins: [{ id: "/work/app", label: "app" }],
     });
   });
 });

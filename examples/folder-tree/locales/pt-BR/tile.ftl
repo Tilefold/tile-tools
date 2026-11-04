@@ -107,3 +107,16 @@ page-view-label = O que a árvore mostra
 page-view-following = Seguindo o painel em que você está
 page-view-pinned = Fixada nesta pasta
 error-choose-folder = Clique primeiro em uma pasta da árvore
+
+# The pinned folders list
+section-folders = Pastas
+pin-shown = exibida
+pins-empty = Fixe uma pasta para voltar a ela com um clique
+pins-already = Essa pasta já está fixada
+pins-full = Você fixou { $max } pastas, o máximo. Desafixe uma primeiro
+view-showing = Mostrando { $folder }
+menu-pin-show = Mostrar esta pasta
+menu-move-up = Mover para cima
+menu-move-down = Mover para baixo
+menu-unpin = Desafixar
+page-pins-label = Pastas fixadas

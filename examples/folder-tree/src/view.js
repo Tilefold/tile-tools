@@ -34,7 +34,7 @@ export function pinView(folder) {
 }
 
 /** Whether `folder` is an absolute path the view may hold. */
-function usable(folder) {
+export function usable(folder) {
   return (
     typeof folder === "string" &&
     folder.startsWith("/") &&

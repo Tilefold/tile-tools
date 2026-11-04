@@ -14,12 +14,13 @@ The folder your pane is in, as a tree docked beside your panes, with what your c
 
 The tree follows the pane you're in, but you can keep it on one folder while you work elsewhere. The agents' activity keeps coming in from every pane either way.
 
-- **Pin this folder** (right-click the empty space under the tree, or the command palette) keeps the tree on the folder it shows now, while you switch panes or `cd`.
+- **Folders**, at the top of the panel, lists the folders you pinned, like Web View's list of pages. Click one to show it; **Follow the pane** at the top of the list goes back to the pane you're in. A pinned folder where an agent is busy pulses with how many files, even while you look at another one. Right-click a pinned folder to move it up or down, or to unpin it. You can pin up to 12, and Folder Tree keeps them, in your order, the next time Tilefold starts.
+- **Pin this folder** (right-click a folder, the empty space under the tree, or the command palette) adds the folder to the list and shows it, while you switch panes or `cd`.
 - **Show only this folder** (right-click a folder) shows that folder on its own. **Up to …** at the top goes back up, as far as the folder your pane is in.
 - **Follow the pane** goes back to following the pane you're in.
 - While the tree is pinned, **Recent** lists the files agents used in that folder first, and the rest under **Elsewhere**, so you don't miss what agents are doing in other places.
-- Folder Tree can only show folders one of your panes is in (or folders inside them). If you close or move every pane away from a pinned folder, the tree says so; **Follow the pane** brings it back.
-- The window (**Folder Tree: Open window**) has the same choices in the bar under its title. Folder Tree remembers a pinned folder the next time Tilefold starts.
+- Folder Tree can only show folders one of your panes is in (or folders inside them). A pinned folder no pane is in any more is greyed in the list until one is again; if the tree was showing it, it says so, and **Follow the pane** brings it back.
+- The window (**Folder Tree: Open window**) has the same choices in the bar under its title, with your pinned folders to pick from and **Unpin** for the one shown.
 
 ## Changing files
 
@@ -77,4 +78,4 @@ The **Folder Tree: Set up agent activity** command shows the same steps in the w
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-11-02 by Tilefold
+Last updated: 2026-11-03 by Tilefold

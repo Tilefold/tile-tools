@@ -33,6 +33,9 @@
  *   saying so (Up, Follow the pane, or that no pane reaches it any more);
  *   Recent lists the shown folder's files first and the rest under
  *   "Elsewhere".
+ * Modified 2026-11-03 (pinned folders list): those rows became the
+ *   Folders section at the top (folders-view.js), listing every pinned
+ *   folder with Follow the pane.
  *
  * Last updated by: Tilefold
  */
@@ -42,6 +45,7 @@ import { clamp, marked, NOW_KEYS } from "./row-marks.js";
 import { treeRows } from "./model.js";
 import { panelMenus, ROW_MENU } from "./panel-actions.js";
 import { basename, shownPath } from "./paths.js";
+import { foldersRows } from "./folders-view.js";
 import { folderName } from "./tree.js";
 import { splitByRoot } from "./view.js";
 
@@ -62,39 +66,6 @@ function headline(t, active, root) {
   });
   const text = active.length > 1 ? t("now-more", { line, count: active.length - 1 }) : line;
   return clamp(text, 512);
-}
-
-/**
- * The rows that say the tree is pinned: the pinned folder, Up while a pane
- * still reaches the folder above, and Follow the pane; or that no pane
- * reaches the pinned folder any more. None while the tree follows the pane.
- */
-function viewRows(t, root, view) {
-  const rows = [];
-  const targets = new Map();
-  if (!view?.pinned) return { rows, targets };
-  rows.push({
-    id: "view-pinned",
-    label: clamp(t("view-pinned", { folder: root ? folderName(root) : "" }), 256),
-    icon: "folder",
-    tone: "accent",
-    section: true,
-    ...(root ? { hint: clamp(root, 512) } : {}),
-  });
-  if (view.gone) {
-    rows.push({ id: "view-gone", label: t("view-gone"), icon: "error", tone: "warning" });
-  }
-  if (view.up) {
-    rows.push({
-      id: "view-up",
-      label: clamp(t("view-up", { folder: folderName(view.up) }), 256),
-      icon: "folder",
-    });
-    targets.set("view-up", { kind: "view-up" });
-  }
-  rows.push({ id: "view-follow", label: t("view-follow"), icon: "link", tone: "accent" });
-  targets.set("view-follow", { kind: "view-follow" });
-  return { rows, targets };
 }
 
 /** The "Recent" footer rows, and their targets. */
@@ -203,9 +174,15 @@ export function panelView({ tree, events, now, t, opts, selected = null, view = 
     decorate,
   });
 
-  const pinned = viewRows(t, root, view);
-  const rows = [...pinned.rows];
-  const targets = new Map([...built.targets, ...pinned.targets]);
+  const folders = foldersRows(t, {
+    root,
+    view,
+    active,
+    open: opts.foldersOpen !== false,
+    menus: Boolean(menus),
+  });
+  const rows = [...folders.rows];
+  const targets = new Map([...built.targets, ...folders.targets]);
   if (opts.showActivity) {
     const section = nowRows(t, { active, events: activity, now, root });
     rows.push(...section.rows);

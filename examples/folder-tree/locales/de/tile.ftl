@@ -107,3 +107,16 @@ page-view-label = Was der Baum zeigt
 page-view-following = Folgt dem Bereich, in dem Sie sind
 page-view-pinned = An diesen Ordner angeheftet
 error-choose-folder = Klicken Sie zuerst auf einen Ordner im Baum
+
+# The pinned folders list
+section-folders = Ordner
+pin-shown = angezeigt
+pins-empty = Heften Sie einen Ordner an, um mit einem Klick zu ihm zurückzukehren
+pins-already = Dieser Ordner ist schon angeheftet
+pins-full = Sie haben { $max } Ordner angeheftet, mehr geht nicht. Lösen Sie zuerst einen
+view-showing = Zeigt { $folder }
+menu-pin-show = Diesen Ordner anzeigen
+menu-move-up = Nach oben
+menu-move-down = Nach unten
+menu-unpin = Lösen
+page-pins-label = Angeheftete Ordner

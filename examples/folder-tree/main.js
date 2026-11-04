@@ -438,6 +438,52 @@ function splitByRoot(events, root) {
   return { here, elsewhere };
 }
 
+// src/pins.js
+var PINS_KEY = "pins";
+var MAX_PINS = 12;
+function restorePins(saved, legacyView = null) {
+  if (!Array.isArray(saved)) {
+    const folder = legacyView?.mode === "pinned" ? legacyView.folder : null;
+    return usable(folder) ? [normalize(folder)] : [];
+  }
+  const pins = [];
+  for (const folder of saved) {
+    if (pins.length >= MAX_PINS) break;
+    if (!usable(folder)) continue;
+    const path = normalize(folder);
+    if (!pins.includes(path)) pins.push(path);
+  }
+  return pins;
+}
+function addPin(pins, folder) {
+  if (!usable(folder)) return { error: "unusable" };
+  const path = normalize(folder);
+  if (pins.includes(path)) return { error: "already" };
+  if (pins.length >= MAX_PINS) return { error: "full" };
+  return { pins: [...pins, path] };
+}
+var removePin = (pins, folder) => pins.filter((p) => p !== folder);
+function movePin(pins, folder, delta) {
+  const from = pins.indexOf(folder);
+  if (from < 0) return pins;
+  const to = Math.max(0, Math.min(pins.length - 1, from + delta));
+  if (to === from) return pins;
+  const next = pins.slice();
+  next.splice(from, 1);
+  next.splice(to, 0, folder);
+  return next;
+}
+function pinLabels(pins) {
+  const count = /* @__PURE__ */ new Map();
+  for (const p of pins) count.set(basename(p), (count.get(basename(p)) ?? 0) + 1);
+  return new Map(
+    pins.map((p) => [
+      p,
+      count.get(basename(p)) > 1 ? `${basename(p)} \xB7 ${basename(parent(p))}` : basename(p)
+    ])
+  );
+}
+
 // src/page-view.js
 var PAGE_RECENT = 100;
 var PAGE_NOW = 8;
@@ -508,10 +554,28 @@ function pageView({ tree, events, now, t, opts, selected = null, view = null }) 
       activity: opts.showActivity,
       selected: selected && targets.has(selected) ? selected : null,
       selectedDir: Boolean(selected && targets.get(selected)?.kind === "dir"),
-      view: view?.pinned ? { pinned: true, gone: view.gone === true, up: view.up ? folderName(view.up) : null } : { pinned: false },
+      view: pageViewState(view),
       canEdit: opts.canEdit === true
     },
     targets
+  };
+}
+function pageViewState(view) {
+  const pins = view?.pins ?? [];
+  const labels = pinLabels(pins.map((p) => p.path));
+  const list = pins.map((p) => ({
+    id: p.path,
+    label: labels.get(p.path),
+    ...p.shown ? { shown: true } : {},
+    ...p.gone ? { gone: true } : {}
+  }));
+  if (!view?.pinned) return { pinned: false, pins: list };
+  return {
+    pinned: true,
+    listed: view.listed === true,
+    gone: view.gone === true,
+    up: view.up ? folderName(view.up) : null,
+    pins: list
   };
 }
 function pageStrings(t, hookCommand) {
@@ -556,7 +620,10 @@ function pageStrings(t, hookCommand) {
       follow: t("view-follow"),
       pin: t("menu-pin"),
       showOnly: t("menu-show-only"),
-      elsewhere: t("section-elsewhere")
+      elsewhere: t("section-elsewhere"),
+      pins: t("page-pins-label"),
+      showing: t("view-showing", { folder: n }),
+      unpin: t("menu-unpin")
     },
     setup: {
       title: t("setup-title"),
@@ -700,6 +767,7 @@ function panelMenus(t, canEdit2, pinned = false) {
   return {
     dir: [
       item("show-only", "menu-show-only"),
+      item("pin", "menu-pin"),
       { separator: true },
       item("new-file", "page-new-file"),
       item("new-folder", "page-new-folder"),
@@ -719,8 +787,104 @@ function panelMenus(t, canEdit2, pinned = false) {
       item("new-folder", "page-new-folder"),
       { separator: true },
       pinned ? item("follow", "view-follow") : item("pin", "menu-pin")
-    ]
+    ],
+    pin: [
+      item("pin-show", "menu-pin-show"),
+      { separator: true },
+      item("pin-up", "menu-move-up"),
+      item("pin-down", "menu-move-down"),
+      { separator: true },
+      item("unpin", "menu-unpin")
+    ],
+    shown: [item("pin", "menu-pin"), item("follow", "view-follow")]
   };
+}
+
+// src/folders-view.js
+var TRAIL_MAX = 32;
+var trailOf = (text) => text.length > TRAIL_MAX ? `\u2026${text.slice(-(TRAIL_MAX - 1))}` : text;
+function foldersRows(t, { root, view, active, open, menus }) {
+  const rows = [];
+  const targets = /* @__PURE__ */ new Map();
+  const pins = view?.pins ?? [];
+  rows.push({
+    id: "folders",
+    label: t("section-folders"),
+    section: true,
+    expandable: true,
+    expanded: open,
+    ...pins.length ? { badge: String(pins.length) } : {}
+  });
+  targets.set("folders", { kind: "folders" });
+  if (!open) return { rows, targets };
+  const following = !view?.pinned;
+  rows.push({
+    id: "view-follow",
+    label: t("view-follow"),
+    icon: "link",
+    depth: 1,
+    ...following ? { tone: "accent", trail: t("pin-shown") } : {}
+  });
+  targets.set("view-follow", { kind: "view-follow" });
+  const labels = pinLabels(pins.map((p) => p.path));
+  for (const pin of pins) {
+    const id = `pin:${pin.path}`;
+    const busy = pin.gone ? 0 : active.filter((e) => isInside(e.abs, pin.path)).length;
+    const hint = pin.gone ? `${pin.path}
+${t("view-gone")}` : busy ? `${pin.path}
+${t("hint-busy", { count: busy })}` : pin.path;
+    let tone = null;
+    if (pin.gone) tone = "warning";
+    else if (pin.shown) tone = "accent";
+    else if (busy) tone = "info";
+    rows.push({
+      id,
+      label: clamp(labels.get(pin.path), 256),
+      icon: pin.gone ? "error" : "folder",
+      depth: 1,
+      hint: clamp(hint, 512),
+      trail: pin.shown ? t("pin-shown") : trailOf(parent(pin.path)),
+      ...tone ? { tone } : {},
+      ...pin.gone ? { muted: true } : {},
+      ...busy ? { pulse: true, badge: String(busy) } : {},
+      ...menus ? { menu: "pin" } : {}
+    });
+    targets.set(id, { kind: "pin", path: pin.path });
+  }
+  if (view?.pinned && !view.listed) {
+    rows.push({
+      id: "view-pinned",
+      label: clamp(t("view-showing", { folder: root ? folderName(root) : "" }), 256),
+      icon: "folder",
+      tone: "accent",
+      depth: 1,
+      ...root ? { hint: clamp(root, 512) } : {},
+      ...menus ? { menu: "shown" } : {}
+    });
+    targets.set("view-pinned", { kind: "view-shown", path: root });
+    if (view.gone) {
+      rows.push({
+        id: "view-gone",
+        label: t("view-gone"),
+        icon: "error",
+        tone: "warning",
+        depth: 1
+      });
+    }
+  }
+  if (view?.pinned && view.up) {
+    rows.push({
+      id: "view-up",
+      label: clamp(t("view-up", { folder: folderName(view.up) }), 256),
+      icon: "folder",
+      depth: 1
+    });
+    targets.set("view-up", { kind: "view-up" });
+  }
+  if (!pins.length) {
+    rows.push({ id: "pins-empty", label: t("pins-empty"), icon: "none", depth: 1, muted: true });
+  }
+  return { rows, targets };
 }
 
 // src/panel-view.js
@@ -735,33 +899,6 @@ function headline(t, active, root) {
   });
   const text = active.length > 1 ? t("now-more", { line, count: active.length - 1 }) : line;
   return clamp(text, 512);
-}
-function viewRows(t, root, view) {
-  const rows = [];
-  const targets = /* @__PURE__ */ new Map();
-  if (!view?.pinned) return { rows, targets };
-  rows.push({
-    id: "view-pinned",
-    label: clamp(t("view-pinned", { folder: root ? folderName(root) : "" }), 256),
-    icon: "folder",
-    tone: "accent",
-    section: true,
-    ...root ? { hint: clamp(root, 512) } : {}
-  });
-  if (view.gone) {
-    rows.push({ id: "view-gone", label: t("view-gone"), icon: "error", tone: "warning" });
-  }
-  if (view.up) {
-    rows.push({
-      id: "view-up",
-      label: clamp(t("view-up", { folder: folderName(view.up) }), 256),
-      icon: "folder"
-    });
-    targets.set("view-up", { kind: "view-up" });
-  }
-  rows.push({ id: "view-follow", label: t("view-follow"), icon: "link", tone: "accent" });
-  targets.set("view-follow", { kind: "view-follow" });
-  return { rows, targets };
 }
 function recentFooter(t, events, root, now, { open, all }) {
   const rows = [];
@@ -856,9 +993,15 @@ ${path}`, 512)
     filters: opts.filters,
     decorate
   });
-  const pinned = viewRows(t, root, view);
-  const rows = [...pinned.rows];
-  const targets = new Map([...built.targets, ...pinned.targets]);
+  const folders = foldersRows(t, {
+    root,
+    view,
+    active,
+    open: opts.foldersOpen !== false,
+    menus: Boolean(menus)
+  });
+  const rows = [...folders.rows];
+  const targets = new Map([...built.targets, ...folders.targets]);
   if (opts.showActivity) {
     const section = nowRows(t, { active, events: activity, now, root });
     rows.push(...section.rows);
@@ -1111,17 +1254,59 @@ function createScanner(tf) {
 }
 
 // src/view-control.js
+var PIN_ERRORS = { already: "pins-already", full: "pins-full", unusable: "error-choose-folder" };
 function createViewControl(tf, ctx) {
   let view = followView();
+  let pins = [];
   let paneFolder = null;
-  const ready = tf.store.get(VIEW_KEY).then((saved) => void (view = restoreView(saved))).catch(() => void 0);
-  const change = async (next, action) => {
+  const ready = Promise.all([
+    tf.store.get(VIEW_KEY).catch(() => null),
+    tf.store.get(PINS_KEY).catch(() => null)
+  ]).then(([savedView, savedPins]) => {
+    view = restoreView(savedView);
+    pins = restorePins(savedPins, savedView);
+  });
+  const reach = () => [...ctx.places(), paneFolder];
+  const reshow = async () => {
+    if (!ctx.showing()) return void 0;
+    return ctx.restart(rootFor(view, paneFolder ?? await tf.pane.cwd()));
+  };
+  const change = async (next, action, details = {}) => {
     await ready;
     view = next;
     await tf.store.set(VIEW_KEY, { ...view });
-    await tf.audit(action, {});
-    if (!ctx.showing()) return void 0;
-    return ctx.restart(rootFor(view, paneFolder ?? await tf.pane.cwd()));
+    await tf.audit(action, details);
+    return reshow();
+  };
+  const keepPins = async (next, action, show = false) => {
+    pins = next;
+    await tf.store.set(PINS_KEY, [...pins]);
+    await tf.audit(action, { count: pins.length });
+    return show ? reshow() : ctx.redraw();
+  };
+  const pinFolder = async (folder) => {
+    await ready;
+    if (!folder) return tf.toast(tf.t("error-no-folder"));
+    const added = addPin(pins, folder);
+    if (added.error === "already") return change(pinView(folder), "shown");
+    if (added.error) return tf.toast(tf.t(PIN_ERRORS[added.error], { max: MAX_PINS }));
+    pins = added.pins;
+    await tf.store.set(PINS_KEY, [...pins]);
+    return change(pinView(folder), "pinned", { count: pins.length });
+  };
+  const showPin = async (folder) => {
+    if (!pins.includes(folder)) return void 0;
+    if (reachable(folder, reach()) === false) return tf.toast(tf.t("view-gone"));
+    return change(pinView(folder), "shown");
+  };
+  const unpin = async (folder) => {
+    if (!pins.includes(folder)) return void 0;
+    const wasShown = isPinned(view) && view.folder === folder;
+    if (wasShown) {
+      view = followView();
+      await tf.store.set(VIEW_KEY, { ...view });
+    }
+    return keepPins(removePin(pins, folder), "unpinned", wasShown);
   };
   const control = {
     /** True while the tree is pinned. */
@@ -1137,21 +1322,30 @@ function createViewControl(tf, ctx) {
       paneFolder = path;
       return !isPinned(view);
     },
-    /** The view as the panel and window draw it. */
+    /**
+     * The view as the panel and window draw it: pinned or not, the folder
+     * above while a pane reaches it, whether no pane reaches it any more,
+     * and the pinned folders (each with whether it is shown, or gone).
+     */
     info() {
-      if (!isPinned(view)) return { pinned: false };
-      const all = [...ctx.places(), paneFolder];
+      const all = reach();
+      const shown = isPinned(view) ? view.folder : null;
+      const list = pins.map((path) => ({
+        path,
+        shown: path === shown,
+        gone: reachable(path, all) === false
+      }));
+      if (!shown) return { pinned: false, pins: list };
       return {
         pinned: true,
-        up: upFrom(view.folder, all),
-        gone: reachable(view.folder, all) === false
+        listed: pins.includes(shown),
+        up: upFrom(shown, all),
+        gone: reachable(shown, all) === false,
+        pins: list
       };
     },
-    /** Keeps showing the tree's folder, whatever the panes do. */
-    pin() {
-      const root = ctx.root();
-      return root ? change(pinView(root), "pinned") : tf.toast(tf.t("error-no-folder"));
-    },
+    /** Pins the tree's folder (or `folder`) and keeps showing it, whatever the panes do. */
+    pin: (folder = ctx.root()) => pinFolder(folder),
     /** Follows the focused pane's folder again. */
     follow: () => change(followView(), "followed"),
     /** Shows only folder `id` (the chosen row by default), pinned. */
@@ -1164,6 +1358,37 @@ function createViewControl(tf, ctx) {
     up() {
       const above = control.info().up;
       return above ? change(pinView(above), "rerooted") : void 0;
+    },
+    /** Acts on a row about the view (`target`); null when it isn't one. */
+    act(target) {
+      if (target.kind === "view-follow") return control.follow();
+      if (target.kind === "view-up") return control.up();
+      if (target.kind === "pin") return showPin(target.path);
+      return null;
+    },
+    /** A menu choice about the view on row `target` (null: the empty space); null when not one. */
+    menu(item, target, id) {
+      if (item === "show-only") return control.showOnly(id);
+      if (item === "follow") return control.follow();
+      if (item === "pin") return pinFolder(target?.kind === "dir" ? target.path : ctx.root());
+      if (target?.kind !== "pin") return null;
+      if (item === "pin-show") return showPin(target.path);
+      if (item === "pin-up" || item === "pin-down") {
+        const moved = movePin(pins, target.path, item === "pin-up" ? -1 : 1);
+        return moved === pins ? void 0 : keepPins(moved, "moved");
+      }
+      if (item === "unpin") return unpin(target.path);
+      return null;
+    },
+    /** A window message about the view (`id`: its checked path); null when not one. */
+    message(type, id) {
+      if (type === "show-only" && id) return control.showOnly(id);
+      if (type === "pin") return control.pin();
+      if (type === "follow") return control.follow();
+      if (type === "up") return control.up();
+      if (type === "show-pin" && id) return showPin(id);
+      if (type === "unpin" && id) return unpin(id);
+      return null;
     }
   };
   return control;
@@ -1186,7 +1411,7 @@ function createFolderTree(tf) {
   let lastDraw = 0;
   let timer = null;
   let selected = null;
-  const ui = { recentOpen: true, recentAll: false };
+  const ui = { recentOpen: true, recentAll: false, foldersOpen: true };
   const explain = (err) => explainError(tf, err);
   const options = () => readOptions(tf, ui);
   const draw = async () => {
@@ -1342,9 +1567,11 @@ function createFolderTree(tf) {
       });
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
     if (target.kind === "setup") return api.openWindow(true);
-    if (target.kind === "view-follow") return views.follow();
-    if (target.kind === "view-up") return views.up();
-    return void 0;
+    if (target.kind === "folders")
+      return setUi({
+        foldersOpen: action === "expand" || action === "activate" && !ui.foldersOpen
+      });
+    return views.act(target) ?? void 0;
   };
   const renameChosen = async () => {
     if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
@@ -1382,10 +1609,7 @@ function createFolderTree(tf) {
     if (item === "edit") return edits.edit(id);
     if (item === "rename") return renameChosen();
     if (item === "trash") return edits.trash(id);
-    if (item === "show-only") return views.showOnly(id);
-    if (item === "pin") return views.pin();
-    if (item === "follow") return views.follow();
-    return void 0;
+    return views.menu(item, target, id) ?? void 0;
   };
   const views = createViewControl(tf, {
     places,
@@ -1393,7 +1617,8 @@ function createFolderTree(tf) {
     target: (id) => targets.get(id),
     chosen: () => selected,
     showing: () => shown || pageOpen,
-    restart: (root) => (selected = null, start(root))
+    restart: (root) => (selected = null, start(root)),
+    redraw: () => draw()
   });
   const ensureRoot = async (root) => {
     if (root !== tree.root || !isLoaded(tree, root ?? "")) await start(root);
@@ -1403,6 +1628,7 @@ function createFolderTree(tf) {
     if (saved && typeof saved === "object") {
       ui.recentOpen = saved.recentOpen !== false;
       ui.recentAll = saved.recentAll === true;
+      ui.foldersOpen = saved.foldersOpen !== false;
     }
   });
   const api = {
@@ -1465,11 +1691,7 @@ function createFolderTree(tf) {
       if (m.type === "move" && id) return edits.move(id, arg(m.to));
       if (m.type === "trash" && id) return edits.trash(id);
       if (m.type === "edit" && id) return edits.edit(id);
-      if (m.type === "show-only" && id) return views.showOnly(id);
-      if (m.type === "pin") return views.pin();
-      if (m.type === "follow") return views.follow();
-      if (m.type === "up") return views.up();
-      return void 0;
+      return views.message(m.type, id) ?? void 0;
     },
     /** Palette commands: a new file or folder where the user last chose. */
     newFile: () => edits.newFile(selected),

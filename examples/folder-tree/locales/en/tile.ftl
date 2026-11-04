@@ -107,3 +107,16 @@ page-view-label = What the tree shows
 page-view-following = Following the pane you're in
 page-view-pinned = Pinned on this folder
 error-choose-folder = Click a folder in the tree first
+
+# The pinned folders list
+section-folders = Folders
+pin-shown = shown
+pins-empty = Pin a folder to come back to it in one click
+pins-already = That folder is pinned already
+pins-full = You've pinned { $max } folders, the most there can be. Unpin one first
+view-showing = Showing { $folder }
+menu-pin-show = Show this folder
+menu-move-up = Move up
+menu-move-down = Move down
+menu-unpin = Unpin
+page-pins-label = Pinned folders

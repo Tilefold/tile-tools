@@ -107,3 +107,16 @@ page-view-label = Что показывает дерево
 page-view-following = Следует за панелью, в которой вы
 page-view-pinned = Закреплено на этой папке
 error-choose-folder = Сначала щёлкните папку в дереве
+
+# The pinned folders list
+section-folders = Папки
+pin-shown = показана
+pins-empty = Закрепите папку, чтобы возвращаться к ней одним щелчком
+pins-already = Эта папка уже закреплена
+pins-full = Закреплено { $max } папок — это максимум. Сначала открепите одну
+view-showing = Показана { $folder }
+menu-pin-show = Показать эту папку
+menu-move-up = Выше
+menu-move-down = Ниже
+menu-unpin = Открепить
+page-pins-label = Закреплённые папки

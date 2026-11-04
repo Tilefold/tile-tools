@@ -46,6 +46,9 @@
  *   view control (view-control.js): it follows the pane, or stays pinned on
  *   a folder, while agents are watched in every pane either way; settings
  *   and error messages moved to options.js.
+ * Modified 2026-11-03 (pinned folders list): the Folders section opens
+ *   and closes; its rows, menu choices and the window's messages about the
+ *   view go to the view control.
  *
  * Last updated by: Tilefold
  */
@@ -94,7 +97,7 @@ export function createFolderTree(tf) {
   let timer = null;
   /** The row the user last chose (a folder or file), the target of changes. */
   let selected = null;
-  const ui = { recentOpen: true, recentAll: false };
+  const ui = { recentOpen: true, recentAll: false, foldersOpen: true };
   const explain = (err) => explainError(tf, err);
   const options = () => readOptions(tf, ui);
 
@@ -285,9 +288,12 @@ export function createFolderTree(tf) {
     if (target.kind === "recent-more") return setUi({ recentAll: !ui.recentAll });
     // The Now section's setup row, before any agent activity: the hooks' guide.
     if (target.kind === "setup") return api.openWindow(true);
-    if (target.kind === "view-follow") return views.follow();
-    if (target.kind === "view-up") return views.up();
-    return undefined;
+    if (target.kind === "folders")
+      return setUi({
+        foldersOpen: action === "expand" || (action === "activate" && !ui.foldersOpen),
+      });
+    // Follow the pane, Up, and the pinned folders.
+    return views.act(target) ?? undefined;
   };
 
   /**
@@ -339,10 +345,7 @@ export function createFolderTree(tf) {
     if (item === "edit") return edits.edit(id);
     if (item === "rename") return renameChosen();
     if (item === "trash") return edits.trash(id);
-    if (item === "show-only") return views.showOnly(id);
-    if (item === "pin") return views.pin();
-    if (item === "follow") return views.follow();
-    return undefined;
+    return views.menu(item, target, id) ?? undefined;
   };
 
   /** What the tree shows: the pane's folder, or a pinned one (view-control.js). */
@@ -353,6 +356,7 @@ export function createFolderTree(tf) {
     chosen: () => selected,
     showing: () => shown || pageOpen,
     restart: (root) => ((selected = null), start(root)),
+    redraw: () => draw(),
   });
 
   /** The tree's folder (`root`, the pane's), listed when it is new. */
@@ -361,11 +365,12 @@ export function createFolderTree(tf) {
     else await draw();
   };
 
-  // The Recent section opens as the user left it.
+  // The Recent and Folders sections open as the user left them.
   void tf.store.get(UI_KEY).then((saved) => {
     if (saved && typeof saved === "object") {
       ui.recentOpen = saved.recentOpen !== false;
       ui.recentAll = saved.recentAll === true;
+      ui.foldersOpen = saved.foldersOpen !== false;
     }
   });
 
@@ -430,11 +435,8 @@ export function createFolderTree(tf) {
       if (m.type === "move" && id) return edits.move(id, arg(m.to));
       if (m.type === "trash" && id) return edits.trash(id);
       if (m.type === "edit" && id) return edits.edit(id);
-      if (m.type === "show-only" && id) return views.showOnly(id);
-      if (m.type === "pin") return views.pin();
-      if (m.type === "follow") return views.follow();
-      if (m.type === "up") return views.up();
-      return undefined;
+      // Show only, Pin, Follow the pane, Up, and the pinned folders.
+      return views.message(m.type, id) ?? undefined;
     },
     /** Palette commands: a new file or folder where the user last chose. */
     newFile: () => edits.newFile(selected),

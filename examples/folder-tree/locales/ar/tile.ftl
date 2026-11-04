@@ -107,3 +107,16 @@ page-view-label = ما تعرضه الشجرة
 page-view-following = يتبع الجزء الذي أنت فيه
 page-view-pinned = مثبّت على هذا المجلد
 error-choose-folder = انقر أولًا على مجلد في الشجرة
+
+# The pinned folders list
+section-folders = المجلدات
+pin-shown = معروض
+pins-empty = ثبّت مجلدًا لتعود إليه بنقرة واحدة
+pins-already = هذا المجلد مثبّت بالفعل
+pins-full = ثبّتّ { $max } مجلدًا، وهو الحد الأقصى. ألغِ تثبيت أحدها أولًا
+view-showing = يعرض { $folder }
+menu-pin-show = عرض هذا المجلد
+menu-move-up = نقل لأعلى
+menu-move-down = نقل لأسفل
+menu-unpin = إلغاء التثبيت
+page-pins-label = المجلدات المثبّتة

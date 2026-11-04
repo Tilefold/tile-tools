@@ -24,6 +24,9 @@
  *   folder (for a chosen folder) and Pin this folder / Follow the pane,
  *   sent as { type: "up" | "show-only" | "pin" | "follow", id? }; recent
  *   files outside the shown folder come after an "Elsewhere" line.
+ * Modified 2026-11-03 (pinned folders list): the bar lists the pinned
+ *   folders to pick from (Follow the pane first), with Unpin for the one
+ *   shown, sent as { type: "show-pin" | "unpin", id }.
  *
  * Last updated by: Tilefold
  */
@@ -281,6 +284,8 @@
     if (strings.view) {
       $("view").setAttribute("aria-label", strings.view.label);
       $("view-show-only").textContent = strings.view.showOnly;
+      $("view-pins").setAttribute("aria-label", strings.view.pins ?? strings.view.label);
+      $("view-unpin").textContent = strings.view.unpin ?? "";
     }
     tools.setStrings(strings);
     const s = strings.setup;
@@ -304,7 +309,31 @@
     up.hidden = !v.up;
     up.textContent = v.up ? fill(s.up, v.up) : "";
     $("view-show-only").disabled = !state.selectedDir;
-    $("view-pin").textContent = v.pinned ? s.follow : s.pin;
+    const listed = v.pinned && v.listed === true;
+    $("view-pin").textContent = v.pinned && (listed || !s.pins) ? s.follow : s.pin;
+    drawPins(v, s, listed);
+  }
+  function drawPins(v, s, listed) {
+    const select = $("view-pins");
+    const pins = Array.isArray(v.pins) ? v.pins : [];
+    select.hidden = !s.pins || pins.length === 0;
+    $("view-unpin").hidden = select.hidden || !listed;
+    if (select.hidden) return;
+    const option = (value, label, disabled = false) => {
+      const o = document.createElement("option");
+      o.value = value;
+      o.textContent = label;
+      o.disabled = disabled;
+      return o;
+    };
+    const options = [option("", s.follow)];
+    for (const p of pins) {
+      options.push(option(`pin:${p.id}`, p.gone ? `${p.label} \u2014 ${s.gone}` : p.label, p.gone));
+    }
+    if (v.pinned && !listed) options.push(option("shown", fill(s.showing, state.title), true));
+    select.replaceChildren(...options);
+    const shown = pins.find((p) => p.shown);
+    select.value = shown ? `pin:${shown.id}` : v.pinned ? "shown" : "";
   }
   function draw() {
     if (!strings || !state) return;
@@ -350,12 +379,23 @@
     if (!showAll) $("recent").scrollTop = 0;
   });
   $("view-up").addEventListener("click", () => send({ type: "up" }));
+  $("view-pins").addEventListener("change", (e) => {
+    const value = e.target.value;
+    if (value === "") send({ type: "follow" });
+    else if (value.startsWith("pin:")) send({ type: "show-pin", id: value.slice(4) });
+  });
+  $("view-unpin").addEventListener("click", () => {
+    const shown = state?.view?.pins?.find((p) => p.shown);
+    if (shown) send({ type: "unpin", id: shown.id });
+  });
   $("view-show-only").addEventListener("click", () => {
     if (state?.selected) send({ type: "show-only", id: state.selected });
   });
   $("view-pin").addEventListener(
     "click",
-    () => send({ type: state?.view?.pinned ? "follow" : "pin" })
+    () => send({
+      type: state?.view?.pinned && (state.view.listed || !strings.view.pins) ? "follow" : "pin"
+    })
   );
   $("setup-open").addEventListener("click", () => $("setup").showModal());
   $("setup-copy").addEventListener("click", async () => {
