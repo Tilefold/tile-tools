@@ -2,9 +2,15 @@
 # Released under the MIT License.
 #
 # Tilefold Pet (example tile) — Korean strings.
+#
+# Modified 2026-10-12 (added Pebble, the emperor penguin).
+# Modified 2026-10-12 (added Volta, the spark fox, and her Bzzzt! bubble).
+# Modified 2026-10-12 (added Rumble, the T. rex, and his ROAR! bubble).
+#
+# Last updated by: Tilefold
 
 tile-name = Tilefold 펫
-tile-description = 펫(테사, 하얀 푸들 코코, 또는 덥수룩한 테리어 비스킷)이 창 위에서 살아요. 여기저기 돌아다니고, 자리를 비우면 낮잠을 자고, 쓰다듬어 주면 좋아해요. 원하는 곳으로 끌어다 놓을 수 있어요.
+tile-description = 펫(테사, 하얀 푸들 코코, 덥수룩한 테리어 비스킷, 황제펭귄 페블, 스파크 여우 볼타, 또는 티라노사우루스 럼블)이 창 위에서 살아요. 여기저기 돌아다니고, 자리를 비우면 낮잠을 자고, 쓰다듬어 주면 좋아해요. 원하는 곳으로 끌어다 놓을 수 있어요.
 cmd-toggle = Tilefold 펫: 보이기 또는 숨기기
 cmd-call = Tilefold 펫: 이리 와
 cmd-nap = Tilefold 펫: 낮잠 자기 또는 깨우기
@@ -12,6 +18,9 @@ setting-character = 캐릭터
 setting-character-tessa = 타일 생물 테사
 setting-character-poodle = 하얀 푸들 코코
 setting-character-terrier = 덥수룩한 테리어 비스킷
+setting-character-penguin = 황제펭귄 페블
+setting-character-volta = 스파크 여우 볼타
+setting-character-trex = 티라노사우루스 럼블
 setting-roam = 펫이 걷는 곳
 setting-roam-pane = 창 전체
 setting-roam-floor = 아래쪽을 따라
@@ -25,3 +34,5 @@ bubble-play = 신난다!
 bubble-held = 어머!
 bubble-welcome = 다시 왔구나!
 bubble-woof = 멍멍!
+bubble-zap = 찌릿찌릿!
+bubble-roar = 크아앙!

@@ -20,13 +20,22 @@
  *   poses()  { idle, blink, walk, happy, sleep, sit?, walkUp?, walkDown? }, each
  *            { image: data URL, sheet: { frames, fps } | null }; drawn once
  *            and kept
+ *
+ * Modified 2026-10-12 (added Pebble, the emperor penguin).
+ * Modified 2026-10-12 (added Volta, the spark fox).
+ * Modified 2026-10-12 (added Rumble, the T. rex).
+ *
+ * Last updated by: Tilefold
  */
+import { penguin } from "./penguin.js";
 import { poodle } from "./poodle.js";
 import { terrier } from "./terrier.js";
+import { trex } from "./trex.js";
 import { tessa } from "./tessa.js";
+import { volta } from "./volta.js";
 
 /** Every character, in the order the list shows them. */
-export const CHARACTERS = [tessa, poodle, terrier];
+export const CHARACTERS = [tessa, poodle, terrier, penguin, volta, trex];
 
 /** The character a new Tilefold Pet starts with. */
 export const DEFAULT_CHARACTER = tessa.id;

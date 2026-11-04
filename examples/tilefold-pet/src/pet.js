@@ -23,6 +23,11 @@
  * and if Tilefold restarts the tile's worker, the pet comes back on the
  * next event instead of standing frozen. Pats, plays and character changes are recorded in the activity
  * log (counts and the character id only).
+ *
+ * Modified 2026-10-12 (a click, double-click, drag or nap during a walk
+ * stops the pet where it is instead of making it jump to the walk's end).
+ *
+ * Last updated by: Tilefold
  */
 import { characterById, posesOf } from "./characters/index.js";
 
@@ -35,6 +40,12 @@ import { characterById, posesOf } from "./characters/index.js";
 export function runPet(tf) {
   /** Where it is, what it's doing, and the window it lives in. */
   const pet = { x: 0, y: 0, flip: false, state: "off", asleep: false, pane: null };
+  /**
+   * The walk in progress, if any: where it started, when, and how long it
+   * takes. pet.x and pet.y already hold where it is heading, because Tilefold
+   * glides the drawing there by itself over `ms`.
+   */
+  let move = null;
   let layout = null;
   let timer = null;
   let bubbleTimer = null;
@@ -93,6 +104,20 @@ export function runPet(tf) {
   };
 
   const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+
+  /**
+   * Stops a walk where the pet has got to. Tilefold glides it in a straight
+   * line at a steady pace, so the spot is that far along the line. Without
+   * this, drawing it with no glide (a pat, a nap...) would make it jump to
+   * the end of its walk, which on a long walk is far across the pane.
+   */
+  const settle = () => {
+    if (!move) return;
+    const t = move.ms > 0 ? clamp((Date.now() - move.start) / move.ms, 0, 1) : 1;
+    pet.x = move.fromX + (pet.x - move.fromX) * t;
+    pet.y = move.fromY + (pet.y - move.fromY) * t;
+    move = null;
+  };
 
   /** The pane under a point, if any. */
   const paneAt = (x, y) =>
@@ -179,6 +204,8 @@ export function runPet(tf) {
    * the character's back or front view when it has them.
    */
   const walk = async (toX, toY, pane = currentPane()) => {
+    // A new walk starts from where the pet is now, not from where the last one was going.
+    settle();
     const a = areaOf(pane);
     const x = Math.round(clamp(toX ?? rand(a.minX, a.maxX), a.minX, a.maxX));
     const y = Math.round(clamp(toY ?? rand(a.minY, a.maxY), a.minY, a.maxY));
@@ -194,6 +221,7 @@ export function runPet(tf) {
     }
     if (pose === "walk" && Math.abs(dx) >= 1) pet.flip = dx < 0;
     pet.state = "walk";
+    move = { fromX: pet.x, fromY: pet.y, start: Date.now(), ms };
     pet.x = x;
     pet.y = y;
     pet.pane = pane ? pane.id : null;
@@ -234,6 +262,7 @@ export function runPet(tf) {
   /** Curls up and sleeps until woken. */
   const nap = async () => {
     clearTimeout(timer);
+    settle();
     pet.asleep = true;
     pet.state = "sleep";
     await draw("sleep");
@@ -283,6 +312,7 @@ export function runPet(tf) {
   /** Takes it away. */
   const vanish = async () => {
     clearTimeout(timer);
+    settle();
     pet.state = "off";
     await tf.overlay.hide();
     await tf.store.set("visible", false);
@@ -329,6 +359,7 @@ export function runPet(tf) {
       if (key === "character") await tf.audit("character", { character: character().id });
       if (pet.state === "off" || pet.state === "held") return;
       if (!["character", "size", "name", "roam"].includes(key)) return;
+      settle();
       place();
       if (pet.asleep) return void (await draw("sleep"));
       pet.state = "idle";
@@ -342,9 +373,12 @@ export function runPet(tf) {
     background((next) => {
       layout = next;
       if (pet.state === "off" || pet.state === "held") return undefined;
+      // Checked against where it is heading: a walk still under way is left
+      // to finish unless that spot is no longer in its area.
       const a = areaOf(currentPane());
       const inside = pet.x >= a.minX && pet.x <= a.maxX && pet.y >= a.minY && pet.y <= a.maxY;
       if (inside && (roams() || Math.abs(pet.y - a.maxY) < 1)) return undefined;
+      settle();
       place();
       return draw(pet.asleep ? "sleep" : "idle");
     }),
@@ -355,6 +389,8 @@ export function runPet(tf) {
     background(async (e) => {
       if (!e || e.item !== "pet" || pet.state === "off") return;
       const sz = size();
+      // Whatever the pointer does, the pet stays where it is on screen right now.
+      if (e.type !== "drag" && e.type !== "drop") settle();
       if (e.type === "click") {
         if (pet.asleep) return wake(true);
         pet.state = "happy";

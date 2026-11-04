@@ -6,8 +6,9 @@
  * Tilefold Pet (example tile)
  *
  * A pet lives on top of your panes: Tessa, a small creature made of four
- * rounded tiles, Coco, a white poodle, or Biscuit, a scruffy terrier
- * (Settings → Tiles → Tilefold Pet → Character). It roams around your panes (or keeps to the bottom), naps
+ * rounded tiles, Coco, a white poodle, Biscuit, a scruffy terrier, Pebble,
+ * an emperor penguin, Volta, a spark fox who crackles with lightning, or
+ * Rumble, a T. rex (Settings → Tiles → Tilefold Pet → Character). It roams around your panes (or keeps to the bottom), naps
  * when you step away, barks if it's a dog, loves a pat, plays on a double-click, and can be
  * dragged to another pane. Commands: "Tilefold Pet: Show or hide", "Tilefold Pet:
  * Come here" and "Tilefold Pet: Nap or wake up".
@@ -19,6 +20,12 @@
  * This tile is written as several files under src/ (this entry, the
  * behaviour, and one file per character) and bundled into main.js with
  * `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-10-12 (added Pebble, the emperor penguin).
+ * Modified 2026-10-12 (added Volta, the spark fox).
+ * Modified 2026-10-12 (added Rumble, the T. rex).
+ *
+ * Last updated by: Tilefold
  */
 import { CHARACTERS, DEFAULT_CHARACTER } from "./characters/index.js";
 import { runPet } from "./pet.js";

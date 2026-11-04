@@ -2,9 +2,15 @@
 # Released under the MIT License.
 #
 # Tilefold Pet (example tile) — Spanish strings.
+#
+# Modified 2026-10-12 (added Pebble, the emperor penguin).
+# Modified 2026-10-12 (added Volta, the spark fox, and her Bzzzt! bubble).
+# Modified 2026-10-12 (added Rumble, the T. rex, and his ROAR! bubble).
+#
+# Last updated by: Tilefold
 
 tile-name = Mascota de Tilefold
-tile-description = Tu mascota (Tessa, Coco la caniche blanca o Biscuit el terrier desaliñado) vive sobre tus paneles: pasea por todas partes, duerme la siesta cuando te alejas y le encantan las caricias. Arrástrala adonde quieras.
+tile-description = Tu mascota (Tessa, Coco la caniche blanca, Biscuit el terrier desaliñado, Pebble el pingüino emperador, Volta la zorrita eléctrica o Rumble el T. rex) vive sobre tus paneles: pasea por todas partes, duerme la siesta cuando te alejas y le encantan las caricias. Arrástrala adonde quieras.
 cmd-toggle = Mascota de Tilefold: Mostrar u ocultar
 cmd-call = Mascota de Tilefold: Ven aquí
 cmd-nap = Mascota de Tilefold: Siesta o despertar
@@ -12,6 +18,9 @@ setting-character = Personaje
 setting-character-tessa = Tessa, la criatura de mosaicos
 setting-character-poodle = Coco, la caniche blanca
 setting-character-terrier = Biscuit, el terrier desaliñado
+setting-character-penguin = Pebble, el pingüino emperador
+setting-character-volta = Volta, la zorrita eléctrica
+setting-character-trex = Rumble, el T. rex
 setting-roam = Por dónde camina tu mascota
 setting-roam-pane = Por todo el panel
 setting-roam-floor = Por la parte de abajo
@@ -25,3 +34,5 @@ bubble-play = ¡Yupi!
 bubble-held = ¡Uy!
 bubble-welcome = ¡Bienvenido de nuevo!
 bubble-woof = ¡Guau!
+bubble-zap = ¡Bzzzt!
+bubble-roar = ¡GRRRAAAR!
