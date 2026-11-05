@@ -45,6 +45,8 @@
  *   Show only the chosen folder and Up one folder.
  * Modified 2026-11-03 (folder field): the panel's folder field
  *   (panel.input) pins the folder the user typed or picked.
+ * Modified 2026-11-04 (viewer's file): `viewer.opened` (Tilefold 0.1.26)
+ *   shows the document viewer's file in the tree.
  *
  * Last updated by: Tilefold
  */
@@ -108,4 +110,6 @@ export default (tf) => {
   tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());
+  // Tilefold 0.1.26: a file the document viewer shows (an agent may open one).
+  tf.on("viewer.opened", (e) => void tree?.viewerOpened(e?.path));
 };

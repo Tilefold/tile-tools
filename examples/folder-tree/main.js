@@ -45,6 +45,8 @@
  *   Show only the chosen folder and Up one folder.
  * Modified 2026-11-03 (folder field): the panel's folder field
  *   (panel.input) pins the folder the user typed or picked.
+ * Modified 2026-11-04 (viewer's file): `viewer.opened` (Tilefold 0.1.26)
+ *   shows the document viewer's file in the tree.
  *
  * Last updated by: Tilefold
  */
@@ -277,6 +279,22 @@ var EDIT_ERROR_KEYS = {
   NotFoundError: "error-not-found",
   RateLimitError: "error-busy"
 };
+async function renameRow(tf, { id, target, inPanel, rename, openWindow }) {
+  if (inPanel && target && target.path === id && typeof tf.panel.edit === "function") {
+    const name = id.split(/[\\/]/).filter(Boolean).pop() ?? "";
+    const dot = target.kind === "dir" ? -1 : name.lastIndexOf(".");
+    let typed;
+    try {
+      typed = await tf.panel.edit(id, { value: name, selectTo: dot > 0 ? dot : name.length });
+    } catch {
+      typed = void 0;
+    }
+    if (typed === null) return void 0;
+    if (typeof typed === "string") return rename(id, typed.trim());
+  }
+  await openWindow();
+  return tf.page.post({ type: "rename", id });
+}
 var MAX_TRIES = 200;
 function freeName(taken, name) {
   const lower = new Set([...taken].map((n) => n.toLowerCase()));
@@ -378,6 +396,17 @@ function createEdits(tf, host) {
 }
 
 // src/options.js
+var UI_KEY = "ui";
+function loadUi(tf, ui) {
+  return tf.store.get(UI_KEY).then((saved) => {
+    if (saved && typeof saved === "object") {
+      ui.recentOpen = saved.recentOpen !== false;
+      ui.recentAll = saved.recentAll === true;
+      ui.foldersOpen = saved.foldersOpen !== false;
+    }
+  });
+}
+var saveUi = (tf, ui) => tf.store.set(UI_KEY, { ...ui });
 var MAX_ARG = 4096;
 var arg = (value) => typeof value === "string" && value.length > 0 && value.length <= MAX_ARG ? value : null;
 var ERROR_KEYS = {
@@ -1048,6 +1077,34 @@ ${path}`, 512)
   };
 }
 
+// src/reveal.js
+function foldersTo(root, file) {
+  if (!root || typeof file !== "string") return null;
+  const base = root.endsWith("/") ? root : `${root}/`;
+  if (!file.startsWith(base)) return null;
+  const parts = file.slice(base.length).split("/");
+  if (parts.some((p) => p === "" || p === "." || p === "..")) return null;
+  const out = [root];
+  let at = root;
+  for (const name of parts.slice(0, -1)) {
+    at = `${at.endsWith("/") ? at : `${at}/`}${name}`;
+    out.push(at);
+  }
+  return out;
+}
+async function revealFile(ctx, file) {
+  if (!ctx.showing()) return false;
+  const folders = foldersTo(ctx.tree().root, file);
+  if (!folders) return false;
+  for (const folder of folders) {
+    if (isLoaded(ctx.tree(), folder)) ctx.setTree(opened(ctx.tree(), folder));
+    else await ctx.load(folder);
+  }
+  ctx.select(file);
+  await ctx.draw();
+  return true;
+}
+
 // src/marker.js
 var MARKER_DIR = ".foldertree";
 var ACTIONS = Object.freeze({ r: "read", e: "edit", a: "add", d: "delete" });
@@ -1446,7 +1503,6 @@ function createViewControl(tf, ctx) {
 var POLL_MS = 2e3;
 var AGE_REDRAW_MS = 1e4;
 var HOOK_COMMAND = "node hooks/install.mjs";
-var UI_KEY = "ui";
 function createFolderTree(tf) {
   const scanner = createScanner(tf);
   let tree = emptyTree(null);
@@ -1593,7 +1649,7 @@ function createFolderTree(tf) {
   };
   const setUi = async (change) => {
     Object.assign(ui, change);
-    await tf.store.set(UI_KEY, { ...ui });
+    await saveUi(tf, ui);
     return draw();
   };
   const act = async (id, action, from) => {
@@ -1621,25 +1677,13 @@ function createFolderTree(tf) {
       });
     return views.act(target) ?? void 0;
   };
-  const renameChosen = async () => {
-    if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
-    const id = selected;
-    const target = targets.get(id);
-    if (shown && target && target.path === id && typeof tf.panel.edit === "function") {
-      const name = id.split(/[\\/]/).filter(Boolean).pop() ?? "";
-      const dot = target.kind === "dir" ? -1 : name.lastIndexOf(".");
-      let typed;
-      try {
-        typed = await tf.panel.edit(id, { value: name, selectTo: dot > 0 ? dot : name.length });
-      } catch {
-        typed = void 0;
-      }
-      if (typed === null) return void 0;
-      if (typeof typed === "string") return edits.rename(id, typed.trim());
-    }
-    await api.openWindow();
-    return tf.page.post({ type: "rename", id });
-  };
+  const renameChosen = () => selected ? renameRow(tf, {
+    id: selected,
+    target: targets.get(selected),
+    inPanel: shown,
+    rename: edits.rename,
+    openWindow: () => api.openWindow()
+  }) : tf.toast(tf.t("error-nothing-chosen"));
   const doubled = (id) => {
     const target = targets.get(id);
     const file = target && (target.kind === "file" || target.kind === "link");
@@ -1672,13 +1716,7 @@ function createFolderTree(tf) {
     if (root !== tree.root || !isLoaded(tree, root ?? "")) await start(root);
     else await draw();
   };
-  void tf.store.get(UI_KEY).then((saved) => {
-    if (saved && typeof saved === "object") {
-      ui.recentOpen = saved.recentOpen !== false;
-      ui.recentAll = saved.recentAll === true;
-      ui.foldersOpen = saved.foldersOpen !== false;
-    }
-  });
+  void loadUi(tf, ui);
   const api = {
     /** Shows the panel, or hides it when it is shown. */
     async toggleShown() {
@@ -1749,6 +1787,18 @@ function createFolderTree(tf) {
     trashSelected: () => selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
     /** Palette command: renaming happens in the window, where there is a text field. */
     renameSelected: () => renameChosen(),
+    /** The document viewer shows a file: open the folders down to it and choose it. */
+    viewerOpened: (path) => revealFile(
+      {
+        tree: () => tree,
+        setTree: (next) => tree = next,
+        load,
+        select: (p) => selected = p,
+        draw,
+        showing: () => shown || pageOpen
+      },
+      path
+    ),
     /** Palette commands: pin, follow the pane, show only the chosen folder, up. */
     pin: () => views.pin(),
     follow: () => views.follow(),
@@ -1849,5 +1899,6 @@ var main_default = (tf) => {
   tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
   tf.on("setting.changed", () => tree?.settingChanged());
+  tf.on("viewer.opened", (e) => void tree?.viewerOpened(e?.path));
 };
 export default main_default;
