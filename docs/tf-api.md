@@ -128,6 +128,7 @@ A listener that runs too long five times in ten minutes is skipped for the rest 
 | `panel.opened` | The user came back to a tab a `perTab` panel is open on (Tilefold 0.1.16) | `{ by }`, `tab` |
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
+| `viewer.opened` | The document viewer showed a file inside one of the panes' folders: the user opened it, or an AI agent did to point at something (needs `fs.list`; Tilefold 0.1.26) | `{ path }` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 

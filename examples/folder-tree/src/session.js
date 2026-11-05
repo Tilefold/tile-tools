@@ -49,6 +49,9 @@
  * Modified 2026-11-03 (pinned folders list): the Folders section opens
  *   and closes; its rows, menu choices and the window's messages about the
  *   view, and what the folder field gets, go to the view control.
+ * Modified 2026-11-04 (viewer's file): a file the document viewer shows
+ *   is shown in the tree (reveal.js); renaming in place moved to edits.js,
+ *   and keeping the sections' choices to options.js.
  *
  * Last updated by: Tilefold
  */
@@ -62,10 +65,11 @@ import {
   withError,
   withListing,
 } from "./model.js";
-import { canEdit, createEdits } from "./edits.js";
-import { arg, explainError, readOptions } from "./options.js";
+import { canEdit, createEdits, renameRow } from "./edits.js";
+import { arg, explainError, loadUi, readOptions, saveUi } from "./options.js";
 import { pageStrings, pageView } from "./page-view.js";
 import { panelView } from "./panel-view.js";
+import { revealFile } from "./reveal.js";
 import { createScanner } from "./scan.js";
 import { createViewControl } from "./view-control.js";
 
@@ -75,9 +79,6 @@ export const POLL_MS = 2000;
 export const AGE_REDRAW_MS = 10_000;
 /** The command that sets up the agent hooks, run in the tile's folder. */
 export const HOOK_COMMAND = "node hooks/install.mjs";
-/** Where the Recent section's open/all choice is kept. */
-const UI_KEY = "ui";
-
 /** Starts the Folder Tree for `tf`; returns its handlers (for main.js and tests). */
 export function createFolderTree(tf) {
   const scanner = createScanner(tf);
@@ -263,7 +264,7 @@ export function createFolderTree(tf) {
   /** Keeps the Recent section's choice, and draws it. */
   const setUi = async (change) => {
     Object.assign(ui, change);
-    await tf.store.set(UI_KEY, { ...ui });
+    await saveUi(tf, ui);
     return draw();
   };
 
@@ -296,30 +297,17 @@ export function createFolderTree(tf) {
     return views.act(target) ?? undefined;
   };
 
-  /**
-   * Renames the chosen row: in place in the panel where Tilefold can
-   * (`tf.panel.edit`, Tilefold 0.1.16), with the name selected up to its
-   * extension; otherwise in the window, which has a text field of its own.
-   */
-  const renameChosen = async () => {
-    if (!selected) return tf.toast(tf.t("error-nothing-chosen"));
-    const id = selected;
-    const target = targets.get(id);
-    if (shown && target && target.path === id && typeof tf.panel.edit === "function") {
-      const name = id.split(/[\\/]/).filter(Boolean).pop() ?? "";
-      const dot = target.kind === "dir" ? -1 : name.lastIndexOf(".");
-      let typed;
-      try {
-        typed = await tf.panel.edit(id, { value: name, selectTo: dot > 0 ? dot : name.length });
-      } catch {
-        typed = undefined;
-      }
-      if (typed === null) return undefined;
-      if (typeof typed === "string") return edits.rename(id, typed.trim());
-    }
-    await api.openWindow();
-    return tf.page.post({ type: "rename", id });
-  };
+  /** Renames the chosen row, in place in the panel or in the window (edits.js). */
+  const renameChosen = () =>
+    selected
+      ? renameRow(tf, {
+          id: selected,
+          target: targets.get(selected),
+          inPanel: shown,
+          rename: edits.rename,
+          openWindow: () => api.openWindow(),
+        })
+      : tf.toast(tf.t("error-nothing-chosen"));
 
   /**
    * A double-click on row `id`: a file (or link) in the tree is renamed in
@@ -366,13 +354,7 @@ export function createFolderTree(tf) {
   };
 
   // The Recent and Folders sections open as the user left them.
-  void tf.store.get(UI_KEY).then((saved) => {
-    if (saved && typeof saved === "object") {
-      ui.recentOpen = saved.recentOpen !== false;
-      ui.recentAll = saved.recentAll === true;
-      ui.foldersOpen = saved.foldersOpen !== false;
-    }
-  });
+  void loadUi(tf, ui);
 
   const api = {
     /** Shows the panel, or hides it when it is shown. */
@@ -447,6 +429,19 @@ export function createFolderTree(tf) {
       selected ? edits.trash(selected) : tf.toast(tf.t("error-nothing-chosen")),
     /** Palette command: renaming happens in the window, where there is a text field. */
     renameSelected: () => renameChosen(),
+    /** The document viewer shows a file: open the folders down to it and choose it. */
+    viewerOpened: (path) =>
+      revealFile(
+        {
+          tree: () => tree,
+          setTree: (next) => (tree = next),
+          load,
+          select: (p) => (selected = p),
+          draw,
+          showing: () => shown || pageOpen,
+        },
+        path,
+      ),
     /** Palette commands: pin, follow the pane, show only the chosen folder, up. */
     pin: () => views.pin(),
     follow: () => views.follow(),

@@ -9,9 +9,31 @@
  * from Tilefold in the user's language (anything unexpected also goes to
  * the tile's log), and the check every string a window message carries
  * goes through.
+ *
+ * Modified 2026-11-04 (viewer's file): where the Recent and Folders
+ *   sections' open/closed choices are kept (loadUi, saveUi) moved here.
+ *
+ * Last updated by: Tilefold
  */
 import { canEdit } from "./edits.js";
 import { parseSkip } from "./tree.js";
+
+/** Where the Recent and Folders sections' open/closed choices are kept. */
+const UI_KEY = "ui";
+
+/** Fills `ui` with the choices the user left the sections in (once read). */
+export function loadUi(tf, ui) {
+  return tf.store.get(UI_KEY).then((saved) => {
+    if (saved && typeof saved === "object") {
+      ui.recentOpen = saved.recentOpen !== false;
+      ui.recentAll = saved.recentAll === true;
+      ui.foldersOpen = saved.foldersOpen !== false;
+    }
+  });
+}
+
+/** Keeps the sections' choices for next time. */
+export const saveUi = (tf, ui) => tf.store.set(UI_KEY, { ...ui });
 
 /** Longest id or name a window message may carry. */
 export const MAX_ARG = 4096;

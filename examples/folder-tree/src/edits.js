@@ -19,6 +19,11 @@
  * The target of an action is a row id from either view (folders and files
  * are both rows): a folder row means "in this folder", a file row "in its
  * folder", and no row the tree's own folder.
+ *
+ * Modified 2026-11-04 (viewer's file): renaming the chosen row in place
+ *   (renameRow) moved here from the tile's main file.
+ *
+ * Last updated by: Tilefold
  */
 import { parentKey } from "./model.js";
 import { basename } from "./paths.js";
@@ -33,6 +38,30 @@ export const EDIT_ERROR_KEYS = {
   NotFoundError: "error-not-found",
   RateLimitError: "error-busy",
 };
+
+/**
+ * Renames row `id` (shown as `target`): in place in the panel where
+ * Tilefold can (`tf.panel.edit`, Tilefold 0.1.16, when `inPanel`), with the
+ * name selected up to its extension; otherwise in the window
+ * (`openWindow()`), which has a text field of its own. `rename(id, name)`
+ * does the change.
+ */
+export async function renameRow(tf, { id, target, inPanel, rename, openWindow }) {
+  if (inPanel && target && target.path === id && typeof tf.panel.edit === "function") {
+    const name = id.split(/[\\/]/).filter(Boolean).pop() ?? "";
+    const dot = target.kind === "dir" ? -1 : name.lastIndexOf(".");
+    let typed;
+    try {
+      typed = await tf.panel.edit(id, { value: name, selectTo: dot > 0 ? dot : name.length });
+    } catch {
+      typed = undefined;
+    }
+    if (typed === null) return undefined;
+    if (typeof typed === "string") return rename(id, typed.trim());
+  }
+  await openWindow();
+  return tf.page.post({ type: "rename", id });
+}
 
 /** Most "untitled" names tried before giving up. */
 const MAX_TRIES = 200;

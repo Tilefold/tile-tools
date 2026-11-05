@@ -73,6 +73,12 @@ The file opens in a tab of the document viewer, as if the user had opened it. Th
 
 From Tilefold 0.1.16, `{ edit: true }` opens a Markdown or text file ready to edit: the user types and saves (⌘S) in the viewer. Your tile still never sees the text.
 
+From Tilefold 0.1.26, a tile with `fs.list` hears `viewer.opened` (`{ path }`) whenever the viewer shows a file inside one of the panes' folders, whoever opened it: the user, your tile, another tile, or an AI agent pointing at some code. A file tree can open its folders down to that file and show it. Files outside the panes' folders aren't reported.
+
+```js
+tf.on("viewer.opened", ({ path }) => revealInTree(path));
+```
+
 ## 5. Change files (Tilefold 0.1.16)
 
 With `fs.write`, a tile can add, rename, move and trash entries. Each call resolves to the entry's new path:
