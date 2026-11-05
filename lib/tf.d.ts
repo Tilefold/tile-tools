@@ -32,6 +32,8 @@
  * Modified 2026-11-03 (Tilefold 0.1.25): `tf.fs.chooseFolder`, a panel
  *   row's `input` (a text or folder field Tilefold draws) and the
  *   `panel.input` event.
+ * Modified 2026-11-05 (Tilefold 0.1.26): the `viewer.opened` event; the
+ *   `panel.input` event name in the list of names.
  *
  * Last updated by: Tilefold
  */
@@ -66,6 +68,8 @@ export type TileEvent =
   | "panel.opened"
   | "panel.menu"
   | "panel.dblclick"
+  | "panel.input"
+  | "viewer.opened"
   | "browser.navigated"
   | "browser.closed";
 
@@ -168,6 +172,12 @@ export interface TileEventPayloads {
   "browser.navigated": { url: string; title: string; page?: string };
   /** The user closed one of the tile's browser pages (needs browser). */
   "browser.closed": { url: string; page?: string };
+  /**
+   * The document viewer showed a file inside one of the panes' folders,
+   * whoever opened it: the user, a tile, or an AI agent pointing at code
+   * (needs fs.list; Tilefold 0.1.26).
+   */
+  "viewer.opened": { path: string };
 }
 
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
