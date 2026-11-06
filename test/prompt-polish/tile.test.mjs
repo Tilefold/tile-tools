@@ -7,7 +7,9 @@
  * Prompt Polish — the tile in a fake Tilefold
  *
  * The built tile, driven as Tilefold would drive it: it opens on a card
- * over the focused pane, right above its input, and follows focus; the
+ * over the focused pane, right above its input; each pane has its own
+ * prompt, shown only while you're in that pane (switching panes and tabs,
+ * focus leaving the panes, the side dock, a check finishing elsewhere); the
  * page gets its labels and the step to draw; Check asks Claude in the
  * chosen language and shows the fixes; changes are undone from the page;
  * Send to agent puts the result on the ask card. "Don't send", a missing
@@ -101,30 +103,163 @@ describe("over the agent's pane", () => {
     expect(lastView(host).placeholder).toBe("Write your prompt in 한국어…");
   });
 
-  it("follows the focused pane, and fits the height the page asks for", async () => {
+  it("fits the height the page asks for", async () => {
     const host = await start();
     await host.command("open");
-    const two = {
-      content: { w: 1200, h: 800 },
-      panes: [
-        { ...ONE_PANE.panes[0], w: 599, focused: false, composer: { x: 0, y: 724, w: 599, h: 46 } },
-        {
-          id: "p2",
-          x: 601,
-          y: 40,
-          w: 599,
-          h: 730,
-          focused: true,
-          composer: { x: 601, y: 724, w: 599, h: 46 },
-        },
-      ],
-    };
-    host.layout = two;
-    await host.emit("overlay.layout", two);
-    expect(host.page.dock).toEqual(placeFor(two, "bottom", { h: 260 }).card);
     await say(host, { type: "size", h: 330 });
-    expect(host.page.dock.h).toBe(330);
+    expect(host.page.dock).toEqual(placeFor(ONE_PANE, "bottom", { h: 330 }).card);
+  });
+});
+
+/** Two panes side by side in one tab, `focus` the focused one. */
+const twoPanes = (focus) => ({
+  content: { w: 1200, h: 800 },
+  panes: [
+    {
+      id: "p1",
+      x: 0,
+      y: 40,
+      w: 599,
+      h: 730,
+      focused: focus === "p1",
+      composer: { x: 0, y: 724, w: 599, h: 46 },
+    },
+    {
+      id: "p2",
+      x: 601,
+      y: 40,
+      w: 599,
+      h: 730,
+      focused: focus === "p2",
+      composer: { x: 601, y: 724, w: 599, h: 46 },
+    },
+  ],
+});
+/** Another tab, with its own pane. */
+const otherTab = {
+  content: { w: 1200, h: 800 },
+  panes: [
+    {
+      id: "p3",
+      x: 0,
+      y: 40,
+      w: 1200,
+      h: 730,
+      focused: true,
+      composer: { x: 0, y: 724, w: 1200, h: 46 },
+    },
+  ],
+};
+
+/** Plays the user moving to `layout` (focusing a pane, switching tabs). */
+async function moveTo(host, layout) {
+  host.layout = layout;
+  await host.emit("overlay.layout", layout);
+}
+
+describe("one prompt per pane", () => {
+  it("shows a pane's card only in that pane: elsewhere it hides, and comes back with the draft", async () => {
+    const host = await start({ layout: twoPanes("p1") });
+    await host.command("open");
+    expect(host.page.dock.x).toBe(12);
+    await say(host, { type: "draft", pane: "p1", text: PROMPT });
+    await moveTo(host, twoPanes("p2"));
+    expect(host.page.open).toBe(false);
+    await moveTo(host, twoPanes("p1"));
+    expect(host.page.open).toBe(true);
+    expect(host.page.dock.x).toBe(12);
+    expect(lastView(host)).toMatchObject({ pane: "p1", step: "write", draft: PROMPT });
+  });
+
+  it("gives each pane its own prompt", async () => {
+    const host = await start({ layout: twoPanes("p1") });
+    await host.command("open");
+    await say(host, { type: "draft", pane: "p1", text: "첫 번째" });
+    await moveTo(host, twoPanes("p2"));
+    await host.command("open");
     expect(host.page.dock.x).toBe(601 + 12);
+    expect(lastView(host)).toMatchObject({ pane: "p2", draft: "" });
+    await say(host, { type: "draft", pane: "p2", text: "두 번째" });
+    await moveTo(host, twoPanes("p1"));
+    expect(lastView(host)).toMatchObject({ pane: "p1", draft: "첫 번째" });
+    await moveTo(host, twoPanes("p2"));
+    expect(lastView(host)).toMatchObject({ pane: "p2", draft: "두 번째" });
+  });
+
+  it("hides in another tab, and is back when you return", async () => {
+    const host = await start({ layout: twoPanes("p1") });
+    await host.command("open");
+    await moveTo(host, otherTab);
+    expect(host.page.open).toBe(false);
+    expect(host.toasts).toEqual([]);
+    await moveTo(host, twoPanes("p1"));
+    expect(host.page.open).toBe(true);
+  });
+
+  it("keeps the pane you were in when focus leaves the panes", async () => {
+    const host = await start({ layout: twoPanes("p1") });
+    await host.command("open");
+    await moveTo(host, {
+      ...twoPanes("p1"),
+      panes: twoPanes("p1").panes.map((p) => ({ ...p, focused: false })),
+    });
+    expect(host.page.open).toBe(true);
+    expect(host.page.dock.x).toBe(12);
+  });
+
+  it("beside the panes, shows the prompt of the pane you're in", async () => {
+    const host = await start({
+      page: "side",
+      theme: { mode: "dark", name: "Night", colors: {} },
+      layout: twoPanes("p1"),
+      settings: { language: "ko", view: "side" },
+    });
+    await host.command("open");
+    await say(host, { type: "draft", pane: "p1", text: "첫 번째" });
+    await moveTo(host, twoPanes("p2"));
+    expect(host.page.side).toBe(true);
+    expect(lastView(host)).toMatchObject({ pane: "p2", draft: "" });
+    await moveTo(host, twoPanes("p1"));
+    expect(lastView(host)).toMatchObject({ pane: "p1", draft: "첫 번째" });
+  });
+
+  it("puts a check's fixes in its own pane, even after you moved on", async () => {
+    let answer;
+    const host = await start({
+      layout: twoPanes("p1"),
+      ai: () => new Promise((r) => (answer = r)),
+    });
+    await host.command("open");
+    await say(host, { type: "check", pane: "p1", text: PROMPT });
+    await moveTo(host, twoPanes("p2"));
+    await host.command("open");
+    answer(ANSWER);
+    await host.emit("noop");
+    expect(lastView(host)).toMatchObject({ pane: "p2", step: "write" });
+    await moveTo(host, twoPanes("p1"));
+    expect(lastView(host)).toMatchObject({ pane: "p1", step: "result" });
+  });
+
+  it("× closes this pane's card only; the palette's Close closes them all", async () => {
+    const host = await start({ layout: twoPanes("p1") });
+    await host.command("open");
+    await moveTo(host, twoPanes("p2"));
+    await host.command("open");
+    await say(host, { type: "close" });
+    expect(host.page.open).toBe(false);
+    await moveTo(host, twoPanes("p1"));
+    expect(host.page.open).toBe(true);
+    await host.command("close");
+    expect(host.page.open).toBe(false);
+    await moveTo(host, twoPanes("p2"));
+    expect(host.page.open).toBe(false);
+  });
+
+  it("ignores a message about a pane it doesn't know", async () => {
+    const host = await start();
+    await host.command("open");
+    await say(host, { type: "check", pane: "nope", text: PROMPT });
+    expect(host.questions).toEqual([]);
   });
 });
 

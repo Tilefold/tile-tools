@@ -5,7 +5,9 @@
  *
  * Prompt Polish page
  *
- * Draws the step the tile sends: writing the prompt, checking it, the
+ * Draws the step the tile sends for the pane the user works in (each pane
+ * has its own prompt, and every message names whose it is): writing the
+ * prompt, checking it, the
  * fixes (a diff whose changes the user clicks to keep their own words,
  * with a reason for each), sent to the ask card, or a problem. It tells
  * the tile what the user typed (so a reload of the page keeps it), what
@@ -58,9 +60,17 @@
   var L = null;
   var view = null;
   var send = (message) => {
-    if (bridge) bridge.post(message).catch(() => {
+    if (!bridge) return;
+    bridge.post({ pane: view ? view.pane : null, ...message }).catch(() => {
     });
   };
+  var pending = null;
+  function flushDraft() {
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    send({ type: "draft", pane: pending.pane, text: pending.text });
+    pending = null;
+  }
   function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -128,11 +138,10 @@
       check.disabled = !t.trim() || long;
       asIs.disabled = !t.trim();
     };
-    let timer = 0;
     area.addEventListener("input", () => {
       update();
-      clearTimeout(timer);
-      timer = setTimeout(() => send({ type: "draft", text: area.value }), 300);
+      if (pending) clearTimeout(pending.timer);
+      pending = { pane: v.pane, text: area.value, timer: setTimeout(flushDraft, 300) };
     });
     asIs.addEventListener("click", () => send({ type: "as-is", text: area.value }));
     check.addEventListener("click", () => send({ type: "check", text: area.value }));
@@ -235,6 +244,7 @@
   }
   function draw(v) {
     if (!L) return;
+    flushDraft();
     view = v;
     drawHead(v);
     if (v.step === "checking") drawChecking(v);

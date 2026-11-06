@@ -63,13 +63,15 @@ export function setupOf(t) {
 /**
  * The page's view now.
  *
- * @param {object} s the tile's state: step, draft, parts, notes, rejected,
- *   clean, problem (a message key), view, language, mode
+ * @param {object} s one pane's session (step, draft, parts, notes, rejected,
+ *   clean, problem: a message key) with its pane id, the view, language and mode
  * @param {(key: string, args?: object) => string} t
  */
 export function viewOf(s, t) {
   const lang = s.language;
   const head = {
+    // Whose prompt this is: the page sends it back with what the user does.
+    pane: typeof s.pane === "string" ? s.pane : null,
     view: s.view,
     language: lang.native,
     mode: s.mode === "natural" ? t("setting-mode-natural") : t("setting-mode-fix"),

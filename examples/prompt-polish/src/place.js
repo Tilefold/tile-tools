@@ -41,10 +41,14 @@ export const MAX_H = 440;
 /** A view checked: one of VIEWS, or the default. */
 export const viewOf = (value) => (VIEWS.includes(value) ? value : "bottom");
 
-/** The focused pane of a layout, or its first; null without panes. */
-export function focusedPane(layout) {
+/**
+ * The pane with id `paneId` in a layout, or without an id the focused pane
+ * (or the first); null when it isn't there (another tab) or has no size.
+ */
+export function focusedPane(layout, paneId) {
   const panes = Array.isArray(layout?.panes) ? layout.panes : [];
   const ok = panes.filter((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
+  if (paneId !== undefined && paneId !== null) return ok.find((p) => p.id === paneId) ?? null;
   return ok.find((p) => p.focused) ?? ok[0] ?? null;
 }
 
@@ -56,13 +60,14 @@ export function focusedPane(layout) {
  *
  * @param {object} layout from `tf.overlay.layout()` or `overlay.layout`
  * @param {"bottom" | "corner"} view
- * @param {{ h?: number, open?: boolean, rtl?: boolean }} [opts]
+ * @param {{ h?: number, open?: boolean, rtl?: boolean, pane?: string | null }} [opts]
  *   h: the card's wanted height (it shrinks to fit, never under SPOT_MIN);
- *   open: whether the corner card is open; rtl: the corner is on the left
+ *   open: whether the corner card is open; rtl: the corner is on the left;
+ *   pane: the pane to place over (by id), else the focused one
  */
 export function placeFor(layout, view, opts = {}) {
   const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
-  const pane = focusedPane(layout);
+  const pane = focusedPane(layout, opts.pane);
   if (!pane || (view !== "bottom" && view !== "corner")) return null;
   const top = pane.y + GAP;
   const composer = pane.composer && Number.isFinite(pane.composer.y) ? pane.composer : null;

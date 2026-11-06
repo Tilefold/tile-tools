@@ -201,20 +201,6 @@ function errorKey(err) {
   }
 }
 
-// src/button.js
-function colorOr(value, fallback) {
-  const v = String(value ?? "").trim();
-  return /^#[0-9a-f]{3,8}$/i.test(v) || /^rgba?\([\d\s.,%]+\)$/i.test(v) ? v : fallback;
-}
-function buttonImage({ accent, waiting = 0, open = false } = {}) {
-  const fill = colorOr(accent, "#7c5cff");
-  const n = Math.max(0, Math.min(99, Math.floor(Number(waiting) || 0)));
-  const badge = n > 0 ? `<circle cx="29" cy="7" r="7" fill="#e5484d"/><text x="29" y="10" font-size="9" font-weight="700" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">${n}</text>` : "";
-  const ring = open ? `<circle cx="18" cy="18" r="16.5" fill="none" stroke="${fill}" stroke-width="1.5" opacity=".55"/>` : "";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">${ring}<circle cx="18" cy="18" r="${open ? 13 : 15}" fill="${fill}"/><text x="18" y="23" font-size="15" font-weight="700" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">P</text>${badge}</svg>`;
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
-}
-
 // src/languages.js
 var LANGUAGES = [
   { code: "ar", name: "Arabic", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
@@ -246,14 +232,15 @@ var BUTTON = 36;
 var CORNER_W = 420;
 var MAX_H = 440;
 var viewOf = (value) => VIEWS.includes(value) ? value : "bottom";
-function focusedPane(layout) {
+function focusedPane(layout, paneId) {
   const panes = Array.isArray(layout?.panes) ? layout.panes : [];
   const ok = panes.filter((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
+  if (paneId !== void 0 && paneId !== null) return ok.find((p) => p.id === paneId) ?? null;
   return ok.find((p) => p.focused) ?? ok[0] ?? null;
 }
 function placeFor(layout, view, opts = {}) {
   const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
-  const pane = focusedPane(layout);
+  const pane = focusedPane(layout, opts.pane);
   if (!pane || view !== "bottom" && view !== "corner") return null;
   const top = pane.y + GAP;
   const composer = pane.composer && Number.isFinite(pane.composer.y) ? pane.composer : null;
@@ -281,6 +268,67 @@ function placeFor(layout, view, opts = {}) {
   return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button };
 }
 var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+
+// src/sessions.js
+var MAX_SESSIONS = 24;
+function freshSession() {
+  return {
+    open: false,
+    step: "write",
+    draft: "",
+    parts: [],
+    notes: [],
+    rejected: /* @__PURE__ */ new Set(),
+    clean: false,
+    problem: "",
+    busy: false
+  };
+}
+function resetSession(s) {
+  Object.assign(s, {
+    step: "write",
+    draft: "",
+    parts: [],
+    notes: [],
+    rejected: /* @__PURE__ */ new Set(),
+    clean: false,
+    problem: ""
+  });
+  return s;
+}
+function focusedId(layout) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  const p = panes.find((x) => x && x.focused && typeof x.id === "string");
+  return p ? p.id : null;
+}
+function createSessions() {
+  const byPane = /* @__PURE__ */ new Map();
+  const touch = (id, s) => {
+    byPane.delete(id);
+    byPane.set(id, s);
+    return s;
+  };
+  return {
+    get(id) {
+      return typeof id === "string" ? byPane.get(id) ?? null : null;
+    },
+    ensure(id) {
+      if (typeof id !== "string" || !id) return null;
+      const s = byPane.get(id);
+      if (s) return touch(id, s);
+      for (const [old, o] of byPane) {
+        if (byPane.size < MAX_SESSIONS) break;
+        if (!o.busy) byPane.delete(old);
+      }
+      return touch(id, freshSession());
+    },
+    drop(id) {
+      byPane.delete(id);
+    },
+    size: () => byPane.size,
+    ids: () => [...byPane.keys()]
+  };
+}
 
 // src/settings.js
 var MODES = ["fix", "natural"];
@@ -326,6 +374,156 @@ function settingsOf(settings) {
   };
 }
 
+// src/button.js
+function colorOr(value, fallback) {
+  const v = String(value ?? "").trim();
+  return /^#[0-9a-f]{3,8}$/i.test(v) || /^rgba?\([\d\s.,%]+\)$/i.test(v) ? v : fallback;
+}
+function buttonImage({ accent, waiting = 0, open = false } = {}) {
+  const fill = colorOr(accent, "#7c5cff");
+  const n = Math.max(0, Math.min(99, Math.floor(Number(waiting) || 0)));
+  const badge = n > 0 ? `<circle cx="29" cy="7" r="7" fill="#e5484d"/><text x="29" y="10" font-size="9" font-weight="700" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">${n}</text>` : "";
+  const ring = open ? `<circle cx="18" cy="18" r="16.5" fill="none" stroke="${fill}" stroke-width="1.5" opacity=".55"/>` : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">${ring}<circle cx="18" cy="18" r="${open ? 13 : 15}" fill="${fill}"/><text x="18" y="23" font-size="15" font-weight="700" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">P</text>${badge}</svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
+// src/show.js
+var BUTTON_ID = "polish-button";
+function createStage(tf, o) {
+  let where = null;
+  let spot = null;
+  let buttonShown = false;
+  let layout = null;
+  let focus = null;
+  let wantH = 260;
+  let accent = null;
+  let toldSmall = false;
+  const rtl = () => tf.t("page-dir") === "rtl";
+  const closePage = async () => {
+    if (!where) return;
+    where = null;
+    spot = null;
+    await tf.page.close().catch(o.warn);
+  };
+  const hideButton = async () => {
+    if (!buttonShown) return;
+    buttonShown = false;
+    await tf.overlay.hide().catch(o.warn);
+  };
+  const drawButton = async (rect, waiting, open) => {
+    const item = {
+      id: BUTTON_ID,
+      image: buttonImage({ accent, waiting, open }),
+      ...rect,
+      hit: true,
+      cursor: "pointer",
+      label: tf.t("button-label")
+    };
+    if (buttonShown) await tf.overlay.update({ items: [item] });
+    else await tf.overlay.show({ items: [item] });
+    buttonShown = true;
+  };
+  const toCard = async (card) => {
+    if (where === "card") {
+      if (!sameSpot(card, spot)) await tf.page.dock(card);
+    } else {
+      await tf.page.open({ dock: card });
+    }
+    where = "card";
+    spot = card;
+  };
+  const toSide = async () => {
+    await hideButton();
+    if (where !== "side") await tf.page.open({ side: true });
+    where = "side";
+    spot = null;
+  };
+  const toWindow = async () => {
+    await hideButton();
+    if (!where) await tf.page.open();
+    where = "window";
+    spot = null;
+  };
+  const ensureLayout = async () => {
+    if (layout || !tf.overlay) return;
+    const l = await tf.overlay.layout().catch(() => null);
+    if (l) setLayout(l);
+  };
+  function setLayout(l) {
+    layout = l;
+    focus = focusedId(l) ?? focus;
+  }
+  return {
+    setLayout,
+    ensureLayout,
+    focus: () => focus,
+    where: () => where,
+    buttonShown: () => buttonShown,
+    setAccent: (a) => void (accent = a ?? accent),
+    setHeight(h) {
+      if (!Number.isFinite(h) || Math.abs(h - wantH) < 2) return false;
+      wantH = h;
+      return where === "card";
+    },
+    /** The overlay was hidden by the user: the button is gone. */
+    lostOverlay: () => void (buttonShown = false),
+    /** The page was closed from elsewhere. */
+    lostPage() {
+      where = null;
+      spot = null;
+    },
+    /**
+     * Shows what should be: `view`, whether the focused pane's card is open,
+     * whether anything shows at all (`active`), and the button's badge.
+     * Returns where the page ended up.
+     */
+    async show({ view, open, active, waiting = 0 }) {
+      if (!active) {
+        await closePage();
+        await hideButton();
+        return where;
+      }
+      if (view === "side") {
+        await toSide();
+        return where;
+      }
+      if (view === "window") {
+        await toWindow();
+        return where;
+      }
+      await ensureLayout();
+      if (view === "bottom" && !open) {
+        await hideButton();
+        await closePage();
+        return where;
+      }
+      const spots = placeFor(layout, view, { h: wantH, open, rtl: rtl(), pane: focus });
+      if (!spots) {
+        const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);
+        await hideButton();
+        if (!hasPane) {
+          await closePage();
+          return where;
+        }
+        if (!toldSmall) {
+          toldSmall = true;
+          await tf.toast(tf.t("toast-too-small"));
+        }
+        if (o.canSide()) await toSide();
+        else await toWindow();
+        return where;
+      }
+      toldSmall = false;
+      if (spots.button) await drawButton(spots.button, waiting, open);
+      else await hideButton();
+      if (spots.card) await toCard(spots.card);
+      else await closePage();
+      return where;
+    }
+  };
+}
+
 // src/view.js
 var KIND_KEYS = {
   spelling: "kind-spelling",
@@ -368,6 +566,8 @@ function setupOf(t) {
 function viewOf2(s, t) {
   const lang = s.language;
   const head = {
+    // Whose prompt this is: the page sends it back with what the user does.
+    pane: typeof s.pane === "string" ? s.pane : null,
     view: s.view,
     language: lang.native,
     mode: s.mode === "natural" ? t("setting-mode-natural") : t("setting-mode-fix"),
@@ -415,34 +615,20 @@ function viewOf2(s, t) {
 
 // src/run.js
 var VIEW_KEY = "view";
-var BUTTON_ID = "polish-button";
 var MAX_DRAFT = 2e4;
+var NO_PANE = "window";
 function runPolish(tf) {
   const warn = (err) => void Promise.resolve().then(() => tf.log.warn(String(err && err.message ? err.message : err))).catch(() => {
   });
   const audit = (action, details) => void Promise.resolve().then(() => tf.audit(action, details)).catch(warn);
   const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   const canSide = () => !!tf.page && typeof tf.theme === "function";
-  const rtl = () => tf.t("page-dir") === "rtl";
-  const s = {
-    step: "write",
-    draft: "",
-    parts: [],
-    notes: [],
-    rejected: /* @__PURE__ */ new Set(),
-    clean: false,
-    problem: ""
-  };
-  let where = null;
-  let buttonShown = false;
-  let cornerOpen = false;
+  const sessions = createSessions();
+  const stage = createStage(tf, { warn, canSide });
+  let active = false;
+  let shown = null;
   let chosen = null;
   let loaded = false;
-  let layout = null;
-  let spot = null;
-  let wantH = 260;
-  let accent = null;
-  let busy = false;
   const current = () => settingsOf(tf.settings);
   const language = () => languageOf(current().language, tf.t("page-lang"));
   const effectiveView = () => {
@@ -451,95 +637,46 @@ function runPolish(tf) {
     if (v === "side" && !canSide()) v = canFloat() ? "bottom" : "window";
     return v;
   };
+  const focusId = () => stage.focus() ?? NO_PANE;
   const load = async () => {
     if (loaded) return;
     loaded = true;
     const v = await tf.store.get(VIEW_KEY).catch(() => null);
     chosen = v === "bottom" || v === "corner" || v === "side" ? v : null;
     if (typeof tf.theme === "function") {
-      accent = (await tf.theme().catch(() => null))?.colors?.accent ?? null;
+      stage.setAccent((await tf.theme().catch(() => null))?.colors?.accent ?? null);
     }
   };
   const post = async (message) => {
-    if (!where) return;
+    if (!stage.where()) return;
     try {
       await tf.page.post(message);
     } catch {
     }
   };
-  const render = () => post({
-    do: "show",
-    view: viewOf2(
-      { ...s, view: effectiveView(), language: language(), mode: current().mode },
-      tf.t
-    )
-  });
-  const waiting = () => s.step === "result" ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
-  const drawButton = async (rect) => {
-    const item = {
-      id: BUTTON_ID,
-      image: buttonImage({ accent, waiting: waiting(), open: cornerOpen }),
-      x: rect.x,
-      y: rect.y,
-      w: rect.w,
-      h: rect.h,
-      hit: true,
-      cursor: "pointer",
-      label: tf.t("button-label")
-    };
-    if (buttonShown) await tf.overlay.update({ items: [item] });
-    else await tf.overlay.show({ items: [item] });
-    buttonShown = true;
+  const render = async (id = shown) => {
+    const s = sessions.get(id);
+    if (!s || id !== shown) return;
+    await post({
+      do: "show",
+      view: viewOf2(
+        { ...s, pane: id, view: effectiveView(), language: language(), mode: current().mode },
+        tf.t
+      )
+    });
   };
-  const hideButton = async () => {
-    if (!buttonShown) return;
-    buttonShown = false;
-    await tf.overlay.hide().catch(warn);
-  };
-  const closePage = async () => {
-    if (!where) return;
-    where = null;
-    spot = null;
-    await tf.page.close().catch(warn);
-  };
-  const toCard = async (card) => {
-    if (where === "card") {
-      if (!sameSpot(card, spot)) await tf.page.dock(card);
-    } else {
-      await tf.page.open({ dock: card });
-    }
-    where = "card";
-    spot = card;
-  };
-  const toSide = async () => {
-    await hideButton();
-    if (where !== "side") await tf.page.open({ side: true });
-    where = "side";
-    spot = null;
-  };
+  const waiting = (s) => s && s.step === "result" ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
   const place = async () => {
-    const v = effectiveView();
-    if (v === "side") return toSide();
-    if (v === "window") {
-      await hideButton();
-      if (!where) await tf.page.open();
-      where = "window";
-      return;
+    await stage.ensureLayout();
+    const view = effectiveView();
+    const id = focusId();
+    const s = view === "side" || view === "window" ? sessions.ensure(id) : sessions.get(id);
+    const where = await stage.show({ view, active, open: !!s?.open, waiting: waiting(s) });
+    const next = where && s ? id : null;
+    if (next !== shown) {
+      shown = next;
+      await render();
     }
-    if (!layout) layout = await tf.overlay.layout();
-    const spots = placeFor(layout, v, { h: wantH, open: cornerOpen, rtl: rtl() });
-    if (!spots) {
-      if (where !== "side" && where !== "window") await tf.toast(tf.t("toast-too-small"));
-      await hideButton();
-      if (canSide()) return toSide();
-      if (!where) await tf.page.open();
-      where = "window";
-      return;
-    }
-    if (spots.button) await drawButton(spots.button);
-    else await hideButton();
-    if (spots.card) await toCard(spots.card);
-    else await closePage();
   };
   const open = async () => {
     await load();
@@ -547,58 +684,69 @@ function runPolish(tf) {
       await tf.toast(tf.t("toast-needs-tilefold"));
       return;
     }
-    const was = where || buttonShown;
-    if (effectiveView() === "corner") cornerOpen = true;
+    await stage.ensureLayout();
+    const s = sessions.ensure(focusId());
+    const was = active && s.open;
+    active = true;
+    s.open = true;
     await place();
     if (!was) audit("opened", { view: effectiveView() });
   };
-  const close = async (record = true) => {
-    const was = where || buttonShown;
-    cornerOpen = false;
-    await closePage();
-    await hideButton();
-    Object.assign(s, {
-      step: "write",
-      draft: "",
-      parts: [],
-      notes: [],
-      rejected: /* @__PURE__ */ new Set(),
-      problem: ""
-    });
-    if (was && record) audit("closed", {});
+  const closeShown = async () => {
+    const s = sessions.get(shown);
+    if (s) {
+      resetSession(s);
+      s.open = false;
+    }
+    const v = effectiveView();
+    if (v === "side" || v === "window") active = false;
+    await place();
+    audit("closed", {});
+  };
+  const closeAll = async () => {
+    const was = active;
+    active = false;
+    for (const id of sessions.ids()) sessions.drop(id);
+    await place();
+    if (was) audit("closed", {});
   };
   const chooseView = async (to) => {
     const v = viewOf(to);
     if (v !== to) return;
     chosen = v;
     await tf.store.set(VIEW_KEY, v);
-    cornerOpen = v === "corner";
+    const s = sessions.ensure(focusId());
+    s.open = true;
     audit("view-changed", { to: v });
     await place();
   };
   const fold = async () => {
-    if (effectiveView() === "side" || !canFloat()) return;
-    if (effectiveView() !== "corner") {
+    const v = effectiveView();
+    if (v === "side" || v === "window") return;
+    if (v !== "corner") {
       chosen = "corner";
       await tf.store.set(VIEW_KEY, "corner");
       audit("view-changed", { to: "corner" });
     }
-    cornerOpen = false;
+    const s = sessions.get(focusId());
+    if (s) s.open = false;
     await place();
   };
-  const check = async (text) => {
+  const check = async (id, text) => {
+    const s = sessions.get(id);
+    if (!s) return;
     s.draft = String(text ?? "").slice(0, MAX_DRAFT);
-    if (busy || blocker(s.draft)) return;
+    if (s.busy || blocker(s.draft)) return;
     if (!tf.ai) {
       Object.assign(s, { step: "problem", problem: "error-no-ai" });
-      return render();
+      return render(id);
     }
-    busy = true;
+    s.busy = true;
     const original = s.draft;
     const lang = language();
     const { mode, fast } = current();
     s.step = "checking";
-    await render();
+    await render(id);
     try {
       let answer;
       try {
@@ -614,7 +762,7 @@ function runPolish(tf) {
       } catch (err) {
         const key = errorKey(err);
         Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
-        return render();
+        return render(id);
       }
       const r = readAnswer(answer.text, original);
       if (!r.ok) {
@@ -622,7 +770,7 @@ function runPolish(tf) {
           step: "problem",
           problem: r.why === "changed-code" ? "error-changed-code" : "error-unreadable"
         });
-        return render();
+        return render(id);
       }
       Object.assign(s, {
         step: "result",
@@ -638,15 +786,16 @@ function runPolish(tf) {
         model: String(answer.model ?? ""),
         outputTokens: Number(answer.usage?.outputTokens ?? 0)
       });
-      await render();
-      if (buttonShown) await place();
+      await render(id);
+      if (stage.buttonShown()) await place();
     } finally {
-      busy = false;
+      s.busy = false;
     }
   };
-  const sendToAgent = async (text, how) => {
+  const sendToAgent = async (id, text, how) => {
+    const s = sessions.get(id);
     const question = String(text ?? "").trim();
-    if (!question) return;
+    if (!s || !question) return;
     if (typeof tf.agent?.ask !== "function") return tf.toast(tf.t("error-no-agent-ask"));
     let r;
     try {
@@ -663,10 +812,10 @@ function runPolish(tf) {
     const total = how === "corrected" ? changeCount(s.parts) : 0;
     const undone = how === "corrected" ? s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
     audit("sent", { how, kept: total - undone, undone });
-    Object.assign(s, { step: "sent", draft: "", parts: [], notes: [], rejected: /* @__PURE__ */ new Set() });
-    await render();
+    resetSession(s).step = "sent";
+    await render(id);
     if (effectiveView() === "corner") {
-      cornerOpen = false;
+      s.open = false;
       await place();
     }
   };
@@ -676,48 +825,49 @@ function runPolish(tf) {
       await post({ do: "setup", ...setupOf(tf.t) });
       return render();
     }
+    if (m.type === "view") return chooseView(m.to);
+    if (m.type === "fold") return fold();
+    if (m.type === "size") {
+      if (stage.setHeight(Number(m.h))) await place();
+      return;
+    }
+    if (m.type === "close") return closeShown();
+    const id = typeof m.pane === "string" ? m.pane : shown;
+    const s = sessions.get(id);
+    if (!s) return;
     if (m.type === "draft") {
       if (s.step === "write") s.draft = String(m.text ?? "").slice(0, MAX_DRAFT);
       return;
     }
-    if (m.type === "check") return check(m.text);
-    if (m.type === "as-is") return sendToAgent(String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
+    if (m.type === "check") return check(id, m.text);
+    if (m.type === "as-is")
+      return sendToAgent(id, String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
     if (m.type === "toggle" && s.step === "result") {
-      const id = Number(m.id);
-      if (!s.parts.some((p) => p.id === id)) return;
-      if (s.rejected.has(id)) s.rejected.delete(id);
-      else s.rejected.add(id);
-      await render();
-      if (buttonShown) await place();
+      const n = Number(m.id);
+      if (!s.parts.some((p) => p.id === n)) return;
+      if (s.rejected.has(n)) s.rejected.delete(n);
+      else s.rejected.add(n);
+      await render(id);
+      if (stage.buttonShown()) await place();
       return;
     }
     if (m.type === "clean" && s.step === "result") {
       s.clean = !s.clean;
-      return render();
+      return render(id);
     }
     if (m.type === "back") {
       s.step = "write";
-      return render();
+      return render(id);
     }
     if (m.type === "send" && s.step === "result")
-      return sendToAgent(build(s.parts, s.rejected), "corrected");
+      return sendToAgent(id, build(s.parts, s.rejected), "corrected");
     if (m.type === "again") {
-      Object.assign(s, { step: "write", draft: "" });
-      return render();
+      resetSession(s);
+      return render(id);
     }
-    if (m.type === "view") return chooseView(m.to);
-    if (m.type === "fold") return fold();
-    if (m.type === "size") {
-      const h = Number(m.h);
-      if (!Number.isFinite(h) || Math.abs(h - wantH) < 2) return;
-      wantH = h;
-      if (where === "card") await place();
-      return;
-    }
-    if (m.type === "close") return close();
   };
   const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
-  const runs = { open, close: () => close() };
+  const runs = { open, close: closeAll };
   for (const c of COMMANDS) {
     tf.command(
       tf.t(c.title),
@@ -732,18 +882,22 @@ function runPolish(tf) {
   tf.on(
     "page.closed",
     background(async () => {
-      if (!where) return;
-      where = null;
-      spot = null;
-      if (buttonShown && effectiveView() === "corner") cornerOpen = false;
-      else await close();
+      if (!stage.where()) return;
+      stage.lostPage();
+      const s = sessions.get(shown);
+      shown = null;
+      const v = effectiveView();
+      if (v === "side" || v === "window") active = false;
+      else if (s) s.open = false;
+      await place();
     })
   );
   tf.on(
     "page.undocked",
     // The user pressed Undock on the dock's bar: back over the pane.
     background(async () => {
-      where = null;
+      stage.lostPage();
+      shown = null;
       await chooseView("bottom");
     })
   );
@@ -751,15 +905,16 @@ function runPolish(tf) {
     "overlay.layout",
     background(async (e) => {
       if (!e || !Array.isArray(e.panes)) return;
-      layout = e;
-      if (where === "card" || buttonShown) await place();
+      stage.setLayout(e);
+      if (active) await place();
     })
   );
   tf.on(
     "overlay.pointer",
     background(async (e) => {
       if (!e || e.item !== BUTTON_ID || e.type !== "click") return;
-      cornerOpen = !cornerOpen;
+      const s = sessions.ensure(focusId());
+      s.open = !s.open;
       await place();
     })
   );
@@ -767,32 +922,32 @@ function runPolish(tf) {
     "overlay.hidden",
     // The user hid tile overlays: the button goes, and the card with it.
     background(async () => {
-      buttonShown = false;
-      if (where === "card") await close();
+      stage.lostOverlay();
+      if (stage.where() === "card") await closeAll();
     })
   );
   tf.on(
     "theme.changed",
     background(async (e) => {
-      accent = e?.colors?.accent ?? accent;
-      if (buttonShown) await place();
+      stage.setAccent(e?.colors?.accent ?? null);
+      if (stage.buttonShown()) await place();
     })
   );
   tf.on(
     "setting.changed",
     background(async (e) => {
       await load();
-      const now = current();
       if (e?.key === "view") {
         chosen = null;
         await tf.store.delete(VIEW_KEY);
-        cornerOpen = now.view === "corner" && where === "card";
-        if (where || buttonShown) await place();
+        if (active) await place();
       }
       await render();
     })
   );
-  return { state: () => ({ where, step: s.step, buttonShown, cornerOpen }) };
+  return {
+    state: () => ({ where: stage.where(), shown, active, sessions: sessions.size() })
+  };
 }
 
 // src/main.js

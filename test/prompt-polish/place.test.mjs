@@ -68,6 +68,12 @@ describe("the bottom card", () => {
     expect(placeFor(twoPanes("p2"), "bottom", { h: 300 }).card.x).toBe(601 + GAP);
   });
 
+  it("goes over the pane it is asked for, and nowhere when that pane isn't there", () => {
+    expect(placeFor(twoPanes("p1"), "bottom", { h: 300, pane: "p2" }).card.x).toBe(601 + GAP);
+    expect(placeFor(twoPanes("p1"), "bottom", { pane: "p9" })).toBeNull();
+    expect(focusedPane(twoPanes("p1"), "p2").id).toBe("p2");
+  });
+
   it("sits at the pane's bottom edge when it has no input row", () => {
     const s = placeFor(pane(500, 600), "bottom", { h: 200 });
     expect(s.card.y + s.card.h).toBe(600 - GAP);

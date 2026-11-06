@@ -5,7 +5,9 @@
  *
  * Prompt Polish page
  *
- * Draws the step the tile sends: writing the prompt, checking it, the
+ * Draws the step the tile sends for the pane the user works in (each pane
+ * has its own prompt, and every message names whose it is): writing the
+ * prompt, checking it, the
  * fixes (a diff whose changes the user clicks to keep their own words,
  * with a reason for each), sent to the ask card, or a problem. It tells
  * the tile what the user typed (so a reload of the page keeps it), what
@@ -25,10 +27,26 @@ let L = null;
 /** The view last drawn. */
 let view = null;
 
-/** Sends a message to the tile; a refused one (the tile is off) is dropped. */
+/**
+ * Sends a message to the tile, naming the pane whose prompt is showing
+ * (unless the message names one itself); a refused one (the tile is off)
+ * is dropped.
+ */
 const send = (message) => {
-  if (bridge) bridge.post(message).catch(() => {});
+  if (!bridge) return;
+  bridge.post({ pane: view ? view.pane : null, ...message }).catch(() => {});
 };
+
+/** The draft not sent yet (typing pauses before it goes), with the pane it was typed for. */
+let pending = null;
+
+/** Sends the pending draft now, to the pane it was typed for. */
+function flushDraft() {
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  send({ type: "draft", pane: pending.pane, text: pending.text });
+  pending = null;
+}
 
 /** A new element with a class and text. */
 function el(tag, className, text) {
@@ -108,11 +126,10 @@ function drawWrite(v) {
     check.disabled = !t.trim() || long;
     asIs.disabled = !t.trim();
   };
-  let timer = 0;
   area.addEventListener("input", () => {
     update();
-    clearTimeout(timer);
-    timer = setTimeout(() => send({ type: "draft", text: area.value }), 300);
+    if (pending) clearTimeout(pending.timer);
+    pending = { pane: v.pane, text: area.value, timer: setTimeout(flushDraft, 300) };
   });
   asIs.addEventListener("click", () => send({ type: "as-is", text: area.value }));
   check.addEventListener("click", () => send({ type: "check", text: area.value }));
@@ -223,6 +240,8 @@ function drawProblem(v) {
 /** Draws a view from the tile. */
 function draw(v) {
   if (!L) return;
+  // A draft still waiting goes to its own pane before another pane's prompt is drawn.
+  flushDraft();
   view = v;
   drawHead(v);
   if (v.step === "checking") drawChecking(v);

@@ -11,6 +11,8 @@
  * draws the step to write in (sized in words, or characters for Japanese;
  * Check off while empty or too long), sends the draft and Check; draws the
  * fixes with a visible mark for a changed space, toggles a change, sends;
+ * names the pane whose prompt it shows in every message, and sends a
+ * draft still waiting to its own pane before drawing another pane's;
  * switches views and folds from its header; reports its height; and never
  * reads text from the tile (or from Claude) as markup.
  */
@@ -70,6 +72,7 @@ function page() {
 const viewFor = (s) =>
   viewOf(
     {
+      pane: "p1",
       draft: "",
       parts: [],
       notes: [],
@@ -92,7 +95,7 @@ const ready = (p, s = {}) => {
 describe("the page", () => {
   it("says hello, then draws the step to write in with the tile's labels", () => {
     const p = page();
-    expect(p.posted[0]).toEqual({ type: "hello" });
+    expect(p.posted[0]).toEqual({ pane: null, type: "hello" });
     ready(p, { draft: "로그인 하면 안돼요" });
     expect(p.$("name").textContent).toBe("Prompt Polish");
     expect(p.$("where").textContent).toBe("over the pane");
@@ -129,9 +132,9 @@ describe("the page", () => {
     area.value = "고쳐 주세요";
     area.dispatchEvent(new p.w.Event("input"));
     await new Promise((r) => setTimeout(r, 350));
-    expect(p.posted).toContainEqual({ type: "draft", text: "고쳐 주세요" });
+    expect(p.posted).toContainEqual({ pane: "p1", type: "draft", text: "고쳐 주세요" });
     p.click([...p.$("foot").querySelectorAll("button")].find((b) => b.textContent === "Check"));
-    expect(p.posted.at(-1)).toEqual({ type: "check", text: "고쳐 주세요" });
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "check", text: "고쳐 주세요" });
   });
 
   it("draws the fixes with a mark for a changed space, toggles a change, and sends", () => {
@@ -147,23 +150,36 @@ describe("the page", () => {
     expect(p.$("body").querySelector(".kind").textContent).toBe("spacing");
     expect(p.$("body").querySelector(".why").textContent).toBe("Written together.");
     p.click(chg);
-    expect(p.posted.at(-1)).toEqual({ type: "toggle", id: 1 });
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "toggle", id: 1 });
     p.click(
       [...p.$("foot").querySelectorAll("button")].find((b) => b.textContent === "Send to agent"),
     );
-    expect(p.posted.at(-1)).toEqual({ type: "send" });
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "send" });
   });
 
   it("switches views and folds from its header; the side dock has no fold", () => {
     const p = page();
     ready(p);
     p.click(p.$("views").querySelectorAll("button")[1]);
-    expect(p.posted.at(-1)).toEqual({ type: "view", to: "corner" });
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "view", to: "corner" });
     p.click(p.$("fold"));
-    expect(p.posted.at(-1)).toEqual({ type: "fold" });
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "fold" });
     p.tell({ do: "show", view: viewFor({ view: "side" }) });
     expect(p.$("fold").hidden).toBe(true);
     expect(p.$("where").textContent).toBe("beside the panes");
+  });
+
+  it("sends a draft still waiting to its own pane before drawing another pane's prompt", () => {
+    const p = page();
+    ready(p, { pane: "p1" });
+    const area = p.$("draft");
+    area.value = "첫 번째 창";
+    area.dispatchEvent(new p.w.Event("input"));
+    p.tell({ do: "show", view: viewFor({ pane: "p2", draft: "두 번째 창" }) });
+    expect(p.posted).toContainEqual({ pane: "p1", type: "draft", text: "첫 번째 창" });
+    expect(p.$("draft").value).toBe("두 번째 창");
+    p.click([...p.$("foot").querySelectorAll("button")].find((b) => b.textContent === "Check"));
+    expect(p.posted.at(-1)).toEqual({ pane: "p2", type: "check", text: "두 번째 창" });
   });
 
   it("tells the tile how tall it is", async () => {

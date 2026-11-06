@@ -13,39 +13,43 @@
  * card (`tf.agent.ask`), where the user presses Return to send it to the
  * agent in the pane they work in: the tile never types into a pane.
  *
- * Where the page shows (place.js): on a card over the focused pane, above
- * its input (`tf.page.open({ dock })`, Tilefold 0.1.11), following the
- * pane as the user moves between panes (`overlay.layout`); behind a round
- * button in that pane's corner (an overlay item), the card opening above
- * it; or in the dock beside the panes (`tf.page.open({ side: true })`,
- * Tilefold 0.1.20). The page's header switches between them, and the
- * choice is kept until the setting changes. A pane too small for the card
- * sends it to the side dock; a Tilefold that can't dock pages opens it in
- * a window of its own.
+ * One Prompt Polish per pane (sessions.js): each pane has its own draft
+ * and fixes, and the page shows the one of the pane the user works in. So
+ * switching panes or tabs switches prompts, a pane where it isn't open
+ * shows nothing over it, and Send to agent always goes to that pane's
+ * agent (the ask card offers it first).
  *
- * The prompt lives only in the tile's memory while the page is open, and
- * goes only to Claude (after the user's yes) and to the ask card. It is
- * never stored and never recorded: the tile's log gets one-word actions
- * (tile.<id>.<action>) with counts only: `opened`, `closed`, `checked`,
- * `sent`, `view-changed`.
+ * Where the page shows (show.js, place.js): on a card over the pane,
+ * above its input (`tf.page.open({ dock })`, Tilefold 0.1.11); behind a
+ * round button in the pane's corner (an overlay item), the card opening
+ * above it; or in the dock beside the panes (`tf.page.open({ side: true })`,
+ * Tilefold 0.1.20). The page's header switches between them, and the
+ * choice is kept until the setting changes.
+ *
+ * The prompts live only in the tile's memory and go only to Claude (after
+ * the user's yes) and to the ask card. They are never stored and never
+ * recorded: the tile's log gets one-word actions (tile.<id>.<action>) with
+ * counts only: `opened`, `closed`, `checked`, `sent`, `view-changed`.
  *
  * Event handlers get half a second, so each starts its work in the
  * background and returns at once.
  */
 import { buildAsk, errorKey, readAnswer } from "./answer.js";
-import { buttonImage } from "./button.js";
 import { languageOf } from "./languages.js";
-import { placeFor, sameSpot, viewOf as checkView } from "./place.js";
+import { viewOf as checkView } from "./place.js";
 import { blocker, build, changeCount, changes, diff } from "./polish.js";
+import { createSessions, resetSession } from "./sessions.js";
 import { COMMANDS, settingsOf } from "./settings.js";
+import { BUTTON_ID, createStage } from "./show.js";
 import { setupOf, viewOf } from "./view.js";
 
+export { BUTTON_ID };
 /** The store key of the view the user last chose on the page. */
 export const VIEW_KEY = "view";
-/** The overlay item id of the corner button. */
-export const BUTTON_ID = "polish-button";
 /** The longest draft kept from the page, in characters. */
 const MAX_DRAFT = 20_000;
+/** The session id used where Tilefold reports no panes (a page in a window). */
+const NO_PANE = "window";
 
 /** @param {any} tf */
 export function runPolish(tf) {
@@ -61,34 +65,16 @@ export function runPolish(tf) {
   const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   // Docking beside the panes came with Tilefold's theme for tiles (0.1.20).
   const canSide = () => !!tf.page && typeof tf.theme === "function";
-  const rtl = () => tf.t("page-dir") === "rtl";
 
-  /** What the user is doing, in memory only. */
-  const s = {
-    step: "write",
-    draft: "",
-    parts: [],
-    notes: [],
-    rejected: new Set(),
-    clean: false,
-    problem: "",
-  };
-  /** Where the page is: "card", "side", "window", or null when closed. */
-  let where = null;
-  /** Whether the corner button is drawn, and whether its card is open. */
-  let buttonShown = false;
-  let cornerOpen = false;
+  const sessions = createSessions();
+  const stage = createStage(tf, { warn, canSide });
+  /** Whether Prompt Polish is on at all (the corner button and the side dock show while it is). */
+  let active = false;
+  /** The pane whose session the page shows now, or null. */
+  let shown = null;
   /** The view the user chose on the page (until the setting changes), or null. */
   let chosen = null;
   let loaded = false;
-  /** The last layout, the card's spot, and how tall the page asked to be. */
-  let layout = null;
-  let spot = null;
-  let wantH = 260;
-  /** Tilefold's accent, for the button. */
-  let accent = null;
-  /** True while a question to Claude is under way, so only one is asked. */
-  let busy = false;
 
   const current = () => settingsOf(tf.settings);
   const language = () => languageOf(current().language, tf.t("page-lang"));
@@ -101,19 +87,22 @@ export function runPolish(tf) {
     return v;
   };
 
+  /** The pane the user works in (a fixed id where Tilefold reports no panes). */
+  const focusId = () => stage.focus() ?? NO_PANE;
+
   const load = async () => {
     if (loaded) return;
     loaded = true;
     const v = await tf.store.get(VIEW_KEY).catch(() => null);
     chosen = v === "bottom" || v === "corner" || v === "side" ? v : null;
     if (typeof tf.theme === "function") {
-      accent = (await tf.theme().catch(() => null))?.colors?.accent ?? null;
+      stage.setAccent((await tf.theme().catch(() => null))?.colors?.accent ?? null);
     }
   };
 
   /** Sends the page a message; a closed page drops it (it gets everything on hello). */
   const post = async (message) => {
-    if (!where) return;
+    if (!stage.where()) return;
     try {
       await tf.page.post(message);
     } catch {
@@ -121,130 +110,80 @@ export function runPolish(tf) {
     }
   };
 
-  const render = () =>
-    post({
+  /** Draws pane `id`'s session on the page, if it is the one showing. */
+  const render = async (id = shown) => {
+    const s = sessions.get(id);
+    if (!s || id !== shown) return;
+    await post({
       do: "show",
       view: viewOf(
-        { ...s, view: effectiveView(), language: language(), mode: current().mode },
+        { ...s, pane: id, view: effectiveView(), language: language(), mode: current().mode },
         tf.t,
       ),
     });
+  };
 
-  /** The waiting fixes, for the button's badge. */
-  const waiting = () =>
-    s.step === "result"
+  /** The fixes still waiting in a session, for the button's badge. */
+  const waiting = (s) =>
+    s && s.step === "result"
       ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length
       : 0;
 
-  /** Draws or moves the corner button. */
-  const drawButton = async (rect) => {
-    const item = {
-      id: BUTTON_ID,
-      image: buttonImage({ accent, waiting: waiting(), open: cornerOpen }),
-      x: rect.x,
-      y: rect.y,
-      w: rect.w,
-      h: rect.h,
-      hit: true,
-      cursor: "pointer",
-      label: tf.t("button-label"),
-    };
-    if (buttonShown) await tf.overlay.update({ items: [item] });
-    else await tf.overlay.show({ items: [item] });
-    buttonShown = true;
-  };
-
-  const hideButton = async () => {
-    if (!buttonShown) return;
-    buttonShown = false;
-    await tf.overlay.hide().catch(warn);
-  };
-
-  /** Closes the page only (the corner button may stay). */
-  const closePage = async () => {
-    if (!where) return;
-    where = null;
-    spot = null;
-    await tf.page.close().catch(warn);
-  };
-
-  /** Shows the page at `card` over the pane: opens it there, moves it, or brings it out of the dock. */
-  const toCard = async (card) => {
-    if (where === "card") {
-      if (!sameSpot(card, spot)) await tf.page.dock(card);
-    } else {
-      await tf.page.open({ dock: card });
-    }
-    where = "card";
-    spot = card;
-  };
-
-  const toSide = async () => {
-    await hideButton();
-    if (where !== "side") await tf.page.open({ side: true });
-    where = "side";
-    spot = null;
-  };
-
   /**
-   * Shows everything where it belongs now: opens, moves or closes the page
-   * and the button. Called on open, on every layout change, and when the
-   * page asks for another height.
+   * Shows the focused pane's Prompt Polish where it belongs, and nothing
+   * for a pane where it isn't open. Called on open, on every layout change
+   * (focus, tabs, panes moving) and whenever what shows changes.
    */
   const place = async () => {
-    const v = effectiveView();
-    if (v === "side") return toSide();
-    if (v === "window") {
-      await hideButton();
-      if (!where) await tf.page.open();
-      where = "window";
-      return;
+    await stage.ensureLayout();
+    const view = effectiveView();
+    const id = focusId();
+    // Beside the panes and in a window there is always a prompt for the pane you're in.
+    const s = view === "side" || view === "window" ? sessions.ensure(id) : sessions.get(id);
+    const where = await stage.show({ view, active, open: !!s?.open, waiting: waiting(s) });
+    const next = where && s ? id : null;
+    if (next !== shown) {
+      shown = next;
+      await render();
     }
-    if (!layout) layout = await tf.overlay.layout();
-    const spots = placeFor(layout, v, { h: wantH, open: cornerOpen, rtl: rtl() });
-    if (!spots) {
-      // The pane is too small for the card: beside the panes, or a window.
-      if (where !== "side" && where !== "window") await tf.toast(tf.t("toast-too-small"));
-      await hideButton();
-      if (canSide()) return toSide();
-      if (!where) await tf.page.open();
-      where = "window";
-      return;
-    }
-    if (spots.button) await drawButton(spots.button);
-    else await hideButton();
-    if (spots.card) await toCard(spots.card);
-    else await closePage();
   };
 
-  /** Opens Prompt Polish where it should be (the corner view opens its card). */
+  /** Opens Prompt Polish for the pane the user works in. */
   const open = async () => {
     await load();
     if (!tf.page) {
       await tf.toast(tf.t("toast-needs-tilefold"));
       return;
     }
-    const was = where || buttonShown;
-    if (effectiveView() === "corner") cornerOpen = true;
+    await stage.ensureLayout();
+    const s = sessions.ensure(focusId());
+    const was = active && s.open;
+    active = true;
+    s.open = true;
     await place();
     if (!was) audit("opened", { view: effectiveView() });
   };
 
-  /** Closes the page and the button; the draft goes with them. */
-  const close = async (record = true) => {
-    const was = where || buttonShown;
-    cornerOpen = false;
-    await closePage();
-    await hideButton();
-    Object.assign(s, {
-      step: "write",
-      draft: "",
-      parts: [],
-      notes: [],
-      rejected: new Set(),
-      problem: "",
-    });
-    if (was && record) audit("closed", {});
+  /** Closes the shown pane's card (×): its prompt goes; beside the panes, the dock closes. */
+  const closeShown = async () => {
+    const s = sessions.get(shown);
+    if (s) {
+      resetSession(s);
+      s.open = false;
+    }
+    const v = effectiveView();
+    if (v === "side" || v === "window") active = false;
+    await place();
+    audit("closed", {});
+  };
+
+  /** Closes everything, in every pane (the palette's Close). */
+  const closeAll = async () => {
+    const was = active;
+    active = false;
+    for (const id of sessions.ids()) sessions.drop(id);
+    await place();
+    if (was) audit("closed", {});
   };
 
   /** The user chose a view on the page: kept, and the page moves there. */
@@ -253,37 +192,42 @@ export function runPolish(tf) {
     if (v !== to) return;
     chosen = v;
     await tf.store.set(VIEW_KEY, v);
-    cornerOpen = v === "corner";
+    const s = sessions.ensure(focusId());
+    s.open = true;
     audit("view-changed", { to: v });
     await place();
   };
 
   /** Folds the card into the corner button (from the bottom or corner view). */
   const fold = async () => {
-    if (effectiveView() === "side" || !canFloat()) return;
-    if (effectiveView() !== "corner") {
+    const v = effectiveView();
+    if (v === "side" || v === "window") return;
+    if (v !== "corner") {
       chosen = "corner";
       await tf.store.set(VIEW_KEY, "corner");
       audit("view-changed", { to: "corner" });
     }
-    cornerOpen = false;
+    const s = sessions.get(focusId());
+    if (s) s.open = false;
     await place();
   };
 
-  /** Asks Claude to check the prompt, then shows the fixes. */
-  const check = async (text) => {
+  /** Asks Claude to check pane `id`'s prompt, then shows the fixes there. */
+  const check = async (id, text) => {
+    const s = sessions.get(id);
+    if (!s) return;
     s.draft = String(text ?? "").slice(0, MAX_DRAFT);
-    if (busy || blocker(s.draft)) return;
+    if (s.busy || blocker(s.draft)) return;
     if (!tf.ai) {
       Object.assign(s, { step: "problem", problem: "error-no-ai" });
-      return render();
+      return render(id);
     }
-    busy = true;
+    s.busy = true;
     const original = s.draft;
     const lang = language();
     const { mode, fast } = current();
     s.step = "checking";
-    await render();
+    await render(id);
     try {
       let answer;
       try {
@@ -299,7 +243,7 @@ export function runPolish(tf) {
       } catch (err) {
         const key = errorKey(err);
         Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
-        return render();
+        return render(id);
       }
       const r = readAnswer(answer.text, original);
       if (!r.ok) {
@@ -307,7 +251,7 @@ export function runPolish(tf) {
           step: "problem",
           problem: r.why === "changed-code" ? "error-changed-code" : "error-unreadable",
         });
-        return render();
+        return render(id);
       }
       Object.assign(s, {
         step: "result",
@@ -324,17 +268,18 @@ export function runPolish(tf) {
         model: String(answer.model ?? ""),
         outputTokens: Number(answer.usage?.outputTokens ?? 0),
       });
-      await render();
-      if (buttonShown) await place();
+      await render(id);
+      if (stage.buttonShown()) await place();
     } finally {
-      busy = false;
+      s.busy = false;
     }
   };
 
   /** Puts `text` on Tilefold's ask card for the agent in the pane the user works in. */
-  const sendToAgent = async (text, how) => {
+  const sendToAgent = async (id, text, how) => {
+    const s = sessions.get(id);
     const question = String(text ?? "").trim();
-    if (!question) return;
+    if (!s || !question) return;
     if (typeof tf.agent?.ask !== "function") return tf.toast(tf.t("error-no-agent-ask"));
     let r;
     try {
@@ -352,61 +297,63 @@ export function runPolish(tf) {
     const undone =
       how === "corrected" ? s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
     audit("sent", { how, kept: total - undone, undone });
-    Object.assign(s, { step: "sent", draft: "", parts: [], notes: [], rejected: new Set() });
-    await render();
+    resetSession(s).step = "sent";
+    await render(id);
     // In the corner view the card folds back into its button.
     if (effectiveView() === "corner") {
-      cornerOpen = false;
+      s.open = false;
       await place();
     }
   };
 
-  /** A message from the page. */
+  /** A message from the page; `pane` says whose prompt it is about. */
   const hear = async (m) => {
     if (!m || typeof m !== "object") return;
     if (m.type === "hello") {
       await post({ do: "setup", ...setupOf(tf.t) });
       return render();
     }
+    if (m.type === "view") return chooseView(m.to);
+    if (m.type === "fold") return fold();
+    if (m.type === "size") {
+      if (stage.setHeight(Number(m.h))) await place();
+      return;
+    }
+    if (m.type === "close") return closeShown();
+    // Everything else is about one pane's prompt: the one it was typed for.
+    const id = typeof m.pane === "string" ? m.pane : shown;
+    const s = sessions.get(id);
+    if (!s) return;
     if (m.type === "draft") {
       if (s.step === "write") s.draft = String(m.text ?? "").slice(0, MAX_DRAFT);
       return;
     }
-    if (m.type === "check") return check(m.text);
-    if (m.type === "as-is") return sendToAgent(String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
+    if (m.type === "check") return check(id, m.text);
+    if (m.type === "as-is")
+      return sendToAgent(id, String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
     if (m.type === "toggle" && s.step === "result") {
-      const id = Number(m.id);
-      if (!s.parts.some((p) => p.id === id)) return;
-      if (s.rejected.has(id)) s.rejected.delete(id);
-      else s.rejected.add(id);
-      await render();
-      if (buttonShown) await place();
+      const n = Number(m.id);
+      if (!s.parts.some((p) => p.id === n)) return;
+      if (s.rejected.has(n)) s.rejected.delete(n);
+      else s.rejected.add(n);
+      await render(id);
+      if (stage.buttonShown()) await place();
       return;
     }
     if (m.type === "clean" && s.step === "result") {
       s.clean = !s.clean;
-      return render();
+      return render(id);
     }
     if (m.type === "back") {
       s.step = "write";
-      return render();
+      return render(id);
     }
     if (m.type === "send" && s.step === "result")
-      return sendToAgent(build(s.parts, s.rejected), "corrected");
+      return sendToAgent(id, build(s.parts, s.rejected), "corrected");
     if (m.type === "again") {
-      Object.assign(s, { step: "write", draft: "" });
-      return render();
+      resetSession(s);
+      return render(id);
     }
-    if (m.type === "view") return chooseView(m.to);
-    if (m.type === "fold") return fold();
-    if (m.type === "size") {
-      const h = Number(m.h);
-      if (!Number.isFinite(h) || Math.abs(h - wantH) < 2) return;
-      wantH = h;
-      if (where === "card") await place();
-      return;
-    }
-    if (m.type === "close") return close();
   };
 
   /** Runs a handler's work in the background, so the handler returns at once. */
@@ -416,7 +363,7 @@ export function runPolish(tf) {
       .catch(warn);
 
   // ------------------------------------------------- registration (nothing awaited above)
-  const runs = { open, close: () => close() };
+  const runs = { open, close: closeAll };
   for (const c of COMMANDS) {
     tf.command(
       tf.t(c.title),
@@ -432,18 +379,22 @@ export function runPolish(tf) {
     "page.closed",
     background(async () => {
       // Closed from elsewhere: the window's or the dock's close button, the tile turned off.
-      if (!where) return;
-      where = null;
-      spot = null;
-      if (buttonShown && effectiveView() === "corner") cornerOpen = false;
-      else await close();
+      if (!stage.where()) return;
+      stage.lostPage();
+      const s = sessions.get(shown);
+      shown = null;
+      const v = effectiveView();
+      if (v === "side" || v === "window") active = false;
+      else if (s) s.open = false;
+      await place();
     }),
   );
   tf.on(
     "page.undocked",
     // The user pressed Undock on the dock's bar: back over the pane.
     background(async () => {
-      where = null;
+      stage.lostPage();
+      shown = null;
       await chooseView("bottom");
     }),
   );
@@ -451,15 +402,16 @@ export function runPolish(tf) {
     "overlay.layout",
     background(async (e) => {
       if (!e || !Array.isArray(e.panes)) return;
-      layout = e;
-      if (where === "card" || buttonShown) await place();
+      stage.setLayout(e);
+      if (active) await place();
     }),
   );
   tf.on(
     "overlay.pointer",
     background(async (e) => {
       if (!e || e.item !== BUTTON_ID || e.type !== "click") return;
-      cornerOpen = !cornerOpen;
+      const s = sessions.ensure(focusId());
+      s.open = !s.open;
       await place();
     }),
   );
@@ -467,32 +419,32 @@ export function runPolish(tf) {
     "overlay.hidden",
     // The user hid tile overlays: the button goes, and the card with it.
     background(async () => {
-      buttonShown = false;
-      if (where === "card") await close();
+      stage.lostOverlay();
+      if (stage.where() === "card") await closeAll();
     }),
   );
   tf.on(
     "theme.changed",
     background(async (e) => {
-      accent = e?.colors?.accent ?? accent;
-      if (buttonShown) await place();
+      stage.setAccent(e?.colors?.accent ?? null);
+      if (stage.buttonShown()) await place();
     }),
   );
   tf.on(
     "setting.changed",
     background(async (e) => {
       await load();
-      const now = current();
       if (e?.key === "view") {
         // A choice in Settings wins over the page's last switch.
         chosen = null;
         await tf.store.delete(VIEW_KEY);
-        cornerOpen = now.view === "corner" && where === "card";
-        if (where || buttonShown) await place();
+        if (active) await place();
       }
       await render();
     }),
   );
 
-  return { state: () => ({ where, step: s.step, buttonShown, cornerOpen }) };
+  return {
+    state: () => ({ where: stage.where(), shown, active, sessions: sessions.size() }),
+  };
 }
