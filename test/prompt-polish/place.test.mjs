@@ -14,10 +14,16 @@
  * corner button picture and the languages are checked here too.
  */
 import { describe, expect, it } from "vitest";
-import { buttonImage } from "../../examples/prompt-polish/src/button.js";
+import {
+  PILL_MAX_W,
+  PILL_MIN_W,
+  buttonImage,
+  pillWidth,
+} from "../../examples/prompt-polish/src/button.js";
 import { LANGUAGES, isUnspaced, languageOf } from "../../examples/prompt-polish/src/languages.js";
 import {
   BUTTON,
+  BUTTON_H,
   GAP,
   MAX_H,
   SPOT_MAX,
@@ -96,11 +102,12 @@ describe("the bottom card", () => {
 });
 
 describe("the corner button", () => {
-  it("closed: only the button, in the pane's end corner above the input", () => {
-    expect(placeFor(twoPanes("p1"), "corner", { open: false })).toEqual({
+  it("closed: only the pill, at the right end of the pane's bottom row, above the input", () => {
+    expect(placeFor(twoPanes("p1"), "corner", { open: false, bw: 80 })).toEqual({
       card: null,
-      button: { x: 600 - GAP - BUTTON, y: 694 - GAP - BUTTON, w: BUTTON, h: BUTTON },
+      button: { x: 600 - GAP - 80, y: 694 - GAP - BUTTON_H, w: 80, h: BUTTON_H },
     });
+    expect(placeFor(twoPanes("p1"), "corner", { open: false }).button.w).toBe(BUTTON);
   });
 
   it("open: the card above the button, at the same edge; mirrored right to left", () => {
@@ -112,16 +119,31 @@ describe("the corner button", () => {
     expect(r.button.x).toBe(GAP);
   });
 
+  it("is as wide as its word needs, within limits", () => {
+    expect(pillWidth("Polish")).toBeGreaterThanOrEqual(PILL_MIN_W);
+    expect(pillWidth("다듬기")).toBeGreaterThan(pillWidth("Pul"));
+    expect(pillWidth("x".repeat(80))).toBe(PILL_MAX_W);
+    expect(pillWidth("")).toBe(PILL_MIN_W);
+  });
+
   it("gives up when its card can't fit above the button", () => {
     expect(placeFor(pane(500, 180), "corner", { open: true })).toBeNull();
     expect(placeFor(pane(500, 180), "corner", { open: false }).button).toBeTruthy();
   });
 
-  it("draws a P, a ring while open, and a badge with the waiting fixes", () => {
-    const svg = (url) => atob(url.replace("data:image/svg+xml;base64,", ""));
-    expect(svg(buttonImage())).toMatch(/>P</);
+  it("draws the word, a ring while open, and a badge with the waiting fixes", () => {
+    const svg = (url) =>
+      new TextDecoder().decode(
+        Uint8Array.from(atob(url.replace("data:image/svg+xml;base64,", "")), (c) =>
+          c.charCodeAt(0),
+        ),
+      );
+    expect(svg(buttonImage())).toMatch(/>Polish</);
+    expect(svg(buttonImage({ label: "다듬기" }))).toMatch(/>다듬기</);
+    expect(svg(buttonImage({ label: "<b>&" }))).toMatch(/>&lt;b&gt;&amp;</);
     expect(svg(buttonImage({ waiting: 3 }))).toMatch(/>3</);
-    expect(svg(buttonImage({ waiting: 0 }))).not.toMatch(/#e5484d/);
+    expect(svg(buttonImage({ waiting: 0 }))).toMatch(/<path/);
+    expect(svg(buttonImage({ waiting: 3 }))).not.toMatch(/<path/);
     expect(svg(buttonImage({ open: true }))).toMatch(/stroke=/);
     expect(svg(buttonImage({ accent: "#123456" }))).toMatch(/#123456/);
     // Only plain colors from the theme reach the picture.
@@ -140,7 +162,7 @@ describe("the rest", () => {
 
   it("checks views and compares spots", () => {
     expect(viewOf("corner")).toBe("corner");
-    expect(viewOf("nowhere")).toBe("bottom");
+    expect(viewOf("nowhere")).toBe("corner");
     expect(sameSpot({ x: 1, y: 2, w: 3, h: 4 }, { x: 1, y: 2, w: 3, h: 4 })).toBe(true);
     expect(sameSpot({ x: 1, y: 2, w: 3, h: 4 }, null)).toBe(false);
   });

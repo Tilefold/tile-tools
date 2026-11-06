@@ -6,8 +6,10 @@
  *
  * Prompt Polish — the tile in a fake Tilefold
  *
- * The built tile, driven as Tilefold would drive it: it opens on a card
- * over the focused pane, right above its input; each pane has its own
+ * The built tile, driven as Tilefold would drive it: by default a Polish
+ * pill shows by the input as soon as the tile runs and opens the card on a
+ * click (folding back after sending, hidden after Close); the card can
+ * also stay open over the focused pane, right above its input; each pane has its own
  * prompt, shown only while you're in that pane (switching panes and tabs,
  * focus leaving the panes, the side dock, a check finishing elsewhere); the
  * page gets its labels and the step to draw; Check asks Claude in the
@@ -21,6 +23,7 @@
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { ONE_PANE, startTile } from "../fake-host.mjs";
+import { pillWidth } from "../../examples/prompt-polish/src/button.js";
 import { placeFor } from "../../examples/prompt-polish/src/place.js";
 
 const DIR = fileURLToPath(new URL("../../examples/prompt-polish/", import.meta.url));
@@ -45,8 +48,9 @@ const start = async (opts = {}) => {
     page: "dock",
     agentAsk: true,
     ai: () => ANSWER,
-    settings: { language: "ko" },
     ...opts,
+    // These tests use the card over the pane unless they say otherwise.
+    settings: { language: "ko", view: "bottom", ...opts.settings },
   });
   hosts.push(host);
   return host;
@@ -383,7 +387,7 @@ describe("the corner button", () => {
     const host = await start();
     await host.command("open");
     await say(host, { type: "view", to: "corner" });
-    const spots = placeFor(ONE_PANE, "corner", { h: 260, open: true });
+    const spots = placeFor(ONE_PANE, "corner", { h: 260, open: true, bw: pillWidth("Polish") });
     expect(host.item("polish-button")).toMatchObject({
       ...spots.button,
       hit: true,
@@ -413,6 +417,71 @@ describe("the corner button", () => {
     await say(host, { type: "send" });
     expect(host.page.open).toBe(false);
     expect(host.item("polish-button")).toBeTruthy();
+  });
+});
+
+describe("the Polish pill (the default)", () => {
+  const pill = { settings: { language: "ko", view: "corner" } };
+
+  it("shows by the input as soon as the tile runs, with nothing else open", async () => {
+    const host = await start(pill);
+    const spots = placeFor(ONE_PANE, "corner", { open: false, bw: pillWidth("Polish") });
+    expect(host.item("polish-button")).toMatchObject({
+      ...spots.button,
+      hit: true,
+      label: "Prompt Polish",
+    });
+    expect(host.page.open).toBe(false);
+  });
+
+  it("opens the card above it on a click, and folds back after sending", async () => {
+    const host = await start(pill);
+    await host.emit("overlay.pointer", { item: "polish-button", type: "click", x: 0, y: 0 });
+    const spots = placeFor(ONE_PANE, "corner", { h: 260, open: true, bw: pillWidth("Polish") });
+    expect(host.page.dock).toEqual(spots.card);
+    await hello(host);
+    await say(host, { type: "check", text: PROMPT });
+    await say(host, { type: "send" });
+    expect(host.asks).toHaveLength(1);
+    expect(host.page.open).toBe(false);
+    expect(host.item("polish-button")).toBeTruthy();
+  });
+
+  it("follows you to the pane you're in, with that pane's own prompt", async () => {
+    const two = (focus) => ({
+      content: { w: 1200, h: 800 },
+      panes: ["p1", "p2"].map((id, i) => ({
+        id,
+        x: i * 601,
+        y: 40,
+        w: 599,
+        h: 730,
+        focused: focus === id,
+        composer: { x: i * 601, y: 724, w: 599, h: 46 },
+      })),
+    });
+    const host = await start({ ...pill, layout: two("p1") });
+    const x1 = host.item("polish-button").x;
+    host.layout = two("p2");
+    await host.emit("overlay.layout", two("p2"));
+    expect(host.item("polish-button").x).toBe(x1 + 601);
+    expect(host.page.open).toBe(false);
+  });
+
+  it("stays away after Close until Write a prompt", async () => {
+    const host = await start(pill);
+    await host.command("close");
+    expect(host.overlay).toBeNull();
+    await host.emit("overlay.layout", ONE_PANE);
+    expect(host.overlay).toBeNull();
+    await host.command("open");
+    expect(host.item("polish-button")).toBeTruthy();
+    expect(host.page.open).toBe(true);
+  });
+
+  it("isn't drawn where the page can't float over the panes", async () => {
+    const host = await start({ ...pill, page: true });
+    expect(host.overlay).toBeNull();
   });
 });
 

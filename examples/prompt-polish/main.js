@@ -224,14 +224,15 @@ function languageOf(setting, uiCode) {
 var isUnspaced = (code) => UNSPACED.has(code);
 
 // src/place.js
-var VIEWS = ["bottom", "corner", "side"];
+var VIEWS = ["corner", "bottom", "side"];
 var SPOT_MIN = 120;
 var SPOT_MAX = 2e3;
 var GAP = 12;
 var BUTTON = 36;
+var BUTTON_H = 26;
 var CORNER_W = 420;
 var MAX_H = 440;
-var viewOf = (value) => VIEWS.includes(value) ? value : "bottom";
+var viewOf = (value) => VIEWS.includes(value) ? value : "corner";
 function focusedPane(layout, paneId) {
   const panes = Array.isArray(layout?.panes) ? layout.panes : [];
   const ok = panes.filter((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
@@ -257,9 +258,10 @@ function placeFor(layout, view, opts = {}) {
     if (w2 < SPOT_MIN || ch2 < SPOT_MIN) return null;
     return { card: round({ x: pane.x + GAP, y: floor - ch2, w: w2, h: ch2 }), button: null };
   }
-  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - BUTTON;
-  const button = round({ x: bx, y: floor - BUTTON, w: BUTTON, h: BUTTON });
-  if (button.y < top || pane.w < BUTTON + 2 * GAP) return null;
+  const bw = Number.isFinite(opts.bw) ? opts.bw : BUTTON;
+  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
+  const button = round({ x: bx, y: floor - BUTTON_H, w: bw, h: BUTTON_H });
+  if (button.y < top || pane.w < bw + 2 * GAP) return null;
   if (!opts.open) return { card: null, button };
   const w = Math.min(CORNER_W, pane.w - 2 * GAP);
   const ch = Math.min(h, button.y - GAP - top);
@@ -334,8 +336,8 @@ function createSessions() {
 var MODES = ["fix", "natural"];
 var MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
 var VIEW_KEYS = {
-  bottom: "setting-view-bottom",
   corner: "setting-view-corner",
+  bottom: "setting-view-bottom",
   side: "setting-view-side"
 };
 var COMMANDS = [
@@ -352,7 +354,7 @@ function registerSettings(tf) {
   tf.setting("mode", "fix", tf.t("setting-mode"), {
     choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) }))
   });
-  tf.setting("view", "bottom", tf.t("setting-view"), {
+  tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) }))
   });
   tf.setting("fast", true, tf.t("setting-fast"));
@@ -375,17 +377,42 @@ function settingsOf(settings) {
 }
 
 // src/button.js
+var PILL_H = 26;
+var PILL_MIN_W = 64;
+var PILL_MAX_W = 160;
 function colorOr(value, fallback) {
   const v = String(value ?? "").trim();
   return /^#[0-9a-f]{3,8}$/i.test(v) || /^rgba?\([\d\s.,%]+\)$/i.test(v) ? v : fallback;
 }
-function buttonImage({ accent, waiting = 0, open = false } = {}) {
+var xml = (s) => String(s).replace(
+  /[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]
+);
+var textWidth = (label) => [...String(label)].reduce((w, ch) => w + (/[ᄀ-ￜ]/.test(ch) ? 12.5 : 7), 0);
+var pillWidth = (label) => Math.round(Math.min(PILL_MAX_W, Math.max(PILL_MIN_W, 34 + textWidth(label))));
+function base64(text) {
+  let bin = "";
+  for (const b of new TextEncoder().encode(text)) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function buttonImage({
+  label = "Polish",
+  w,
+  accent,
+  waiting = 0,
+  open = false,
+  rtl = false
+} = {}) {
+  const width = Number.isFinite(w) ? w : pillWidth(label);
   const fill = colorOr(accent, "#7c5cff");
   const n = Math.max(0, Math.min(99, Math.floor(Number(waiting) || 0)));
-  const badge = n > 0 ? `<circle cx="29" cy="7" r="7" fill="#e5484d"/><text x="29" y="10" font-size="9" font-weight="700" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">${n}</text>` : "";
-  const ring = open ? `<circle cx="18" cy="18" r="16.5" fill="none" stroke="${fill}" stroke-width="1.5" opacity=".55"/>` : "";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">${ring}<circle cx="18" cy="18" r="${open ? 13 : 15}" fill="${fill}"/><text x="18" y="23" font-size="15" font-weight="700" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">P</text>${badge}</svg>`;
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  const h = PILL_H;
+  const sx = rtl ? width - 16 : 16;
+  const tx = rtl ? width - 28 : 28;
+  const ring = open ? `<rect x="0.75" y="0.75" width="${width - 1.5}" height="${h - 1.5}" rx="${(h - 1.5) / 2}" fill="none" stroke="#fff" stroke-width="1.5" opacity=".8"/>` : "";
+  const mark = n > 0 ? `<circle cx="${sx}" cy="${h / 2}" r="7.5" fill="#fff"/><text x="${sx}" y="${h / 2 + 3.5}" font-size="10" font-weight="700" text-anchor="middle" fill="${fill}" font-family="system-ui,sans-serif">${n}</text>` : `<path d="M${sx} 7.5l1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4z" fill="#fff"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${h}" viewBox="0 0 ${width} ${h}"><rect width="${width}" height="${h}" rx="${h / 2}" fill="${fill}"/>${ring}` + mark + `<text x="${tx}" y="17" font-size="12" font-weight="600" text-anchor="${rtl ? "end" : "start"}" fill="#fff" font-family="system-ui,sans-serif">${xml(label)}</text></svg>`;
+  return `data:image/svg+xml;base64,${base64(svg)}`;
 }
 
 // src/show.js
@@ -411,10 +438,14 @@ function createStage(tf, o) {
     buttonShown = false;
     await tf.overlay.hide().catch(o.warn);
   };
+  const pill = () => {
+    const label = tf.t("pill-label");
+    return { label, w: pillWidth(label) };
+  };
   const drawButton = async (rect, waiting, open) => {
     const item = {
       id: BUTTON_ID,
-      image: buttonImage({ accent, waiting, open }),
+      image: buttonImage({ ...pill(), accent, waiting, open, rtl: rtl() }),
       ...rect,
       hit: true,
       cursor: "pointer",
@@ -498,7 +529,13 @@ function createStage(tf, o) {
         await closePage();
         return where;
       }
-      const spots = placeFor(layout, view, { h: wantH, open, rtl: rtl(), pane: focus });
+      const spots = placeFor(layout, view, {
+        h: wantH,
+        open,
+        rtl: rtl(),
+        pane: focus,
+        bw: pill().w
+      });
       if (!spots) {
         const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);
         await hideButton();
@@ -626,6 +663,7 @@ function runPolish(tf) {
   const sessions = createSessions();
   const stage = createStage(tf, { warn, canSide });
   let active = false;
+  let dismissed = false;
   let shown = null;
   let chosen = null;
   let loaded = false;
@@ -688,6 +726,7 @@ function runPolish(tf) {
     const s = sessions.ensure(focusId());
     const was = active && s.open;
     active = true;
+    dismissed = false;
     s.open = true;
     await place();
     if (!was) audit("opened", { view: effectiveView() });
@@ -706,6 +745,7 @@ function runPolish(tf) {
   const closeAll = async () => {
     const was = active;
     active = false;
+    dismissed = true;
     for (const id of sessions.ids()) sessions.drop(id);
     await place();
     if (was) audit("closed", {});
@@ -866,6 +906,12 @@ function runPolish(tf) {
       return render(id);
     }
   };
+  const wake = async () => {
+    await load();
+    if (active || dismissed || !canFloat() || effectiveView() !== "corner") return;
+    active = true;
+    await place();
+  };
   const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
   const runs = { open, close: closeAll };
   for (const c of COMMANDS) {
@@ -906,6 +952,7 @@ function runPolish(tf) {
     background(async (e) => {
       if (!e || !Array.isArray(e.panes)) return;
       stage.setLayout(e);
+      await wake();
       if (active) await place();
     })
   );
@@ -940,11 +987,13 @@ function runPolish(tf) {
       if (e?.key === "view") {
         chosen = null;
         await tf.store.delete(VIEW_KEY);
+        await wake();
         if (active) await place();
       }
       await render();
     })
   );
+  void Promise.resolve().then(wake).catch(warn);
   return {
     state: () => ({ where: stage.where(), shown, active, sessions: sessions.size() })
   };

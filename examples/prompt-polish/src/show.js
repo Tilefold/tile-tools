@@ -15,14 +15,14 @@
  * The run module decides what should show; `show()` makes it so:
  *
  *   view "bottom"  the card over the focused pane when its session is open
- *   view "corner"  the button on the focused pane, the card above it when open
+ *   view "corner"  the Polish pill on the focused pane, the card above it when open
  *   view "side"    the page beside the panes
  *   view "window"  a window of its own (a Tilefold that can't dock pages)
  *
  * A pane too small for the card sends the page beside the panes (or a
  * window), with a notice once.
  */
-import { buttonImage } from "./button.js";
+import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
 import { placeFor, sameSpot } from "./place.js";
 
@@ -62,10 +62,16 @@ export function createStage(tf, o) {
     await tf.overlay.hide().catch(o.warn);
   };
 
+  /** The pill's word in the user's language, and its width. */
+  const pill = () => {
+    const label = tf.t("pill-label");
+    return { label, w: pillWidth(label) };
+  };
+
   const drawButton = async (rect, waiting, open) => {
     const item = {
       id: BUTTON_ID,
-      image: buttonImage({ accent, waiting, open }),
+      image: buttonImage({ ...pill(), accent, waiting, open, rtl: rtl() }),
       ...rect,
       hit: true,
       cursor: "pointer",
@@ -158,7 +164,13 @@ export function createStage(tf, o) {
         await closePage();
         return where;
       }
-      const spots = placeFor(layout, view, { h: wantH, open, rtl: rtl(), pane: focus });
+      const spots = placeFor(layout, view, {
+        h: wantH,
+        open,
+        rtl: rtl(),
+        pane: focus,
+        bw: pill().w,
+      });
       if (!spots) {
         // No pane to show over (another tab), or the pane is too small.
         const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);

@@ -7,10 +7,11 @@
  *
  * Three views, chosen in Settings or from the page's header:
  *
+ *   corner  a small "Polish" pill at the right end of the pane's bottom
+ *           row, by where the user types, drawn as an overlay item; the
+ *           card opens above it when clicked (the default)
  *   bottom  the page on a card across the focused pane, right above its
- *           input row (the default)
- *   corner  a round button in the pane's corner above the input, drawn as
- *           an overlay item; the card opens above it
+ *           input row, open until closed
  *   side    the page in the dock beside the panes (Tilefold 0.1.20)
  *
  * The card follows the focused pane (`overlay.layout` gives the panes'
@@ -22,7 +23,7 @@
  */
 
 /** The views, in the order the setting lists them. */
-export const VIEWS = ["bottom", "corner", "side"];
+export const VIEWS = ["corner", "bottom", "side"];
 
 /** Tilefold's limits for a page docked at a spot. */
 export const SPOT_MIN = 120;
@@ -31,15 +32,16 @@ export const SPOT_MAX = 2000;
 /** The gap between the card and the pane's edges. */
 export const GAP = 12;
 
-/** The corner button's size (an overlay item may be smaller than a page). */
+/** The pill's default size (an overlay item may be smaller than a page). */
 export const BUTTON = 36;
+export const BUTTON_H = 26;
 
 /** The corner card's width, and the tallest card. */
 export const CORNER_W = 420;
 export const MAX_H = 440;
 
 /** A view checked: one of VIEWS, or the default. */
-export const viewOf = (value) => (VIEWS.includes(value) ? value : "bottom");
+export const viewOf = (value) => (VIEWS.includes(value) ? value : "corner");
 
 /**
  * The pane with id `paneId` in a layout, or without an id the focused pane
@@ -63,7 +65,8 @@ export function focusedPane(layout, paneId) {
  * @param {{ h?: number, open?: boolean, rtl?: boolean, pane?: string | null }} [opts]
  *   h: the card's wanted height (it shrinks to fit, never under SPOT_MIN);
  *   open: whether the corner card is open; rtl: the corner is on the left;
- *   pane: the pane to place over (by id), else the focused one
+ *   pane: the pane to place over (by id), else the focused one;
+ *   bw: the pill's width (its height is BUTTON_H)
  */
 export function placeFor(layout, view, opts = {}) {
   const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
@@ -84,9 +87,10 @@ export function placeFor(layout, view, opts = {}) {
     if (w < SPOT_MIN || ch < SPOT_MIN) return null;
     return { card: round({ x: pane.x + GAP, y: floor - ch, w, h: ch }), button: null };
   }
-  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - BUTTON;
-  const button = round({ x: bx, y: floor - BUTTON, w: BUTTON, h: BUTTON });
-  if (button.y < top || pane.w < BUTTON + 2 * GAP) return null;
+  const bw = Number.isFinite(opts.bw) ? opts.bw : BUTTON;
+  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
+  const button = round({ x: bx, y: floor - BUTTON_H, w: bw, h: BUTTON_H });
+  if (button.y < top || pane.w < bw + 2 * GAP) return null;
   if (!opts.open) return { card: null, button };
   const w = Math.min(CORNER_W, pane.w - 2 * GAP);
   const ch = Math.min(h, button.y - GAP - top);

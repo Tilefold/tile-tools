@@ -19,12 +19,15 @@
  * shows nothing over it, and Send to agent always goes to that pane's
  * agent (the ask card offers it first).
  *
- * Where the page shows (show.js, place.js): on a card over the pane,
- * above its input (`tf.page.open({ dock })`, Tilefold 0.1.11); behind a
- * round button in the pane's corner (an overlay item), the card opening
- * above it; or in the dock beside the panes (`tf.page.open({ side: true })`,
- * Tilefold 0.1.20). The page's header switches between them, and the
- * choice is kept until the setting changes.
+ * Where the page shows (show.js, place.js). By default a small "Polish"
+ * pill sits at the right end of the pane's bottom row, by where the user
+ * types (an overlay item, shown as soon as the tile runs); clicking it
+ * opens the card above it (`tf.page.open({ dock })`, Tilefold 0.1.11),
+ * which folds back into the pill after sending. Or the card stays open
+ * over the pane, above its input, or the page sits in the dock beside the
+ * panes (`tf.page.open({ side: true })`, Tilefold 0.1.20). The page's
+ * header switches between them, and the choice is kept until the setting
+ * changes. Prompt Polish: Close hides the pill until Write a prompt.
  *
  * The prompts live only in the tile's memory and go only to Claude (after
  * the user's yes) and to the ask card. They are never stored and never
@@ -68,8 +71,10 @@ export function runPolish(tf) {
 
   const sessions = createSessions();
   const stage = createStage(tf, { warn, canSide });
-  /** Whether Prompt Polish is on at all (the corner button and the side dock show while it is). */
+  /** Whether Prompt Polish is on at all (the pill and the side dock show while it is). */
   let active = false;
+  /** The user closed it from the palette: the pill stays away until Write a prompt. */
+  let dismissed = false;
   /** The pane whose session the page shows now, or null. */
   let shown = null;
   /** The view the user chose on the page (until the setting changes), or null. */
@@ -159,6 +164,7 @@ export function runPolish(tf) {
     const s = sessions.ensure(focusId());
     const was = active && s.open;
     active = true;
+    dismissed = false;
     s.open = true;
     await place();
     if (!was) audit("opened", { view: effectiveView() });
@@ -181,6 +187,7 @@ export function runPolish(tf) {
   const closeAll = async () => {
     const was = active;
     active = false;
+    dismissed = true;
     for (const id of sessions.ids()) sessions.drop(id);
     await place();
     if (was) audit("closed", {});
@@ -198,7 +205,7 @@ export function runPolish(tf) {
     await place();
   };
 
-  /** Folds the card into the corner button (from the bottom or corner view). */
+  /** Folds the card into the Polish pill (from the bottom or corner view). */
   const fold = async () => {
     const v = effectiveView();
     if (v === "side" || v === "window") return;
@@ -299,7 +306,7 @@ export function runPolish(tf) {
     audit("sent", { how, kept: total - undone, undone });
     resetSession(s).step = "sent";
     await render(id);
-    // In the corner view the card folds back into its button.
+    // With the pill, the card folds back into it.
     if (effectiveView() === "corner") {
       s.open = false;
       await place();
@@ -356,6 +363,18 @@ export function runPolish(tf) {
     }
   };
 
+  /**
+   * Shows the Polish pill without being asked, when that is the view: as
+   * soon as the tile runs, and whenever the panes change, unless the user
+   * closed Prompt Polish from the palette.
+   */
+  const wake = async () => {
+    await load();
+    if (active || dismissed || !canFloat() || effectiveView() !== "corner") return;
+    active = true;
+    await place();
+  };
+
   /** Runs a handler's work in the background, so the handler returns at once. */
   const background = (fn) => (e) =>
     void Promise.resolve()
@@ -403,6 +422,7 @@ export function runPolish(tf) {
     background(async (e) => {
       if (!e || !Array.isArray(e.panes)) return;
       stage.setLayout(e);
+      await wake();
       if (active) await place();
     }),
   );
@@ -438,11 +458,15 @@ export function runPolish(tf) {
         // A choice in Settings wins over the page's last switch.
         chosen = null;
         await tf.store.delete(VIEW_KEY);
+        await wake();
         if (active) await place();
       }
       await render();
     }),
   );
+
+  // The pill shows as soon as the tile runs (after registering everything).
+  void Promise.resolve().then(wake).catch(warn);
 
   return {
     state: () => ({ where: stage.where(), shown, active, sessions: sessions.size() }),

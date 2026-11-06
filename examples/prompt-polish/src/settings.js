@@ -19,8 +19,8 @@ export const MODES = ["fix", "natural"];
 /** The label of each mode and view. */
 const MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
 const VIEW_KEYS = {
-  bottom: "setting-view-bottom",
   corner: "setting-view-corner",
+  bottom: "setting-view-bottom",
   side: "setting-view-side",
 };
 
@@ -41,7 +41,7 @@ export function registerSettings(tf) {
   tf.setting("mode", "fix", tf.t("setting-mode"), {
     choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) })),
   });
-  tf.setting("view", "bottom", tf.t("setting-view"), {
+  tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) })),
   });
   tf.setting("fast", true, tf.t("setting-fast"));
