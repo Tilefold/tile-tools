@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Prompt Polish (example tile): Japanese strings.
+
+tile-name = Prompt Polish（サンプル）
+tile-description = AI エージェントに書くプロンプトを、選んだ言語で Claude とご自分の Anthropic キーを使って校正します。修正はすべて確認でき、好きな箇所は元の言葉のまま残し、結果は Tilefold の質問カードから送れます。
+setting-language = プロンプトを書く言語
+setting-language-auto = Tilefold と同じ
+setting-mode = 直す範囲
+setting-mode-fix = 誤りだけ
+setting-mode-natural = 誤りと、不自然な言い回し
+setting-view = Prompt Polish の表示場所
+setting-view-bottom = エージェントのペインの上、入力欄のすぐ上
+setting-view-corner = ペインの隅のボタンの奥
+setting-view-side = ペイン横のドック
+setting-fast = より速く安いモデルを使う
+cmd-open = Prompt Polish: プロンプトを書く
+cmd-close = Prompt Polish: 閉じる
+page-lang = ja
+page-dir = ltr
+ai-language = 日本語
+ask-about = Prompt Polish: ユーザーが { $language } で書き、誤りを確認したプロンプト
+button-label = Prompt Polish
+label-over-pane = ペインの上
+label-in-dock = ペインの横
+label-fold = 隅のボタンにたたむ
+label-close = 閉じる
+label-placeholder = { $language } でプロンプトを書いてください…
+label-hint = バッククォート内のコード、ファイルパス、リンクはそのまま残します。
+label-words = 単語: { $count }
+label-chars = 文字数: { $count }
+label-too-long = { $max } 文字を超えています。短くすると確認できます。
+label-as-is = そのまま送る
+label-check = 確認
+label-checking = { $language } を確認中…
+label-changes = 修正: { $count }
+label-undone = 元のまま: { $count }
+label-show-result = 結果だけ表示
+label-show-changes = 変更箇所を表示
+label-click-hint = 変更をクリックすると、その箇所は元の言葉に戻ります。
+label-nothing = 直すところはありません。{ $language } はそのままで自然です。
+label-back = 編集に戻る
+label-send = エージェントに送る
+label-sent = ウィンドウ上部の質問カードに入りました。そこで Return を押すとエージェントに送られます。先に編集もできます。
+label-again = もう一つ書く
+kind-spelling = 綴り
+kind-grammar = 文法
+kind-spacing = スペース
+kind-punctuation = 句読点
+kind-style = 表現
+error-no-ai = この Tilefold では、まだタイルが Claude に質問できません。Prompt Polish を使うには Tilefold を更新してください。
+error-no-key = プロンプトを確認するには、設定 → AI で Anthropic API キーを追加してください。
+error-denied = Prompt Polish は Claude に質問できません。設定 → タイルで許可してください。
+error-budget = Prompt Polish は今日の AI 利用枠を使い切りました。明日もう一度お試しください。
+error-refused = Claude はこのプロンプトを確認しませんでした。もう一度お試しください。
+error-failed = Claude に接続できませんでした。後でもう一度お試しください。
+error-unreadable = Claude の回答を読み取れませんでした。もう一度お試しください。
+error-changed-code = Claude がコード、パス、またはリンクを変えたため、修正は使いませんでした。もう一度試すか、そのまま送ってください。
+error-no-agent-ask = この Tilefold では、まだプロンプトをエージェントに渡せません。送るには Tilefold を更新してください。
+error-ask-busy = Tilefold の質問カードがすでに開いています。送るか破棄してから、もう一度お試しください。
+error-ask-no-pane = 送り先のエージェントがいるペインがありません。
+error-ask-failed = 質問カードにプロンプトを載せられませんでした。もう一度お試しください。
+toast-too-small = ペインが小さすぎるため、Prompt Polish をペインの横に開きました。
+toast-needs-tilefold = Prompt Polish の画面を表示するには、新しい Tilefold が必要です。

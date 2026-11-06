@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Prompt Polish (example tile): Simplified Chinese strings.
+
+tile-name = Prompt Polish（示例）
+tile-description = 用你选择的语言，借助 Claude 和你自己的 Anthropic 密钥校正写给 AI 智能体的提示词。每处修改都看得到，想保留的地方可留下原话，再从 Tilefold 的提问卡片发送结果。
+setting-language = 你写提示词所用的语言
+setting-language-auto = 与 Tilefold 相同
+setting-mode = 修改范围
+setting-mode-fix = 只改错误
+setting-mode-natural = 改正错误，并让表达更自然
+setting-view = Prompt Polish 的显示位置
+setting-view-bottom = 智能体窗格上方，输入行之上
+setting-view-corner = 窗格角落的按钮后面
+setting-view-side = 窗格旁的停靠栏
+setting-fast = 使用更快、更便宜的模型
+cmd-open = Prompt Polish：写提示词
+cmd-close = Prompt Polish：关闭
+page-lang = zh-CN
+page-dir = ltr
+ai-language = 简体中文
+ask-about = Prompt Polish：用户用 { $language } 写并检查过错误的提示词
+button-label = Prompt Polish
+label-over-pane = 在窗格上
+label-in-dock = 在窗格旁
+label-fold = 收起为角落按钮
+label-close = 关闭
+label-placeholder = 用 { $language } 写提示词…
+label-hint = 反引号中的代码、文件路径和链接保持原样。
+label-words = 词数：{ $count }
+label-chars = 字数：{ $count }
+label-too-long = 超过 { $max } 个字符：缩短后才能检查。
+label-as-is = 按原样发送
+label-check = 检查
+label-checking = 正在检查你的 { $language }…
+label-changes = 修改：{ $count }
+label-undone = 保留原话：{ $count }
+label-show-result = 只看结果
+label-show-changes = 显示修改处
+label-click-hint = 点击某处修改，即可在那里保留原话。
+label-nothing = 无需修改：你的 { $language } 读起来很好。
+label-back = 返回编辑
+label-send = 发送给智能体
+label-sent = 已放到窗口顶部的提问卡片上。在那里按 Return 发送给智能体，也可以先编辑。
+label-again = 再写一个
+kind-spelling = 拼写
+kind-grammar = 语法
+kind-spacing = 空格
+kind-punctuation = 标点
+kind-style = 表达
+error-no-ai = 此版本的 Tilefold 还不能让 Tile 向 Claude 提问。请更新 Tilefold 以使用 Prompt Polish。
+error-no-key = 请在 设置 → AI 中添加你的 Anthropic API 密钥以检查提示词。
+error-denied = Prompt Polish 不能向 Claude 提问。请在 设置 → Tiles 中允许。
+error-budget = Prompt Polish 已用完今天的 AI 额度。请明天再试。
+error-refused = Claude 没有检查这条提示词。请再试一次。
+error-failed = 无法连接 Claude。请稍后再试。
+error-unreadable = 无法读取 Claude 的回答。请再试一次。
+error-changed-code = Claude 改动了代码、路径或链接，因此未采用其修改。请再试一次，或按原样发送提示词。
+error-no-agent-ask = 此版本的 Tilefold 还不能把提示词交给智能体。请更新 Tilefold 后发送。
+error-ask-busy = Tilefold 的提问卡片已经打开。请先发送或丢弃，再试一次。
+error-ask-no-pane = 没有可发送的智能体窗格。
+error-ask-failed = 无法把提示词放到提问卡片上。请再试一次。
+toast-too-small = 窗格太小，Prompt Polish 已在窗格旁打开。
+toast-needs-tilefold = Prompt Polish 需要更新的 Tilefold 才能显示页面。

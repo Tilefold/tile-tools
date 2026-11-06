@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Prompt Polish (example tile): Arabic strings.
+
+tile-name = Prompt Polish (مثال)
+tile-description = يصحّح الطلبات التي تكتبها لوكلاء الذكاء الاصطناعي باللغة التي تختارها، باستخدام Claude ومفتاح Anthropic الخاص بك. ترى كل تصحيح، وتُبقي كلماتك حيث تشاء، وترسل النتيجة من بطاقة السؤال في Tilefold.
+setting-language = اللغة التي تكتب بها الطلبات
+setting-language-auto = مثل Tilefold
+setting-mode = ما الذي يُصحَّح
+setting-mode-fix = الأخطاء فقط
+setting-mode-natural = الأخطاء، مع جعل الصياغة طبيعية
+setting-view = أين يظهر Prompt Polish
+setting-view-bottom = فوق جزء الوكيل، أعلى سطر الإدخال مباشرة
+setting-view-corner = خلف زر في زاوية الجزء
+setting-view-side = في الشريط بجانب الأجزاء
+setting-fast = استخدام النموذج الأسرع والأرخص
+cmd-open = Prompt Polish: كتابة طلب
+cmd-close = Prompt Polish: إغلاق
+page-lang = ar
+page-dir = rtl
+ai-language = العربية
+ask-about = Prompt Polish: طلب كتبه المستخدم بـ{ $language } وفحصه من الأخطاء
+button-label = Prompt Polish
+label-over-pane = فوق الجزء
+label-in-dock = بجانب الأجزاء
+label-fold = طيّ في زر الزاوية
+label-close = إغلاق
+label-placeholder = اكتب طلبك بـ{ $language }…
+label-hint = تبقى الشيفرة بين علامتي الاقتباس المائلة ومسارات الملفات والروابط كما هي تمامًا.
+label-words = الكلمات: { $count }
+label-chars = الأحرف: { $count }
+label-too-long = أكثر من { $max } حرف: اختصره لفحصه.
+label-as-is = إرسال كما هو
+label-check = فحص
+label-checking = جارٍ فحص نصك بـ{ $language }…
+label-changes = التغييرات: { $count }
+label-undone = أُبقيت كلماتك: { $count }
+label-show-result = عرض النتيجة فقط
+label-show-changes = عرض ما تغيّر
+label-click-hint = انقر على تغيير لتُبقي كلماتك هناك.
+label-nothing = لا شيء للتصحيح: نصك بـ{ $language } جيد كما هو.
+label-back = العودة إلى التحرير
+label-send = إرسال إلى الوكيل
+label-sent = إنه على بطاقة السؤال أعلى النافذة. اضغط Return هناك لإرساله إلى الوكيل، أو حرّره أولًا.
+label-again = كتابة طلب آخر
+kind-spelling = الإملاء
+kind-grammar = النحو
+kind-spacing = المسافات
+kind-punctuation = الترقيم
+kind-style = الأسلوب
+error-no-ai = لا يسمح Tilefold هذا للبلاطات بسؤال Claude بعد. حدّث Tilefold لاستخدام Prompt Polish.
+error-no-key = أضف مفتاح Anthropic API في الإعدادات ← الذكاء الاصطناعي لفحص الطلبات.
+error-denied = لا يمكن لـ Prompt Polish سؤال Claude. اسمح بذلك في الإعدادات ← البلاطات.
+error-budget = استهلك Prompt Polish حصة الذكاء الاصطناعي لليوم. حاول مجددًا غدًا.
+error-refused = لم يفحص Claude هذا الطلب. حاول مجددًا.
+error-failed = تعذّر الوصول إلى Claude. حاول لاحقًا.
+error-unreadable = تعذّرت قراءة إجابة Claude. حاول مجددًا.
+error-changed-code = غيّر Claude شيفرة أو مسارًا أو رابطًا، لذا لم تُستخدم تصحيحاته. حاول مجددًا أو أرسل طلبك كما هو.
+error-no-agent-ask = لا يستطيع Tilefold هذا تسليم الطلبات إلى الوكلاء بعد. حدّث Tilefold لإرسالها.
+error-ask-busy = بطاقة السؤال في Tilefold مفتوحة بالفعل. أرسلها أو تجاهلها ثم حاول مجددًا.
+error-ask-no-pane = لا يوجد جزء فيه وكيل لإرسال هذا إليه.
+error-ask-failed = تعذّر وضع الطلب على بطاقة السؤال. حاول مجددًا.
+toast-too-small = الجزء صغير جدًا على Prompt Polish، لذا فُتح بجانب الأجزاء.
+toast-needs-tilefold = يحتاج Prompt Polish إلى إصدار أحدث من Tilefold لعرض صفحته.

@@ -1,0 +1,95 @@
+/**
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Prompt Polish — where the page shows
+ *
+ * Three views, chosen in Settings or from the page's header:
+ *
+ *   bottom  the page on a card across the focused pane, right above its
+ *           input row (the default)
+ *   corner  a round button in the pane's corner above the input, drawn as
+ *           an overlay item; the card opens above it
+ *   side    the page in the dock beside the panes (Tilefold 0.1.20)
+ *
+ * The card follows the focused pane (`overlay.layout` gives the panes'
+ * rectangles and where each one's input row is, never what is in them).
+ * Tilefold docks a page only at 120 to 2,000 pixels a side, so a pane too
+ * small for the card sends it to the side dock instead.
+ *
+ * Pure: no Tilefold calls.
+ */
+
+/** The views, in the order the setting lists them. */
+export const VIEWS = ["bottom", "corner", "side"];
+
+/** Tilefold's limits for a page docked at a spot. */
+export const SPOT_MIN = 120;
+export const SPOT_MAX = 2000;
+
+/** The gap between the card and the pane's edges. */
+export const GAP = 12;
+
+/** The corner button's size (an overlay item may be smaller than a page). */
+export const BUTTON = 36;
+
+/** The corner card's width, and the tallest card. */
+export const CORNER_W = 420;
+export const MAX_H = 440;
+
+/** A view checked: one of VIEWS, or the default. */
+export const viewOf = (value) => (VIEWS.includes(value) ? value : "bottom");
+
+/** The focused pane of a layout, or its first; null without panes. */
+export function focusedPane(layout) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  const ok = panes.filter((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
+  return ok.find((p) => p.focused) ?? ok[0] ?? null;
+}
+
+/**
+ * Where the card (and the corner button) go over the focused pane:
+ * `{ card, button }` rectangles in the window's content (`card` null while
+ * the corner card is closed, `button` null in the bottom view), or null
+ * when the pane can't hold them, meaning "use the side dock".
+ *
+ * @param {object} layout from `tf.overlay.layout()` or `overlay.layout`
+ * @param {"bottom" | "corner"} view
+ * @param {{ h?: number, open?: boolean, rtl?: boolean }} [opts]
+ *   h: the card's wanted height (it shrinks to fit, never under SPOT_MIN);
+ *   open: whether the corner card is open; rtl: the corner is on the left
+ */
+export function placeFor(layout, view, opts = {}) {
+  const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
+  const pane = focusedPane(layout);
+  if (!pane || (view !== "bottom" && view !== "corner")) return null;
+  const top = pane.y + GAP;
+  const composer = pane.composer && Number.isFinite(pane.composer.y) ? pane.composer : null;
+  const floor = (composer ? composer.y : pane.y + pane.h) - GAP;
+  const round = (r) => ({
+    x: Math.round(r.x),
+    y: Math.round(r.y),
+    w: Math.round(r.w),
+    h: Math.round(r.h),
+  });
+  if (view === "bottom") {
+    const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
+    const ch = Math.min(h, floor - top);
+    if (w < SPOT_MIN || ch < SPOT_MIN) return null;
+    return { card: round({ x: pane.x + GAP, y: floor - ch, w, h: ch }), button: null };
+  }
+  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - BUTTON;
+  const button = round({ x: bx, y: floor - BUTTON, w: BUTTON, h: BUTTON });
+  if (button.y < top || pane.w < BUTTON + 2 * GAP) return null;
+  if (!opts.open) return { card: null, button };
+  const w = Math.min(CORNER_W, pane.w - 2 * GAP);
+  const ch = Math.min(h, button.y - GAP - top);
+  if (w < SPOT_MIN || ch < SPOT_MIN) return null;
+  const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
+  return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button };
+}
+
+/** Whether two rectangles (or nulls) are the same. */
+export const sameSpot = (a, b) =>
+  a === b || (!!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h);

@@ -35,6 +35,7 @@ body:
         - "Example: hello"
         - "Example: orbit-guard"
         - "Example: pipeline-board"
+        - "Example: prompt-polish"
         - "Example: quiz"
         - "Example: screensaver-themes"
         - "Example: service-status"

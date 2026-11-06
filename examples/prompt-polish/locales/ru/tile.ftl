@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Prompt Polish (example tile): Russian strings.
+
+tile-name = Prompt Polish (пример)
+tile-description = Исправляет промпты, которые вы пишете ИИ-агентам, на выбранном языке — с помощью Claude и вашего ключа Anthropic. Вы видите каждую правку, оставляете свои слова где хотите и отправляете результат с карточки вопроса Tilefold.
+setting-language = Язык, на котором вы пишете промпты
+setting-language-auto = Как в Tilefold
+setting-mode = Что исправлять
+setting-mode-fix = Только ошибки
+setting-mode-natural = Ошибки и неестественные обороты
+setting-view = Где показывается Prompt Polish
+setting-view-bottom = Над панелью агента, прямо над её вводом
+setting-view-corner = За кнопкой в углу панели
+setting-view-side = В доке рядом с панелями
+setting-fast = Использовать более быструю и дешёвую модель
+cmd-open = Prompt Polish: Написать промпт
+cmd-close = Prompt Polish: Закрыть
+page-lang = ru
+page-dir = ltr
+ai-language = русский
+ask-about = Prompt Polish: промпт, который пользователь написал на языке { $language } и проверил на ошибки
+button-label = Prompt Polish
+label-over-pane = над панелью
+label-in-dock = рядом с панелями
+label-fold = Свернуть в угловую кнопку
+label-close = Закрыть
+label-placeholder = Напишите промпт на языке { $language }…
+label-hint = Код в обратных кавычках, пути к файлам и ссылки остаются как есть.
+label-words = Слов: { $count }
+label-chars = Символов: { $count }
+label-too-long = Больше { $max } символов: сократите, чтобы проверить.
+label-as-is = Отправить как есть
+label-check = Проверить
+label-checking = Проверяем ваш текст ({ $language })…
+label-changes = Правок: { $count }
+label-undone = Ваших слов оставлено: { $count }
+label-show-result = Показать только результат
+label-show-changes = Показать изменения
+label-click-hint = Нажмите на правку, чтобы оставить там свои слова.
+label-nothing = Исправлять нечего: текст ({ $language }) читается хорошо.
+label-back = Вернуться к правке
+label-send = Отправить агенту
+label-sent = Он на карточке вопроса вверху окна. Нажмите там Return, чтобы отправить агенту, или сначала отредактируйте.
+label-again = Написать ещё
+kind-spelling = орфография
+kind-grammar = грамматика
+kind-spacing = пробелы
+kind-punctuation = пунктуация
+kind-style = стиль
+error-no-ai = Этот Tilefold пока не позволяет плиткам спрашивать Claude. Обновите Tilefold, чтобы пользоваться Prompt Polish.
+error-no-key = Добавьте ключ API Anthropic в Настройки → ИИ, чтобы проверять промпты.
+error-denied = Prompt Polish не может спрашивать Claude. Разрешите это в Настройки → Плитки.
+error-budget = Prompt Polish исчерпал сегодняшний лимит ИИ. Попробуйте завтра.
+error-refused = Claude не проверил этот промпт. Попробуйте ещё раз.
+error-failed = Не удалось связаться с Claude. Попробуйте позже.
+error-unreadable = Не удалось прочитать ответ Claude. Попробуйте ещё раз.
+error-changed-code = Claude изменил код, путь или ссылку, поэтому его правки не использованы. Попробуйте ещё раз или отправьте промпт как есть.
+error-no-agent-ask = Этот Tilefold пока не умеет передавать промпты агентам. Обновите Tilefold, чтобы отправлять их.
+error-ask-busy = Карточка вопроса Tilefold уже открыта. Отправьте или сбросьте её и попробуйте снова.
+error-ask-no-pane = Нет панели с агентом, которому это отправить.
+error-ask-failed = Не удалось положить промпт на карточку вопроса. Попробуйте ещё раз.
+toast-too-small = Панель слишком мала для Prompt Polish, поэтому он открылся рядом с панелями.
+toast-needs-tilefold = Prompt Polish нужен более новый Tilefold, чтобы показать свою страницу.

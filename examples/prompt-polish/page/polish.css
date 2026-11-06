@@ -1,0 +1,367 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Prompt Polish's page. Drawn in Tilefold's theme where Tilefold gives it
+ * (the --tf-* variables, Tilefold 0.1.20), else in its own light or dark
+ * following the system. Removed text is struck, added text underlined, and
+ * a change the user undid shows their own words again, dotted.
+ */
+
+:root {
+  --bg: var(--tf-surface-raised, #ffffff);
+  --sunken: var(--tf-canvas, #f0f2f7);
+  --hover: var(--tf-surface-hover, #eceef5);
+  --line: var(--tf-border, #e3e6ee);
+  --line-strong: var(--tf-border-strong, #ccd1de);
+  --text: var(--tf-text, #151826);
+  --text-2: var(--tf-text-secondary, #4a5068);
+  --muted: var(--tf-text-muted, #6e748c);
+  --accent: var(--tf-accent, #6a4df5);
+  --accent-soft: var(--tf-accent-soft, rgba(106, 77, 245, 0.12));
+  --on-accent: var(--tf-on-accent, #ffffff);
+  --ok: var(--tf-success, #12a86a);
+  --bad: var(--tf-error, #d83b52);
+  --warn: var(--tf-warning, #b97a0e);
+  --focus: var(--tf-focus-ring, rgba(106, 77, 245, 0.55));
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--tf-surface-raised, #171a25);
+    --sunken: var(--tf-canvas, #0d0f15);
+    --hover: var(--tf-surface-hover, #1d2130);
+    --line: var(--tf-border, #262b3b);
+    --line-strong: var(--tf-border-strong, #343b50);
+    --text: var(--tf-text, #e8eaf2);
+    --text-2: var(--tf-text-secondary, #a3a9bc);
+    --muted: var(--tf-text-muted, #737a90);
+    --accent: var(--tf-accent, #8b6cff);
+    --accent-soft: var(--tf-accent-soft, rgba(139, 108, 255, 0.16));
+    --ok: var(--tf-success, #3dd68c);
+    --bad: var(--tf-error, #ff5d73);
+    --warn: var(--tf-warning, #f5b451);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    13px/1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+}
+button {
+  font: inherit;
+  color: inherit;
+}
+button:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* Header: name, where it is, the view switch, the language chip, fold, close. */
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 11px;
+}
+.where {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.spacer {
+  flex: 1;
+}
+.views {
+  display: inline-flex;
+  gap: 1px;
+  padding: 1px;
+  border-radius: 6px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+.views button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 3px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: grid;
+}
+.views button svg {
+  width: 16px;
+  height: 12px;
+}
+.views button[aria-pressed="true"] {
+  background: var(--bg);
+  color: var(--accent);
+}
+.chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+}
+.icon {
+  border: 0;
+  background: transparent;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 15px;
+}
+.icon:hover,
+.views button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* The step's body scrolls; its buttons stay in view below it. */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.foot:empty {
+  display: none;
+}
+.btn {
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--hover);
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.warn {
+  color: var(--warn);
+  font-size: 12px;
+}
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+}
+textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.state {
+  padding: 14px 6px;
+  text-align: center;
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.shimmer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.shimmer i {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--hover), var(--sunken), var(--hover));
+  background-size: 200% 100%;
+  animation: sh 1.2s linear infinite;
+}
+@keyframes sh {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer i {
+    animation: none;
+  }
+}
+
+/* The diff. */
+.sum {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.diff {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.75;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+.code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.92em;
+}
+.chg {
+  cursor: pointer;
+  border-radius: 3px;
+}
+.chg del {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  text-decoration: line-through;
+}
+.chg ins {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  text-decoration: underline 2px;
+  text-underline-offset: 3px;
+}
+.chg.off ins {
+  display: none;
+}
+.chg.off del {
+  color: inherit;
+  background: var(--hover);
+  text-decoration: underline dotted;
+}
+.diff.clean .chg:not(.off) del {
+  display: none;
+}
+.diff.clean ins,
+.diff.clean .chg.off del {
+  background: none;
+  color: inherit;
+  text-decoration: none;
+}
+.ws {
+  font-size: 0.85em;
+}
+
+/* The notes: kind, what changed, why. */
+.notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.notes li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.kind {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 6px;
+  border-radius: 999px;
+  align-self: start;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.what {
+  overflow-wrap: anywhere;
+}
+.what s {
+  color: var(--bad);
+}
+.what b {
+  color: var(--ok);
+  font-weight: 600;
+}
+.why {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 12px;
+}

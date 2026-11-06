@@ -1,0 +1,188 @@
+// @vitest-environment node
+/**
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Prompt Polish — the built page
+ *
+ * page/index.html with the built page/main.js in a jsdom window and a fake
+ * Tilefold bridge, sent the setup and views the tile builds: it says hello,
+ * draws the step to write in (sized in words, or characters for Japanese;
+ * Check off while empty or too long), sends the draft and Check; draws the
+ * fixes with a visible mark for a changed space, toggles a change, sends;
+ * switches views and folds from its header; reports its height; and never
+ * reads text from the tile (or from Claude) as markup.
+ */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { JSDOM } from "jsdom";
+import { afterEach, describe, expect, it } from "vitest";
+import { languageOf } from "../../examples/prompt-polish/src/languages.js";
+import { changes, diff } from "../../examples/prompt-polish/src/polish.js";
+import { setupOf, viewOf } from "../../examples/prompt-polish/src/view.js";
+
+const DIR = fileURLToPath(new URL("../../examples/prompt-polish/", import.meta.url));
+const HTML = readFileSync(`${DIR}page/index.html`, "utf8")
+  .replace(/<script[^>]*><\/script>/, "")
+  .replace(/<link[^>]*>/, "");
+const SCRIPT = readFileSync(`${DIR}page/main.js`, "utf8");
+const ftl = readFileSync(`${DIR}locales/en/tile.ftl`, "utf8");
+const english = new Map([...ftl.matchAll(/^([a-z][\w-]*) = (.*)$/gm)].map((m) => [m[1], m[2]]));
+/** The tile's `tf.t`, in English. */
+const t = (key, args = {}) =>
+  english.get(key).replace(/\{ \$(\w+) \}/g, (_, n) => String(args[n] ?? ""));
+
+const windows = [];
+afterEach(() => {
+  for (const w of windows.splice(0)) w.close();
+});
+
+/** The page in its own window, talking to a fake tile. */
+function page() {
+  const dom = new JSDOM(HTML, { runScripts: "outside-only", pretendToBeVisual: true });
+  const w = dom.window;
+  windows.push(w);
+  const posted = [];
+  let listener = null;
+  w.tilefold = {
+    theme: null,
+    post: async (m) => void posted.push(structuredClone(m)),
+    onMessage: (fn) => {
+      listener = fn;
+      return () => {};
+    },
+    onTheme: () => () => {},
+  };
+  w.eval(SCRIPT);
+  const $ = (id) => w.document.getElementById(id);
+  return {
+    w,
+    $,
+    posted,
+    tell: (m) => listener(m),
+    click: (node) => node.dispatchEvent(new w.MouseEvent("click", { bubbles: true })),
+    frame: () => new Promise((r) => w.requestAnimationFrame(() => r())),
+  };
+}
+
+/** A state as the tile keeps it, made into the view it sends. */
+const viewFor = (s) =>
+  viewOf(
+    {
+      draft: "",
+      parts: [],
+      notes: [],
+      rejected: new Set(),
+      clean: false,
+      problem: "",
+      view: "bottom",
+      mode: "fix",
+      language: languageOf("ko", "en"),
+      ...s,
+    },
+    t,
+  );
+
+const ready = (p, s = {}) => {
+  p.tell({ do: "setup", ...setupOf(t) });
+  p.tell({ do: "show", view: viewFor(s) });
+};
+
+describe("the page", () => {
+  it("says hello, then draws the step to write in with the tile's labels", () => {
+    const p = page();
+    expect(p.posted[0]).toEqual({ type: "hello" });
+    ready(p, { draft: "로그인 하면 안돼요" });
+    expect(p.$("name").textContent).toBe("Prompt Polish");
+    expect(p.$("where").textContent).toBe("over the pane");
+    expect(p.$("chip").textContent).toBe("한국어 · Mistakes only");
+    expect(p.$("draft").value).toBe("로그인 하면 안돼요");
+    expect(p.$("foot").textContent).toContain("Words: 3");
+    expect(p.$("views").querySelectorAll("button")).toHaveLength(3);
+    expect(p.$("views").querySelector('[aria-pressed="true"]').title).toBe(
+      "Over the agent's pane, above its input",
+    );
+  });
+
+  it("sizes Japanese in characters, and turns Check off while empty or too long", () => {
+    const p = page();
+    ready(p, { language: languageOf("ja", "en"), draft: "バグを 直して" });
+    expect(p.$("foot").textContent).toContain("Characters: 6");
+    const area = p.$("draft");
+    const check = [...p.$("foot").querySelectorAll("button")].find(
+      (b) => b.textContent === "Check",
+    );
+    area.value = "";
+    area.dispatchEvent(new p.w.Event("input"));
+    expect(check.disabled).toBe(true);
+    area.value = "x".repeat(2001);
+    area.dispatchEvent(new p.w.Event("input"));
+    expect(check.disabled).toBe(true);
+    expect(p.$("body").querySelector(".warn").hidden).toBe(false);
+  });
+
+  it("sends the draft as the user types, and Check with the text", async () => {
+    const p = page();
+    ready(p);
+    const area = p.$("draft");
+    area.value = "고쳐 주세요";
+    area.dispatchEvent(new p.w.Event("input"));
+    await new Promise((r) => setTimeout(r, 350));
+    expect(p.posted).toContainEqual({ type: "draft", text: "고쳐 주세요" });
+    p.click([...p.$("foot").querySelectorAll("button")].find((b) => b.textContent === "Check"));
+    expect(p.posted.at(-1)).toEqual({ type: "check", text: "고쳐 주세요" });
+  });
+
+  it("draws the fixes with a mark for a changed space, toggles a change, and sends", () => {
+    const p = page();
+    const parts = changes(diff("로그인 하면", "로그인하면"));
+    ready(p, {
+      step: "result",
+      parts,
+      notes: [{ from: "로그인 하면", to: "로그인하면", kind: "spacing", why: "Written together." }],
+    });
+    const chg = p.$("body").querySelector(".chg");
+    expect(chg.textContent).toBe("␣");
+    expect(p.$("body").querySelector(".kind").textContent).toBe("spacing");
+    expect(p.$("body").querySelector(".why").textContent).toBe("Written together.");
+    p.click(chg);
+    expect(p.posted.at(-1)).toEqual({ type: "toggle", id: 1 });
+    p.click(
+      [...p.$("foot").querySelectorAll("button")].find((b) => b.textContent === "Send to agent"),
+    );
+    expect(p.posted.at(-1)).toEqual({ type: "send" });
+  });
+
+  it("switches views and folds from its header; the side dock has no fold", () => {
+    const p = page();
+    ready(p);
+    p.click(p.$("views").querySelectorAll("button")[1]);
+    expect(p.posted.at(-1)).toEqual({ type: "view", to: "corner" });
+    p.click(p.$("fold"));
+    expect(p.posted.at(-1)).toEqual({ type: "fold" });
+    p.tell({ do: "show", view: viewFor({ view: "side" }) });
+    expect(p.$("fold").hidden).toBe(true);
+    expect(p.$("where").textContent).toBe("beside the panes");
+  });
+
+  it("tells the tile how tall it is", async () => {
+    const p = page();
+    ready(p);
+    await p.frame();
+    expect(p.posted.some((m) => m.type === "size" && Number.isFinite(m.h))).toBe(true);
+  });
+
+  it("never reads text from the tile or from Claude as markup", () => {
+    const p = page();
+    const evil = '<img src=x onerror="alert(1)">';
+    const parts = changes(diff(`a ${evil}`, `b ${evil}`));
+    ready(p, {
+      step: "result",
+      parts,
+      notes: [{ from: evil, to: "b", kind: "grammar", why: evil }],
+    });
+    expect(p.$("body").querySelector("img")).toBeNull();
+    expect(p.$("body").textContent).toContain(evil);
+  });
+});

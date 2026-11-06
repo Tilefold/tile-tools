@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Prompt Polish (example tile): Hindi strings.
+
+tile-name = Prompt Polish (उदाहरण)
+tile-description = AI एजेंटों को लिखे आपके प्रॉम्प्ट को आपकी चुनी भाषा में Claude और आपकी अपनी Anthropic कुंजी से सुधारता है। हर सुधार दिखता है, जहाँ चाहें अपने शब्द रखें, और नतीजा Tilefold के प्रश्न कार्ड से भेजें।
+setting-language = वह भाषा जिसमें आप प्रॉम्प्ट लिखते हैं
+setting-language-auto = Tilefold जैसी
+setting-mode = क्या सुधारें
+setting-mode-fix = सिर्फ़ ग़लतियाँ
+setting-mode-natural = ग़लतियाँ, और भाषा सहज बनाएँ
+setting-view = Prompt Polish कहाँ दिखे
+setting-view-bottom = एजेंट के पेन के ऊपर, उसके इनपुट के ठीक ऊपर
+setting-view-corner = पेन के कोने के बटन के पीछे
+setting-view-side = पेन के बगल वाले डॉक में
+setting-fast = तेज़ और सस्ता मॉडल इस्तेमाल करें
+cmd-open = Prompt Polish: प्रॉम्प्ट लिखें
+cmd-close = Prompt Polish: बंद करें
+page-lang = hi
+page-dir = ltr
+ai-language = हिन्दी
+ask-about = Prompt Polish: उपयोगकर्ता का { $language } में लिखा और ग़लतियों के लिए जाँचा गया प्रॉम्प्ट
+button-label = Prompt Polish
+label-over-pane = पेन के ऊपर
+label-in-dock = पेन के बगल में
+label-fold = कोने के बटन में समेटें
+label-close = बंद करें
+label-placeholder = अपना प्रॉम्प्ट { $language } में लिखें…
+label-hint = बैकटिक में कोड, फ़ाइल पाथ और लिंक जैसे हैं वैसे ही रहते हैं।
+label-words = शब्द: { $count }
+label-chars = अक्षर: { $count }
+label-too-long = { $max } अक्षरों से ज़्यादा: जाँचने के लिए छोटा करें।
+label-as-is = जैसा है भेजें
+label-check = जाँचें
+label-checking = आपकी { $language } जाँची जा रही है…
+label-changes = बदलाव: { $count }
+label-undone = आपके शब्द रखे: { $count }
+label-show-result = सिर्फ़ नतीजा दिखाएँ
+label-show-changes = बदलाव दिखाएँ
+label-click-hint = किसी बदलाव पर क्लिक करें ताकि वहाँ आपके अपने शब्द रहें।
+label-nothing = सुधारने को कुछ नहीं: आपकी { $language } वैसी ही अच्छी है।
+label-back = संपादन पर लौटें
+label-send = एजेंट को भेजें
+label-sent = यह विंडो के ऊपर प्रश्न कार्ड पर है। एजेंट को भेजने के लिए वहाँ Return दबाएँ, या पहले संपादित करें।
+label-again = एक और लिखें
+kind-spelling = वर्तनी
+kind-grammar = व्याकरण
+kind-spacing = रिक्ति
+kind-punctuation = विराम चिह्न
+kind-style = शैली
+error-no-ai = यह Tilefold अभी टाइलों को Claude से पूछने नहीं देता। Prompt Polish के लिए Tilefold अपडेट करें।
+error-no-key = प्रॉम्प्ट जाँचने के लिए सेटिंग्स → AI में अपनी Anthropic API कुंजी जोड़ें।
+error-denied = Prompt Polish, Claude से नहीं पूछ सकता। सेटिंग्स → टाइल्स में अनुमति दें।
+error-budget = Prompt Polish ने आज का AI कोटा इस्तेमाल कर लिया है। कल फिर कोशिश करें।
+error-refused = Claude ने यह प्रॉम्प्ट नहीं जाँचा। फिर कोशिश करें।
+error-failed = Claude तक नहीं पहुँच सके। बाद में कोशिश करें।
+error-unreadable = Claude का जवाब पढ़ा नहीं जा सका। फिर कोशिश करें।
+error-changed-code = Claude ने कोड, पाथ या लिंक बदल दिया, इसलिए उसके सुधार इस्तेमाल नहीं हुए। फिर कोशिश करें, या प्रॉम्प्ट जैसा है भेजें।
+error-no-agent-ask = यह Tilefold अभी प्रॉम्प्ट एजेंटों को नहीं सौंप सकता। भेजने के लिए Tilefold अपडेट करें।
+error-ask-busy = Tilefold का प्रश्न कार्ड पहले से खुला है। उसे भेजें या हटाएँ, फिर कोशिश करें।
+error-ask-no-pane = भेजने के लिए एजेंट वाला कोई पेन नहीं है।
+error-ask-failed = प्रॉम्प्ट प्रश्न कार्ड पर नहीं रखा जा सका। फिर कोशिश करें।
+toast-too-small = पेन Prompt Polish के लिए बहुत छोटा है, इसलिए यह पेन के बगल में खुला।
+toast-needs-tilefold = अपना पेज दिखाने के लिए Prompt Polish को नया Tilefold चाहिए।

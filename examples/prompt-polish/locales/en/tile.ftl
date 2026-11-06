@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Prompt Polish (example tile): English strings.
+
+tile-name = Prompt Polish (example)
+tile-description = Corrects the prompts you write to AI agents in the language you choose, with Claude and your own Anthropic key. You see every fix, keep your own words where you like, and send the result from Tilefold's ask card.
+setting-language = Language you write prompts in
+setting-language-auto = Same as Tilefold
+setting-mode = What to fix
+setting-mode-fix = Mistakes only
+setting-mode-natural = Mistakes, and make it read naturally
+setting-view = Where Prompt Polish shows
+setting-view-bottom = Over the agent's pane, above its input
+setting-view-corner = Behind a button in the pane's corner
+setting-view-side = In the dock beside the panes
+setting-fast = Use the faster, cheaper model
+cmd-open = Prompt Polish: Write a prompt
+cmd-close = Prompt Polish: Close
+page-lang = en
+page-dir = ltr
+ai-language = English
+ask-about = Prompt Polish: a prompt the user wrote in { $language } and checked for mistakes
+button-label = Prompt Polish
+label-over-pane = over the pane
+label-in-dock = beside the panes
+label-fold = Fold into the corner button
+label-close = Close
+label-placeholder = Write your prompt in { $language }…
+label-hint = Code in backticks, file paths and links are left exactly as they are.
+label-words = Words: { $count }
+label-chars = Characters: { $count }
+label-too-long = Over { $max } characters: shorten it to check it.
+label-as-is = Send as is
+label-check = Check
+label-checking = Checking your { $language }…
+label-changes = Changes: { $count }
+label-undone = Kept yours: { $count }
+label-show-result = Show the result only
+label-show-changes = Show what changed
+label-click-hint = Click a change to keep your own words there.
+label-nothing = Nothing to fix: your { $language } reads well as it is.
+label-back = Back to edit
+label-send = Send to agent
+label-sent = It's on the ask card at the top of the window. Press Return there to send it to the agent, or edit it first.
+label-again = Write another
+kind-spelling = spelling
+kind-grammar = grammar
+kind-spacing = spacing
+kind-punctuation = punctuation
+kind-style = style
+error-no-ai = This Tilefold can't let tiles ask Claude yet. Update Tilefold to use Prompt Polish.
+error-no-key = Add your Anthropic API key in Settings → AI to check prompts.
+error-denied = Prompt Polish may not ask Claude. Allow it in Settings → Tiles.
+error-budget = Prompt Polish has used today's AI allowance. Try again tomorrow.
+error-refused = Claude didn't check this prompt. Try again.
+error-failed = Couldn't reach Claude. Try again later.
+error-unreadable = Claude's answer couldn't be read. Try again.
+error-changed-code = Claude changed code, a path or a link, so its fixes weren't used. Try again, or send your prompt as is.
+error-no-agent-ask = This Tilefold can't hand prompts to agents yet. Update Tilefold to send them.
+error-ask-busy = Tilefold's ask card is already open. Send or drop it, then try again.
+error-ask-no-pane = There's no pane with an agent to send this to.
+error-ask-failed = Couldn't put the prompt on the ask card. Try again.
+toast-too-small = The pane is too small for Prompt Polish, so it opened beside the panes.
+toast-needs-tilefold = Prompt Polish needs a newer Tilefold to show its page.

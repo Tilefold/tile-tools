@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Tilefold
+# Released under the MIT License.
+#
+# Prompt Polish (example tile): Korean strings.
+
+tile-name = Prompt Polish (예제)
+tile-description = AI 에이전트에게 쓰는 프롬프트를 원하는 언어로 Claude와 내 Anthropic 키를 써서 교정합니다. 고친 곳을 모두 보고, 원하는 곳은 내 표현을 그대로 두고, Tilefold의 질문 카드에서 결과를 보냅니다.
+setting-language = 프롬프트를 쓰는 언어
+setting-language-auto = Tilefold와 같은 언어
+setting-mode = 고칠 범위
+setting-mode-fix = 틀린 곳만
+setting-mode-natural = 틀린 곳과 어색한 표현까지
+setting-view = Prompt Polish가 나타나는 곳
+setting-view-bottom = 에이전트 창 위, 입력줄 바로 위
+setting-view-corner = 창 모서리의 버튼 뒤
+setting-view-side = 창 옆 도크
+setting-fast = 더 빠르고 저렴한 모델 사용
+cmd-open = Prompt Polish: 프롬프트 쓰기
+cmd-close = Prompt Polish: 닫기
+page-lang = ko
+page-dir = ltr
+ai-language = 한국어
+ask-about = Prompt Polish: 사용자가 { $language }(으)로 쓰고 맞춤법을 확인한 프롬프트
+button-label = Prompt Polish
+label-over-pane = 창 위
+label-in-dock = 창 옆
+label-fold = 모서리 버튼으로 접기
+label-close = 닫기
+label-placeholder = { $language }(으)로 프롬프트를 쓰세요…
+label-hint = 백틱 안의 코드, 파일 경로, 링크는 그대로 둡니다.
+label-words = 단어: { $count }
+label-chars = 글자: { $count }
+label-too-long = { $max }자를 넘었습니다. 줄여야 확인할 수 있어요.
+label-as-is = 그대로 보내기
+label-check = 확인
+label-checking = { $language } 확인 중…
+label-changes = 수정: { $count }
+label-undone = 내 표현 유지: { $count }
+label-show-result = 결과만 보기
+label-show-changes = 바뀐 곳 보기
+label-click-hint = 바뀐 곳을 누르면 원래 표현으로 둡니다.
+label-nothing = 고칠 곳이 없어요. { $language } 문장이 자연스럽습니다.
+label-back = 다시 편집
+label-send = 에이전트에게 보내기
+label-sent = 창 위쪽 질문 카드에 올라갔어요. 거기서 Return 키를 누르면 에이전트에게 보내집니다. 먼저 고쳐도 돼요.
+label-again = 새로 쓰기
+kind-spelling = 맞춤법
+kind-grammar = 문법
+kind-spacing = 띄어쓰기
+kind-punctuation = 문장 부호
+kind-style = 표현
+error-no-ai = 이 Tilefold에서는 아직 타일이 Claude에게 물어볼 수 없어요. Prompt Polish를 쓰려면 Tilefold를 업데이트하세요.
+error-no-key = 프롬프트를 확인하려면 설정 → AI에서 Anthropic API 키를 추가하세요.
+error-denied = Prompt Polish가 Claude에게 물어볼 수 없어요. 설정 → 타일에서 허용하세요.
+error-budget = Prompt Polish가 오늘의 AI 사용량을 다 썼어요. 내일 다시 해 보세요.
+error-refused = Claude가 이 프롬프트를 확인하지 않았어요. 다시 해 보세요.
+error-failed = Claude에 연결할 수 없어요. 나중에 다시 해 보세요.
+error-unreadable = Claude의 답을 읽을 수 없어요. 다시 해 보세요.
+error-changed-code = Claude가 코드, 경로 또는 링크를 바꿔서 수정 내용을 쓰지 않았어요. 다시 하거나 프롬프트를 그대로 보내세요.
+error-no-agent-ask = 이 Tilefold에서는 아직 프롬프트를 에이전트에게 넘길 수 없어요. 보내려면 Tilefold를 업데이트하세요.
+error-ask-busy = Tilefold의 질문 카드가 이미 열려 있어요. 보내거나 버린 뒤 다시 해 보세요.
+error-ask-no-pane = 보낼 에이전트가 있는 창이 없어요.
+error-ask-failed = 프롬프트를 질문 카드에 올리지 못했어요. 다시 해 보세요.
+toast-too-small = 창이 너무 작아서 Prompt Polish를 창 옆에 열었어요.
+toast-needs-tilefold = Prompt Polish 화면을 보려면 더 새로운 Tilefold가 필요해요.

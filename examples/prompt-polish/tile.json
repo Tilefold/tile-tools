@@ -1,0 +1,20 @@
+{
+  "id": "example.prompt-polish",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    {
+      "page": "to show the page you write your prompt on, over the agent's pane or beside the panes"
+    },
+    {
+      "window.overlay": "to keep the page over the pane you work in, and to draw its button in the pane's corner"
+    },
+    {
+      "ai.ask": "to ask Claude to correct the prompt you wrote, with your own Anthropic key; you see each question first"
+    },
+    {
+      "agent.ask": "to put the corrected prompt on Tilefold's ask card for your agent, where you send it"
+    }
+  ]
+}
