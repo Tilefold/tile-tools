@@ -86,6 +86,8 @@
  *   the questions are kept in `host.asks`, and it answers `{ shown: true }`
  *   or the object `agentAsk` gives (such as `{ shown: false, why: "busy" }`).
  *
+ * Modified 2026-11-06 (Tilefold 0.1.27): `timeline` adds `tf.timeline`
+ *   (fake-timeline.mjs); calls are kept in `host.timeline.calls`.
  * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
@@ -93,6 +95,7 @@ import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addScreensaver } from "./fake-screensaver.mjs";
 import { addAnnotate } from "./fake-annotate.mjs";
+import { addTimeline } from "./fake-timeline.mjs";
 import { addFileWrites } from "./fake-files.mjs";
 import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
@@ -366,6 +369,7 @@ export async function startTile(dir, opts = {}) {
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
   if (opts.screensaver) addScreensaver(tf, host, named);
   if (opts.annotate) addAnnotate(tf, host, named, opts.annotate);
+  if (opts.timeline) addTimeline(tf, host, named, opts.timeline);
   if (opts.agentAsk) {
     host.asks = [];
     tf.agent = {

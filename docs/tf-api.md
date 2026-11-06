@@ -210,6 +210,17 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 `tf.agent.ask({ question, about })` needs `agent.ask` (Tilefold 0.1.23). It brings a question to the AI agent in the pane the user works in, such as one the user typed on the tile's page. Tilefold opens its ask card at the top of the window with the question and a line naming your tile and `about`, and the user presses Return to send it, edits it, or drops it. Your tile never types into a pane. It resolves `{ shown, why }`: `why` is `busy` while a card is already open, or `no-pane` when there's no pane to send to, so keep the question somewhere the agent can still find it, as the Whiteboard keeps it on its board.
 
+## Your agents' timeline
+
+`tf.timeline` needs `agent.timeline` (Tilefold 0.1.27), which Tilefold marks as high risk because it shows what the user and their agents said in panes. It is read-only: what the user asked an agent and what it replied, messages between panes, the panes an agent asked to open and what the user answered, heartbeat nudges, heartbeats that ended and schedule runs. The Manager Board example draws it as a timeline and as lanes.
+
+- `tf.timeline.events({ filter, before, limit })` resolves `{ events, next }`, newest first. Pass `next` as `before` for the older page; it is `null` at the start of history. `filter` is `{ kind: "all" }`, or `team`, `project` or `fold` with a `value` from `filters()`. Each event has `id`, `at`, `kind` (`turn`, `message`, `ask`, `nudge`, `heartbeat`, `run`), `pane`, `to`, `who` (`you`, `agent`, `tilefold`, `schedule`), a one-line `summary`, `more`, `status`, `project` and `detail`.
+- `tf.timeline.fullText(id)` resolves the whole text of an event whose `more` is true.
+- `tf.timeline.filters()` resolves `{ managers, projects, folds }`, and `tf.timeline.now()` the agent panes open now, each with its `name`, `agent`, `state` (`ready`, `idle`, `busy`, `asking`) and `role`.
+- `tf.timeline.export({ filter, format })` shows Tilefold's save dialog and writes Markdown or JSON with the full texts there. It resolves `{ saved, events, truncated }` (the file's name, never its folder) or `{ cancelled: true }`.
+
+Summaries and texts arrive cleaned of control characters; still set them as text, never as HTML.
+
 ## The internet, keys and sign-ins
 
 `tf.net.fetch(url, init?)` sends a request through Tilefold to a host the tile asked for with `net:<host>`. `tf.auth.has(name)` says whether the user has entered a key or signed in for a credential declared in `tile.json`. Both are in [Network, keys and sign-ins](network.md).
@@ -269,7 +280,7 @@ A call the user hasn't allowed fails with `PermissionDeniedError`, which is also
 
 ## Checking for features
 
-A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, `tf.browser` before Tilefold 0.1.11, `tf.screensaver` before Tilefold 0.1.12, and `tf.theme` before Tilefold 0.1.20, so check before using them and tell the user to update:
+A tile may run on an older Tilefold. `tf.net`, `tf.auth` and `tf.ai` are missing on a Tilefold without tile networking and AI, `tf.page` before Tilefold 0.1.7, `tf.browser` before Tilefold 0.1.11, `tf.screensaver` before Tilefold 0.1.12, `tf.theme` before Tilefold 0.1.20, and `tf.timeline` before Tilefold 0.1.27, so check before using them and tell the user to update:
 
 ```js
 if (!tf.net) return tf.toast(tf.t("update-tilefold"));

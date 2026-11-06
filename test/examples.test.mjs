@@ -19,6 +19,7 @@
  * Modified 2026-10-28 (Gomoku example): Gomoku is listed.
  * Modified 2026-10-28 (TileGo example): TileGo is listed.
  * Modified 2026-10-30 (Whiteboard example): Whiteboard is listed.
+ * Modified 2026-11-06 (Manager Board example): the Manager Board is listed.
  *
  * Last updated by: Tilefold
  */
@@ -94,6 +95,7 @@ describe("examples", () => {
       "github-inbox",
       "gomoku",
       "hello",
+      "manager-board",
       "orbit-guard",
       "pipeline-board",
       "quiz",
