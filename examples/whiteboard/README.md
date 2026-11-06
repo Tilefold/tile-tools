@@ -10,7 +10,7 @@ It's a way to learn from what's in your panes with the agent you already use: no
 2. In a pane, ask your agent something like: *"Explain `src/auth.ts` on Tilefold's Whiteboard, step by step."* The first time, Tilefold asks you to let that pane run the board's commands.
 3. The board opens beside your panes (in a window of its own before Tilefold 0.1.20, or after you press **Undock**). The agent shows the content, then draws one step at a time. What it says in each step shows above the board.
 4. **Back** and **Next** (or the left and right arrow keys) go over the explanation again. **Fit to width** and **Actual size** switch between a board that fits the page and one at full size that scrolls.
-5. To ask about something, click a line or a drawing to point at it, type your question and press **Ask**. Asking without a question asks what it is. If the agent is waiting for you, it answers right away. Otherwise, on Tilefold 0.1.23 or later, your question opens Tilefold's ask card at the top of the window with a line saying what you pointed at: press **Return** there to send it to your agent, or edit it first. Nothing goes until you do. On an older Tilefold, tell the agent to read the board.
+5. To ask about something, click a line or a drawing to point at it, type your question and press **Ask**. Asking without a question asks what it is. If the agent is waiting for you, it answers right away. Otherwise, on Tilefold 0.1.23 or later, your question opens Tilefold's ask card at the top of the window with a line saying what you pointed at: press **Return** there to send it to your agent, or edit it first. With agents in more than one pane, the card's **To** list picks which one gets it (from Tilefold 0.1.26; the pane you work in comes first). Nothing goes until you do. On an older Tilefold, tell the agent to read the board.
 
 **Whiteboard: Open**, **Close**, **Clear the board**, **Next step** and **Previous step** are in the command palette.
 
@@ -82,4 +82,4 @@ Whiteboard has no settings. It keeps the board (the content, the drawings, the s
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-11-01 by Tilefold
+Last updated: 2026-11-05 by Tilefold
