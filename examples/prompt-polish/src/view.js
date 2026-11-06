@@ -8,11 +8,18 @@
  * The page draws what the tile sends and says what the user did; it keeps
  * nothing of its own. `setupOf` is sent once when the page says hello: its
  * language, direction and every label. `viewOf` is sent on every change:
- * the step (write, checking, result, sent, problem) with what it shows.
- * All text is already in the user's language. Pure: no Tilefold calls.
+ * the step (write, checking, agent, result, sent, problem) with what it
+ * shows. All text is already in the user's language. Pure: no Tilefold
+ * calls.
+ *
+ * Modified 2026-11-06 (no-key mode): the `agent` step (waiting for the
+ *   agent in the pane), and a problem that can offer to ask it instead.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
+
+/** Problems the agent in the pane can get around: no Claude, or no key for it. */
+const AGENT_CAN_HELP = new Set(["error-no-ai", "error-no-key"]);
 
 /** The label of each kind of fix. */
 const KIND_KEYS = {
@@ -53,6 +60,9 @@ export function setupOf(t) {
       send: t("label-send"),
       sent: t("label-sent"),
       again: t("label-again"),
+      cancel: t("label-cancel"),
+      askAgent: t("label-ask-agent"),
+      agentHint: t("label-agent-hint"),
       words: t("label-words", { count: "{count}" }),
       chars: t("label-chars", { count: "{count}" }),
       tooLong: t("label-too-long", { max: MAX_CHARS }),
@@ -81,8 +91,13 @@ export function viewOf(s, t) {
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
   }
+  if (s.step === "agent") {
+    return { ...head, step: "agent", text: t("label-agent-waiting", { language: lang.native }) };
+  }
   if (s.step === "problem") {
-    return { ...head, step: "problem", text: t(s.problem) };
+    // With a prompt to check, the agent in the pane can do it instead.
+    const offer = AGENT_CAN_HELP.has(s.problem) && !!String(s.draft ?? "").trim();
+    return { ...head, step: "problem", text: t(s.problem), askAgent: offer };
   }
   if (s.step === "sent") return { ...head, step: "sent" };
   if (s.step === "result") {

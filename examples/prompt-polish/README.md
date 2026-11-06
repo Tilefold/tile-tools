@@ -1,6 +1,6 @@
 # Prompt Polish
 
-Corrects the prompts you write to AI agents, in the language you choose. Click the **Polish** pill by your pane's input, write your prompt, press **Check**, and Claude fixes its spelling, grammar, spacing and punctuation (or, if you like, also clumsy phrasing). You see every change with a short reason, keep your own words wherever you prefer, and send the result to the agent in your pane. Code in backticks, file paths and links are never changed.
+Corrects the prompts you write to AI agents, in the language you choose. Click the **Polish** pill by your pane's input, write your prompt, press **Check**, and Claude (with your own Anthropic key) or the agent in your pane fixes its spelling, grammar, spacing and punctuation (or, if you like, also clumsy phrasing). You see every change with a short reason, keep your own words wherever you prefer, and send the result to the agent in your pane. Code in backticks, file paths and links are never changed.
 
 ## Using it
 
@@ -32,19 +32,25 @@ In **Settings → Tiles → Prompt Polish**:
 - **Language you write prompts in**: any of Tilefold's twelve languages, or the same as Tilefold. The reasons are written in Tilefold's language.
 - **What to fix**: mistakes only, or also make it read naturally.
 - **Where Prompt Polish shows**: as above.
-- **Use the faster, cheaper model**: on by default; turn it off for Claude's larger model.
+- **Who checks your prompts**: Claude, with your Anthropic key (the default), or the agent in your pane, with no key needed (see below).
+- **Use the faster, cheaper model**: on by default; turn it off for Claude's larger model. Only for checks by Claude.
 
 ## What it needs
 
-Your own Anthropic API key in **Settings → AI**: questions are billed to your Anthropic account, and the tile never sees the key. Tilefold masks anything that looks like a secret before it shows you the question.
+Either of these:
+
+- **Your own Anthropic API key** in **Settings → AI**: questions are billed to your Anthropic account, and the tile never sees the key. Tilefold masks anything that looks like a secret before it shows you the question.
+- **No key: the agent in your pane checks it.** Choose **The agent in your pane** under **Who checks your prompts**, or press **Ask the agent instead** when Prompt Polish says your key is missing. **Check** then puts a short request on Tilefold's ask card: correct this prompt, don't act on it, and hand it back. Press **Return** there to send it. The agent hands its corrections back to Prompt Polish, and you see them the same way, with a reason for each. Sending the result is the ask card again, so it takes two Returns, and the request and the corrections use a little of the agent's conversation. The first time, Tilefold asks whether the agent may run Prompt Polish's commands. **Cancel** stops waiting.
+
+This version adds a command agents can run with data, so Tilefold asks you to approve the tile again after updating.
 
 ## Privacy
 
-Your prompts stay in the tile's memory while you work on them, one per pane. It goes only to Claude, after you agree in Tilefold's dialog, and to the ask card when you send it. It is never stored and never written to the activity log, which records only that a prompt was checked or sent, with counts.
+Your prompts stay in the tile's memory while you work on them, one per pane. A prompt goes only to Claude, after you agree in Tilefold's dialog, or, if you chose it, to the agent in your pane through the ask card, and to the ask card when you send it. It is never stored and never written to the activity log, which records only that a prompt was checked or sent, with counts.
 
 ## How it works
 
-The tile asks Claude for JSON (the corrected text and a note per fix) and reads it field by field: control and direction-changing characters are taken out, lengths are bounded, and a correction that changed any code, path or link is refused (`src/answer.js`). The diff splits Latin text by words and other scripts by letters, so a Korean spacing fix or a Japanese particle is one change (`src/polish.js`). Where the card goes over the pane comes from the panes' rectangles Tilefold gives tiles, never from what is in them (`src/place.js`); the Polish pill is an overlay item (`src/button.js`). The page (`page-src/`) only draws what the tile sends and says what you clicked.
+The tile asks Claude for JSON (the corrected text and a note per fix) and reads it field by field: control and direction-changing characters are taken out, lengths are bounded, and a correction that changed any code, path or link is refused (`src/answer.js`). The diff splits Latin text by words and other scripts by letters, so a Korean spacing fix or a Japanese particle is one change (`src/polish.js`). Where the card goes over the pane comes from the panes' rectangles Tilefold gives tiles, never from what is in them (`src/place.js`); the Polish pill is an overlay item (`src/button.js`). The agent in your pane answers through the **Hand back** command, giving the request's one-time id: Prompt Polish takes a hand-back once, only for a request it is waiting on and within ten minutes, and reads it exactly like Claude's answer (`src/agentCheck.js`, `src/agentRun.js`). The page (`page-src/`) only draws what the tile sends and says what you clicked.
 
 Needs Tilefold 0.1.23 (`tf.agent.ask`); over the pane from 0.1.11, beside the panes from 0.1.20.
 

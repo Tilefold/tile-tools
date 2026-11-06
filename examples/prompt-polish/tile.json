@@ -1,6 +1,6 @@
 {
   "id": "example.prompt-polish",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
@@ -14,7 +14,7 @@
       "ai.ask": "to ask Claude to correct the prompt you wrote, with your own Anthropic key; you see each question first"
     },
     {
-      "agent.ask": "to put the corrected prompt on Tilefold's ask card for your agent, where you send it"
+      "agent.ask": "to put the corrected prompt on Tilefold's ask card for your agent, where you send it, and, if you choose, to ask that agent to check your prompt when you have no Anthropic key"
     }
   ]
 }

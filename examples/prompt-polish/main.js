@@ -19,6 +19,74 @@
  * Built into main.js with `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
+// src/agentCheck.js
+var TILE_ID = "example.prompt-polish";
+var HAND_BACK = "hand-back";
+var REQUEST_TTL_MS = 10 * 60 * 1e3;
+var REQUEST_ID = /^[a-z0-9]{10}$/;
+var MAX_CORRECTED = 8e3;
+var MAX_NOTES = 40;
+var MAX_QUESTION = 4e3;
+function newRequestId(random = Math.random) {
+  const abc = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let id = "";
+  for (let i = 0; i < 10; i++) id += abc[Math.floor(random() * abc.length) % abc.length];
+  return id;
+}
+var HAND_BACK_INPUT = `{"request": the id from Prompt Polish's request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}]}`;
+function agentQuestion({ text, language, mode, uiLanguage, request, command }) {
+  const lines = [
+    `Prompt Polish request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
+    mode === "natural" ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural." : "Fix only spelling, grammar, spacing and punctuation. Do not reword anything else.",
+    "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
+    `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]}.`,
+    'If nothing needs fixing, hand back the prompt unchanged with "notes": []. Do nothing else, and reply only "Done".',
+    "",
+    "The prompt, between the lines:",
+    "-----",
+    String(text),
+    "-----"
+  ];
+  return lines.join("\n").slice(0, MAX_QUESTION);
+}
+var str = (v) => typeof v === "string" ? v : "";
+function readHandBack(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { ok: false };
+  const request = str(input.request);
+  if (!REQUEST_ID.test(request)) return { ok: false };
+  const corrected = str(input.corrected);
+  if (!corrected || corrected.length > MAX_CORRECTED) return { ok: false };
+  const notes = (Array.isArray(input.notes) ? input.notes : []).slice(0, MAX_NOTES).filter((n) => n && typeof n === "object" && !Array.isArray(n)).map((n) => ({ from: str(n.from), to: str(n.to), kind: str(n.kind), why: str(n.why) }));
+  return { ok: true, request, answer: JSON.stringify({ corrected, notes }) };
+}
+function createPending(now = Date.now) {
+  const byId = /* @__PURE__ */ new Map();
+  const sweep = () => {
+    for (const [id, e] of byId) if (now() - e.at > REQUEST_TTL_MS) byId.delete(id);
+  };
+  const dropFor = (pane) => {
+    for (const [id, e] of byId) if (e.pane === pane) byId.delete(id);
+  };
+  return {
+    add(id, entry) {
+      sweep();
+      dropFor(entry.pane);
+      byId.set(id, { ...entry, at: now() });
+    },
+    take(id) {
+      sweep();
+      const e = byId.get(id) ?? null;
+      byId.delete(id);
+      return e;
+    },
+    dropFor,
+    has(pane) {
+      sweep();
+      return [...byId.values()].some((e) => e.pane === pane);
+    }
+  };
+}
+
 // src/polish.js
 var MAX_CHARS = 2e3;
 var MAX_CELLS = 4e6;
@@ -122,7 +190,7 @@ function blocker(text) {
 
 // src/answer.js
 var KINDS = ["spelling", "grammar", "spacing", "punctuation", "style"];
-var MAX_NOTES = 40;
+var MAX_NOTES2 = 40;
 function systemPrompt(language, mode, uiLanguage) {
   return [
     `You correct prompts a developer writes in ${language} to an AI coding agent.`,
@@ -181,7 +249,7 @@ function readAnswer(text, original) {
     return { ok: false, why: "unreadable" };
   }
   if (!keepsProtected(original, corrected)) return { ok: false, why: "changed-code" };
-  const notes = (Array.isArray(json.notes) ? json.notes : []).slice(0, MAX_NOTES).map(readNote).filter(Boolean);
+  const notes = (Array.isArray(json.notes) ? json.notes : []).slice(0, MAX_NOTES2).map(readNote).filter(Boolean);
   return { ok: true, corrected, notes };
 }
 function errorKey(err) {
@@ -199,6 +267,153 @@ function errorKey(err) {
     default:
       return "error-failed";
   }
+}
+
+// src/agentRun.js
+function createAgentRun(tf, deps) {
+  const { sessions, render, refreshButton, audit, warn, language, mode } = deps;
+  const pending = createPending();
+  const problem = (id, s, key) => {
+    Object.assign(s, { step: "problem", problem: key });
+    return render(id);
+  };
+  const check = async (id, original) => {
+    const s = sessions.get(id);
+    if (!s) return;
+    if (typeof tf.agent?.ask !== "function") return problem(id, s, "error-no-agent-ask");
+    const request = newRequestId();
+    const lang = language();
+    const m = mode();
+    const question = agentQuestion({
+      text: original,
+      language: lang.name,
+      mode: m,
+      uiLanguage: tf.t("ai-language"),
+      request,
+      command: `${TILE_ID}.${HAND_BACK}`
+    });
+    let r;
+    try {
+      r = await tf.agent.ask({ question, about: tf.t("agent-check-about") });
+    } catch (err) {
+      warn(err);
+      return problem(id, s, "error-ask-failed");
+    }
+    if (!r?.shown)
+      return problem(id, s, r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane");
+    pending.add(request, { pane: id, original, language: lang.code, mode: m });
+    Object.assign(s, { step: "agent", draft: original, problem: "" });
+    audit("agent-asked", { language: lang.code, mode: m });
+    await render(id);
+  };
+  const handBack = async (input) => {
+    if (input === null || input === void 0) throw new Error("run by agents only, with input");
+    const h = readHandBack(input);
+    if (!h.ok) {
+      throw new Error(
+        'input: {"request": the id from the request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind", "why"}]}'
+      );
+    }
+    const e = pending.take(h.request);
+    if (!e) {
+      throw new Error(
+        "Prompt Polish isn't waiting for this request: it was handed back already, cancelled, or is over 10 minutes old"
+      );
+    }
+    const s = sessions.get(e.pane);
+    if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Prompt Polish");
+    const r = readAnswer(h.answer, e.original);
+    if (!r.ok) {
+      const changedCode = r.why === "changed-code";
+      await problem(e.pane, s, changedCode ? "error-agent-changed-code" : "error-agent-unreadable");
+      throw new Error(
+        changedCode ? "the correction changed code, a file path or a link, so it was not shown; the user can ask again" : "the correction could not be read, so it was not shown; the user can ask again"
+      );
+    }
+    Object.assign(s, {
+      step: "result",
+      parts: changes(diff(e.original, r.corrected)),
+      notes: r.notes,
+      rejected: /* @__PURE__ */ new Set(),
+      clean: false
+    });
+    const count = changeCount(s.parts);
+    audit("checked", { language: e.language, mode: e.mode, changes: count, checker: "agent" });
+    await render(e.pane);
+    await refreshButton();
+    return { shown: true, changes: count };
+  };
+  const cancel = async (id) => {
+    pending.dropFor(id);
+    const s = sessions.get(id);
+    if (s && s.step === "agent") s.step = "write";
+    await render(id);
+  };
+  const forget = (id) => pending.dropFor(id);
+  return { check, handBack, cancel, forget };
+}
+
+// src/claudeRun.js
+function createClaudeRun(tf, deps) {
+  const { sessions, render, refreshButton, audit, language, mode, fast } = deps;
+  const check = async (id, original) => {
+    const s = sessions.get(id);
+    if (!s) return;
+    if (!tf.ai) {
+      Object.assign(s, { step: "problem", problem: "error-no-ai" });
+      return render(id);
+    }
+    s.busy = true;
+    const lang = language();
+    const m = mode();
+    s.step = "checking";
+    await render(id);
+    try {
+      let answer;
+      try {
+        answer = await tf.ai.ask(
+          buildAsk({
+            text: original,
+            language: lang.name,
+            mode: m,
+            uiLanguage: tf.t("ai-language"),
+            fast: fast()
+          })
+        );
+      } catch (err) {
+        const key = errorKey(err);
+        Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
+        return render(id);
+      }
+      const r = readAnswer(answer.text, original);
+      if (!r.ok) {
+        Object.assign(s, {
+          step: "problem",
+          problem: r.why === "changed-code" ? "error-changed-code" : "error-unreadable"
+        });
+        return render(id);
+      }
+      Object.assign(s, {
+        step: "result",
+        parts: changes(diff(original, r.corrected)),
+        notes: r.notes,
+        rejected: /* @__PURE__ */ new Set(),
+        clean: false
+      });
+      audit("checked", {
+        language: lang.code,
+        mode: m,
+        changes: changeCount(s.parts),
+        model: String(answer.model ?? ""),
+        outputTokens: Number(answer.usage?.outputTokens ?? 0)
+      });
+      await render(id);
+      await refreshButton();
+    } finally {
+      s.busy = false;
+    }
+  };
+  return { check };
 }
 
 // src/languages.js
@@ -334,7 +549,9 @@ function createSessions() {
 
 // src/settings.js
 var MODES = ["fix", "natural"];
+var CHECKERS = ["claude", "agent"];
 var MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
+var CHECKER_KEYS = { claude: "setting-checker-claude", agent: "setting-checker-agent" };
 var VIEW_KEYS = {
   corner: "setting-view-corner",
   bottom: "setting-view-bottom",
@@ -357,6 +574,9 @@ function registerSettings(tf) {
   tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) }))
   });
+  tf.setting("checker", "claude", tf.t("setting-checker"), {
+    choices: CHECKERS.map((value) => ({ value, label: tf.t(CHECKER_KEYS[value]) }))
+  });
   tf.setting("fast", true, tf.t("setting-fast"));
 }
 var read = (settings, key) => {
@@ -372,7 +592,8 @@ function settingsOf(settings) {
     language: read(settings, "language"),
     mode: mode === "natural" ? "natural" : "fix",
     view: viewOf(read(settings, "view")),
-    fast: read(settings, "fast") !== false
+    fast: read(settings, "fast") !== false,
+    checker: read(settings, "checker") === "agent" ? "agent" : "claude"
   };
 }
 
@@ -562,6 +783,7 @@ function createStage(tf, o) {
 }
 
 // src/view.js
+var AGENT_CAN_HELP = /* @__PURE__ */ new Set(["error-no-ai", "error-no-key"]);
 var KIND_KEYS = {
   spelling: "kind-spelling",
   grammar: "kind-grammar",
@@ -594,6 +816,9 @@ function setupOf(t) {
       send: t("label-send"),
       sent: t("label-sent"),
       again: t("label-again"),
+      cancel: t("label-cancel"),
+      askAgent: t("label-ask-agent"),
+      agentHint: t("label-agent-hint"),
       words: t("label-words", { count: "{count}" }),
       chars: t("label-chars", { count: "{count}" }),
       tooLong: t("label-too-long", { max: MAX_CHARS })
@@ -614,8 +839,12 @@ function viewOf2(s, t) {
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
   }
+  if (s.step === "agent") {
+    return { ...head, step: "agent", text: t("label-agent-waiting", { language: lang.native }) };
+  }
   if (s.step === "problem") {
-    return { ...head, step: "problem", text: t(s.problem) };
+    const offer = AGENT_CAN_HELP.has(s.problem) && !!String(s.draft ?? "").trim();
+    return { ...head, step: "problem", text: t(s.problem), askAgent: offer };
   }
   if (s.step === "sent") return { ...head, step: "sent" };
   if (s.step === "result") {
@@ -734,6 +963,7 @@ function runPolish(tf) {
   const closeShown = async () => {
     const s = sessions.get(shown);
     if (s) {
+      agentRun.forget(shown);
       resetSession(s);
       s.open = false;
     }
@@ -772,65 +1002,27 @@ function runPolish(tf) {
     if (s) s.open = false;
     await place();
   };
-  const check = async (id, text) => {
+  const deps = {
+    sessions,
+    render,
+    refreshButton: async () => {
+      if (stage.buttonShown()) await place();
+    },
+    audit,
+    warn,
+    language,
+    mode: () => current().mode,
+    fast: () => current().fast
+  };
+  const claudeRun = createClaudeRun(tf, deps);
+  const agentRun = createAgentRun(tf, deps);
+  const check = async (id, text, by = current().checker) => {
     const s = sessions.get(id);
     if (!s) return;
     s.draft = String(text ?? "").slice(0, MAX_DRAFT);
     if (s.busy || blocker(s.draft)) return;
-    if (!tf.ai) {
-      Object.assign(s, { step: "problem", problem: "error-no-ai" });
-      return render(id);
-    }
-    s.busy = true;
-    const original = s.draft;
-    const lang = language();
-    const { mode, fast } = current();
-    s.step = "checking";
-    await render(id);
-    try {
-      let answer;
-      try {
-        answer = await tf.ai.ask(
-          buildAsk({
-            text: original,
-            language: lang.name,
-            mode,
-            uiLanguage: tf.t("ai-language"),
-            fast
-          })
-        );
-      } catch (err) {
-        const key = errorKey(err);
-        Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
-        return render(id);
-      }
-      const r = readAnswer(answer.text, original);
-      if (!r.ok) {
-        Object.assign(s, {
-          step: "problem",
-          problem: r.why === "changed-code" ? "error-changed-code" : "error-unreadable"
-        });
-        return render(id);
-      }
-      Object.assign(s, {
-        step: "result",
-        parts: changes(diff(original, r.corrected)),
-        notes: r.notes,
-        rejected: /* @__PURE__ */ new Set(),
-        clean: false
-      });
-      audit("checked", {
-        language: lang.code,
-        mode,
-        changes: changeCount(s.parts),
-        model: String(answer.model ?? ""),
-        outputTokens: Number(answer.usage?.outputTokens ?? 0)
-      });
-      await render(id);
-      if (stage.buttonShown()) await place();
-    } finally {
-      s.busy = false;
-    }
+    if (by === "agent") return agentRun.check(id, s.draft);
+    return claudeRun.check(id, s.draft);
   };
   const sendToAgent = async (id, text, how) => {
     const s = sessions.get(id);
@@ -880,6 +1072,8 @@ function runPolish(tf) {
       return;
     }
     if (m.type === "check") return check(id, m.text);
+    if (m.type === "agent-check") return check(id, s.draft, "agent");
+    if (m.type === "cancel-agent") return agentRun.cancel(id);
     if (m.type === "as-is")
       return sendToAgent(id, String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
     if (m.type === "toggle" && s.step === "result") {
@@ -902,6 +1096,7 @@ function runPolish(tf) {
     if (m.type === "send" && s.step === "result")
       return sendToAgent(id, build(s.parts, s.rejected), "corrected");
     if (m.type === "again") {
+      agentRun.forget(id);
       resetSession(s);
       return render(id);
     }
@@ -921,6 +1116,11 @@ function runPolish(tf) {
       { id: c.id }
     );
   }
+  tf.command(
+    tf.t("cmd-hand-back"),
+    async (input) => input == null ? void await open() : agentRun.handBack(input),
+    { id: HAND_BACK, input: HAND_BACK_INPUT }
+  );
   tf.on(
     "page.message",
     background((e) => hear(e && e.message))

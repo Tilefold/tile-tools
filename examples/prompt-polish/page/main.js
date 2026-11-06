@@ -16,6 +16,9 @@
  * from the tile or from Claude is read as HTML. All labels arrive from the
  * tile in the user's language.
  *
+ * Modified 2026-11-06 (no-key mode): waiting for the agent in the pane,
+ *   with Cancel, and a problem's "Ask the agent instead".
+ *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from page-src/main.js. Edit the sources, then rebuild.
@@ -236,11 +239,24 @@
     $("body").replaceChildren(box);
     $("foot").replaceChildren(el("span", "spacer"), button("btn", L.again, { type: "again" }));
   }
+  function drawAgent(v) {
+    const box = el("div", "state");
+    box.append(el("b", "", v.text), el("span", "muted", L.agentHint));
+    $("body").replaceChildren(box);
+    $("foot").replaceChildren(
+      el("span", "spacer"),
+      button("btn", L.cancel, { type: "cancel-agent" })
+    );
+  }
   function drawProblem(v) {
     const box = el("div", "state");
     box.append(el("b", "", v.text));
     $("body").replaceChildren(box);
-    $("foot").replaceChildren(button("btn", L.back, { type: "back" }));
+    const foot = [button("btn", L.back, { type: "back" })];
+    if (v.askAgent) {
+      foot.push(el("span", "spacer"), button("btn primary", L.askAgent, { type: "agent-check" }));
+    }
+    $("foot").replaceChildren(...foot);
   }
   function draw(v) {
     if (!L) return;
@@ -248,6 +264,7 @@
     view = v;
     drawHead(v);
     if (v.step === "checking") drawChecking(v);
+    else if (v.step === "agent") drawAgent(v);
     else if (v.step === "result") drawResult(v);
     else if (v.step === "sent") drawSent();
     else if (v.step === "problem") drawProblem(v);

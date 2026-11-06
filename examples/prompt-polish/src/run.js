@@ -34,13 +34,24 @@
  * recorded: the tile's log gets one-word actions (tile.<id>.<action>) with
  * counts only: `opened`, `closed`, `checked`, `sent`, `view-changed`.
  *
+ * Who checks (setting `checker`): Claude with the user's own key
+ * (claudeRun.js), or the agent in the pane (agentRun.js), for users
+ * without a key. The agent hands its correction back through the Hand back
+ * command (`tile_run`), and the same diff shows. Where the key is missing,
+ * the card offers to ask the agent instead.
+ *
  * Event handlers get half a second, so each starts its work in the
  * background and returns at once.
+ *
+ * Modified 2026-11-06 (no-key mode): the agent in the pane can check the
+ *   prompt; Claude's check moved to claudeRun.js.
  */
-import { buildAsk, errorKey, readAnswer } from "./answer.js";
+import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
+import { createAgentRun } from "./agentRun.js";
+import { createClaudeRun } from "./claudeRun.js";
 import { languageOf } from "./languages.js";
 import { viewOf as checkView } from "./place.js";
-import { blocker, build, changeCount, changes, diff } from "./polish.js";
+import { blocker, build, changeCount } from "./polish.js";
 import { createSessions, resetSession } from "./sessions.js";
 import { COMMANDS, settingsOf } from "./settings.js";
 import { BUTTON_ID, createStage } from "./show.js";
@@ -174,6 +185,7 @@ export function runPolish(tf) {
   const closeShown = async () => {
     const s = sessions.get(shown);
     if (s) {
+      agentRun.forget(shown);
       resetSession(s);
       s.open = false;
     }
@@ -219,67 +231,30 @@ export function runPolish(tf) {
     await place();
   };
 
-  /** Asks Claude to check pane `id`'s prompt, then shows the fixes there. */
-  const check = async (id, text) => {
+  // The two ways to check a prompt share how they show what they found.
+  const deps = {
+    sessions,
+    render,
+    refreshButton: async () => {
+      if (stage.buttonShown()) await place();
+    },
+    audit,
+    warn,
+    language,
+    mode: () => current().mode,
+    fast: () => current().fast,
+  };
+  const claudeRun = createClaudeRun(tf, deps);
+  const agentRun = createAgentRun(tf, deps);
+
+  /** Checks pane `id`'s prompt: by Claude with the user's key, or by the agent in the pane. */
+  const check = async (id, text, by = current().checker) => {
     const s = sessions.get(id);
     if (!s) return;
     s.draft = String(text ?? "").slice(0, MAX_DRAFT);
     if (s.busy || blocker(s.draft)) return;
-    if (!tf.ai) {
-      Object.assign(s, { step: "problem", problem: "error-no-ai" });
-      return render(id);
-    }
-    s.busy = true;
-    const original = s.draft;
-    const lang = language();
-    const { mode, fast } = current();
-    s.step = "checking";
-    await render(id);
-    try {
-      let answer;
-      try {
-        answer = await tf.ai.ask(
-          buildAsk({
-            text: original,
-            language: lang.name,
-            mode,
-            uiLanguage: tf.t("ai-language"),
-            fast,
-          }),
-        );
-      } catch (err) {
-        const key = errorKey(err);
-        Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
-        return render(id);
-      }
-      const r = readAnswer(answer.text, original);
-      if (!r.ok) {
-        Object.assign(s, {
-          step: "problem",
-          problem: r.why === "changed-code" ? "error-changed-code" : "error-unreadable",
-        });
-        return render(id);
-      }
-      Object.assign(s, {
-        step: "result",
-        parts: changes(diff(original, r.corrected)),
-        notes: r.notes,
-        rejected: new Set(),
-        clean: false,
-      });
-      // Counts only: never the prompt or the fixes.
-      audit("checked", {
-        language: lang.code,
-        mode,
-        changes: changeCount(s.parts),
-        model: String(answer.model ?? ""),
-        outputTokens: Number(answer.usage?.outputTokens ?? 0),
-      });
-      await render(id);
-      if (stage.buttonShown()) await place();
-    } finally {
-      s.busy = false;
-    }
+    if (by === "agent") return agentRun.check(id, s.draft);
+    return claudeRun.check(id, s.draft);
   };
 
   /** Puts `text` on Tilefold's ask card for the agent in the pane the user works in. */
@@ -336,6 +311,8 @@ export function runPolish(tf) {
       return;
     }
     if (m.type === "check") return check(id, m.text);
+    if (m.type === "agent-check") return check(id, s.draft, "agent");
+    if (m.type === "cancel-agent") return agentRun.cancel(id);
     if (m.type === "as-is")
       return sendToAgent(id, String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
     if (m.type === "toggle" && s.step === "result") {
@@ -358,6 +335,7 @@ export function runPolish(tf) {
     if (m.type === "send" && s.step === "result")
       return sendToAgent(id, build(s.parts, s.rejected), "corrected");
     if (m.type === "again") {
+      agentRun.forget(id);
       resetSession(s);
       return render(id);
     }
@@ -390,6 +368,12 @@ export function runPolish(tf) {
       { id: c.id },
     );
   }
+  // For AI agents: the agent in the pane hands back the prompt it corrected.
+  tf.command(
+    tf.t("cmd-hand-back"),
+    async (input) => (input == null ? void (await open()) : agentRun.handBack(input)),
+    { id: HAND_BACK, input: HAND_BACK_INPUT },
+  );
   tf.on(
     "page.message",
     background((e) => hear(e && e.message)),

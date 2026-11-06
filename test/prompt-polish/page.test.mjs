@@ -15,6 +15,9 @@
  * draft still waiting to its own pane before drawing another pane's;
  * switches views and folds from its header; reports its height; and never
  * reads text from the tile (or from Claude) as markup.
+ *
+ * Modified 2026-11-06 (no-key mode): waiting for the agent with Cancel, and
+ *   "Ask the agent instead" offered only for a missing key or Claude.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -180,6 +183,31 @@ describe("the page", () => {
     expect(p.$("draft").value).toBe("두 번째 창");
     p.click([...p.$("foot").querySelectorAll("button")].find((b) => b.textContent === "Check"));
     expect(p.posted.at(-1)).toEqual({ pane: "p2", type: "check", text: "두 번째 창" });
+  });
+
+  it("waits for the agent in the pane, with Cancel", () => {
+    const p = page();
+    ready(p, { step: "agent", draft: "고쳐 주세요" });
+    expect(p.$("body").textContent).toContain("Asked the agent to check your 한국어…");
+    expect(p.$("body").textContent).toContain("Press Return on the ask card");
+    const buttons = [...p.$("foot").querySelectorAll("button")];
+    expect(buttons.map((b) => b.textContent)).toEqual(["Cancel"]);
+    p.click(buttons[0]);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "cancel-agent" });
+  });
+
+  it("offers to ask the agent when there is no key, and only then", () => {
+    const p = page();
+    ready(p, { step: "problem", problem: "error-no-key", draft: "고쳐 주세요" });
+    const ask = [...p.$("foot").querySelectorAll("button")].find(
+      (b) => b.textContent === "Ask the agent instead",
+    );
+    p.click(ask);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "agent-check" });
+    ready(p, { step: "problem", problem: "error-refused", draft: "고쳐 주세요" });
+    expect(p.$("foot").textContent).not.toContain("Ask the agent instead");
+    ready(p, { step: "problem", problem: "error-no-key", draft: "  " });
+    expect(p.$("foot").textContent).not.toContain("Ask the agent instead");
   });
 
   it("tells the tile how tall it is", async () => {

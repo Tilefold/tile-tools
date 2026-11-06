@@ -8,7 +8,10 @@
  * What the user chooses in Settings → Tiles → Prompt Polish: the language
  * they write prompts in, whether to fix mistakes only or also make the
  * prompt read naturally, where the page shows, and whether to use the
- * faster, cheaper model. And the palette commands, each with a fixed id.
+ * faster, cheaper model, and who checks: Claude with their own key, or the
+ * agent in their pane. And the palette commands, each with a fixed id.
+ *
+ * Modified 2026-11-06 (no-key mode): the `checker` setting.
  */
 import { LANGUAGES } from "./languages.js";
 import { VIEWS, viewOf } from "./place.js";
@@ -16,8 +19,12 @@ import { VIEWS, viewOf } from "./place.js";
 /** The modes: fix mistakes only, or also make it natural. */
 export const MODES = ["fix", "natural"];
 
-/** The label of each mode and view. */
+/** Who checks prompts: Claude with the user's key, or the agent in the pane. */
+export const CHECKERS = ["claude", "agent"];
+
+/** The label of each mode, view and checker. */
 const MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
+const CHECKER_KEYS = { claude: "setting-checker-claude", agent: "setting-checker-agent" };
 const VIEW_KEYS = {
   corner: "setting-view-corner",
   bottom: "setting-view-bottom",
@@ -44,6 +51,9 @@ export function registerSettings(tf) {
   tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) })),
   });
+  tf.setting("checker", "claude", tf.t("setting-checker"), {
+    choices: CHECKERS.map((value) => ({ value, label: tf.t(CHECKER_KEYS[value]) })),
+  });
   tf.setting("fast", true, tf.t("setting-fast"));
 }
 
@@ -64,6 +74,7 @@ export function settingsOf(settings) {
     mode: mode === "natural" ? "natural" : "fix",
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
+    checker: read(settings, "checker") === "agent" ? "agent" : "claude",
   };
 }
 
