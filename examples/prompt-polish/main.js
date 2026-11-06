@@ -416,6 +416,176 @@ function createClaudeRun(tf, deps) {
   return { check };
 }
 
+// src/sessions.js
+var MAX_SESSIONS = 24;
+function freshSession() {
+  return {
+    open: false,
+    step: "write",
+    draft: "",
+    parts: [],
+    notes: [],
+    rejected: /* @__PURE__ */ new Set(),
+    clean: false,
+    problem: "",
+    busy: false,
+    // A click on ✦ Polish in the agent input box waiting for Use or Keep mine.
+    input: null
+  };
+}
+function resetSession(s) {
+  Object.assign(s, {
+    step: "write",
+    draft: "",
+    parts: [],
+    notes: [],
+    rejected: /* @__PURE__ */ new Set(),
+    clean: false,
+    problem: ""
+  });
+  return s;
+}
+function focusedId(layout) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  const p = panes.find((x) => x && x.focused && typeof x.id === "string");
+  return p ? p.id : null;
+}
+function createSessions() {
+  const byPane = /* @__PURE__ */ new Map();
+  const touch = (id, s) => {
+    byPane.delete(id);
+    byPane.set(id, s);
+    return s;
+  };
+  return {
+    get(id) {
+      return typeof id === "string" ? byPane.get(id) ?? null : null;
+    },
+    ensure(id) {
+      if (typeof id !== "string" || !id) return null;
+      const s = byPane.get(id);
+      if (s) return touch(id, s);
+      for (const [old, o] of byPane) {
+        if (byPane.size < MAX_SESSIONS) break;
+        if (!o.busy) byPane.delete(old);
+      }
+      return touch(id, freshSession());
+    },
+    drop(id) {
+      byPane.delete(id);
+    },
+    size: () => byPane.size,
+    ids: () => [...byPane.keys()]
+  };
+}
+
+// src/inputAction.js
+var ACTION_ID = "polish";
+var WHY_KEYS = {
+  changed: "error-input-changed",
+  expired: "error-input-expired",
+  gone: "error-input-gone"
+};
+function paneAt(layout, spot) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  if (spot && [spot.x, spot.y, spot.w, spot.h].every(Number.isFinite)) {
+    const cx = spot.x + spot.w / 2;
+    const cy = spot.y + spot.h / 2;
+    const hit = panes.find((p) => {
+      const r = p?.composer;
+      return r && cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h;
+    });
+    if (hit && typeof hit.id === "string") return hit.id;
+  }
+  const focused = panes.find((p) => p?.focused && typeof p.id === "string");
+  return focused ? focused.id : null;
+}
+function createInputAction(tf, deps) {
+  const { sessions, render, audit, warn, layout, openFor, check, fold, noPane } = deps;
+  const available = () => typeof tf.input?.action === "function";
+  const register = () => {
+    if (available()) tf.input.action({ id: ACTION_ID, label: tf.t("action-label") });
+  };
+  const release = async (id) => {
+    const s = sessions.get(id);
+    const request = s?.input?.request;
+    if (!request) return;
+    s.input = null;
+    await tf.input.release(request).catch(warn);
+  };
+  const clicked = async (e) => {
+    if (!e || e.action !== ACTION_ID || typeof e.request !== "string") return;
+    const id = paneAt(await layout(), e.spot) ?? noPane;
+    await release(id);
+    const s = sessions.ensure(id);
+    resetSession(s);
+    s.input = { request: e.request };
+    s.draft = String(e.text ?? "");
+    await openFor(id);
+    await check(id, s.draft);
+  };
+  const use = async (id) => {
+    const s = sessions.get(id);
+    const request = s?.input?.request;
+    if (!s || !request || s.step !== "result") return;
+    const total = changeCount(s.parts);
+    const undone = s.parts.filter((p) => p.id && s.rejected.has(p.id)).length;
+    s.input = null;
+    let r;
+    try {
+      r = await tf.input.replace(request, { text: build(s.parts, s.rejected) });
+    } catch (err) {
+      warn(err);
+      r = { done: false, why: "gone" };
+    }
+    if (r?.done) {
+      audit("used", { kept: total - undone, undone });
+      resetSession(s);
+      await fold(id);
+      return;
+    }
+    Object.assign(s, { step: "problem", problem: WHY_KEYS[r?.why] ?? WHY_KEYS.gone });
+    await render(id);
+  };
+  const keep = async (id) => {
+    const s = sessions.get(id);
+    if (!s?.input) return;
+    await release(id);
+    resetSession(s);
+    await fold(id);
+  };
+  return { available, register, clicked, use, keep, release };
+}
+
+// src/sendToAgent.js
+function createSendToAgent(tf, deps) {
+  const { sessions, render, audit, warn, language, afterSend } = deps;
+  return async (id, text, how) => {
+    const s = sessions.get(id);
+    const question = String(text ?? "").trim();
+    if (!s || !question) return;
+    if (typeof tf.agent?.ask !== "function") return tf.toast(tf.t("error-no-agent-ask"));
+    let r;
+    try {
+      r = await tf.agent.ask({
+        question,
+        about: tf.t("ask-about", { language: language().native })
+      });
+    } catch (err) {
+      warn(err);
+      return tf.toast(tf.t("error-ask-failed"));
+    }
+    if (!r?.shown)
+      return tf.toast(tf.t(r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane"));
+    const total = how === "corrected" ? changeCount(s.parts) : 0;
+    const undone = how === "corrected" ? s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
+    audit("sent", { how, kept: total - undone, undone });
+    resetSession(s).step = "sent";
+    await render(id);
+    await afterSend(s);
+  };
+}
+
 // src/languages.js
 var LANGUAGES = [
   { code: "ar", name: "Arabic", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
@@ -477,75 +647,15 @@ function placeFor(layout, view, opts = {}) {
   const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
   const button = round({ x: bx, y: floor - BUTTON_H, w: bw, h: BUTTON_H });
   if (button.y < top || pane.w < bw + 2 * GAP) return null;
-  if (!opts.open) return { card: null, button };
+  const shown = opts.noPill ? null : button;
+  if (!opts.open) return { card: null, button: shown };
   const w = Math.min(CORNER_W, pane.w - 2 * GAP);
   const ch = Math.min(h, button.y - GAP - top);
   if (w < SPOT_MIN || ch < SPOT_MIN) return null;
   const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
-  return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button };
+  return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button: shown };
 }
 var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
-
-// src/sessions.js
-var MAX_SESSIONS = 24;
-function freshSession() {
-  return {
-    open: false,
-    step: "write",
-    draft: "",
-    parts: [],
-    notes: [],
-    rejected: /* @__PURE__ */ new Set(),
-    clean: false,
-    problem: "",
-    busy: false
-  };
-}
-function resetSession(s) {
-  Object.assign(s, {
-    step: "write",
-    draft: "",
-    parts: [],
-    notes: [],
-    rejected: /* @__PURE__ */ new Set(),
-    clean: false,
-    problem: ""
-  });
-  return s;
-}
-function focusedId(layout) {
-  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
-  const p = panes.find((x) => x && x.focused && typeof x.id === "string");
-  return p ? p.id : null;
-}
-function createSessions() {
-  const byPane = /* @__PURE__ */ new Map();
-  const touch = (id, s) => {
-    byPane.delete(id);
-    byPane.set(id, s);
-    return s;
-  };
-  return {
-    get(id) {
-      return typeof id === "string" ? byPane.get(id) ?? null : null;
-    },
-    ensure(id) {
-      if (typeof id !== "string" || !id) return null;
-      const s = byPane.get(id);
-      if (s) return touch(id, s);
-      for (const [old, o] of byPane) {
-        if (byPane.size < MAX_SESSIONS) break;
-        if (!o.busy) byPane.delete(old);
-      }
-      return touch(id, freshSession());
-    },
-    drop(id) {
-      byPane.delete(id);
-    },
-    size: () => byPane.size,
-    ids: () => [...byPane.keys()]
-  };
-}
 
 // src/settings.js
 var MODES = ["fix", "natural"];
@@ -710,6 +820,9 @@ function createStage(tf, o) {
     setLayout,
     ensureLayout,
     focus: () => focus,
+    layout: () => layout,
+    /** The pane a click in its agent input box came from. */
+    focusOn: (id) => void (focus = id ?? focus),
     where: () => where,
     buttonShown: () => buttonShown,
     setAccent: (a) => void (accent = a ?? accent),
@@ -755,7 +868,8 @@ function createStage(tf, o) {
         open,
         rtl: rtl(),
         pane: focus,
-        bw: pill().w
+        bw: pill().w,
+        noPill: !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput
       });
       if (!spots) {
         const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);
@@ -818,6 +932,8 @@ function setupOf(t) {
       again: t("label-again"),
       cancel: t("label-cancel"),
       askAgent: t("label-ask-agent"),
+      use: t("label-use"),
+      keep: t("label-keep"),
       agentHint: t("label-agent-hint"),
       words: t("label-words", { count: "{count}" }),
       chars: t("label-chars", { count: "{count}" }),
@@ -834,7 +950,9 @@ function viewOf2(s, t) {
     language: lang.native,
     mode: s.mode === "natural" ? t("setting-mode-natural") : t("setting-mode-fix"),
     unspaced: isUnspaced(lang.code),
-    langCode: lang.code
+    langCode: lang.code,
+    // From the agent input box: Use puts the result back there.
+    input: !!s.input
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
@@ -960,9 +1078,30 @@ function runPolish(tf) {
     await place();
     if (!was) audit("opened", { view: effectiveView() });
   };
+  const openFor = async (id) => {
+    await load();
+    if (!tf.page) return;
+    await stage.ensureLayout();
+    stage.focusOn(id);
+    const s = sessions.ensure(id);
+    const was = active && s.open;
+    active = true;
+    dismissed = false;
+    s.open = true;
+    await place();
+    if (!was) audit("opened", { view: effectiveView(), from: "input" });
+  };
+  const foldAfter = async (id) => {
+    const v = effectiveView();
+    const s = sessions.get(id);
+    if (s && v !== "side" && v !== "window") s.open = false;
+    await place();
+    await render(id);
+  };
   const closeShown = async () => {
     const s = sessions.get(shown);
     if (s) {
+      await inputAction.release(shown);
       agentRun.forget(shown);
       resetSession(s);
       s.open = false;
@@ -1016,6 +1155,23 @@ function runPolish(tf) {
   };
   const claudeRun = createClaudeRun(tf, deps);
   const agentRun = createAgentRun(tf, deps);
+  const sendToAgent = createSendToAgent(tf, {
+    ...deps,
+    // With the pill, the card folds back into it.
+    afterSend: async (s) => {
+      if (effectiveView() !== "corner") return;
+      s.open = false;
+      await place();
+    }
+  });
+  const inputAction = createInputAction(tf, {
+    ...deps,
+    layout: async () => (await stage.ensureLayout(), stage.layout()),
+    openFor,
+    check: (id, text) => check(id, text),
+    fold: foldAfter,
+    noPane: NO_PANE
+  });
   const check = async (id, text, by = current().checker) => {
     const s = sessions.get(id);
     if (!s) return;
@@ -1023,33 +1179,6 @@ function runPolish(tf) {
     if (s.busy || blocker(s.draft)) return;
     if (by === "agent") return agentRun.check(id, s.draft);
     return claudeRun.check(id, s.draft);
-  };
-  const sendToAgent = async (id, text, how) => {
-    const s = sessions.get(id);
-    const question = String(text ?? "").trim();
-    if (!s || !question) return;
-    if (typeof tf.agent?.ask !== "function") return tf.toast(tf.t("error-no-agent-ask"));
-    let r;
-    try {
-      r = await tf.agent.ask({
-        question,
-        about: tf.t("ask-about", { language: language().native })
-      });
-    } catch (err) {
-      warn(err);
-      return tf.toast(tf.t("error-ask-failed"));
-    }
-    if (!r?.shown)
-      return tf.toast(tf.t(r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane"));
-    const total = how === "corrected" ? changeCount(s.parts) : 0;
-    const undone = how === "corrected" ? s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
-    audit("sent", { how, kept: total - undone, undone });
-    resetSession(s).step = "sent";
-    await render(id);
-    if (effectiveView() === "corner") {
-      s.open = false;
-      await place();
-    }
   };
   const hear = async (m) => {
     if (!m || typeof m !== "object") return;
@@ -1093,9 +1222,12 @@ function runPolish(tf) {
       s.step = "write";
       return render(id);
     }
+    if (m.type === "send" && s.step === "result" && s.input) return inputAction.use(id);
+    if (m.type === "keep") return inputAction.keep(id);
     if (m.type === "send" && s.step === "result")
       return sendToAgent(id, build(s.parts, s.rejected), "corrected");
     if (m.type === "again") {
+      await inputAction.release(id);
       agentRun.forget(id);
       resetSession(s);
       return render(id);
@@ -1108,6 +1240,11 @@ function runPolish(tf) {
     await place();
   };
   const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
+  inputAction.register();
+  tf.on(
+    "input.action",
+    background((e) => inputAction.clicked(e))
+  );
   const runs = { open, close: closeAll };
   for (const c of COMMANDS) {
     tf.command(

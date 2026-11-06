@@ -15,6 +15,8 @@
  * last for the session.
  *
  * Kept in memory only, never stored. Pure: no Tilefold calls.
+ *
+ * Modified 2026-11-06 (input actions): a session's open `input` request.
  */
 
 /** The most sessions kept; the least recently used goes first. */
@@ -32,6 +34,8 @@ export function freshSession() {
     clean: false,
     problem: "",
     busy: false,
+    // A click on ✦ Polish in the agent input box waiting for Use or Keep mine.
+    input: null,
   };
 }
 

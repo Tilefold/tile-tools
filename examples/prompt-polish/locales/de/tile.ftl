@@ -4,7 +4,7 @@
 # Prompt Polish (example tile): German strings.
 
 tile-name = Prompt Polish (Beispiel)
-tile-description = Korrigiert die Prompts, die du an KI-Agenten schreibst, in der Sprache deiner Wahl – mit Claude und deinem eigenen Anthropic-Schlüssel. Du siehst jede Korrektur, behältst deine Worte, wo du willst, und sendest das Ergebnis über die Fragekarte von Tilefold. Kein Schlüssel? Der Agent in Ihrem Bereich kann ihn stattdessen prüfen.
+tile-description = Korrigiert die Prompts, die du an KI-Agenten schreibst, in der Sprache deiner Wahl – mit Claude und deinem eigenen Anthropic-Schlüssel. Du siehst jede Korrektur, behältst deine Worte, wo du willst, und sendest das Ergebnis über die Fragekarte von Tilefold. Kein Schlüssel? Der Agent in Ihrem Bereich kann ihn stattdessen prüfen. Wo Tilefold ein eigenes Feld zum Schreiben an Agenten hat, prüft eine ✦ Polieren-Schaltfläche dort Ihren Text und setzt den korrigierten Prompt zurück, damit Sie ihn senden.
 setting-language = Sprache, in der du Prompts schreibst
 setting-language-auto = Wie Tilefold
 setting-mode = Was korrigiert wird
@@ -28,6 +28,7 @@ ask-about = Prompt Polish: ein Prompt, den der Nutzer auf { $language } geschrie
 agent-check-about = Prompt Polish: Korrigiere diesen Prompt und gib ihn zurück; handle nicht danach
 button-label = Prompt Polish
 pill-label = Polieren
+action-label = ✦ Polieren
 label-over-pane = über dem Bereich
 label-in-dock = neben den Bereichen
 label-fold = In die Eckschaltfläche einklappen
@@ -50,6 +51,8 @@ label-click-hint = Klick auf eine Änderung, um dort deine eigenen Worte zu beha
 label-nothing = Nichts zu korrigieren: dein { $language } liest sich gut, wie es ist.
 label-back = Zurück zum Bearbeiten
 label-send = An den Agenten senden
+label-use = Übernehmen
+label-keep = Meins behalten
 label-sent = Er liegt auf der Fragekarte oben im Fenster. Drück dort Return, um ihn an den Agenten zu senden, oder bearbeite ihn vorher.
 label-again = Neuen schreiben
 label-cancel = Abbrechen
@@ -72,6 +75,9 @@ error-agent-changed-code = Der Agent hat Code, einen Pfad oder einen Link geänd
 error-no-agent-ask = Dieses Tilefold kann Prompts noch nicht an Agenten übergeben. Aktualisiere Tilefold, um sie zu senden.
 error-ask-busy = Die Fragekarte von Tilefold ist schon offen. Sende oder verwirf sie und versuch es dann noch einmal.
 error-ask-no-pane = Es gibt keinen Bereich mit einem Agenten, an den du das senden kannst.
+error-input-changed = Sie haben den Text im Feld inzwischen geändert, daher wurde er nicht ersetzt. Klicken Sie erneut auf ✦ Polieren, um den aktuellen Text zu prüfen.
+error-input-expired = Das hat über 10 Minuten gedauert, daher wurde das Feld nicht geändert. Klicken Sie erneut auf ✦ Polieren.
+error-input-gone = Das Feld, in das Sie geschrieben haben, ist nicht mehr da (der Bereich wurde geschlossen oder das Feld ausgeschaltet), daher wurde nichts geändert.
 error-ask-failed = Der Prompt ließ sich nicht auf die Fragekarte legen. Versuch es noch einmal.
 toast-too-small = Der Bereich ist zu klein für Prompt Polish, daher wurde es neben den Bereichen geöffnet.
 toast-needs-tilefold = Prompt Polish braucht ein neueres Tilefold, um seine Seite zu zeigen.

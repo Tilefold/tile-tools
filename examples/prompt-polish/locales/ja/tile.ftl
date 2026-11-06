@@ -4,7 +4,7 @@
 # Prompt Polish (example tile): Japanese strings.
 
 tile-name = Prompt Polish（サンプル）
-tile-description = AI エージェントに書くプロンプトを、選んだ言語で Claude とご自分の Anthropic キーを使って校正します。修正はすべて確認でき、好きな箇所は元の言葉のまま残し、結果は Tilefold の質問カードから送れます。 キーがない場合は、ペインのエージェントが代わりに確認できます。
+tile-description = AI エージェントに書くプロンプトを、選んだ言語で Claude とご自分の Anthropic キーを使って校正します。修正はすべて確認でき、好きな箇所は元の言葉のまま残し、結果は Tilefold の質問カードから送れます。 キーがない場合は、ペインのエージェントが代わりに確認できます。Tilefold にエージェントへ書く専用のボックスがある場合は、そこにある ✦ 校正 ボタンが書いた内容を確認し、修正したプロンプトをボックスに戻します。送るのはあなたです。
 setting-language = プロンプトを書く言語
 setting-language-auto = Tilefold と同じ
 setting-mode = 直す範囲
@@ -28,6 +28,7 @@ ask-about = Prompt Polish: ユーザーが { $language } で書き、誤りを�
 agent-check-about = Prompt Polish: このプロンプトを直して返してください。内容は実行しないでください
 button-label = Prompt Polish
 pill-label = 校正
+action-label = ✦ 校正
 label-over-pane = ペインの上
 label-in-dock = ペインの横
 label-fold = 隅のボタンにたたむ
@@ -50,6 +51,8 @@ label-click-hint = 変更をクリックすると、その箇所は元の言葉�
 label-nothing = 直すところはありません。{ $language } はそのままで自然です。
 label-back = 編集に戻る
 label-send = エージェントに送る
+label-use = 使う
+label-keep = 自分の文のまま
 label-sent = ウィンドウ上部の質問カードに入りました。そこで Return を押すとエージェントに送られます。先に編集もできます。
 label-again = もう一つ書く
 label-cancel = キャンセル
@@ -72,6 +75,9 @@ error-agent-changed-code = エージェントがコード、パス、リンク�
 error-no-agent-ask = この Tilefold では、まだプロンプトをエージェントに渡せません。送るには Tilefold を更新してください。
 error-ask-busy = Tilefold の質問カードがすでに開いています。送るか破棄してから、もう一度お試しください。
 error-ask-no-pane = 送り先のエージェントがいるペインがありません。
+error-input-changed = その間にボックスの文が変わったため、置き換えませんでした。もう一度 ✦ 校正 をクリックして、今の文を確認してください。
+error-input-expired = 10 分以上かかったため、ボックスは変更していません。もう一度 ✦ 校正 をクリックしてください。
+error-input-gone = 書いていたボックスがなくなったため（ペインが閉じられたか、ボックスがオフになりました）、何も変更していません。
 error-ask-failed = 質問カードにプロンプトを載せられませんでした。もう一度お試しください。
 toast-too-small = ペインが小さすぎるため、Prompt Polish をペインの横に開きました。
 toast-needs-tilefold = Prompt Polish の画面を表示するには、新しい Tilefold が必要です。

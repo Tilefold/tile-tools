@@ -21,6 +21,10 @@
  *
  * A pane too small for the card sends the page beside the panes (or a
  * window), with a notice once.
+ *
+ * Modified 2026-11-06 (input actions): no pill over a pane whose row is
+ *   Tilefold's agent input box (it has its own ✦ Polish button there);
+ *   `focusOn` moves to the pane a click in that box came from.
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
@@ -123,6 +127,9 @@ export function createStage(tf, o) {
     setLayout,
     ensureLayout,
     focus: () => focus,
+    layout: () => layout,
+    /** The pane a click in its agent input box came from. */
+    focusOn: (id) => void (focus = id ?? focus),
     where: () => where,
     buttonShown: () => buttonShown,
     setAccent: (a) => void (accent = a ?? accent),
@@ -170,6 +177,7 @@ export function createStage(tf, o) {
         rtl: rtl(),
         pane: focus,
         bw: pill().w,
+        noPill: !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput,
       });
       if (!spots) {
         // No pane to show over (another tab), or the pane is too small.

@@ -34,6 +34,8 @@
  *   `panel.input` event.
  * Modified 2026-11-05 (Tilefold 0.1.26): the `viewer.opened` event; the
  *   `panel.input` event name in the list of names.
+ * Modified 2026-11-06 (Tilefold 0.1.27): `tf.input` (buttons in the agent
+ *   input box), the `input.action` event, and a layout pane's `agentInput`.
  *
  * Last updated by: Tilefold
  */
@@ -70,6 +72,7 @@ export type TileEvent =
   | "panel.dblclick"
   | "panel.input"
   | "viewer.opened"
+  | "input.action"
   | "browser.navigated"
   | "browser.closed";
 
@@ -110,7 +113,18 @@ export interface Rect {
 /** Where the panes are: rectangles only, never what they show. */
 export interface OverlayLayout {
   content: { w: number; h: number };
-  panes: Array<Rect & { id: string; focused: boolean; composer: Rect | null }>;
+  panes: Array<
+    Rect & {
+      id: string;
+      focused: boolean;
+      composer: Rect | null;
+      /**
+       * The row is the agent input box (Tilefold 0.1.27; told only to tiles
+       * granted input.actions, so they can keep out of their own button's way).
+       */
+      agentInput?: true;
+    }
+  >;
 }
 
 /** What each event's handler receives. */
@@ -178,6 +192,21 @@ export interface TileEventPayloads {
    * (needs fs.list; Tilefold 0.1.26).
    */
   "viewer.opened": { path: string };
+  /**
+   * The user clicked one of the tile's buttons in the agent input box
+   * (needs input.actions; Tilefold 0.1.27). `text` is what the box holds,
+   * with secrets masked as "[redacted]"; `request` answers this click only
+   * (`tf.input.replace` or `release`); `language` is the user's Tilefold
+   * language; `spot` is where the box is, to open a card above it. The
+   * pane and the agent are never named. Return at once and work after.
+   */
+  "input.action": {
+    action: string;
+    request: string;
+    text: string;
+    language: string;
+    spot: Rect | null;
+  };
 }
 
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
@@ -561,6 +590,34 @@ export interface Tf {
       shown: boolean;
       why?: "busy" | "no-pane";
     }>;
+  };
+  /**
+   * Needs input.actions (Tilefold 0.1.27; missing before). Buttons in the
+   * box where the user writes to an AI agent; Tilefold draws them with the
+   * tile's name. A click arrives as the `input.action` event.
+   */
+  readonly input?: {
+    /**
+     * Adds a button, registered up front like a command: `id` 1–32
+     * lowercase letters, digits and dashes; `label` 1–24 characters on one
+     * line. At most 2 per tile. A tile adding one without asking for
+     * input.actions in tile.json doesn't load.
+     */
+    action(options: { id: string; label: string }): void;
+    /**
+     * Puts `text` in the box in place of what was clicked: once per
+     * request, within 10 minutes, at most twice the clicked text plus 200
+     * characters. Tilefold highlights the changes, offers Undo and never
+     * sends it; masks kept in place get the user's own words back. `why`:
+     * the user edited the box since (`changed`), too late (`expired`), the
+     * box went (`gone`). Another request, or text too long, throws a TypeError.
+     */
+    replace(
+      request: string,
+      proposal: { text: string },
+    ): Promise<{ done: true } | { done: false; why: "changed" | "expired" | "gone" }>;
+    /** Ends a request without a change (the user kept their own words). */
+    release(request: string): Promise<null>;
   };
   /** Needs sound.play. Resolves whether the sound will be heard. */
   readonly sound: {

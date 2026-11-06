@@ -14,6 +14,8 @@
  *
  * Modified 2026-11-06 (no-key mode): the `agent` step (waiting for the
  *   agent in the pane), and a problem that can offer to ask it instead.
+ * Modified 2026-11-06 (input actions): `input` (the prompt came from the
+ *   agent input box, so the result offers Use and Keep mine); their labels.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -62,6 +64,8 @@ export function setupOf(t) {
       again: t("label-again"),
       cancel: t("label-cancel"),
       askAgent: t("label-ask-agent"),
+      use: t("label-use"),
+      keep: t("label-keep"),
       agentHint: t("label-agent-hint"),
       words: t("label-words", { count: "{count}" }),
       chars: t("label-chars", { count: "{count}" }),
@@ -87,6 +91,8 @@ export function viewOf(s, t) {
     mode: s.mode === "natural" ? t("setting-mode-natural") : t("setting-mode-fix"),
     unspaced: isUnspaced(lang.code),
     langCode: lang.code,
+    // From the agent input box: Use puts the result back there.
+    input: !!s.input,
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };

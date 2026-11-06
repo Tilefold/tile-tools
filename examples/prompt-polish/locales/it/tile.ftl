@@ -4,7 +4,7 @@
 # Prompt Polish (example tile): Italian strings.
 
 tile-name = Prompt Polish (esempio)
-tile-description = Corregge i prompt che scrivi agli agenti IA nella lingua che scegli, con Claude e la tua chiave Anthropic. Vedi ogni correzione, tieni le tue parole dove vuoi e invii il risultato dalla scheda delle domande di Tilefold. Niente chiave? Può controllarlo l'agente del tuo pannello.
+tile-description = Corregge i prompt che scrivi agli agenti IA nella lingua che scegli, con Claude e la tua chiave Anthropic. Vedi ogni correzione, tieni le tue parole dove vuoi e invii il risultato dalla scheda delle domande di Tilefold. Niente chiave? Può controllarlo l'agente del tuo pannello. Dove Tilefold ha una sua casella per scrivere agli agenti, un pulsante ✦ Rifinisci controlla ciò che hai scritto e rimette lì il prompt corretto, perché tu lo invii.
 setting-language = Lingua in cui scrivi i prompt
 setting-language-auto = Come Tilefold
 setting-mode = Cosa correggere
@@ -28,6 +28,7 @@ ask-about = Prompt Polish: un prompt che l'utente ha scritto in { $language } e 
 agent-check-about = Prompt Polish: correggi questo prompt e restituiscilo; non eseguirlo
 button-label = Prompt Polish
 pill-label = Rifinisci
+action-label = ✦ Rifinisci
 label-over-pane = sul riquadro
 label-in-dock = accanto ai riquadri
 label-fold = Riduci nel pulsante d'angolo
@@ -50,6 +51,8 @@ label-click-hint = Fai clic su una modifica per tenere lì le tue parole.
 label-nothing = Niente da correggere: il tuo { $language } si legge bene così.
 label-back = Torna a modificare
 label-send = Invia all'agente
+label-use = Usa
+label-keep = Tieni il mio
 label-sent = È sulla scheda delle domande in cima alla finestra. Premi Return lì per inviarlo all'agente, o modificalo prima.
 label-again = Scrivine un altro
 label-cancel = Annulla
@@ -72,6 +75,9 @@ error-agent-changed-code = L'agente ha cambiato codice, un percorso o un link, q
 error-no-agent-ask = Questo Tilefold non può ancora passare i prompt agli agenti. Aggiorna Tilefold per inviarli.
 error-ask-busy = La scheda delle domande di Tilefold è già aperta. Inviala o scartala, poi riprova.
 error-ask-no-pane = Non c'è un riquadro con un agente a cui inviarlo.
+error-input-changed = Hai cambiato il testo nella casella nel frattempo, quindi non è stato sostituito. Fai di nuovo clic su ✦ Rifinisci per controllare il testo attuale.
+error-input-expired = Sono passati più di 10 minuti, quindi la casella non è stata cambiata. Fai di nuovo clic su ✦ Rifinisci.
+error-input-gone = La casella in cui scrivevi non c'è più (il riquadro è stato chiuso o la casella disattivata), quindi non è cambiato nulla.
 error-ask-failed = Impossibile mettere il prompt sulla scheda delle domande. Riprova.
 toast-too-small = Il riquadro è troppo piccolo per Prompt Polish, quindi si è aperto accanto ai riquadri.
 toast-needs-tilefold = Prompt Polish ha bisogno di un Tilefold più recente per mostrare la sua pagina.

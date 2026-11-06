@@ -129,6 +129,7 @@ A listener that runs too long five times in ten minutes is skipped for the rest 
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
 | `viewer.opened` | The document viewer showed a file inside one of the panes' folders: the user opened it, or an AI agent did to point at something (needs `fs.list`; Tilefold 0.1.26) | `{ path }` |
+| `input.action` | The user clicked one of the tile's buttons in the agent input box (needs `input.actions`; Tilefold 0.1.27) | `{ action, request, text, language, spot }` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 
@@ -209,6 +210,10 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 ## Asking the user's agent
 
 `tf.agent.ask({ question, about })` needs `agent.ask` (Tilefold 0.1.23). It brings a question to the AI agent in the pane the user works in, such as one the user typed on the tile's page. Tilefold opens its ask card at the top of the window with the question and a line naming your tile and `about`, and the user presses Return to send it, edits it, or drops it. Your tile never types into a pane. It resolves `{ shown, why }`: `why` is `busy` while a card is already open, or `no-pane` when there's no pane to send to, so keep the question somewhere the agent can still find it, as the Whiteboard keeps it on its board.
+
+## Buttons in the agent input box
+
+`tf.input.action({ id, label })` needs `input.actions` (Tilefold 0.1.27). It adds a button to the box where the user writes to an AI agent. A click arrives as the `input.action` event with the box's text (secrets masked) and a one-time `request`; answer with `tf.input.replace(request, { text })`, which Tilefold shows highlighted with Undo and never sends, or `tf.input.release(request)`. See [Buttons in the agent input box](input-actions.md).
 
 ## The internet, keys and sign-ins
 

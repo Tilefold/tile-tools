@@ -19,7 +19,13 @@
  * Tilefold docks a page only at 120 to 2,000 pixels a side, so a pane too
  * small for the card sends it to the side dock instead.
  *
+ * Where the pane's row is Tilefold's agent input box (`agentInput`,
+ * Tilefold 0.1.27), the ✦ Polish button is in the box itself, so the pill
+ * isn't drawn there; the card still opens where the pill would be.
+ *
  * Pure: no Tilefold calls.
+ *
+ * Modified 2026-11-06 (input actions): no pill over the agent input box.
  */
 
 /** The views, in the order the setting lists them. */
@@ -66,7 +72,8 @@ export function focusedPane(layout, paneId) {
  *   h: the card's wanted height (it shrinks to fit, never under SPOT_MIN);
  *   open: whether the corner card is open; rtl: the corner is on the left;
  *   pane: the pane to place over (by id), else the focused one;
- *   bw: the pill's width (its height is BUTTON_H)
+ *   bw: the pill's width (its height is BUTTON_H); noPill: the pane's row
+ *   has its own ✦ Polish button, so no pill is drawn
  */
 export function placeFor(layout, view, opts = {}) {
   const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
@@ -91,12 +98,13 @@ export function placeFor(layout, view, opts = {}) {
   const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
   const button = round({ x: bx, y: floor - BUTTON_H, w: bw, h: BUTTON_H });
   if (button.y < top || pane.w < bw + 2 * GAP) return null;
-  if (!opts.open) return { card: null, button };
+  const shown = opts.noPill ? null : button;
+  if (!opts.open) return { card: null, button: shown };
   const w = Math.min(CORNER_W, pane.w - 2 * GAP);
   const ch = Math.min(h, button.y - GAP - top);
   if (w < SPOT_MIN || ch < SPOT_MIN) return null;
   const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
-  return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button };
+  return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button: shown };
 }
 
 /** Whether two rectangles (or nulls) are the same. */

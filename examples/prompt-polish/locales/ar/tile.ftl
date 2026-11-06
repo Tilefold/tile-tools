@@ -4,7 +4,7 @@
 # Prompt Polish (example tile): Arabic strings.
 
 tile-name = Prompt Polish (مثال)
-tile-description = يصحّح الطلبات التي تكتبها لوكلاء الذكاء الاصطناعي باللغة التي تختارها، باستخدام Claude ومفتاح Anthropic الخاص بك. ترى كل تصحيح، وتُبقي كلماتك حيث تشاء، وترسل النتيجة من بطاقة السؤال في Tilefold. لا مفتاح لديك؟ يمكن للوكيل في جزئك التحقق منها بدلًا من ذلك.
+tile-description = يصحّح الطلبات التي تكتبها لوكلاء الذكاء الاصطناعي باللغة التي تختارها، باستخدام Claude ومفتاح Anthropic الخاص بك. ترى كل تصحيح، وتُبقي كلماتك حيث تشاء، وترسل النتيجة من بطاقة السؤال في Tilefold. لا مفتاح لديك؟ يمكن للوكيل في جزئك التحقق منها بدلًا من ذلك. حيث يكون لدى Tilefold مربعه الخاص للكتابة إلى الوكلاء، يفحص زر ✦ تحسين هناك ما كتبته ويعيد الموجّه المصحح إليه لترسله أنت.
 setting-language = اللغة التي تكتب بها الطلبات
 setting-language-auto = مثل Tilefold
 setting-mode = ما الذي يُصحَّح
@@ -28,6 +28,7 @@ ask-about = Prompt Polish: طلب كتبه المستخدم بـ{ $language } و
 agent-check-about = Prompt Polish: صحّح هذه المطالبة وأعدها؛ لا تنفّذها
 button-label = Prompt Polish
 pill-label = تحسين
+action-label = ✦ تحسين
 label-over-pane = فوق الجزء
 label-in-dock = بجانب الأجزاء
 label-fold = طيّ في زر الزاوية
@@ -50,6 +51,8 @@ label-click-hint = انقر على تغيير لتُبقي كلماتك هناك
 label-nothing = لا شيء للتصحيح: نصك بـ{ $language } جيد كما هو.
 label-back = العودة إلى التحرير
 label-send = إرسال إلى الوكيل
+label-use = استخدام
+label-keep = إبقاء نصي
 label-sent = إنه على بطاقة السؤال أعلى النافذة. اضغط Return هناك لإرساله إلى الوكيل، أو حرّره أولًا.
 label-again = كتابة طلب آخر
 label-cancel = إلغاء
@@ -72,6 +75,9 @@ error-agent-changed-code = غيّر الوكيل شيفرة أو مسارًا أ
 error-no-agent-ask = لا يستطيع Tilefold هذا تسليم الطلبات إلى الوكلاء بعد. حدّث Tilefold لإرسالها.
 error-ask-busy = بطاقة السؤال في Tilefold مفتوحة بالفعل. أرسلها أو تجاهلها ثم حاول مجددًا.
 error-ask-no-pane = لا يوجد جزء فيه وكيل لإرسال هذا إليه.
+error-input-changed = غيّرت النص في المربع في هذه الأثناء، لذا لم يُستبدل. انقر ✦ تحسين مرة أخرى لفحص النص الحالي.
+error-input-expired = استغرق ذلك أكثر من 10 دقائق، لذا لم يتغير المربع. انقر ✦ تحسين مرة أخرى.
+error-input-gone = المربع الذي كنت تكتب فيه لم يعد موجودًا (أُغلق الجزء أو أُوقف المربع)، لذا لم يتغير شيء.
 error-ask-failed = تعذّر وضع الطلب على بطاقة السؤال. حاول مجددًا.
 toast-too-small = الجزء صغير جدًا على Prompt Polish، لذا فُتح بجانب الأجزاء.
 toast-needs-tilefold = يحتاج Prompt Polish إلى إصدار أحدث من Tilefold لعرض صفحته.

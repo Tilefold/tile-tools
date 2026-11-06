@@ -4,7 +4,7 @@
 # Prompt Polish (example tile): Simplified Chinese strings.
 
 tile-name = Prompt Polish（示例）
-tile-description = 用你选择的语言，借助 Claude 和你自己的 Anthropic 密钥校正写给 AI 智能体的提示词。每处修改都看得到，想保留的地方可留下原话，再从 Tilefold 的提问卡片发送结果。没有密钥？窗格中的智能体可以代为检查。
+tile-description = 用你选择的语言，借助 Claude 和你自己的 Anthropic 密钥校正写给 AI 智能体的提示词。每处修改都看得到，想保留的地方可留下原话，再从 Tilefold 的提问卡片发送结果。没有密钥？窗格中的智能体可以代为检查。在 Tilefold 有自己的智能体输入框时，那里的 ✦ 润色 按钮会检查你写的内容，并把改好的提示词放回去，由你发送。
 setting-language = 你写提示词所用的语言
 setting-language-auto = 与 Tilefold 相同
 setting-mode = 修改范围
@@ -28,6 +28,7 @@ ask-about = Prompt Polish：用户用 { $language } 写并检查过错误的提�
 agent-check-about = Prompt Polish：请修改这段提示词并交回，不要执行它
 button-label = Prompt Polish
 pill-label = 润色
+action-label = ✦ 润色
 label-over-pane = 在窗格上
 label-in-dock = 在窗格旁
 label-fold = 收起为角落按钮
@@ -50,6 +51,8 @@ label-click-hint = 点击某处修改，即可在那里保留原话。
 label-nothing = 无需修改：你的 { $language } 读起来很好。
 label-back = 返回编辑
 label-send = 发送给智能体
+label-use = 使用
+label-keep = 保留我的
 label-sent = 已放到窗口顶部的提问卡片上。在那里按 Return 发送给智能体，也可以先编辑。
 label-again = 再写一个
 label-cancel = 取消
@@ -72,6 +75,9 @@ error-agent-changed-code = 智能体改动了代码、路径或链接，因此�
 error-no-agent-ask = 此版本的 Tilefold 还不能把提示词交给智能体。请更新 Tilefold 后发送。
 error-ask-busy = Tilefold 的提问卡片已经打开。请先发送或丢弃，再试一次。
 error-ask-no-pane = 没有可发送的智能体窗格。
+error-input-changed = 这期间你改了输入框里的文字，所以没有替换。再点一次 ✦ 润色 检查现在的内容。
+error-input-expired = 已超过 10 分钟，所以输入框没有改动。请再点一次 ✦ 润色。
+error-input-gone = 你写字的输入框已经不在了（窗格已关闭或输入框已关闭），所以没有改动。
 error-ask-failed = 无法把提示词放到提问卡片上。请再试一次。
 toast-too-small = 窗格太小，Prompt Polish 已在窗格旁打开。
 toast-needs-tilefold = Prompt Polish 需要更新的 Tilefold 才能显示页面。

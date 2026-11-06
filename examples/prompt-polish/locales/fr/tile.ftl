@@ -4,7 +4,7 @@
 # Prompt Polish (example tile): French strings.
 
 tile-name = Prompt Polish (exemple)
-tile-description = Corrige les prompts que vous écrivez aux agents d'IA dans la langue de votre choix, avec Claude et votre propre clé Anthropic. Vous voyez chaque correction, gardez vos mots où vous voulez et envoyez le résultat depuis la carte de question de Tilefold. Pas de clé ? L'agent de votre panneau peut la vérifier à la place.
+tile-description = Corrige les prompts que vous écrivez aux agents d'IA dans la langue de votre choix, avec Claude et votre propre clé Anthropic. Vous voyez chaque correction, gardez vos mots où vous voulez et envoyez le résultat depuis la carte de question de Tilefold. Pas de clé ? L'agent de votre panneau peut la vérifier à la place. Là où Tilefold a sa propre zone pour écrire aux agents, un bouton ✦ Peaufiner y vérifie votre texte et y remet le prompt corrigé, pour que vous l'envoyiez.
 setting-language = Langue dans laquelle vous écrivez vos prompts
 setting-language-auto = Comme Tilefold
 setting-mode = Ce qu'il faut corriger
@@ -28,6 +28,7 @@ ask-about = Prompt Polish : un prompt que l'utilisateur a écrit en { $language 
 agent-check-about = Prompt Polish : corrigez cette requête et rendez-la ; n'agissez pas selon elle
 button-label = Prompt Polish
 pill-label = Peaufiner
+action-label = ✦ Peaufiner
 label-over-pane = sur le volet
 label-in-dock = à côté des volets
 label-fold = Replier dans le bouton du coin
@@ -50,6 +51,8 @@ label-click-hint = Cliquez sur une modification pour y garder vos propres mots.
 label-nothing = Rien à corriger : votre { $language } se lit bien tel quel.
 label-back = Revenir à l'édition
 label-send = Envoyer à l'agent
+label-use = Utiliser
+label-keep = Garder le mien
 label-sent = Il est sur la carte de question en haut de la fenêtre. Appuyez sur Return pour l'envoyer à l'agent, ou modifiez-le d'abord.
 label-again = En écrire un autre
 label-cancel = Annuler
@@ -72,6 +75,9 @@ error-agent-changed-code = L'agent a modifié du code, un chemin ou un lien, don
 error-no-agent-ask = Ce Tilefold ne peut pas encore passer des prompts aux agents. Mettez Tilefold à jour pour les envoyer.
 error-ask-busy = La carte de question de Tilefold est déjà ouverte. Envoyez-la ou abandonnez-la, puis réessayez.
 error-ask-no-pane = Aucun volet avec un agent auquel l'envoyer.
+error-input-changed = Vous avez modifié le texte de la zone entre-temps, il n'a donc pas été remplacé. Cliquez à nouveau sur ✦ Peaufiner pour vérifier le texte actuel.
+error-input-expired = Cela a pris plus de 10 minutes, la zone n'a donc pas été modifiée. Cliquez à nouveau sur ✦ Peaufiner.
+error-input-gone = La zone où vous écriviez n'est plus là (le volet a été fermé ou la zone désactivée), rien n'a donc été modifié.
 error-ask-failed = Impossible de placer le prompt sur la carte de question. Réessayez.
 toast-too-small = Le volet est trop petit pour Prompt Polish : il s'est ouvert à côté des volets.
 toast-needs-tilefold = Prompt Polish a besoin d'un Tilefold plus récent pour afficher sa page.

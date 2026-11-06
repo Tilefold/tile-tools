@@ -85,6 +85,10 @@
  * Modified 2026-10-31 (Tilefold 0.1.23): `agentAsk` adds `tf.agent.ask`;
  *   the questions are kept in `host.asks`, and it answers `{ shown: true }`
  *   or the object `agentAsk` gives (such as `{ shown: false, why: "busy" }`).
+ * Modified 2026-11-06 (Tilefold 0.1.27): `input: true` (or `{ text,
+ *   language }`) adds `tf.input` (fake-input.mjs): the agent input box's
+ *   buttons, a click (`host.clickAction`) and the tile's replacement in
+ *   `host.box`.
  *
  * Last updated by: Tilefold
  */
@@ -93,6 +97,7 @@ import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addScreensaver } from "./fake-screensaver.mjs";
 import { addAnnotate } from "./fake-annotate.mjs";
+import { addInput } from "./fake-input.mjs";
 import { addFileWrites } from "./fake-files.mjs";
 import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
@@ -366,6 +371,7 @@ export async function startTile(dir, opts = {}) {
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
   if (opts.screensaver) addScreensaver(tf, host, named);
   if (opts.annotate) addAnnotate(tf, host, named, opts.annotate);
+  if (opts.input) addInput(tf, host, named, opts.input === true ? {} : opts.input);
   if (opts.agentAsk) {
     host.asks = [];
     tf.agent = {

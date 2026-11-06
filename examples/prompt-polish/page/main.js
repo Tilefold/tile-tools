@@ -18,6 +18,8 @@
  *
  * Modified 2026-11-06 (no-key mode): waiting for the agent in the pane,
  *   with Cancel, and a problem's "Ask the agent instead".
+ * Modified 2026-11-06 (input actions): for a prompt from Tilefold's agent
+ *   input box, Use and Keep mine in place of Send to agent.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -146,7 +148,11 @@
       if (pending) clearTimeout(pending.timer);
       pending = { pane: v.pane, text: area.value, timer: setTimeout(flushDraft, 300) };
     });
-    asIs.addEventListener("click", () => send({ type: "as-is", text: area.value }));
+    if (v.input) asIs.textContent = L.keep;
+    asIs.addEventListener(
+      "click",
+      () => send(v.input ? { type: "keep" } : { type: "as-is", text: area.value })
+    );
     check.addEventListener("click", () => send({ type: "check", text: area.value }));
     update();
     $("body").replaceChildren(area, el("p", "muted", L.hint), warn);
@@ -198,11 +204,7 @@
       const box = el("div", "state");
       box.append(el("b", "", v.nothing));
       $("body").replaceChildren(box);
-      $("foot").replaceChildren(
-        back,
-        el("span", "spacer"),
-        button("btn primary", L.send, { type: "send" })
-      );
+      $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));
       return;
     }
     const sum = el("div", "sum");
@@ -227,11 +229,14 @@
       el("p", "muted", L.clickHint),
       ...v.notes.length ? [notes] : []
     );
-    $("foot").replaceChildren(
-      back,
-      el("span", "spacer"),
-      button("btn primary", L.send, { type: "send" })
-    );
+    $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));
+  }
+  function sendButtons(v) {
+    if (!v.input) return [button("btn primary", L.send, { type: "send" })];
+    return [
+      button("btn ghost", L.keep, { type: "keep" }),
+      button("btn primary", L.use, { type: "send" })
+    ];
   }
   function drawSent() {
     const box = el("div", "state");

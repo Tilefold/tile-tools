@@ -45,10 +45,15 @@
  *
  * Modified 2026-11-06 (no-key mode): the agent in the pane can check the
  *   prompt; Claude's check moved to claudeRun.js.
+ * Modified 2026-11-06 (input actions): the ✦ Polish button in Tilefold's
+ *   agent input box (inputAction.js) opens the card checking that text, and
+ *   Use / Keep mine answer it. Send to agent moved to sendToAgent.js.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
 import { createClaudeRun } from "./claudeRun.js";
+import { createInputAction } from "./inputAction.js";
+import { createSendToAgent } from "./sendToAgent.js";
 import { languageOf } from "./languages.js";
 import { viewOf as checkView } from "./place.js";
 import { blocker, build, changeCount } from "./polish.js";
@@ -181,10 +186,35 @@ export function runPolish(tf) {
     if (!was) audit("opened", { view: effectiveView() });
   };
 
+  /** Opens the card for pane `id` (a click in its agent input box). */
+  const openFor = async (id) => {
+    await load();
+    if (!tf.page) return;
+    await stage.ensureLayout();
+    stage.focusOn(id);
+    const s = sessions.ensure(id);
+    const was = active && s.open;
+    active = true;
+    dismissed = false;
+    s.open = true;
+    await place();
+    if (!was) audit("opened", { view: effectiveView(), from: "input" });
+  };
+
+  /** After Use or Keep mine: the card folds away (beside the panes, a fresh prompt shows). */
+  const foldAfter = async (id) => {
+    const v = effectiveView();
+    const s = sessions.get(id);
+    if (s && v !== "side" && v !== "window") s.open = false;
+    await place();
+    await render(id);
+  };
+
   /** Closes the shown pane's card (×): its prompt goes; beside the panes, the dock closes. */
   const closeShown = async () => {
     const s = sessions.get(shown);
     if (s) {
+      await inputAction.release(shown);
       agentRun.forget(shown);
       resetSession(s);
       s.open = false;
@@ -246,6 +276,23 @@ export function runPolish(tf) {
   };
   const claudeRun = createClaudeRun(tf, deps);
   const agentRun = createAgentRun(tf, deps);
+  const sendToAgent = createSendToAgent(tf, {
+    ...deps,
+    // With the pill, the card folds back into it.
+    afterSend: async (s) => {
+      if (effectiveView() !== "corner") return;
+      s.open = false;
+      await place();
+    },
+  });
+  const inputAction = createInputAction(tf, {
+    ...deps,
+    layout: async () => (await stage.ensureLayout(), stage.layout()),
+    openFor,
+    check: (id, text) => check(id, text),
+    fold: foldAfter,
+    noPane: NO_PANE,
+  });
 
   /** Checks pane `id`'s prompt: by Claude with the user's key, or by the agent in the pane. */
   const check = async (id, text, by = current().checker) => {
@@ -255,37 +302,6 @@ export function runPolish(tf) {
     if (s.busy || blocker(s.draft)) return;
     if (by === "agent") return agentRun.check(id, s.draft);
     return claudeRun.check(id, s.draft);
-  };
-
-  /** Puts `text` on Tilefold's ask card for the agent in the pane the user works in. */
-  const sendToAgent = async (id, text, how) => {
-    const s = sessions.get(id);
-    const question = String(text ?? "").trim();
-    if (!s || !question) return;
-    if (typeof tf.agent?.ask !== "function") return tf.toast(tf.t("error-no-agent-ask"));
-    let r;
-    try {
-      r = await tf.agent.ask({
-        question,
-        about: tf.t("ask-about", { language: language().native }),
-      });
-    } catch (err) {
-      warn(err);
-      return tf.toast(tf.t("error-ask-failed"));
-    }
-    if (!r?.shown)
-      return tf.toast(tf.t(r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane"));
-    const total = how === "corrected" ? changeCount(s.parts) : 0;
-    const undone =
-      how === "corrected" ? s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
-    audit("sent", { how, kept: total - undone, undone });
-    resetSession(s).step = "sent";
-    await render(id);
-    // With the pill, the card folds back into it.
-    if (effectiveView() === "corner") {
-      s.open = false;
-      await place();
-    }
   };
 
   /** A message from the page; `pane` says whose prompt it is about. */
@@ -332,9 +348,13 @@ export function runPolish(tf) {
       s.step = "write";
       return render(id);
     }
+    // From the agent input box: Use puts it back there, Keep mine leaves it.
+    if (m.type === "send" && s.step === "result" && s.input) return inputAction.use(id);
+    if (m.type === "keep") return inputAction.keep(id);
     if (m.type === "send" && s.step === "result")
       return sendToAgent(id, build(s.parts, s.rejected), "corrected");
     if (m.type === "again") {
+      await inputAction.release(id);
       agentRun.forget(id);
       resetSession(s);
       return render(id);
@@ -360,6 +380,12 @@ export function runPolish(tf) {
       .catch(warn);
 
   // ------------------------------------------------- registration (nothing awaited above)
+  // ✦ Polish in Tilefold's agent input box, where this Tilefold has it.
+  inputAction.register();
+  tf.on(
+    "input.action",
+    background((e) => inputAction.clicked(e)),
+  );
   const runs = { open, close: closeAll };
   for (const c of COMMANDS) {
     tf.command(

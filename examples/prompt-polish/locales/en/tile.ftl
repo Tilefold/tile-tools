@@ -4,7 +4,7 @@
 # Prompt Polish (example tile): English strings.
 
 tile-name = Prompt Polish (example)
-tile-description = Corrects the prompts you write to AI agents in the language you choose, with Claude and your own Anthropic key. You see every fix, keep your own words where you like, and send the result from Tilefold's ask card. No key? The agent in your pane can check it instead.
+tile-description = Corrects the prompts you write to AI agents in the language you choose, with Claude and your own Anthropic key. You see every fix, keep your own words where you like, and send the result from Tilefold's ask card. No key? The agent in your pane can check it instead. Where Tilefold has its own box for writing to agents, a ✦ Polish button there checks what you wrote and puts the corrected prompt back, for you to send.
 setting-language = Language you write prompts in
 setting-language-auto = Same as Tilefold
 setting-mode = What to fix
@@ -28,6 +28,7 @@ ask-about = Prompt Polish: a prompt the user wrote in { $language } and checked 
 agent-check-about = Prompt Polish: correct this prompt and hand it back; don't act on it
 button-label = Prompt Polish
 pill-label = Polish
+action-label = ✦ Polish
 label-over-pane = over the pane
 label-in-dock = beside the panes
 label-fold = Fold into the corner button
@@ -50,6 +51,8 @@ label-click-hint = Click a change to keep your own words there.
 label-nothing = Nothing to fix: your { $language } reads well as it is.
 label-back = Back to edit
 label-send = Send to agent
+label-use = Use
+label-keep = Keep mine
 label-sent = It's on the ask card at the top of the window. Press Return there to send it to the agent, or edit it first.
 label-again = Write another
 label-cancel = Cancel
@@ -72,6 +75,9 @@ error-agent-changed-code = The agent changed code, a path or a link, so its fixe
 error-no-agent-ask = This Tilefold can't hand prompts to agents yet. Update Tilefold to send them.
 error-ask-busy = Tilefold's ask card is already open. Send or drop it, then try again.
 error-ask-no-pane = There's no pane with an agent to send this to.
+error-input-changed = You changed the text in the box meanwhile, so it wasn't replaced. Click ✦ Polish again to check what's there now.
+error-input-expired = This took over 10 minutes, so the box wasn't changed. Click ✦ Polish again.
+error-input-gone = The box you wrote in is gone (the pane closed or the box was turned off), so nothing was changed.
 error-ask-failed = Couldn't put the prompt on the ask card. Try again.
 toast-too-small = The pane is too small for Prompt Polish, so it opened beside the panes.
 toast-needs-tilefold = Prompt Polish needs a newer Tilefold to show its page.
