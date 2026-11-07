@@ -48,6 +48,8 @@
  * Modified 2026-11-06 (input actions): the ✦ Polish button in Tilefold's
  *   agent input box (inputAction.js) opens the card checking that text, and
  *   Use / Keep mine answer it. Send to agent moved to sendToAgent.js.
+ * Modified 2026-11-06 (Stop): Tilefold's × closes the card
+ *   (`input.cancelled`), and a card closed or gone ends its request.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
@@ -230,6 +232,7 @@ export function runPolish(tf) {
     const was = active;
     active = false;
     dismissed = true;
+    await inputAction.releaseAll();
     for (const id of sessions.ids()) sessions.drop(id);
     await place();
     if (was) audit("closed", {});
@@ -386,6 +389,10 @@ export function runPolish(tf) {
     "input.action",
     background((e) => inputAction.clicked(e)),
   );
+  tf.on(
+    "input.cancelled",
+    background((e) => inputAction.cancelled(e)),
+  );
   const runs = { open, close: closeAll };
   for (const c of COMMANDS) {
     tf.command(
@@ -410,6 +417,8 @@ export function runPolish(tf) {
       // Closed from elsewhere: the window's or the dock's close button, the tile turned off.
       if (!stage.where()) return;
       stage.lostPage();
+      // Its request ends with it, so Tilefold's button stops spinning.
+      await inputAction.releaseAll();
       const s = sessions.get(shown);
       shown = null;
       const v = effectiveView();

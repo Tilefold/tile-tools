@@ -20,7 +20,9 @@
  * (kept in `host.box.replaced`) and resolves `{ done: true }`, or `{ done:
  * false, why }`: "changed" when the test changed `host.box.text` since the
  * click, "expired" after `host.expireInput()`, "gone" after
- * `host.closeBox()`. A request is answered once; a replacement longer than
+ * `host.closeBox()`, "stopped" after `host.stopAction()` (the user's ×
+ * beside the spinning button, which first fires `input.cancelled` with
+ * `{ request }` for each open request). A request is answered once; a replacement longer than
  * twice the clicked text plus 200 characters, or another request's id, is
  * refused with a TypeError. `tf.input.release(request)` ends a request
  * (kept in `host.box.released`). See fake-host.mjs for how tests use it.
@@ -44,7 +46,7 @@ const SECRET = /\b(?:sk-|ghp_|AKIA)[\w-]{12,}/g;
 export function addInput(tf, host, named, opts = {}) {
   host.actions = [];
   host.box = { text: opts.text ?? "", replaced: [], released: [], open: true };
-  /** Requests the tile hasn't answered: id → { text, expired }. */
+  /** Requests the tile hasn't answered: id → { text, expired, stopped }. */
   const requests = new Map();
   let seq = 0;
 
@@ -53,7 +55,12 @@ export function addInput(tf, host, named, opts = {}) {
     host.box.text = text;
     seq += 1;
     const request = `req${seq}`;
-    requests.set(request, { text, secrets: text.match(SECRET) ?? [], expired: false });
+    requests.set(request, {
+      text,
+      secrets: text.match(SECRET) ?? [],
+      expired: false,
+      stopped: false,
+    });
     await host.emit("input.action", {
       action: id,
       request,
@@ -68,6 +75,14 @@ export function addInput(tf, host, named, opts = {}) {
   };
   host.closeBox = () => {
     host.box.open = false;
+  };
+  /** The user's × beside the spinning button: each open request stops. */
+  host.stopAction = async () => {
+    for (const [request, r] of requests) {
+      if (r.stopped) continue;
+      r.stopped = true;
+      await host.emit("input.cancelled", { request });
+    }
   };
 
   const own = (request) => {
@@ -102,6 +117,7 @@ export function addInput(tf, host, named, opts = {}) {
         throw named("TypeError", "the replacement is too long");
       }
       requests.delete(request);
+      if (r.stopped) return { done: false, why: "stopped" };
       if (!host.box.open) return { done: false, why: "gone" };
       if (r.expired) return { done: false, why: "expired" };
       if (host.box.text !== r.text) return { done: false, why: "changed" };

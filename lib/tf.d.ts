@@ -35,7 +35,8 @@
  * Modified 2026-11-05 (Tilefold 0.1.26): the `viewer.opened` event; the
  *   `panel.input` event name in the list of names.
  * Modified 2026-11-06 (Tilefold 0.1.27): `tf.input` (buttons in the agent
- *   input box), the `input.action` event, and a layout pane's `agentInput`.
+ *   input box), the `input.action` and `input.cancelled` events, the
+ *   `stopped` answer, and a layout pane's `agentInput`.
  *
  * Last updated by: Tilefold
  */
@@ -73,6 +74,7 @@ export type TileEvent =
   | "panel.input"
   | "viewer.opened"
   | "input.action"
+  | "input.cancelled"
   | "browser.navigated"
   | "browser.closed";
 
@@ -207,6 +209,13 @@ export interface TileEventPayloads {
     language: string;
     spot: Rect | null;
   };
+  /**
+   * The user pressed × beside the tile's spinning button to stop waiting
+   * for request `request` (needs input.actions; Tilefold 0.1.27). Close
+   * what you opened for that click; `tf.input.replace` now answers
+   * `stopped`.
+   */
+  "input.cancelled": { request: string };
 }
 
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
@@ -610,12 +619,13 @@ export interface Tf {
      * characters. Tilefold highlights the changes, offers Undo and never
      * sends it; masks kept in place get the user's own words back. `why`:
      * the user edited the box since (`changed`), too late (`expired`), the
-     * box went (`gone`). Another request, or text too long, throws a TypeError.
+     * box went (`gone`), the user stopped waiting (`stopped`). Another
+     * request, or text too long, throws a TypeError.
      */
     replace(
       request: string,
       proposal: { text: string },
-    ): Promise<{ done: true } | { done: false; why: "changed" | "expired" | "gone" }>;
+    ): Promise<{ done: true } | { done: false; why: "changed" | "expired" | "gone" | "stopped" }>;
     /** Ends a request without a change (the user kept their own words). */
     release(request: string): Promise<null>;
   };

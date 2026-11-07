@@ -130,6 +130,7 @@ A listener that runs too long five times in ten minutes is skipped for the rest 
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
 | `viewer.opened` | The document viewer showed a file inside one of the panes' folders: the user opened it, or an AI agent did to point at something (needs `fs.list`; Tilefold 0.1.26) | `{ path }` |
 | `input.action` | The user clicked one of the tile's buttons in the agent input box (needs `input.actions`; Tilefold 0.1.27) | `{ action, request, text, language, spot }` |
+| `input.cancelled` | The user clicked × beside the tile's spinning button to stop waiting (needs `input.actions`; Tilefold 0.1.27) | `{ request }` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 

@@ -47,12 +47,17 @@ tf.on("input.action", (e) => {
 - `spot` is where the box is in the window, so you can open a card right above it (`tf.page.open({ dock })`).
 - The event never names the pane or the agent. Agents can't trigger it: only the user's click does.
 - A tile gets at most 10 clicks a minute, and one at a time per pane.
+- While you work on a click, your button spins with a **×** beside it. When the user clicks ×, you get `input.cancelled` (`{ request }`): close whatever you opened for that click. The button is free again at once.
+
+```js
+tf.on("input.cancelled", (e) => void closeCardFor(e.request));
+```
 
 ## 4. Answer
 
 ```js
 const r = await tf.input.replace(e.request, { text: better });
-// { done: true }, or { done: false, why: "changed" | "expired" | "gone" }
+// { done: true }, or { done: false, why: "changed" | "expired" | "gone" | "stopped" }
 ```
 
 `replace` puts `text` in the box in place of what was clicked. Tilefold compares the old and new text itself and highlights every changed word, says how many places changed, and offers Undo. If your text keeps every `[redacted]` in place and in order, the user's own words go back where they were.
@@ -62,6 +67,7 @@ const r = await tf.input.replace(e.request, { text: better });
 | `changed` | The user edited the box after clicking; nothing was replaced | Say so, and suggest clicking the button again |
 | `expired` | More than 10 minutes passed | The same |
 | `gone` | The pane closed, or the box was switched off | Nothing to do |
+| `stopped` | The user clicked × to stop waiting (you also got `input.cancelled`) | Nothing to do |
 
 Each request is answered once. Text longer than twice the clicked text plus 200 characters, or another request's id, throws a `TypeError`. Tilefold strips control characters, escape sequences and characters that change reading direction from what you send.
 
@@ -77,6 +83,6 @@ A tile that also draws over the panes (`window.overlay`) and holds `input.action
 
 ## Testing
 
-`test/fake-host.mjs` adds `tf.input` with `input: true` (or `input: { text, language }`). `host.clickAction(id)` plays a click on the box's text (`host.box.text`) and resolves to the request id; `host.box.replaced` and `host.box.released` record the answers; change `host.box.text`, call `host.expireInput()` or `host.closeBox()` to get `changed`, `expired` or `gone`. See `test/fake-input.test.mjs` and `test/prompt-polish/input-action.test.mjs`.
+`test/fake-host.mjs` adds `tf.input` with `input: true` (or `input: { text, language }`). `host.clickAction(id)` plays a click on the box's text (`host.box.text`) and resolves to the request id; `host.box.replaced` and `host.box.released` record the answers; change `host.box.text`, call `host.expireInput()` or `host.closeBox()` to get `changed`, `expired` or `gone`; `host.stopAction()` plays the user's × (`input.cancelled`, then `stopped`). See `test/fake-input.test.mjs` and `test/prompt-polish/input-action.test.mjs`.
 
 Copyright (c) 2026 Tilefold. Released under the MIT License.

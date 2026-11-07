@@ -18,7 +18,7 @@ With **Settings → Agents → Write to agents in Tilefold's input box** on (Til
 - **Use** puts the corrected prompt back in the box. Tilefold highlights every changed word and offers **Undo** (or ⌘Z / Ctrl+Z). Nothing is sent: read it and press Enter yourself.
 - **Keep mine** closes the card and leaves the box as it was.
 
-If you edit the box while the card is open, Use doesn't overwrite it: the card says so, and you click **✦ Polish** again. The pill isn't drawn over a pane that has this box, since the button is in the box itself.
+If you edit the box while the card is open, Use doesn't overwrite it: the card says so, and you click **✦ Polish** again. While the check runs, Tilefold shows a **×** beside the spinning button: click it to stop waiting, and the card closes. The pill isn't drawn over a pane that has this box, since the button is in the box itself.
 
 ## One prompt per pane
 

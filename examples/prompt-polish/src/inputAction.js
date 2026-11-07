@@ -19,8 +19,10 @@
  * holds the box's spot (`overlay.layout`), else the focused one.
  *
  * Each session holds at most one open request (`s.input`); closing the card
- * or starting over releases it. Only counts are audited (`used`), never
- * the prompt.
+ * (or it going away), or starting over, releases it, so Tilefold's button
+ * never keeps spinning for a card that isn't there. When the user presses
+ * × beside the spinning button (`input.cancelled`), that pane's card
+ * closes. Only counts are audited (`used`), never the prompt.
  */
 import { build, changeCount } from "./polish.js";
 import { resetSession } from "./sessions.js";
@@ -80,6 +82,22 @@ export function createInputAction(tf, deps) {
     await tf.input.release(request).catch(warn);
   };
 
+  /** Ends every pane's open request (the card closed or went away). */
+  const releaseAll = async () => {
+    for (const id of sessions.ids()) await release(id);
+  };
+
+  /** The user pressed × beside the spinning button: that pane's card closes. */
+  const cancelled = async (e) => {
+    const request = e && typeof e.request === "string" ? e.request : null;
+    const id = request && sessions.ids().find((p) => sessions.get(p)?.input?.request === request);
+    if (!id) return;
+    const s = sessions.get(id);
+    s.input = null;
+    resetSession(s);
+    await fold(id);
+  };
+
   /** The user clicked ✦ Polish: the card opens for that pane and checks at once. */
   const clicked = async (e) => {
     if (!e || e.action !== ACTION_ID || typeof e.request !== "string") return;
@@ -109,6 +127,8 @@ export function createInputAction(tf, deps) {
       warn(err);
       r = { done: false, why: "gone" };
     }
+    // Stopped from Tilefold's button: the card was closed already.
+    if (r?.why === "stopped") return;
     if (r?.done) {
       // Counts only: never the prompt.
       audit("used", { kept: total - undone, undone });
@@ -129,5 +149,5 @@ export function createInputAction(tf, deps) {
     await fold(id);
   };
 
-  return { available, register, clicked, use, keep, release };
+  return { available, register, clicked, cancelled, use, keep, release, releaseAll };
 }

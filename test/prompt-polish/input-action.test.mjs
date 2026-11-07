@@ -12,8 +12,10 @@
  * mine. Use puts the corrected prompt in the box (and folds the card);
  * Keep mine leaves the box and releases the request; a box edited
  * meanwhile, a late answer or a box that went is said on the card. Closing
- * the card releases the request. The pill isn't drawn over a pane whose
- * row is the agent input box. Nothing the user wrote is recorded or stored.
+ * the card releases the request, and so do the card going away and Close
+ * in the palette. The × beside Tilefold's spinning button closes the card.
+ * The pill isn't drawn over a pane whose row is the agent input box.
+ * Nothing the user wrote is recorded or stored.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -168,6 +170,31 @@ describe("the ✦ Polish button in the agent input box", () => {
     expect(host.overlay?.items ?? []).toEqual([]);
     const shell = await start({ layout: ONE_PANE });
     expect(shell.item("polish-button")).toBeTruthy();
+  });
+});
+
+describe("stopping", () => {
+  it("closes the card when the user presses × beside the spinning button", async () => {
+    const host = await start({ settings: { checker: "agent" } });
+    await clicked(host);
+    expect(lastView(host)).toMatchObject({ step: "agent" });
+    await host.stopAction();
+    expect(host.page.open).toBe(false);
+    expect(host.box.replaced).toEqual([]);
+    // A fresh click works again.
+    await clicked(host);
+    expect(host.page.open).toBe(true);
+    expect(host.asks).toHaveLength(2);
+  });
+
+  it("ends the request when the card goes away or everything is closed", async () => {
+    const host = await start();
+    const first = await clicked(host);
+    await host.emit("page.closed", {});
+    expect(host.box.released).toEqual([first]);
+    const second = await clicked(host);
+    await host.command("close");
+    expect(host.box.released).toEqual([first, second]);
   });
 });
 

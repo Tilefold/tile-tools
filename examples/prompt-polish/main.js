@@ -513,6 +513,18 @@ function createInputAction(tf, deps) {
     s.input = null;
     await tf.input.release(request).catch(warn);
   };
+  const releaseAll = async () => {
+    for (const id of sessions.ids()) await release(id);
+  };
+  const cancelled = async (e) => {
+    const request = e && typeof e.request === "string" ? e.request : null;
+    const id = request && sessions.ids().find((p) => sessions.get(p)?.input?.request === request);
+    if (!id) return;
+    const s = sessions.get(id);
+    s.input = null;
+    resetSession(s);
+    await fold(id);
+  };
   const clicked = async (e) => {
     if (!e || e.action !== ACTION_ID || typeof e.request !== "string") return;
     const id = paneAt(await layout(), e.spot) ?? noPane;
@@ -538,6 +550,7 @@ function createInputAction(tf, deps) {
       warn(err);
       r = { done: false, why: "gone" };
     }
+    if (r?.why === "stopped") return;
     if (r?.done) {
       audit("used", { kept: total - undone, undone });
       resetSession(s);
@@ -554,7 +567,7 @@ function createInputAction(tf, deps) {
     resetSession(s);
     await fold(id);
   };
-  return { available, register, clicked, use, keep, release };
+  return { available, register, clicked, cancelled, use, keep, release, releaseAll };
 }
 
 // src/sendToAgent.js
@@ -1115,6 +1128,7 @@ function runPolish(tf) {
     const was = active;
     active = false;
     dismissed = true;
+    await inputAction.releaseAll();
     for (const id of sessions.ids()) sessions.drop(id);
     await place();
     if (was) audit("closed", {});
@@ -1245,6 +1259,10 @@ function runPolish(tf) {
     "input.action",
     background((e) => inputAction.clicked(e))
   );
+  tf.on(
+    "input.cancelled",
+    background((e) => inputAction.cancelled(e))
+  );
   const runs = { open, close: closeAll };
   for (const c of COMMANDS) {
     tf.command(
@@ -1267,6 +1285,7 @@ function runPolish(tf) {
     background(async () => {
       if (!stage.where()) return;
       stage.lostPage();
+      await inputAction.releaseAll();
       const s = sessions.get(shown);
       shown = null;
       const v = effectiveView();

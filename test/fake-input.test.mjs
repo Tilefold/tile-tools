@@ -9,7 +9,8 @@
  * checked when registered; a click hands the tile the box's text with keys
  * masked and a one-time request; a replacement lands once, puts the masked
  * keys back, and answers "changed", "expired" or "gone" when it can't; one
- * too long or for an unknown request is refused; release ends a request.
+ * too long or for an unknown request is refused; release ends a request;
+ * the user's × fires `input.cancelled` and a later answer hears "stopped".
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -45,6 +46,22 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 const audit = (host, action) =>
   host.audits.filter((a) => a.action === action).map((a) => a.details);
+
+describe("fake tf.input, stopped", () => {
+  it("fires input.cancelled on the user's ×, and answers stopped after", async () => {
+    const waits = tileWith(`
+      tf.input.action({ id: "fix", label: "Fix" });
+      tf.on("input.action", (e) => { globalThis.lastRequest = e.request; });
+      tf.on("input.cancelled", (e) => tf.audit("cancelled", { same: e.request === globalThis.lastRequest }));
+      tf.command("Answer", async () => tf.input.replace(globalThis.lastRequest, { text: "New." }), { id: "answer" });`);
+    const host = await startTile(waits, { input: { text: "old" } });
+    await host.clickAction("fix");
+    await host.stopAction();
+    expect(audit(host, "cancelled")).toEqual([{ same: true }]);
+    expect(await host.command("answer")).toEqual({ done: false, why: "stopped" });
+    expect(host.box.text).toBe("old");
+  });
+});
 
 describe("fake tf.input", () => {
   it("checks registrations like Tilefold", async () => {
