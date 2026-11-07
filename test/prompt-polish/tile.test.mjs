@@ -88,7 +88,8 @@ describe("over the agent's pane", () => {
     await host.command("open");
     expect(host.page.open).toBe(true);
     expect(host.page.dock).toEqual(placeFor(ONE_PANE, "bottom", { h: 260 }).card);
-    expect(host.overlay).toBeNull();
+    // No pill (its overlay stays, empty, to hear the layout).
+    expect(host.overlay?.items ?? []).toEqual([]);
     expect(host.audits).toContainEqual({ action: "opened", details: { view: "bottom" } });
   });
 
@@ -198,6 +199,17 @@ describe("one prompt per pane", () => {
     expect(host.toasts).toEqual([]);
     await moveTo(host, twoPanes("p1"));
     expect(host.page.open).toBe(true);
+  });
+
+  it("hides in another tab even when no pane there has the focus yet", async () => {
+    const host = await start({ layout: twoPanes("p1") });
+    await host.command("open");
+    // The tab bar has the focus: the other tab reports no focused pane.
+    await moveTo(host, { ...otherTab, panes: [{ ...otherTab.panes[0], focused: false }] });
+    expect(host.page.open).toBe(false);
+    await moveTo(host, twoPanes("p1"));
+    expect(host.page.open).toBe(true);
+    expect(host.page.dock.x).toBe(12);
   });
 
   it("keeps the pane you were in when focus leaves the panes", async () => {
@@ -471,9 +483,11 @@ describe("the Polish pill (the default)", () => {
   it("stays away after Close until Write a prompt", async () => {
     const host = await start(pill);
     await host.command("close");
-    expect(host.overlay).toBeNull();
+    // No pill (its overlay stays, empty, to hear the layout).
+    expect(host.overlay?.items ?? []).toEqual([]);
     await host.emit("overlay.layout", ONE_PANE);
-    expect(host.overlay).toBeNull();
+    // No pill (its overlay stays, empty, to hear the layout).
+    expect(host.overlay?.items ?? []).toEqual([]);
     await host.command("open");
     expect(host.item("polish-button")).toBeTruthy();
     expect(host.page.open).toBe(true);
@@ -481,7 +495,8 @@ describe("the Polish pill (the default)", () => {
 
   it("isn't drawn where the page can't float over the panes", async () => {
     const host = await start({ ...pill, page: true });
-    expect(host.overlay).toBeNull();
+    // No pill (its overlay stays, empty, to hear the layout).
+    expect(host.overlay?.items ?? []).toEqual([]);
   });
 });
 
@@ -539,7 +554,8 @@ describe("other places and Tilefolds", () => {
     expect(host.item("polish-button")).toBeTruthy();
     await host.setSetting("view", "bottom");
     expect(host.store.has("view")).toBe(false);
-    expect(host.overlay).toBeNull();
+    // No pill (its overlay stays, empty, to hear the layout).
+    expect(host.overlay?.items ?? []).toEqual([]);
     expect(host.page.dock).toEqual(placeFor(ONE_PANE, "bottom", { h: 260 }).card);
   });
 
@@ -548,7 +564,8 @@ describe("other places and Tilefolds", () => {
     await host.command("open");
     await host.command("close");
     expect(host.page.open).toBe(false);
-    expect(host.overlay).toBeNull();
+    // No pill (its overlay stays, empty, to hear the layout).
+    expect(host.overlay?.items ?? []).toEqual([]);
     expect(host.audits.at(-1)).toEqual({ action: "closed", details: {} });
   });
 });

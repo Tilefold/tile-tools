@@ -186,6 +186,9 @@ describe("the ✦ Polish button in the agent input box", () => {
   it("draws no pill over the agent input box, and the pill over other panes", async () => {
     const host = await start();
     expect(host.overlay?.items ?? []).toEqual([]);
+    // Its overlay stays, empty, so it hears when you go to another tab.
+    await clicked(host);
+    expect(host.overlay).toMatchObject({ items: [] });
     const shell = await start({ layout: ONE_PANE });
     expect(shell.item("polish-button")).toBeTruthy();
   });

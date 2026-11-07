@@ -859,6 +859,7 @@ function createStage(tf, o) {
   let where = null;
   let spot = null;
   let buttonShown = false;
+  let sceneShown = false;
   let layout = null;
   let focus = null;
   let wantH = 260;
@@ -874,7 +875,18 @@ function createStage(tf, o) {
   const hideButton = async () => {
     if (!buttonShown) return;
     buttonShown = false;
+    await tf.overlay.show({ items: [] }).catch(o.warn);
+  };
+  const dropOverlay = async () => {
+    if (!sceneShown) return;
+    buttonShown = false;
+    sceneShown = false;
     await tf.overlay.hide().catch(o.warn);
+  };
+  const keepOverlay = async () => {
+    if (sceneShown || !tf.overlay) return;
+    sceneShown = true;
+    await tf.overlay.show({ items: [] }).catch(o.warn);
   };
   const pill = () => {
     const label = tf.t("pill-label");
@@ -889,9 +901,10 @@ function createStage(tf, o) {
       cursor: "pointer",
       label: tf.t("button-label")
     };
-    if (buttonShown) await tf.overlay.update({ items: [item] });
+    if (sceneShown) await tf.overlay.update({ items: [item] });
     else await tf.overlay.show({ items: [item] });
     buttonShown = true;
+    sceneShown = true;
   };
   const toCard = async (card) => {
     if (where === "card") {
@@ -921,7 +934,8 @@ function createStage(tf, o) {
   };
   function setLayout(l) {
     layout = l;
-    focus = focusedId(l) ?? focus;
+    const here = Array.isArray(l?.panes) && l.panes.some((p) => p?.id === focus);
+    focus = focusedId(l) ?? (here ? focus : null);
   }
   return {
     setLayout,
@@ -939,7 +953,7 @@ function createStage(tf, o) {
       return where === "card";
     },
     /** The overlay was hidden by the user: the button is gone. */
-    lostOverlay: () => void (buttonShown = false),
+    lostOverlay: () => void (buttonShown = false, sceneShown = false),
     /** The page was closed from elsewhere. */
     lostPage() {
       where = null;
@@ -953,9 +967,10 @@ function createStage(tf, o) {
     async show({ view, open, active, waiting = 0 }) {
       if (!active) {
         await closePage();
-        await hideButton();
+        await dropOverlay();
         return where;
       }
+      await keepOverlay();
       if (view === "side") {
         await toSide();
         return where;

@@ -25,6 +25,9 @@
  * Modified 2026-11-06 (input actions): no pill over a pane whose row is
  *   Tilefold's agent input box (it has its own ✦ Polish button there);
  *   `focusOn` moves to the pane a click in that box came from.
+ * Modified 2026-11-07 (card stays in its pane): the pane kept while focus
+ *   is away from the panes counts only while it is on screen, so a card
+ *   never follows you into another tab.
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
@@ -42,6 +45,8 @@ export function createStage(tf, o) {
   let where = null;
   let spot = null;
   let buttonShown = false;
+  /** Whether the overlay is shown at all (the pill, or empty). */
+  let sceneShown = false;
   let layout = null;
   /** The focused pane's id, kept while focus is away from the panes. */
   let focus = null;
@@ -60,10 +65,31 @@ export function createStage(tf, o) {
     await tf.page.close().catch(o.warn);
   };
 
+  /**
+   * Takes the pill away, keeping an empty overlay: only a tile showing one
+   * hears where the panes are and which one has the focus, and the card
+   * must hear when you go to another tab even where it draws no pill.
+   */
   const hideButton = async () => {
     if (!buttonShown) return;
     buttonShown = false;
+    // Showing replaces the scene (an update only changes the items it names).
+    await tf.overlay.show({ items: [] }).catch(o.warn);
+  };
+
+  /** Takes the overlay away altogether (Prompt Polish closed). */
+  const dropOverlay = async () => {
+    if (!sceneShown) return;
+    buttonShown = false;
+    sceneShown = false;
     await tf.overlay.hide().catch(o.warn);
+  };
+
+  /** Keeps an empty overlay while Prompt Polish shows, to hear the layout. */
+  const keepOverlay = async () => {
+    if (sceneShown || !tf.overlay) return;
+    sceneShown = true;
+    await tf.overlay.show({ items: [] }).catch(o.warn);
   };
 
   /** The pill's word in the user's language, and its width. */
@@ -81,9 +107,10 @@ export function createStage(tf, o) {
       cursor: "pointer",
       label: tf.t("button-label"),
     };
-    if (buttonShown) await tf.overlay.update({ items: [item] });
+    if (sceneShown) await tf.overlay.update({ items: [item] });
     else await tf.overlay.show({ items: [item] });
     buttonShown = true;
+    sceneShown = true;
   };
 
   const toCard = async (card) => {
@@ -120,7 +147,10 @@ export function createStage(tf, o) {
   /** Takes a layout Tilefold reported. */
   function setLayout(l) {
     layout = l;
-    focus = focusedId(l) ?? focus;
+    // Focus away from the panes keeps the pane you were in, but only while
+    // it is on screen: in another tab, the card isn't drawn there.
+    const here = Array.isArray(l?.panes) && l.panes.some((p) => p?.id === focus);
+    focus = focusedId(l) ?? (here ? focus : null);
   }
 
   return {
@@ -139,7 +169,7 @@ export function createStage(tf, o) {
       return where === "card";
     },
     /** The overlay was hidden by the user: the button is gone. */
-    lostOverlay: () => void (buttonShown = false),
+    lostOverlay: () => void ((buttonShown = false), (sceneShown = false)),
     /** The page was closed from elsewhere. */
     lostPage() {
       where = null;
@@ -154,9 +184,10 @@ export function createStage(tf, o) {
     async show({ view, open, active, waiting = 0 }) {
       if (!active) {
         await closePage();
-        await hideButton();
+        await dropOverlay();
         return where;
       }
+      await keepOverlay();
       if (view === "side") {
         await toSide();
         return where;
