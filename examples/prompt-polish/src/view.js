@@ -16,6 +16,8 @@
  *   agent in the pane), and a problem that can offer to ask it instead.
  * Modified 2026-11-06 (input actions): `input` (the prompt came from the
  *   agent input box, so the result offers Use and Keep mine); their labels.
+ * Modified 2026-11-06 (polish agent): waiting for the polish agent, named
+ *   (`helper`, `helperName`).
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -98,7 +100,10 @@ export function viewOf(s, t) {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
   }
   if (s.step === "agent") {
-    return { ...head, step: "agent", text: t("label-agent-waiting", { language: lang.native }) };
+    const text = s.helper
+      ? t("label-helper-waiting", { language: lang.native, agent: s.helperName ?? "" })
+      : t("label-agent-waiting", { language: lang.native });
+    return { ...head, step: "agent", text };
   }
   if (s.step === "problem") {
     // With a prompt to check, the agent in the pane can do it instead.

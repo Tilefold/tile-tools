@@ -15,6 +15,13 @@
  *
  * Only counts are audited (`agent-asked`, `checked` with `checker:
  * "agent"`), never the prompt or the fixes.
+ *
+ * Modified 2026-11-06 (polish agent): where Tilefold has helper agents
+ *   (`tf.agent.helper`, Tilefold 0.1.27), the request goes to the polish
+ *   agent instead, in a tab of its own that Tilefold opens the first time:
+ *   no ask card, and the agent the user works with is never interrupted.
+ *   The card says it's waiting at once (starting the agent takes a while)
+ *   and why when the request couldn't go.
  */
 import {
   agentQuestion,
@@ -27,15 +34,24 @@ import {
 import { readAnswer } from "./answer.js";
 import { changeCount, changes, diff } from "./polish.js";
 
+/** Why the polish agent didn't get the request, as the card's problem message. */
+const HELPER_WHY = {
+  busy: "error-helper-busy",
+  "you-are-typing": "error-helper-typing",
+  "not-started": "error-helper-not-started",
+};
+
 /**
  * @param {any} tf
  * @param {{ sessions: any, render: (id: string) => Promise<void>,
  *   refreshButton: () => Promise<void>, audit: (action: string, details: object) => void,
  *   warn: (err: unknown) => void, language: () => { code: string, name: string, native: string },
- *   mode: () => string }} deps
+ *   mode: () => string, helperAgent: () => string }} deps
  */
 export function createAgentRun(tf, deps) {
-  const { sessions, render, refreshButton, audit, warn, language, mode } = deps;
+  const { sessions, render, refreshButton, audit, warn, language, mode, helperAgent } = deps;
+  /** True where Tilefold can give the tile a polish agent of its own. */
+  const hasHelper = () => typeof tf.agent?.helper === "function";
   const pending = createPending();
 
   /** Shows a problem on pane `id`'s card. */
@@ -44,11 +60,43 @@ export function createAgentRun(tf, deps) {
     return render(id);
   };
 
-  /** Asks the agent in the pane to check pane `id`'s prompt `original`. */
+  /** Has the polish agent check pane `id`'s prompt: `question` for `request`. */
+  const viaHelper = async (id, s, entry, question, request) => {
+    // Waiting shows at once: the first time, the agent's tab takes a while to start.
+    pending.add(request, entry);
+    Object.assign(s, { step: "agent", helper: true, draft: entry.original, problem: "" });
+    await render(id);
+    let r;
+    try {
+      r = await tf.agent.helper({
+        agent: helperAgent(),
+        question,
+        about: tf.t("agent-check-about"),
+      });
+    } catch (err) {
+      warn(err);
+      r = null;
+    }
+    // Cancelled, closed or asked again meanwhile: that is the card's state now.
+    if (s.step !== "agent" || !pending.has(id)) return;
+    if (!r?.sent) {
+      pending.dropFor(id);
+      return problem(id, s, HELPER_WHY[r?.why] ?? "error-helper-failed");
+    }
+    audit("agent-asked", {
+      language: entry.language,
+      mode: entry.mode,
+      helper: true,
+      opened: !!r.opened,
+    });
+  };
+
+  /** Asks the polish agent (else the agent in the pane) to check pane `id`'s prompt `original`. */
   const check = async (id, original) => {
     const s = sessions.get(id);
     if (!s) return;
-    if (typeof tf.agent?.ask !== "function") return problem(id, s, "error-no-agent-ask");
+    if (!hasHelper() && typeof tf.agent?.ask !== "function")
+      return problem(id, s, "error-no-agent-ask");
     const request = newRequestId();
     const lang = language();
     const m = mode();
@@ -60,6 +108,8 @@ export function createAgentRun(tf, deps) {
       request,
       command: `${TILE_ID}.${HAND_BACK}`,
     });
+    const entry = { pane: id, original, language: lang.code, mode: m };
+    if (hasHelper()) return viaHelper(id, s, entry, question, request);
     let r;
     try {
       r = await tf.agent.ask({ question, about: tf.t("agent-check-about") });
@@ -69,8 +119,8 @@ export function createAgentRun(tf, deps) {
     }
     if (!r?.shown)
       return problem(id, s, r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane");
-    pending.add(request, { pane: id, original, language: lang.code, mode: m });
-    Object.assign(s, { step: "agent", draft: original, problem: "" });
+    pending.add(request, entry);
+    Object.assign(s, { step: "agent", helper: false, draft: original, problem: "" });
     audit("agent-asked", { language: lang.code, mode: m });
     await render(id);
   };
@@ -131,5 +181,12 @@ export function createAgentRun(tf, deps) {
   /** Forgets whatever pane `id` waited on (its prompt was closed or reset). */
   const forget = (id) => pending.dropFor(id);
 
-  return { check, handBack, cancel, forget };
+  /** Checks it by the polish agent when Claude can't (no key): true if it did. */
+  const takeOver = async (id, original) => {
+    if (!hasHelper()) return false;
+    await check(id, original);
+    return true;
+  };
+
+  return { check, handBack, cancel, forget, takeOver };
 }

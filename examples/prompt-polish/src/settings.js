@@ -12,6 +12,9 @@
  * agent in their pane. And the palette commands, each with a fixed id.
  *
  * Modified 2026-11-06 (no-key mode): the `checker` setting.
+ * Modified 2026-11-06 (polish agent): the `helperAgent` setting, the
+ *   agent Tilefold starts in a tab of its own to check prompts when there
+ *   is no key (or always, with `checker` "agent").
  */
 import { LANGUAGES } from "./languages.js";
 import { VIEWS, viewOf } from "./place.js";
@@ -19,8 +22,18 @@ import { VIEWS, viewOf } from "./place.js";
 /** The modes: fix mistakes only, or also make it natural. */
 export const MODES = ["fix", "natural"];
 
-/** Who checks prompts: Claude with the user's key, or the agent in the pane. */
+/** Who checks prompts: Claude with the user's key (else the polish agent), or always the agent. */
 export const CHECKERS = ["claude", "agent"];
+
+/** The agents the polish agent can be, with their names (not translated). */
+export const HELPER_AGENTS = [
+  { value: "claude", label: "Claude Code" },
+  { value: "codex", label: "Codex" },
+  { value: "gemini", label: "Gemini CLI" },
+  { value: "cursor", label: "Cursor Agent" },
+  { value: "agy", label: "Antigravity CLI" },
+  { value: "opencode", label: "OpenCode" },
+];
 
 /** The label of each mode, view and checker. */
 const MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
@@ -54,6 +67,9 @@ export function registerSettings(tf) {
   tf.setting("checker", "claude", tf.t("setting-checker"), {
     choices: CHECKERS.map((value) => ({ value, label: tf.t(CHECKER_KEYS[value]) })),
   });
+  tf.setting("helperAgent", "claude", tf.t("setting-helper-agent"), {
+    choices: HELPER_AGENTS.map((a) => ({ ...a })),
+  });
   tf.setting("fast", true, tf.t("setting-fast"));
 }
 
@@ -75,8 +91,19 @@ export function settingsOf(settings) {
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
     checker: read(settings, "checker") === "agent" ? "agent" : "claude",
+    helperAgent: helperAgentOf(read(settings, "helperAgent")),
   };
 }
+
+/** A known polish agent's id, else Claude Code's. */
+export const helperAgentOf = (v) =>
+  HELPER_AGENTS.some((a) => a.value === v) ? v : HELPER_AGENTS[0].value;
+
+/** The polish agent's name, for the card. */
+export const helperAgentName = (v) => HELPER_AGENTS.find((a) => a.value === helperAgentOf(v)).label;
+
+/** The settings the card shows: the mode, and the polish agent's name. */
+export const cardSettings = (c) => ({ mode: c.mode, helperName: helperAgentName(c.helperAgent) });
 
 /** The view setting's label, for the page's view switch. */
 export const viewLabelKey = (view) => VIEW_KEYS[viewOf(view)];

@@ -270,17 +270,51 @@ function errorKey(err) {
 }
 
 // src/agentRun.js
+var HELPER_WHY = {
+  busy: "error-helper-busy",
+  "you-are-typing": "error-helper-typing",
+  "not-started": "error-helper-not-started"
+};
 function createAgentRun(tf, deps) {
-  const { sessions, render, refreshButton, audit, warn, language, mode } = deps;
+  const { sessions, render, refreshButton, audit, warn, language, mode, helperAgent } = deps;
+  const hasHelper = () => typeof tf.agent?.helper === "function";
   const pending = createPending();
   const problem = (id, s, key) => {
     Object.assign(s, { step: "problem", problem: key });
     return render(id);
   };
+  const viaHelper = async (id, s, entry, question, request) => {
+    pending.add(request, entry);
+    Object.assign(s, { step: "agent", helper: true, draft: entry.original, problem: "" });
+    await render(id);
+    let r;
+    try {
+      r = await tf.agent.helper({
+        agent: helperAgent(),
+        question,
+        about: tf.t("agent-check-about")
+      });
+    } catch (err) {
+      warn(err);
+      r = null;
+    }
+    if (s.step !== "agent" || !pending.has(id)) return;
+    if (!r?.sent) {
+      pending.dropFor(id);
+      return problem(id, s, HELPER_WHY[r?.why] ?? "error-helper-failed");
+    }
+    audit("agent-asked", {
+      language: entry.language,
+      mode: entry.mode,
+      helper: true,
+      opened: !!r.opened
+    });
+  };
   const check = async (id, original) => {
     const s = sessions.get(id);
     if (!s) return;
-    if (typeof tf.agent?.ask !== "function") return problem(id, s, "error-no-agent-ask");
+    if (!hasHelper() && typeof tf.agent?.ask !== "function")
+      return problem(id, s, "error-no-agent-ask");
     const request = newRequestId();
     const lang = language();
     const m = mode();
@@ -292,6 +326,8 @@ function createAgentRun(tf, deps) {
       request,
       command: `${TILE_ID}.${HAND_BACK}`
     });
+    const entry = { pane: id, original, language: lang.code, mode: m };
+    if (hasHelper()) return viaHelper(id, s, entry, question, request);
     let r;
     try {
       r = await tf.agent.ask({ question, about: tf.t("agent-check-about") });
@@ -301,8 +337,8 @@ function createAgentRun(tf, deps) {
     }
     if (!r?.shown)
       return problem(id, s, r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane");
-    pending.add(request, { pane: id, original, language: lang.code, mode: m });
-    Object.assign(s, { step: "agent", draft: original, problem: "" });
+    pending.add(request, entry);
+    Object.assign(s, { step: "agent", helper: false, draft: original, problem: "" });
     audit("agent-asked", { language: lang.code, mode: m });
     await render(id);
   };
@@ -350,15 +386,21 @@ function createAgentRun(tf, deps) {
     await render(id);
   };
   const forget = (id) => pending.dropFor(id);
-  return { check, handBack, cancel, forget };
+  const takeOver = async (id, original) => {
+    if (!hasHelper()) return false;
+    await check(id, original);
+    return true;
+  };
+  return { check, handBack, cancel, forget, takeOver };
 }
 
 // src/claudeRun.js
 function createClaudeRun(tf, deps) {
-  const { sessions, render, refreshButton, audit, language, mode, fast } = deps;
+  const { sessions, render, refreshButton, audit, language, mode, fast, noKey } = deps;
   const check = async (id, original) => {
     const s = sessions.get(id);
     if (!s) return;
+    if (!tf.ai && await noKey?.(id, original)) return;
     if (!tf.ai) {
       Object.assign(s, { step: "problem", problem: "error-no-ai" });
       return render(id);
@@ -382,6 +424,7 @@ function createClaudeRun(tf, deps) {
         );
       } catch (err) {
         const key = errorKey(err);
+        if (key === "error-no-key" && await noKey?.(id, original)) return;
         Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
         return render(id);
       }
@@ -673,6 +716,14 @@ var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && 
 // src/settings.js
 var MODES = ["fix", "natural"];
 var CHECKERS = ["claude", "agent"];
+var HELPER_AGENTS = [
+  { value: "claude", label: "Claude Code" },
+  { value: "codex", label: "Codex" },
+  { value: "gemini", label: "Gemini CLI" },
+  { value: "cursor", label: "Cursor Agent" },
+  { value: "agy", label: "Antigravity CLI" },
+  { value: "opencode", label: "OpenCode" }
+];
 var MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
 var CHECKER_KEYS = { claude: "setting-checker-claude", agent: "setting-checker-agent" };
 var VIEW_KEYS = {
@@ -700,6 +751,9 @@ function registerSettings(tf) {
   tf.setting("checker", "claude", tf.t("setting-checker"), {
     choices: CHECKERS.map((value) => ({ value, label: tf.t(CHECKER_KEYS[value]) }))
   });
+  tf.setting("helperAgent", "claude", tf.t("setting-helper-agent"), {
+    choices: HELPER_AGENTS.map((a) => ({ ...a }))
+  });
   tf.setting("fast", true, tf.t("setting-fast"));
 }
 var read = (settings, key) => {
@@ -716,9 +770,13 @@ function settingsOf(settings) {
     mode: mode === "natural" ? "natural" : "fix",
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
-    checker: read(settings, "checker") === "agent" ? "agent" : "claude"
+    checker: read(settings, "checker") === "agent" ? "agent" : "claude",
+    helperAgent: helperAgentOf(read(settings, "helperAgent"))
   };
 }
+var helperAgentOf = (v) => HELPER_AGENTS.some((a) => a.value === v) ? v : HELPER_AGENTS[0].value;
+var helperAgentName = (v) => HELPER_AGENTS.find((a) => a.value === helperAgentOf(v)).label;
+var cardSettings = (c) => ({ mode: c.mode, helperName: helperAgentName(c.helperAgent) });
 
 // src/button.js
 var PILL_H = 26;
@@ -971,7 +1029,8 @@ function viewOf2(s, t) {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
   }
   if (s.step === "agent") {
-    return { ...head, step: "agent", text: t("label-agent-waiting", { language: lang.native }) };
+    const text = s.helper ? t("label-helper-waiting", { language: lang.native, agent: s.helperName ?? "" }) : t("label-agent-waiting", { language: lang.native });
+    return { ...head, step: "agent", text };
   }
   if (s.step === "problem") {
     const offer = AGENT_CAN_HELP.has(s.problem) && !!String(s.draft ?? "").trim();
@@ -1058,7 +1117,7 @@ function runPolish(tf) {
     await post({
       do: "show",
       view: viewOf2(
-        { ...s, pane: id, view: effectiveView(), language: language(), mode: current().mode },
+        { ...s, pane: id, view: effectiveView(), language: language(), ...cardSettings(current()) },
         tf.t
       )
     });
@@ -1165,10 +1224,11 @@ function runPolish(tf) {
     warn,
     language,
     mode: () => current().mode,
-    fast: () => current().fast
+    fast: () => current().fast,
+    helperAgent: () => current().helperAgent
   };
-  const claudeRun = createClaudeRun(tf, deps);
   const agentRun = createAgentRun(tf, deps);
+  const claudeRun = createClaudeRun(tf, { ...deps, noKey: agentRun.takeOver });
   const sendToAgent = createSendToAgent(tf, {
     ...deps,
     // With the pill, the card folds back into it.

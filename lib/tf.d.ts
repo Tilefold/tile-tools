@@ -36,7 +36,7 @@
  *   `panel.input` event name in the list of names.
  * Modified 2026-11-06 (Tilefold 0.1.27): `tf.input` (buttons in the agent
  *   input box), the `input.action` and `input.cancelled` events, the
- *   `stopped` answer, and a layout pane's `agentInput`.
+ *   `stopped` answer, and a layout pane's `agentInput`; `tf.agent.helper`.
  *
  * Last updated by: Tilefold
  */
@@ -599,6 +599,25 @@ export interface Tf {
       shown: boolean;
       why?: "busy" | "no-pane";
     }>;
+    /**
+     * Needs agent.helper (Tilefold 0.1.27; missing before). Types `question`
+     * to the tile's own helper agent, with a line naming the tile: the
+     * first time (or after the user closed it), Tilefold opens a tab in
+     * the background named after the tile and starts `agent` there; no ask
+     * card. `opened`: this call opened the tab (it can take a while: don't
+     * await it in a listener). `why`: the agent works or waits on the user
+     * (`busy`), the user types in its tab (`you-are-typing`), it didn't
+     * start within 30 seconds (`not-started`). Six a minute. The agent may
+     * run this tile's commands without asking, to hand its work back.
+     */
+    helper?(request: {
+      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode";
+      question: string;
+      about?: string;
+    }): Promise<
+      | { sent: true; opened: boolean }
+      | { sent: false; why: "busy" | "you-are-typing" | "not-started"; opened: boolean }
+    >;
   };
   /**
    * Needs input.actions (Tilefold 0.1.27; missing before). Buttons in the

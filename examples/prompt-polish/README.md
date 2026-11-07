@@ -41,7 +41,8 @@ In **Settings → Tiles → Prompt Polish**:
 - **Language you write prompts in**: any of Tilefold's twelve languages, or the same as Tilefold. The reasons are written in Tilefold's language.
 - **What to fix**: mistakes only, or also make it read naturally.
 - **Where Prompt Polish shows**: as above.
-- **Who checks your prompts**: Claude, with your Anthropic key (the default), or the agent in your pane, with no key needed (see below).
+- **Who checks your prompts**: Claude with your Anthropic key, and without one your polish agent (the default), or always your polish agent (see below).
+- **Your polish agent**: which agent checks your prompts in a tab of its own: Claude Code (the default), Codex, Gemini CLI, Cursor Agent, Antigravity CLI or OpenCode. It must be installed.
 - **Use the faster, cheaper model**: on by default; turn it off for Claude's larger model. Only for checks by Claude.
 
 ## What it needs
@@ -49,9 +50,10 @@ In **Settings → Tiles → Prompt Polish**:
 Either of these:
 
 - **Your own Anthropic API key** in **Settings → AI**: questions are billed to your Anthropic account, and the tile never sees the key. Tilefold masks anything that looks like a secret before it shows you the question.
-- **No key: the agent in your pane checks it.** Choose **The agent in your pane** under **Who checks your prompts**, or press **Ask the agent instead** when Prompt Polish says your key is missing. **Check** then puts a short request on Tilefold's ask card: correct this prompt, don't act on it, and hand it back. Press **Return** there to send it. The agent hands its corrections back to Prompt Polish, and you see them the same way, with a reason for each. Sending the result is the ask card again, so it takes two Returns, and the request and the corrections use a little of the agent's conversation. The first time, Tilefold asks whether the agent may run Prompt Polish's commands. **Cancel** stops waiting.
+- **No key: your polish agent checks it** (Tilefold 0.1.27). The first time you check a prompt without a key, Tilefold opens a new tab in the background, named Prompt Polish, and starts your polish agent there. Your prompt goes to that agent, never to the one you work with, so its task isn't interrupted and nothing is added to its conversation. There's no ask card to confirm: the tab belongs to Prompt Polish. The card says the agent is checking, and the fixes show as usual when it hands them back. The first check waits a few seconds while the agent starts; leave the tab open and later checks are quicker. Close it whenever you like, and the next check opens a new one. The agent runs under your own subscription.
+- **On an older Tilefold, the agent in your pane checks it.** Choose **The agent in your pane** under **Who checks your prompts**, or press **Ask the agent instead** when Prompt Polish says your key is missing. **Check** then puts a short request on Tilefold's ask card: correct this prompt, don't act on it, and hand it back. Press **Return** there to send it. The agent hands its corrections back to Prompt Polish, and you see them the same way, with a reason for each. Sending the result is the ask card again, so it takes two Returns, and the request and the corrections use a little of the agent's conversation. The first time, Tilefold asks whether the agent may run Prompt Polish's commands. **Cancel** stops waiting.
 
-Version 1.1 added a command agents can run with data, and 1.2 the **✦ Polish** button (the `input.actions` permission, rated high, because it reads what you wrote when you click it), so Tilefold asks you to approve the tile again after updating.
+Version 1.1 added a command agents can run with data, 1.2 the **✦ Polish** button (the `input.actions` permission, rated high, because it reads what you wrote when you click it), and 1.3 the polish agent (the `agent.helper` permission, rated high, because it opens a tab with an agent and sends it your prompts), so Tilefold asks you to approve the tile again after updating.
 
 ## Privacy
 

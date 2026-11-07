@@ -89,6 +89,9 @@
  *   language }`) adds `tf.input` (fake-input.mjs): the agent input box's
  *   buttons, a click (`host.clickAction`) and the tile's replacement in
  *   `host.box`.
+ * Modified 2026-11-06 (Tilefold 0.1.27): `helper: true` (or the answer to
+ *   give) adds `tf.agent.helper` (fake-helper.mjs): requests to the tile's
+ *   own helper agent are kept in `host.helperAsks`.
  *
  * Last updated by: Tilefold
  */
@@ -97,6 +100,7 @@ import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addScreensaver } from "./fake-screensaver.mjs";
 import { addAnnotate } from "./fake-annotate.mjs";
+import { addHelper } from "./fake-helper.mjs";
 import { addInput } from "./fake-input.mjs";
 import { addFileWrites } from "./fake-files.mjs";
 import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
@@ -383,6 +387,8 @@ export async function startTile(dir, opts = {}) {
       },
     };
   }
+
+  if (opts.helper) addHelper(tf, host, named, opts.helper);
 
   const url = pathToFileURL(join(dir, "main.js")).href;
   starts += 1;

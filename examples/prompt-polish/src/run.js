@@ -35,10 +35,12 @@
  * counts only: `opened`, `closed`, `checked`, `sent`, `view-changed`.
  *
  * Who checks (setting `checker`): Claude with the user's own key
- * (claudeRun.js), or the agent in the pane (agentRun.js), for users
- * without a key. The agent hands its correction back through the Hand back
- * command (`tile_run`), and the same diff shows. Where the key is missing,
- * the card offers to ask the agent instead.
+ * (claudeRun.js), or an agent (agentRun.js), for users without a key: the
+ * polish agent in a tab of its own where Tilefold has one (the setting
+ * `helperAgent` picks it), else the agent in the pane through the ask
+ * card. The agent hands its correction back through the Hand back command
+ * (`tile_run`), and the same diff shows. Where the key is missing, the
+ * polish agent checks it instead (or the card offers to ask the agent).
  *
  * Event handlers get half a second, so each starts its work in the
  * background and returns at once.
@@ -60,7 +62,7 @@ import { languageOf } from "./languages.js";
 import { viewOf as checkView } from "./place.js";
 import { blocker, build, changeCount } from "./polish.js";
 import { createSessions, resetSession } from "./sessions.js";
-import { COMMANDS, settingsOf } from "./settings.js";
+import { cardSettings, COMMANDS, settingsOf } from "./settings.js";
 import { BUTTON_ID, createStage } from "./show.js";
 import { setupOf, viewOf } from "./view.js";
 
@@ -140,7 +142,7 @@ export function runPolish(tf) {
     await post({
       do: "show",
       view: viewOf(
-        { ...s, pane: id, view: effectiveView(), language: language(), mode: current().mode },
+        { ...s, pane: id, view: effectiveView(), language: language(), ...cardSettings(current()) },
         tf.t,
       ),
     });
@@ -276,9 +278,11 @@ export function runPolish(tf) {
     language,
     mode: () => current().mode,
     fast: () => current().fast,
+    helperAgent: () => current().helperAgent,
   };
-  const claudeRun = createClaudeRun(tf, deps);
   const agentRun = createAgentRun(tf, deps);
+  // Without a key, the polish agent checks it (where Tilefold has one).
+  const claudeRun = createClaudeRun(tf, { ...deps, noKey: agentRun.takeOver });
   const sendToAgent = createSendToAgent(tf, {
     ...deps,
     // With the pill, the card folds back into it.

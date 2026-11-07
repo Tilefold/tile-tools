@@ -1,6 +1,6 @@
 {
   "id": "example.prompt-polish",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
@@ -17,7 +17,10 @@
       "input.actions": "to add a Polish button to the box where you write to your agent, and to correct what you wrote there when you click it; the corrected prompt goes back in the box for you to send"
     },
     {
-      "agent.ask": "to put the corrected prompt on Tilefold's ask card for your agent, where you send it, and, if you choose, to ask that agent to check your prompt when you have no Anthropic key"
+      "agent.ask": "to put the corrected prompt on Tilefold's ask card for your agent, where you send it, and, on a Tilefold without polish agents, to ask that agent to check your prompt when you have no Anthropic key"
+    },
+    {
+      "agent.helper": "to check your prompts when you have no Anthropic key, with a polish agent of its own in a tab Tilefold opens for it, so the agent you work with isn't interrupted"
     }
   ]
 }
