@@ -752,6 +752,8 @@ var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && 
 // src/settings.js
 var MODES = ["fix", "natural"];
 var CHECKERS = ["claude", "agent"];
+var SOLIDS = [100, 90, 80, 70, 60];
+var solidOf = (v) => SOLIDS.includes(Number(v)) ? Number(v) : 100;
 var HELPER_AGENTS = [
   { value: "claude", label: "Claude Code" },
   { value: "codex", label: "Codex" },
@@ -790,6 +792,12 @@ function registerSettings(tf) {
   tf.setting("helperAgent", "claude", tf.t("setting-helper-agent"), {
     choices: HELPER_AGENTS.map((a) => ({ ...a }))
   });
+  tf.setting("solid", "100", tf.t("setting-solid"), {
+    choices: SOLIDS.map((v) => ({
+      value: String(v),
+      label: v === 100 ? tf.t("setting-solid-full") : tf.t("setting-solid-percent", { percent: v })
+    }))
+  });
   tf.setting("fast", true, tf.t("setting-fast"));
 }
 var read = (settings, key) => {
@@ -807,12 +815,17 @@ function settingsOf(settings) {
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
     checker: read(settings, "checker") === "agent" ? "agent" : "claude",
-    helperAgent: helperAgentOf(read(settings, "helperAgent"))
+    helperAgent: helperAgentOf(read(settings, "helperAgent")),
+    solid: solidOf(read(settings, "solid"))
   };
 }
 var helperAgentOf = (v) => HELPER_AGENTS.some((a) => a.value === v) ? v : HELPER_AGENTS[0].value;
 var helperAgentName = (v) => HELPER_AGENTS.find((a) => a.value === helperAgentOf(v)).label;
-var cardSettings = (c) => ({ mode: c.mode, helperName: helperAgentName(c.helperAgent) });
+var cardSettings = (c) => ({
+  mode: c.mode,
+  helperName: helperAgentName(c.helperAgent),
+  solid: c.solid
+});
 
 // src/button.js
 var PILL_H = 26;
@@ -910,7 +923,7 @@ function createStage(tf, o) {
     if (where === "card") {
       if (!sameSpot(card, spot)) await tf.page.dock(card);
     } else {
-      await tf.page.open({ dock: card });
+      await tf.page.open({ dock: card, seeThrough: true });
     }
     where = "card";
     spot = card;
@@ -1076,7 +1089,9 @@ function viewOf2(s, t) {
     unspaced: isUnspaced(lang.code),
     langCode: lang.code,
     // From the agent input box: Use puts the result back there.
-    input: !!s.input
+    input: !!s.input,
+    // How solid the card's background is over the pane (100: not see-through).
+    solid: Number.isFinite(s.solid) ? s.solid : 100
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };

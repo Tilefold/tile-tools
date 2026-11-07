@@ -60,6 +60,14 @@ body {
     "Segoe UI",
     sans-serif;
 }
+/* See-through over the pane: only the card's background fades, never its text. */
+html.see-through,
+html.see-through body {
+  background: transparent;
+}
+html.see-through .card {
+  background: color-mix(in srgb, var(--bg) var(--solid, 100%), transparent);
+}
 .card {
   display: flex;
   flex-direction: column;

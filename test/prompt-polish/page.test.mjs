@@ -210,6 +210,22 @@ describe("the page", () => {
     expect(p.$("foot").textContent).not.toContain("Ask the agent instead");
   });
 
+  it("is see-through over the pane as the setting says, and solid elsewhere", () => {
+    const p = page();
+    const root = p.w.document.documentElement;
+    ready(p, { solid: 70 });
+    expect(root.classList.contains("see-through")).toBe(true);
+    expect(root.style.getPropertyValue("--solid")).toBe("70%");
+    ready(p, { solid: 100 });
+    expect(root.classList.contains("see-through")).toBe(false);
+    // Beside the panes the page isn't over anything: always solid.
+    ready(p, { solid: 70, view: "side" });
+    expect(root.classList.contains("see-through")).toBe(false);
+    // Never below 30%, whatever it is told.
+    ready(p, { solid: 5 });
+    expect(root.style.getPropertyValue("--solid")).toBe("30%");
+  });
+
   it("counts the polish agent's seconds while it works, with its hint", async () => {
     const p = page();
     const since = Date.now() - 5000;

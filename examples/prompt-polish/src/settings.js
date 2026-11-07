@@ -15,6 +15,8 @@
  * Modified 2026-11-06 (polish agent): the `helperAgent` setting, the
  *   agent Tilefold starts in a tab of its own to check prompts when there
  *   is no key (or always, with `checker` "agent").
+ * Modified 2026-11-07 (see-through card): the `solid` setting, how solid
+ *   the card's background is over the pane (100: not see-through).
  */
 import { LANGUAGES } from "./languages.js";
 import { VIEWS, viewOf } from "./place.js";
@@ -24,6 +26,12 @@ export const MODES = ["fix", "natural"];
 
 /** Who checks prompts: Claude with the user's key (else the polish agent), or always the agent. */
 export const CHECKERS = ["claude", "agent"];
+
+/** How solid the card's background can be over the pane, in percent. */
+export const SOLIDS = [100, 90, 80, 70, 60];
+
+/** A known solid level, else fully solid. */
+export const solidOf = (v) => (SOLIDS.includes(Number(v)) ? Number(v) : 100);
 
 /** The agents the polish agent can be, with their names (not translated). */
 export const HELPER_AGENTS = [
@@ -70,6 +78,12 @@ export function registerSettings(tf) {
   tf.setting("helperAgent", "claude", tf.t("setting-helper-agent"), {
     choices: HELPER_AGENTS.map((a) => ({ ...a })),
   });
+  tf.setting("solid", "100", tf.t("setting-solid"), {
+    choices: SOLIDS.map((v) => ({
+      value: String(v),
+      label: v === 100 ? tf.t("setting-solid-full") : tf.t("setting-solid-percent", { percent: v }),
+    })),
+  });
   tf.setting("fast", true, tf.t("setting-fast"));
 }
 
@@ -92,6 +106,7 @@ export function settingsOf(settings) {
     fast: read(settings, "fast") !== false,
     checker: read(settings, "checker") === "agent" ? "agent" : "claude",
     helperAgent: helperAgentOf(read(settings, "helperAgent")),
+    solid: solidOf(read(settings, "solid")),
   };
 }
 
@@ -103,7 +118,11 @@ export const helperAgentOf = (v) =>
 export const helperAgentName = (v) => HELPER_AGENTS.find((a) => a.value === helperAgentOf(v)).label;
 
 /** The settings the card shows: the mode, and the polish agent's name. */
-export const cardSettings = (c) => ({ mode: c.mode, helperName: helperAgentName(c.helperAgent) });
+export const cardSettings = (c) => ({
+  mode: c.mode,
+  helperName: helperAgentName(c.helperAgent),
+  solid: c.solid,
+});
 
 /** The view setting's label, for the page's view switch. */
 export const viewLabelKey = (view) => VIEW_KEYS[viewOf(view)];

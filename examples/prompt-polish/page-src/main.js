@@ -20,6 +20,8 @@
  *   with Cancel, and a problem's "Ask the agent instead".
  * Modified 2026-11-06 (input actions): for a prompt from Tilefold's agent
  *   input box, Use and Keep mine in place of Send to agent.
+ * Modified 2026-11-07 (see-through card): over the pane, the card's
+ *   background is as solid as the setting says.
  * Modified 2026-11-07 (polish agent progress): the waiting step's own
  *   hint, and, once the polish agent has the prompt, the seconds it has
  *   taken and a moving bar.
@@ -298,6 +300,7 @@ function draw(v) {
   // A draft still waiting goes to its own pane before another pane's prompt is drawn.
   flushDraft();
   view = v;
+  seeThrough(v);
   // A waiting step's timer stops with it.
   clearInterval(ticking);
   drawHead(v);
@@ -308,6 +311,19 @@ function draw(v) {
   else if (v.step === "problem") drawProblem(v);
   else drawWrite(v);
   reportSize();
+}
+
+/* --------------------------- the see-through ---------------------------- */
+/**
+ * Only the card over the pane is see-through (the setting's percent of its
+ * background); beside the panes and in a window the page is solid.
+ */
+function seeThrough(v) {
+  const card = v.view === "bottom" || v.view === "corner";
+  const solid = Number.isFinite(v.solid) ? Math.min(100, Math.max(30, v.solid)) : 100;
+  const root = document.documentElement;
+  root.classList.toggle("see-through", card && solid < 100);
+  root.style.setProperty("--solid", `${solid}%`);
 }
 
 /* ------------------------------ the size ------------------------------- */

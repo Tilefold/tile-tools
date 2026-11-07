@@ -92,6 +92,8 @@
  * Modified 2026-11-06 (Tilefold 0.1.27): `helper: true` (or the answer to
  *   give) adds `tf.agent.helper` (fake-helper.mjs): requests to the tile's
  *   own helper agent are kept in `host.helperAsks`.
+ * Modified 2026-11-07 (Tilefold 0.1.27): `page.open` checks `seeThrough`
+ *   (a docked page only), as Tilefold does.
  *
  * Last updated by: Tilefold
  */
@@ -497,6 +499,11 @@ function addPage(tf, host, { dock = false, side = false } = {}) {
   };
   tf.page = {
     async open(options = {}) {
+      // See-through (Tilefold 0.1.27): only a page docked at a spot.
+      if (options.seeThrough !== undefined && typeof options.seeThrough !== "boolean")
+        throw new TypeError("seeThrough must be true or false");
+      if (options.seeThrough === true && !options.dock)
+        throw new TypeError("only a docked page (dock) can be see-through");
       // Beside the panes (Tilefold 0.1.20), as Tilefold checks it.
       if (side && options.side === true) {
         if (options.dock)

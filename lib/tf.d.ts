@@ -36,7 +36,8 @@
  *   `panel.input` event name in the list of names.
  * Modified 2026-11-06 (Tilefold 0.1.27): `tf.input` (buttons in the agent
  *   input box), the `input.action` and `input.cancelled` events, the
- *   `stopped` answer, and a layout pane's `agentInput`; `tf.agent.helper`.
+ *   `stopped` answer, and a layout pane's `agentInput`; `tf.agent.helper`;
+ *   `tf.page.open({ seeThrough })`.
  *
  * Last updated by: Tilefold
  */
@@ -695,6 +696,8 @@ export interface Tf {
       origin?: "https";
       dock?: Rect;
       side?: boolean;
+      /** A docked page's window is transparent (Tilefold 0.1.27; needs `dock`). */
+      seeThrough?: boolean;
     }): Promise<null>;
     dock?(spot: Rect): Promise<null>;
     close(): Promise<null>;

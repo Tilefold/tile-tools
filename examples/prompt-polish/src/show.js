@@ -28,6 +28,8 @@
  * Modified 2026-11-07 (card stays in its pane): the pane kept while focus
  *   is away from the panes counts only while it is on screen, so a card
  *   never follows you into another tab.
+ * Modified 2026-11-07 (see-through card): the card opens see-through, so
+ *   the page's own background decides how much of the pane shows.
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
@@ -117,7 +119,8 @@ export function createStage(tf, o) {
     if (where === "card") {
       if (!sameSpot(card, spot)) await tf.page.dock(card);
     } else {
-      await tf.page.open({ dock: card });
+      // See-through where Tilefold allows it: the page's background decides how much.
+      await tf.page.open({ dock: card, seeThrough: true });
     }
     where = "card";
     spot = card;

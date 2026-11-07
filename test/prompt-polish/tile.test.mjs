@@ -83,9 +83,24 @@ async function checked(host, text = PROMPT) {
 }
 
 describe("over the agent's pane", () => {
+  it("offers how solid the card is, and sends the page that setting", async () => {
+    const host = await start({ settings: { language: "ko", solid: "70" } });
+    const solid = host.regs.find((r) => r.kind === "setting" && r.key === "solid");
+    expect(solid).toBeTruthy();
+    await host.command("open");
+    await say(host, { type: "hello" });
+    expect(lastView(host)).toMatchObject({ solid: 70 });
+    const odd = await start({ settings: { language: "ko", solid: "5" } });
+    await odd.command("open");
+    await say(odd, { type: "hello" });
+    expect(lastView(odd)).toMatchObject({ solid: 100 });
+  });
+
   it("opens on a card across the focused pane, right above its input", async () => {
     const host = await start();
     await host.command("open");
+    // See-through where Tilefold allows it; the page's background decides how much.
+    expect(host.page.opens.at(-1)).toMatchObject({ seeThrough: true });
     expect(host.page.open).toBe(true);
     expect(host.page.dock).toEqual(placeFor(ONE_PANE, "bottom", { h: 260 }).card);
     // No pill (its overlay stays, empty, to hear the layout).

@@ -21,6 +21,7 @@
  * Modified 2026-11-07 (polish agent progress): getting it ready, then
  *   working on it (`helperStage`), with a hint for each and the time since
  *   it got the prompt (`since`, counted on the page).
+ * Modified 2026-11-07 (see-through card): `solid`.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -100,6 +101,8 @@ export function viewOf(s, t) {
     langCode: lang.code,
     // From the agent input box: Use puts the result back there.
     input: !!s.input,
+    // How solid the card's background is over the pane (100: not see-through).
+    solid: Number.isFinite(s.solid) ? s.solid : 100,
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
