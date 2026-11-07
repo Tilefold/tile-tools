@@ -32,7 +32,8 @@
  * The prompts live only in the tile's memory and go only to Claude (after
  * the user's yes) and to the ask card. They are never stored and never
  * recorded: the tile's log gets one-word actions (tile.<id>.<action>) with
- * counts only: `opened`, `closed`, `checked`, `sent`, `view-changed`.
+ * counts only: `opened`, `closed`, `checked`, `sent`, `view-changed`,
+ * `card-moved`, `card-filled`.
  *
  * Who checks (setting `checker`): Claude with the user's own key
  * (claudeRun.js), or an agent (agentRun.js), for users without a key: the
@@ -52,16 +53,21 @@
  *   Use / Keep mine answer it. Send to agent moved to sendToAgent.js.
  * Modified 2026-11-06 (Stop): Tilefold's × closes the card
  *   (`input.cancelled`), and a card closed or gone ends its request.
+ * Modified 2026-11-07 (move, fill, fold): the card can be dragged and fill
+ *   the pane (cardMoves.js); folded over the agent input box, it leaves the
+ *   pill while there is something to come back to.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
+import { createCardMoves } from "./cardMoves.js";
+import { createLog } from "./log.js";
 import { createClaudeRun } from "./claudeRun.js";
 import { createInputAction } from "./inputAction.js";
 import { createSendToAgent } from "./sendToAgent.js";
 import { languageOf } from "./languages.js";
 import { viewOf as checkView } from "./place.js";
-import { blocker, build, changeCount } from "./polish.js";
-import { createSessions, resetSession } from "./sessions.js";
+import { blocker, build } from "./polish.js";
+import { createSessions, keepsPill, resetSession, waitingFixes } from "./sessions.js";
 import { cardSettings, COMMANDS, settingsOf } from "./settings.js";
 import { BUTTON_ID, createStage } from "./show.js";
 import { setupOf, viewOf } from "./view.js";
@@ -76,14 +82,7 @@ const NO_PANE = "window";
 
 /** @param {any} tf */
 export function runPolish(tf) {
-  const warn = (err) =>
-    void Promise.resolve()
-      .then(() => tf.log.warn(String(err && err.message ? err.message : err)))
-      .catch(() => {});
-  const audit = (action, details) =>
-    void Promise.resolve()
-      .then(() => tf.audit(action, details))
-      .catch(warn);
+  const { warn, audit, background } = createLog(tf);
 
   const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   // Docking beside the panes came with Tilefold's theme for tiles (0.1.20).
@@ -91,6 +90,8 @@ export function runPolish(tf) {
 
   const sessions = createSessions();
   const stage = createStage(tf, { warn, canSide });
+  const kept = () => stage.kept();
+  const moves = createCardMoves({ place: () => place(), render: () => render(), audit, kept });
   /** Whether Prompt Polish is on at all (the pill and the side dock show while it is). */
   let active = false;
   /** The user closed it from the palette: the pill stays away until Write a prompt. */
@@ -140,7 +141,7 @@ export function runPolish(tf) {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
     // The polish agent is called what the user renamed its pane to, if they did.
-    const card = cardSettings(current());
+    const card = { ...cardSettings(current()), max: moves.state().max };
     const called = agentRun.calledName();
     if (called) card.helperName = called;
     await post({
@@ -148,12 +149,6 @@ export function runPolish(tf) {
       view: viewOf({ ...s, pane: id, view: effectiveView(), language: language(), ...card }, tf.t),
     });
   };
-
-  /** The fixes still waiting in a session, for the button's badge. */
-  const waiting = (s) =>
-    s && s.step === "result"
-      ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length
-      : 0;
 
   /**
    * Shows the focused pane's Prompt Polish where it belongs, and nothing
@@ -166,7 +161,15 @@ export function runPolish(tf) {
     const id = focusId();
     // Beside the panes and in a window there is always a prompt for the pane you're in.
     const s = view === "side" || view === "window" ? sessions.ensure(id) : sessions.get(id);
-    const where = await stage.show({ view, active, open: !!s?.open, waiting: waiting(s) });
+    // A folded card with something to come back to keeps its pill, even over the input box.
+    const show = {
+      view,
+      active,
+      open: !!s?.open,
+      waiting: waitingFixes(s),
+      keepPill: keepsPill(s),
+    };
+    const where = await stage.show({ ...show, ...moves.state() });
     const next = where && s ? id : null;
     if (next !== shown) {
       shown = next;
@@ -246,6 +249,7 @@ export function runPolish(tf) {
     const v = checkView(to);
     if (v !== to) return;
     chosen = v;
+    moves.reset();
     await tf.store.set(VIEW_KEY, v);
     const s = sessions.ensure(focusId());
     s.open = true;
@@ -319,6 +323,7 @@ export function runPolish(tf) {
       await post({ do: "setup", ...setupOf(tf.t) });
       return render();
     }
+    if (await moves.hear(m)) return;
     if (m.type === "view") return chooseView(m.to);
     if (m.type === "fold") return fold();
     if (m.type === "size") {
@@ -381,12 +386,6 @@ export function runPolish(tf) {
     active = true;
     await place();
   };
-
-  /** Runs a handler's work in the background, so the handler returns at once. */
-  const background = (fn) => (e) =>
-    void Promise.resolve()
-      .then(() => fn(e))
-      .catch(warn);
 
   // ------------------------------------------------- registration (nothing awaited above)
   // ✦ Polish in Tilefold's agent input box, where this Tilefold has it.

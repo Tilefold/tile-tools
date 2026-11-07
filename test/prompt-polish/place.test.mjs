@@ -11,7 +11,10 @@
  * 120 px minimum (the tile then uses the side dock); a wide pane is capped
  * at 2,000 px. The corner button sits at the pane's end corner above the
  * input, mirrored right to left, with its card above it when open. The
- * corner button picture and the languages are checked here too.
+ * corner button picture and the languages are checked here too. A dragged
+ * card moves by its offset but never leaves the pane or covers its input
+ * row (the offset kept is what fit); a filled card spans the pane above
+ * its input row, as far as Tilefold docks a page.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -62,11 +65,54 @@ const pane = (w, h, composer = null) => ({
   panes: [{ id: "p", x: 0, y: 0, w, h, focused: true, composer }],
 });
 
+describe("moving and filling the card", () => {
+  const home = { x: GAP, y: 694 - GAP - 300, w: 600 - 2 * GAP, h: 300 };
+
+  it("moves by the drag, within the pane", () => {
+    const r = placeFor(twoPanes("p1"), "bottom", { h: 300, offset: { dx: 0, dy: -100 } });
+    expect(r.card).toEqual({ ...home, y: home.y - 100 });
+    expect(r.offset).toEqual({ dx: 0, dy: -100 });
+  });
+
+  it("never leaves the pane nor covers its input row, and keeps what fit", () => {
+    const up = placeFor(twoPanes("p1"), "bottom", { h: 300, offset: { dx: -50, dy: -5000 } });
+    expect(up.card).toMatchObject({ x: GAP, y: 40 + GAP });
+    expect(up.offset).toEqual({ dx: 0, dy: 40 + GAP - home.y });
+    const down = placeFor(twoPanes("p1"), "bottom", { h: 300, offset: { dx: 0, dy: 900 } });
+    expect(down.card.y + down.card.h).toBe(694 - GAP);
+    // The corner card moves sideways too, inside its pane.
+    const corner = placeFor(twoPanes("p2"), "corner", {
+      h: 200,
+      open: true,
+      offset: { dx: -5000, dy: 0 },
+    });
+    expect(corner.card.x).toBe(601 + GAP);
+    // Anything but numbers is no drag.
+    const odd = placeFor(twoPanes("p1"), "bottom", { h: 300, offset: { dx: "9", dy: NaN } });
+    expect(odd.card).toEqual(home);
+  });
+
+  it("fills the pane above its input row", () => {
+    const r = placeFor(twoPanes("p1"), "bottom", {
+      h: 300,
+      max: true,
+      offset: { dx: 0, dy: -100 },
+    });
+    expect(r.card).toEqual({ x: GAP, y: 40 + GAP, w: 600 - 2 * GAP, h: 694 - GAP - (40 + GAP) });
+    // The drag is kept for when it goes back.
+    expect(r.offset).toEqual({ dx: 0, dy: -100 });
+    const huge = placeFor(pane(5000, 5000), "bottom", { max: true });
+    expect(huge.card.w).toBe(SPOT_MAX);
+    expect(huge.card.h).toBe(SPOT_MAX);
+  });
+});
+
 describe("the bottom card", () => {
   it("spans the focused pane, right above its input row", () => {
     expect(placeFor(twoPanes("p1"), "bottom", { h: 300 })).toEqual({
       card: { x: GAP, y: 694 - GAP - 300, w: 600 - 2 * GAP, h: 300 },
       button: null,
+      offset: { dx: 0, dy: 0 },
     });
   });
 

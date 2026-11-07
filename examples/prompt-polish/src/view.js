@@ -22,6 +22,8 @@
  *   working on it (`helperStage`), with a hint for each and the time since
  *   it got the prompt (`since`, counted on the page).
  * Modified 2026-11-07 (see-through card): `solid`.
+ * Modified 2026-11-07 (move and fill): `max` (the card fills the pane) and
+ *   the labels to fill, restore and move it.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -57,6 +59,9 @@ export function setupOf(t) {
       overPane: t("label-over-pane"),
       inDock: t("label-in-dock"),
       fold: t("label-fold"),
+      fill: t("label-fill"),
+      restore: t("label-restore"),
+      move: t("label-move"),
       close: t("label-close"),
       hint: t("label-hint"),
       asIs: t("label-as-is"),
@@ -103,6 +108,8 @@ export function viewOf(s, t) {
     input: !!s.input,
     // How solid the card's background is over the pane (100: not see-through).
     solid: Number.isFinite(s.solid) ? s.solid : 100,
+    // The card fills the pane (its ▢ button is pressed).
+    max: !!s.max,
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };

@@ -437,6 +437,71 @@ function createAgentRun(tf, deps) {
   return { check, handBack, cancel, forget, takeOver, calledName };
 }
 
+// src/cardMoves.js
+var ZERO = Object.freeze({ dx: 0, dy: 0 });
+var MAX_DRAG = 1e4;
+var px = (v) => Number.isFinite(v) ? Math.max(-MAX_DRAG, Math.min(MAX_DRAG, v)) : 0;
+function createCardMoves(o) {
+  let offset = ZERO;
+  let max = false;
+  let base = null;
+  let placing = null;
+  let again = false;
+  const placeLatest = () => {
+    if (placing) {
+      again = true;
+      return placing;
+    }
+    placing = (async () => {
+      do {
+        again = false;
+        await o.place();
+      } while (again);
+    })().finally(() => placing = null);
+    return placing;
+  };
+  return {
+    /** What the stage needs: the drag and whether the card fills the pane. */
+    state: () => ({ offset, max }),
+    /** Back where it belongs (another view was chosen). */
+    reset() {
+      offset = ZERO;
+      max = false;
+      base = null;
+    },
+    /** Takes a `drag` or `max` message from the page; false for any other. */
+    async hear(m) {
+      if (m.type === "max") {
+        max = !max;
+        base = null;
+        o.audit("card-filled", { on: max });
+        await o.place();
+        await o.render();
+        return true;
+      }
+      if (m.type !== "drag" || max) return m.type === "drag";
+      if (m.phase === "start" || !base) base = o.kept();
+      offset = { dx: base.dx + px(m.dx), dy: base.dy + px(m.dy) };
+      if (m.phase === "end") {
+        base = null;
+        o.audit("card-moved");
+      }
+      await placeLatest();
+      if (m.phase === "end") offset = o.kept();
+      return true;
+    }
+  };
+}
+
+// src/log.js
+function createLog(tf) {
+  const warn = (err) => void Promise.resolve().then(() => tf.log.warn(String(err && err.message ? err.message : err))).catch(() => {
+  });
+  const audit = (action, details) => void Promise.resolve().then(() => tf.audit(action, details)).catch(warn);
+  const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
+  return { warn, audit, background };
+}
+
 // src/claudeRun.js
 function createClaudeRun(tf, deps) {
   const { sessions, render, refreshButton, audit, language, mode, fast, noKey } = deps;
@@ -503,6 +568,8 @@ function createClaudeRun(tf, deps) {
 }
 
 // src/sessions.js
+var waitingFixes = (s) => s && s.step === "result" ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
+var keepsPill = (s) => !!s && !s.open && s.step !== "write";
 var MAX_SESSIONS = 24;
 function freshSession() {
   return {
@@ -740,7 +807,8 @@ function placeFor(layout, view, opts = {}) {
     const w2 = Math.min(SPOT_MAX, pane.w - 2 * GAP);
     const ch2 = Math.min(h, floor - top);
     if (w2 < SPOT_MIN || ch2 < SPOT_MIN) return null;
-    return { card: round({ x: pane.x + GAP, y: floor - ch2, w: w2, h: ch2 }), button: null };
+    const moved2 = adjust({ x: pane.x + GAP, y: floor - ch2, w: w2, h: ch2 }, pane, floor, opts);
+    return { card: round(moved2.card), button: null, offset: moved2.offset };
   }
   const bw = Number.isFinite(opts.bw) ? opts.bw : BUTTON;
   const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
@@ -752,8 +820,28 @@ function placeFor(layout, view, opts = {}) {
   const ch = Math.min(h, button.y - GAP - top);
   if (w < SPOT_MIN || ch < SPOT_MIN) return null;
   const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
-  return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button: shown };
+  const moved = adjust({ x, y: button.y - GAP - ch, w, h: ch }, pane, floor, opts);
+  return { card: round(moved.card), button: shown, offset: moved.offset };
 }
+var clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+function adjust(card, pane, floor, opts = {}) {
+  const top = pane.y + GAP;
+  if (opts.max) {
+    const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
+    const h = Math.min(SPOT_MAX, floor - top);
+    if (w >= SPOT_MIN && h >= SPOT_MIN) {
+      return { card: { x: pane.x + GAP, y: top, w, h }, offset: offsetOf(opts.offset) };
+    }
+  }
+  const o = offsetOf(opts.offset);
+  const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
+  const y = clamp(card.y + o.dy, top, floor - card.h);
+  return { card: { ...card, x, y }, offset: { dx: x - card.x, dy: y - card.y } };
+}
+var offsetOf = (o) => ({
+  dx: Number.isFinite(o?.dx) ? o.dx : 0,
+  dy: Number.isFinite(o?.dy) ? o.dy : 0
+});
 var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
 // src/settings.js
@@ -885,6 +973,7 @@ function createStage(tf, o) {
   let wantH = 260;
   let accent = null;
   let toldSmall = false;
+  let kept = { dx: 0, dy: 0 };
   const rtl = () => tf.t("page-dir") === "rtl";
   const closePage = async () => {
     if (!where) return;
@@ -965,6 +1054,7 @@ function createStage(tf, o) {
     /** The pane a click in its agent input box came from. */
     focusOn: (id) => void (focus = id ?? focus),
     where: () => where,
+    kept: () => kept,
     buttonShown: () => buttonShown,
     setAccent: (a) => void (accent = a ?? accent),
     setHeight(h) {
@@ -981,10 +1071,12 @@ function createStage(tf, o) {
     },
     /**
      * Shows what should be: `view`, whether the focused pane's card is open,
-     * whether anything shows at all (`active`), and the button's badge.
-     * Returns where the page ended up.
+     * whether anything shows at all (`active`), the button's badge, the
+     * user's drag (`offset`) or fill (`max`), and whether to draw the pill
+     * even over the agent input box (`keepPill`). Returns where the page
+     * ended up.
      */
-    async show({ view, open, active, waiting = 0 }) {
+    async show({ view, open, active, waiting = 0, offset, max = false, keepPill = false }) {
       if (!active) {
         await closePage();
         await dropOverlay();
@@ -1011,8 +1103,11 @@ function createStage(tf, o) {
         rtl: rtl(),
         pane: focus,
         bw: pill().w,
-        noPill: !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput
+        noPill: !keepPill && !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput,
+        offset,
+        max
       });
+      if (spots?.offset) kept = spots.offset;
       if (!spots) {
         const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);
         await hideButton();
@@ -1061,6 +1156,9 @@ function setupOf(t) {
       overPane: t("label-over-pane"),
       inDock: t("label-in-dock"),
       fold: t("label-fold"),
+      fill: t("label-fill"),
+      restore: t("label-restore"),
+      move: t("label-move"),
       close: t("label-close"),
       hint: t("label-hint"),
       asIs: t("label-as-is"),
@@ -1098,7 +1196,9 @@ function viewOf2(s, t) {
     // From the agent input box: Use puts the result back there.
     input: !!s.input,
     // How solid the card's background is over the pane (100: not see-through).
-    solid: Number.isFinite(s.solid) ? s.solid : 100
+    solid: Number.isFinite(s.solid) ? s.solid : 100,
+    // The card fills the pane (its ▢ button is pressed).
+    max: !!s.max
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
@@ -1160,13 +1260,13 @@ var VIEW_KEY = "view";
 var MAX_DRAFT = 2e4;
 var NO_PANE = "window";
 function runPolish(tf) {
-  const warn = (err) => void Promise.resolve().then(() => tf.log.warn(String(err && err.message ? err.message : err))).catch(() => {
-  });
-  const audit = (action, details) => void Promise.resolve().then(() => tf.audit(action, details)).catch(warn);
+  const { warn, audit, background } = createLog(tf);
   const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   const canSide = () => !!tf.page && typeof tf.theme === "function";
   const sessions = createSessions();
   const stage = createStage(tf, { warn, canSide });
+  const kept = () => stage.kept();
+  const moves = createCardMoves({ place: () => place(), render: () => render(), audit, kept });
   let active = false;
   let dismissed = false;
   let shown = null;
@@ -1200,7 +1300,7 @@ function runPolish(tf) {
   const render = async (id = shown) => {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
-    const card = cardSettings(current());
+    const card = { ...cardSettings(current()), max: moves.state().max };
     const called = agentRun.calledName();
     if (called) card.helperName = called;
     await post({
@@ -1208,13 +1308,19 @@ function runPolish(tf) {
       view: viewOf2({ ...s, pane: id, view: effectiveView(), language: language(), ...card }, tf.t)
     });
   };
-  const waiting = (s) => s && s.step === "result" ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
   const place = async () => {
     await stage.ensureLayout();
     const view = effectiveView();
     const id = focusId();
     const s = view === "side" || view === "window" ? sessions.ensure(id) : sessions.get(id);
-    const where = await stage.show({ view, active, open: !!s?.open, waiting: waiting(s) });
+    const show = {
+      view,
+      active,
+      open: !!s?.open,
+      waiting: waitingFixes(s),
+      keepPill: keepsPill(s)
+    };
+    const where = await stage.show({ ...show, ...moves.state() });
     const next = where && s ? id : null;
     if (next !== shown) {
       shown = next;
@@ -1282,6 +1388,7 @@ function runPolish(tf) {
     const v = viewOf(to);
     if (v !== to) return;
     chosen = v;
+    moves.reset();
     await tf.store.set(VIEW_KEY, v);
     const s = sessions.ensure(focusId());
     s.open = true;
@@ -1346,6 +1453,7 @@ function runPolish(tf) {
       await post({ do: "setup", ...setupOf(tf.t) });
       return render();
     }
+    if (await moves.hear(m)) return;
     if (m.type === "view") return chooseView(m.to);
     if (m.type === "fold") return fold();
     if (m.type === "size") {
@@ -1400,7 +1508,6 @@ function runPolish(tf) {
     active = true;
     await place();
   };
-  const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
   inputAction.register();
   tf.on(
     "input.action",

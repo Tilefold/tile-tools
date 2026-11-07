@@ -103,7 +103,18 @@ textarea:focus-visible,
   outline-offset: 1px;
 }
 
-/* Header: name, where it is, the view switch, the language chip, fold, close. */
+/* Header: name, where it is, the view switch, the language chip, fill, fold,
+   close. Over the pane it is the card's handle: drag to move it. */
+header.movable {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+html.dragging,
+html.dragging header {
+  cursor: grabbing;
+}
 header {
   display: flex;
   align-items: center;

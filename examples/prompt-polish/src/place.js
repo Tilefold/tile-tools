@@ -23,9 +23,14 @@
  * Tilefold 0.1.27), the ✦ Polish button is in the box itself, so the pill
  * isn't drawn there; the card still opens where the pill would be.
  *
+ * Over the pane the card can be dragged (`offset`, from where it would be,
+ * always kept inside the pane and above its input row) or fill the pane
+ * (`max`, as far as Tilefold docks a page).
+ *
  * Pure: no Tilefold calls.
  *
  * Modified 2026-11-06 (input actions): no pill over the agent input box.
+ * Modified 2026-11-07 (move and fill): `offset` and `max`.
  */
 
 /** The views, in the order the setting lists them. */
@@ -73,7 +78,9 @@ export function focusedPane(layout, paneId) {
  *   open: whether the corner card is open; rtl: the corner is on the left;
  *   pane: the pane to place over (by id), else the focused one;
  *   bw: the pill's width (its height is BUTTON_H); noPill: the pane's row
- *   has its own ✦ Polish button, so no pill is drawn
+ *   has its own ✦ Polish button, so no pill is drawn; offset: how far the
+ *   user dragged the card ({ dx, dy }); max: the card fills the pane.
+ *   With a card, `offset` in the answer is the drag as it could be kept.
  */
 export function placeFor(layout, view, opts = {}) {
   const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
@@ -92,7 +99,8 @@ export function placeFor(layout, view, opts = {}) {
     const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
     const ch = Math.min(h, floor - top);
     if (w < SPOT_MIN || ch < SPOT_MIN) return null;
-    return { card: round({ x: pane.x + GAP, y: floor - ch, w, h: ch }), button: null };
+    const moved = adjust({ x: pane.x + GAP, y: floor - ch, w, h: ch }, pane, floor, opts);
+    return { card: round(moved.card), button: null, offset: moved.offset };
   }
   const bw = Number.isFinite(opts.bw) ? opts.bw : BUTTON;
   const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
@@ -104,8 +112,37 @@ export function placeFor(layout, view, opts = {}) {
   const ch = Math.min(h, button.y - GAP - top);
   if (w < SPOT_MIN || ch < SPOT_MIN) return null;
   const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
-  return { card: round({ x, y: button.y - GAP - ch, w, h: ch }), button: shown };
+  const moved = adjust({ x, y: button.y - GAP - ch, w, h: ch }, pane, floor, opts);
+  return { card: round(moved.card), button: shown, offset: moved.offset };
 }
+
+/** `v` within `lo`..`hi` (`lo` when the range is empty). */
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+
+/**
+ * `card` moved by `opts.offset`, kept inside `pane` and above `floor`, or
+ * with `opts.max` filling the pane; and the offset as it was kept.
+ */
+export function adjust(card, pane, floor, opts = {}) {
+  const top = pane.y + GAP;
+  if (opts.max) {
+    const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
+    const h = Math.min(SPOT_MAX, floor - top);
+    if (w >= SPOT_MIN && h >= SPOT_MIN) {
+      return { card: { x: pane.x + GAP, y: top, w, h }, offset: offsetOf(opts.offset) };
+    }
+  }
+  const o = offsetOf(opts.offset);
+  const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
+  const y = clamp(card.y + o.dy, top, floor - card.h);
+  return { card: { ...card, x, y }, offset: { dx: x - card.x, dy: y - card.y } };
+}
+
+/** A drag offset checked: finite numbers, else none. */
+export const offsetOf = (o) => ({
+  dx: Number.isFinite(o?.dx) ? o.dx : 0,
+  dy: Number.isFinite(o?.dy) ? o.dy : 0,
+});
 
 /** Whether two rectangles (or nulls) are the same. */
 export const sameSpot = (a, b) =>

@@ -30,6 +30,10 @@
  *   never follows you into another tab.
  * Modified 2026-11-07 (see-through card): the card opens see-through, so
  *   the page's own background decides how much of the pane shows.
+ * Modified 2026-11-07 (move, fill, fold): the card goes where the user
+ *   dragged it or fills the pane (`offset`, `max`; `kept()` is the drag as
+ *   it could be kept), and over the agent input box the pill shows while a
+ *   folded card has something to come back to (`keepPill`).
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
@@ -57,6 +61,8 @@ export function createStage(tf, o) {
   let accent = null;
   /** Whether the "too small" notice was shown for this time it didn't fit. */
   let toldSmall = false;
+  /** The user's drag of the card, as it could be kept inside the pane. */
+  let kept = { dx: 0, dy: 0 };
 
   const rtl = () => tf.t("page-dir") === "rtl";
 
@@ -164,6 +170,7 @@ export function createStage(tf, o) {
     /** The pane a click in its agent input box came from. */
     focusOn: (id) => void (focus = id ?? focus),
     where: () => where,
+    kept: () => kept,
     buttonShown: () => buttonShown,
     setAccent: (a) => void (accent = a ?? accent),
     setHeight(h) {
@@ -181,10 +188,12 @@ export function createStage(tf, o) {
 
     /**
      * Shows what should be: `view`, whether the focused pane's card is open,
-     * whether anything shows at all (`active`), and the button's badge.
-     * Returns where the page ended up.
+     * whether anything shows at all (`active`), the button's badge, the
+     * user's drag (`offset`) or fill (`max`), and whether to draw the pill
+     * even over the agent input box (`keepPill`). Returns where the page
+     * ended up.
      */
-    async show({ view, open, active, waiting = 0 }) {
+    async show({ view, open, active, waiting = 0, offset, max = false, keepPill = false }) {
       if (!active) {
         await closePage();
         await dropOverlay();
@@ -211,8 +220,11 @@ export function createStage(tf, o) {
         rtl: rtl(),
         pane: focus,
         bw: pill().w,
-        noPill: !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput,
+        noPill: !keepPill && !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput,
+        offset,
+        max,
       });
+      if (spots?.offset) kept = spots.offset;
       if (!spots) {
         // No pane to show over (another tab), or the pane is too small.
         const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);

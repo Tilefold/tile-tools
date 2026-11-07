@@ -19,7 +19,7 @@ With **Settings → Agents → Write to agents in Tilefold's input box** on (Til
 - **Send to agent** does the same and sends it to your agent right away, as Enter would (if the agent is busy, it waits in the box).
 - **Keep mine** closes the card and leaves the box as it was.
 
-If you edit the box while the card is open, Use doesn't overwrite it: the card says so, and you click **✦ Polish** again. While the check runs, Tilefold shows a **×** beside the spinning button: click it to stop waiting, and the card closes. The pill isn't drawn over a pane that has this box, since the button is in the box itself.
+If you edit the box while the card is open, Use doesn't overwrite it: the card says so, and you click **✦ Polish** again. While the check runs, Tilefold shows a **×** beside the spinning button: click it to stop waiting, and the card closes. The pill isn't drawn over a pane that has this box, since the button is in the box itself, except after you fold a card that still has fixes: then the pill stays, so you can open the card again.
 
 ## One prompt per pane
 
@@ -32,6 +32,8 @@ The three small pictures in its header switch where it is, and it remembers your
 - **A Polish button by the pane's input** (the default): the pill, with the card opening above it when you click it, and folding back into it after you send (**–** in the header, or Escape, folds it too).
 - **Over the agent's pane**: the card stays open across the pane you work in, just above its input, only as tall as it needs to be.
 - **Beside the panes**: in the dock on the right, where your panes make room for it (Tilefold 0.1.20). It shows the prompt of the pane you're in. Tilefold's **Undock** brings it back over the pane.
+
+Over the pane, drag the card by its header to move it anywhere in the pane; it never covers the input row. **▢** in the header (or a double click on the header) makes the card fill the pane, and clicking it again brings the card back where it was. Choosing another view puts the card back in its place.
 
 If a pane is too small for the card, it opens beside the panes instead. On a Tilefold that can't dock pages it opens in a window of its own.
 

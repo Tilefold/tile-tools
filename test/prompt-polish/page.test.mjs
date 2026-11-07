@@ -16,6 +16,8 @@
  * switches views and folds from its header; reports its height; and never
  * reads text from the tile (or from Claude) as markup.
  *
+ * Modified 2026-11-07 (move and fill): ▢ and a double click fill the pane,
+ *   and the header moves the card.
  * Modified 2026-11-07 (readable see-through card): text keeps a solid
  *   surface over the pane.
  * Modified 2026-11-06 (no-key mode): waiting for the agent with Cancel, and
@@ -226,6 +228,58 @@ describe("the page", () => {
     // Never below 30%, whatever it is told.
     ready(p, { solid: 5 });
     expect(root.style.getPropertyValue("--solid")).toBe("30%");
+  });
+
+  it("fills the pane from ▢ or a double click on the header, only over the pane", () => {
+    const p = page();
+    ready(p, { view: "corner" });
+    expect(p.$("fill").hidden).toBe(false);
+    expect(p.$("fill").getAttribute("aria-label")).toBe("Fill the pane");
+    p.click(p.$("fill"));
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "max" });
+    p.$("name").dispatchEvent(new p.w.MouseEvent("dblclick", { bubbles: true }));
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "max" });
+    ready(p, { view: "corner", max: true });
+    expect(p.$("fill").getAttribute("aria-pressed")).toBe("true");
+    expect(p.$("fill").getAttribute("aria-label")).toBe("Back to its size");
+    ready(p, { view: "side" });
+    expect(p.$("fill").hidden).toBe(true);
+  });
+
+  it("moves the card by its header: how far the pointer went, once it really moved", async () => {
+    const p = page();
+    ready(p, { view: "bottom" });
+    const head = p.$("head");
+    expect(head.classList.contains("movable")).toBe(true);
+    const pointer = (type, x, y, target = head) => {
+      const e = new p.w.MouseEvent(type, { bubbles: true, screenX: x, screenY: y, button: 0 });
+      Object.defineProperty(e, "pointerId", { value: 1 });
+      target.dispatchEvent(e);
+    };
+    const drags = () => p.posted.filter((m) => m.type === "drag");
+    // A press that barely moves is a click, not a drag.
+    pointer("pointerdown", 100, 100);
+    pointer("pointermove", 102, 101);
+    pointer("pointerup", 102, 101);
+    expect(drags()).toEqual([]);
+    pointer("pointerdown", 100, 100);
+    pointer("pointermove", 130, 80);
+    await p.frame();
+    pointer("pointerup", 160, 60);
+    expect(drags()).toEqual([
+      { pane: "p1", type: "drag", phase: "start", dx: 0, dy: 0 },
+      { pane: "p1", type: "drag", phase: "move", dx: 30, dy: -20 },
+      { pane: "p1", type: "drag", phase: "end", dx: 60, dy: -40 },
+    ]);
+    // Never from a button in the header, nor while the card fills the pane.
+    const before = drags().length;
+    pointer("pointerdown", 0, 0, p.$("close"));
+    pointer("pointermove", 50, 50, p.$("close"));
+    ready(p, { view: "bottom", max: true });
+    expect(head.classList.contains("movable")).toBe(false);
+    pointer("pointerdown", 0, 0);
+    pointer("pointermove", 50, 50);
+    expect(drags()).toHaveLength(before);
   });
 
   it("keeps every piece of text on a solid surface when see-through", () => {

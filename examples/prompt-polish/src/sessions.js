@@ -17,7 +17,19 @@
  * Kept in memory only, never stored. Pure: no Tilefold calls.
  *
  * Modified 2026-11-06 (input actions): a session's open `input` request.
+ * Modified 2026-11-07 (move, fill, fold): `waitingFixes` (from run.js) and
+ *   `keepsPill`, whether a folded card has something to come back to.
  */
+import { changeCount } from "./polish.js";
+
+/** The fixes still waiting in session `s`, for the button's badge. */
+export const waitingFixes = (s) =>
+  s && s.step === "result"
+    ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length
+    : 0;
+
+/** Whether session `s` is folded with something to come back to (its pill stays). */
+export const keepsPill = (s) => !!s && !s.open && s.step !== "write";
 
 /** The most sessions kept; the least recently used goes first. */
 export const MAX_SESSIONS = 24;

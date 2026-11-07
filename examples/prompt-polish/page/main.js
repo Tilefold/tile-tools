@@ -27,6 +27,8 @@
  *   taken and a moving bar.
  * Modified 2026-11-07 (send from the card): for a prompt from the agent
  *   input box, Send to agent beside Use.
+ * Modified 2026-11-07 (move and fill): over the pane, the header moves the
+ *   card and a double click (or ▢) makes it fill the pane (move.js).
  * Modified 2026-11-07 (fitted card): the height sent is the content's own
  *   (its children's extent), so the card also shrinks when there's less.
  *
@@ -66,6 +68,54 @@
       svg.append(svgEl("circle", { cx: 12, cy: 8, r: 2, fill: "currentColor" }));
     else svg.append(svgEl("rect", { x: 2, y: 6, width: 12, height: 4, rx: 1, fill: "currentColor" }));
     return svg;
+  }
+
+  // page-src/move.js
+  var MIN_DRAG = 4;
+  var isHandle = (target) => !(target instanceof Element) || !target.closest("button, .chip, a, textarea, input");
+  function setupMoving(head, o) {
+    let drag = null;
+    let frame = 0;
+    const root = document.documentElement;
+    head.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || !o.movable() || !isHandle(e.target)) return;
+      drag = { id: e.pointerId, x: e.screenX, y: e.screenY, dx: 0, dy: 0, started: false };
+      head.setPointerCapture?.(e.pointerId);
+    });
+    head.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.dx = e.screenX - drag.x;
+      drag.dy = e.screenY - drag.y;
+      if (!drag.started) {
+        if (Math.hypot(drag.dx, drag.dy) < MIN_DRAG) return;
+        drag.started = true;
+        root.classList.add("dragging");
+        o.send({ type: "drag", phase: "start", dx: 0, dy: 0 });
+      }
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (drag?.started) o.send({ type: "drag", phase: "move", dx: drag.dx, dy: drag.dy });
+      });
+    });
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (e.type === "pointerup") {
+        drag.dx = e.screenX - drag.x;
+        drag.dy = e.screenY - drag.y;
+      }
+      const { dx, dy, started } = drag;
+      drag = null;
+      cancelAnimationFrame(frame);
+      frame = 0;
+      root.classList.remove("dragging");
+      if (started) o.send({ type: "drag", phase: "end", dx, dy });
+    };
+    head.addEventListener("pointerup", end);
+    head.addEventListener("pointercancel", end);
+    head.addEventListener("dblclick", (e) => {
+      if (o.fillable() && isHandle(e.target)) o.send({ type: "max" });
+    });
   }
 
   // page-src/main.js
@@ -125,6 +175,14 @@
         return b;
       })
     );
+    const over = v.view === "bottom" || v.view === "corner";
+    $("fill").hidden = !over;
+    $("fill").textContent = v.max ? "\u2750" : "\u25A2";
+    $("fill").title = v.max ? L.restore : L.fill;
+    $("fill").setAttribute("aria-label", v.max ? L.restore : L.fill);
+    $("fill").setAttribute("aria-pressed", String(!!v.max));
+    $("head").title = over && !v.max ? L.move : "";
+    $("head").classList.toggle("movable", over && !v.max);
     $("fold").hidden = v.view === "side" || v.view === "window";
     $("fold").title = L.fold;
     $("fold").setAttribute("aria-label", L.fold);
@@ -341,7 +399,10 @@
     });
     send({ type: "hello" });
   }
+  $("fill").addEventListener("click", () => send({ type: "max" }));
   $("fold").addEventListener("click", () => send({ type: "fold" }));
+  var overPane = () => !!view && (view.view === "bottom" || view.view === "corner");
+  setupMoving($("head"), { send, movable: () => overPane() && !view.max, fillable: overPane });
   $("close").addEventListener("click", () => send({ type: "close" }));
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && view) {
