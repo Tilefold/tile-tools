@@ -139,12 +139,13 @@ export function runPolish(tf) {
   const render = async (id = shown) => {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
+    // The polish agent is called what the user renamed its pane to, if they did.
+    const card = cardSettings(current());
+    const called = agentRun.calledName();
+    if (called) card.helperName = called;
     await post({
       do: "show",
-      view: viewOf(
-        { ...s, pane: id, view: effectiveView(), language: language(), ...cardSettings(current()) },
-        tf.t,
-      ),
+      view: viewOf({ ...s, pane: id, view: effectiveView(), language: language(), ...card }, tf.t),
     });
   };
 

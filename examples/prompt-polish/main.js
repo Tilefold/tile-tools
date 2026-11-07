@@ -290,6 +290,7 @@ function errorKey(err) {
 }
 
 // src/agentRun.js
+var MAX_NAME = 40;
 var HELPER_WHY = {
   busy: "error-helper-busy",
   "you-are-typing": "error-helper-typing",
@@ -303,6 +304,8 @@ function createAgentRun(tf, deps) {
     Object.assign(s, { step: "problem", problem: key });
     return render(id);
   };
+  const called = /* @__PURE__ */ new Map();
+  const calledName = () => called.get(helperAgent()) ?? null;
   const viaHelper = async (id, s, entry, request) => {
     pending.add(request, entry);
     Object.assign(s, {
@@ -331,6 +334,10 @@ function createAgentRun(tf, deps) {
     } catch (err) {
       warn(err);
       r = null;
+    }
+    if (r && "name" in r) {
+      const name = typeof r.name === "string" ? r.name.trim().slice(0, MAX_NAME) : "";
+      called.set(helperAgent(), name || null);
     }
     if (s.step !== "agent" || !pending.has(id)) return;
     if (!r?.sent) {
@@ -427,7 +434,7 @@ function createAgentRun(tf, deps) {
     await check(id, original);
     return true;
   };
-  return { check, handBack, cancel, forget, takeOver };
+  return { check, handBack, cancel, forget, takeOver, calledName };
 }
 
 // src/claudeRun.js
@@ -1193,12 +1200,12 @@ function runPolish(tf) {
   const render = async (id = shown) => {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
+    const card = cardSettings(current());
+    const called = agentRun.calledName();
+    if (called) card.helperName = called;
     await post({
       do: "show",
-      view: viewOf2(
-        { ...s, pane: id, view: effectiveView(), language: language(), ...cardSettings(current()) },
-        tf.t
-      )
+      view: viewOf2({ ...s, pane: id, view: effectiveView(), language: language(), ...card }, tf.t)
     });
   };
   const waiting = (s) => s && s.step === "result" ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;

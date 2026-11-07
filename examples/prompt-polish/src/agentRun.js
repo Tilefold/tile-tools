@@ -22,6 +22,8 @@
  *   no ask card, and the agent the user works with is never interrupted.
  *   The card says it's waiting at once (starting the agent takes a while)
  *   and why when the request couldn't go.
+ * Modified 2026-11-07 (helper names): the card calls the polish agent what
+ *   the user renamed its pane to (`calledName`), as Tilefold reports it.
  */
 import {
   agentBrief,
@@ -35,6 +37,9 @@ import {
 } from "./agentCheck.js";
 import { readAnswer } from "./answer.js";
 import { changeCount, changes, diff } from "./polish.js";
+
+/** Longest pane name the card shows for the polish agent. */
+const MAX_NAME = 40;
 
 /** Why the polish agent didn't get the request, as the card's problem message. */
 const HELPER_WHY = {
@@ -61,6 +66,11 @@ export function createAgentRun(tf, deps) {
     Object.assign(s, { step: "problem", problem: key });
     return render(id);
   };
+
+  /** What the user renamed each polish agent's pane to, by agent (Tilefold says, from 0.1.27). */
+  const called = new Map();
+  /** The current polish agent's name as the user gave it, or null. */
+  const calledName = () => called.get(helperAgent()) ?? null;
 
   /** Has the polish agent check pane `id`'s prompt: `question` for `request`. */
   const viaHelper = async (id, s, entry, request) => {
@@ -93,6 +103,11 @@ export function createAgentRun(tf, deps) {
     } catch (err) {
       warn(err);
       r = null;
+    }
+    // Kept even if the card moved on: the next request says it while starting.
+    if (r && "name" in r) {
+      const name = typeof r.name === "string" ? r.name.trim().slice(0, MAX_NAME) : "";
+      called.set(helperAgent(), name || null);
     }
     // Cancelled, closed or asked again meanwhile: that is the card's state now.
     if (s.step !== "agent" || !pending.has(id)) return;
@@ -208,5 +223,5 @@ export function createAgentRun(tf, deps) {
     return true;
   };
 
-  return { check, handBack, cancel, forget, takeOver };
+  return { check, handBack, cancel, forget, takeOver, calledName };
 }

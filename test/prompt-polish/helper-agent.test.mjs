@@ -10,7 +10,8 @@
  * key (or always, with "Always your polish agent") goes to Prompt Polish's
  * own agent, in a tab Tilefold opens for it: never on the ask card, and the
  * agent the user works with isn't asked. The setting picks which agent. The
- * card says the agent is checking, names it, and says why when the request
+ * card says the agent is checking, names it (as the user renamed its pane,
+ * else by the agent's name), and says why when the request
  * couldn't go; the agent's hand-back shows the fixes as usual, and Use puts
  * them in the agent input box. On a Tilefold without helper agents, the
  * ask card is used as before. Nothing the user wrote is audited or stored.
@@ -106,6 +107,30 @@ describe("checking with the polish agent", () => {
     deliver({ sent: true, opened: true });
     await new Promise((r) => setTimeout(r, 0));
     expect(lastView(host).text).toBe("Claude Code is working on your English…");
+  });
+
+  it("calls the agent what the user renamed its pane to", async () => {
+    const host = await start({
+      helper: async () => ({ sent: true, opened: false, name: "polisher" }),
+    });
+    await polish(host);
+    expect(lastView(host).text).toBe("polisher is working on your English…");
+    // Remembered: the next request says it while the agent gets ready.
+    let deliver;
+    const later = await start({
+      helper: (r) =>
+        later.helperAsks.length === 1
+          ? Promise.resolve({ sent: true, opened: false, name: "polisher" })
+          : new Promise((resolve) => (deliver = resolve)),
+    });
+    await polish(later);
+    await say(later, { type: "close" });
+    await polish(later);
+    expect(lastView(later).text).toBe("Getting polisher ready in its own tab…");
+    // Back to its own name: the agent's again.
+    deliver({ sent: true, opened: false, name: null });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(lastView(later).text).toBe("Claude Code is working on your English…");
   });
 
   it("shows the agent's fixes, and Use puts them in the box", async () => {

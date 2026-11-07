@@ -8,8 +8,9 @@
  * The helper agent part of the fake Tilefold in fake-host.mjs (Tilefold
  * 0.1.27): `tf.agent.helper({ agent, question, about })` checks what
  * Tilefold checks (a known agent, a question of plain text), keeps each
- * request in `host.helperAsks`, and answers `{ sent: true, opened }`
- * (`opened` only the first time for each agent), or the object the test
+ * request in `host.helperAsks`, and answers `{ sent: true, opened, name }`
+ * (`opened` only the first time for each agent; `name` null, the pane
+ * not renamed), or the object the test
  * gives (such as `{ sent: false, why: "busy", opened: false }`), or what a
  * function it gives resolves to (to hold the answer back, as a helper
  * that is still starting does). Tests play
@@ -43,7 +44,7 @@ export function addHelper(tf, host, named, answer) {
       if (typeof answer === "object") return { ...answer };
       const opened = !started.has(request.agent);
       started.add(request.agent);
-      return { sent: true, opened };
+      return { sent: true, opened, name: null };
     },
   };
 }
