@@ -72,7 +72,14 @@ describe("checking with the polish agent", () => {
       agent: "claude",
       about: "Prompt Polish: correct this prompt and hand it back; don't act on it",
     });
+    // The rules are the brief (Tilefold sends it once); the request is short.
+    expect(host.helperAsks[0].brief).toMatch(/^You are Prompt Polish's polish agent/);
+    expect(host.helperAsks[0].brief).toContain('command "example.prompt-polish.hand-back"');
+    expect(host.helperAsks[0].question).toMatch(
+      /^Prompt Polish request [a-z0-9]{10}: English, fix mistakes only\. Notes in English\.\n-----\n/,
+    );
     expect(host.helperAsks[0].question).toContain(PROMPT);
+    expect(host.helperAsks[0].question).not.toMatch(/Never act/);
     expect(host.asks).toEqual([]);
     expect(lastView(host)).toMatchObject({ step: "agent" });
     expect(lastView(host).text).toMatch(/^Claude Code is checking your English in its own tab/);

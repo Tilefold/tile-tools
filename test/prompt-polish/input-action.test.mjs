@@ -9,7 +9,8 @@
  * Where Tilefold has input actions, the tile adds ✦ Polish in the user's
  * language. A click opens the card for the pane the box is in, with the
  * box's text and the check already running; the result offers Use and Keep
- * mine. Use puts the corrected prompt in the box (and folds the card);
+ * mine. Use puts the corrected prompt in the box (and folds the card), and
+ * Send to agent has Tilefold send it from there too;
  * Keep mine leaves the box and releases the request; a box edited
  * meanwhile, a late answer or a box that went is said on the card. Closing
  * the card releases the request, and so do the card going away and Close
@@ -130,7 +131,24 @@ describe("the ✦ Polish button in the agent input box", () => {
     expect(host.box.text).toBe(FIXED);
     expect(host.asks).toEqual([]);
     expect(host.page.open).toBe(false);
-    expect(host.audits).toContainEqual({ action: "used", details: { kept: 2, undone: 0 } });
+    expect(host.box.sent).toEqual([]);
+    expect(host.audits).toContainEqual({
+      action: "used",
+      details: { kept: 2, undone: 0, sent: false },
+    });
+  });
+
+  it("puts it in the box and has Tilefold send it on Send to agent", async () => {
+    const host = await start();
+    await clicked(host);
+    await say(host, { type: "send-now", pane: "p1" });
+    expect(host.box.sent).toEqual([FIXED]);
+    expect(host.asks).toEqual([]);
+    expect(host.page.open).toBe(false);
+    expect(host.audits).toContainEqual({
+      action: "used",
+      details: { kept: 2, undone: 0, sent: true },
+    });
   });
 
   it("keeps the user's words on Keep mine, and releases the request", async () => {

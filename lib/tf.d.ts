@@ -642,11 +642,13 @@ export interface Tf {
      * sends it; masks kept in place get the user's own words back. `why`:
      * the user edited the box since (`changed`), too late (`expired`), the
      * box went (`gone`), the user stopped waiting (`stopped`). Another
-     * request, or text too long, throws a TypeError.
+     * request, or text too long, throws a TypeError. With `send: true`
+     * (only when the user pressed the tile's Send; Tilefold 0.1.27),
+     * Tilefold also sends it from the box, as Enter would.
      */
     replace(
       request: string,
-      proposal: { text: string },
+      proposal: { text: string; send?: boolean },
     ): Promise<{ done: true } | { done: false; why: "changed" | "expired" | "gone" | "stopped" }>;
     /** Ends a request without a change (the user kept their own words). */
     release(request: string): Promise<null>;

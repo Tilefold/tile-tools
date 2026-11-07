@@ -210,11 +210,48 @@ describe("the page", () => {
     expect(p.$("foot").textContent).not.toContain("Ask the agent instead");
   });
 
+  it("offers Keep mine, Use and Send to agent for a prompt from the agent input box", () => {
+    const p = page();
+    const parts = changes(diff("안돼요", "안 돼요"));
+    ready(p, { step: "result", parts, input: { request: "r" } });
+    const buttons = [...p.$("foot").querySelectorAll("button")];
+    const named = (label) => buttons.find((b) => b.textContent === label);
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      "Back to edit",
+      "Keep mine",
+      "Use",
+      "Send to agent",
+    ]);
+    p.click(named("Send to agent"));
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "send-now" });
+    p.click(named("Use"));
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "send" });
+  });
+
   it("tells the tile how tall it is", async () => {
     const p = page();
     ready(p);
     await p.frame();
     expect(p.posted.some((m) => m.type === "size" && Number.isFinite(m.h))).toBe(true);
+  });
+
+  it("fits its content, growing and shrinking with it, not the space it fills", async () => {
+    const p = page();
+    // Stand-in sizes: the content's extent, and a scroll height stuck at the old size.
+    let content = 300;
+    p.w.document.createRange = () => ({
+      selectNodeContents: () => {},
+      getBoundingClientRect: () => ({ height: content }),
+    });
+    Object.defineProperty(p.$("body"), "scrollHeight", { get: () => 300 });
+    const sizes = () => p.posted.filter((m) => m.type === "size").map((m) => m.h);
+    ready(p);
+    await p.frame();
+    content = 120;
+    ready(p, { step: "checking" });
+    await p.frame();
+    const [tall, short] = sizes().slice(-2);
+    expect(tall - short).toBe(180);
   });
 
   it("never reads text from the tile or from Claude as markup", () => {

@@ -71,6 +71,12 @@ const r = await tf.input.replace(e.request, { text: better });
 
 Each request is answered once. Text longer than twice the clicked text plus 200 characters, or another request's id, throws a `TypeError`. Tilefold strips control characters, escape sequences and characters that change reading direction from what you send.
 
+When the user pressed your own **Send** (not Use), pass `send: true`: Tilefold puts the text in the box as above and then sends it, exactly as Enter would. If the agent is busy, it waits in the box. Use it only for that button.
+
+```js
+await tf.input.replace(e.request, { text: better, send: true });
+```
+
 When the user keeps their own words, end the request:
 
 ```js

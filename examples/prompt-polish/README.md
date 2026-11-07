@@ -16,6 +16,7 @@ Corrects the prompts you write to AI agents, in the language you choose. Click t
 With **Settings → Agents → Write to agents in Tilefold's input box** on (Tilefold 0.1.27), you write to your agent in a box Tilefold draws under the terminal, and Prompt Polish puts a **✦ Polish** button at its end once you've written something. Click it: the card opens above the box with your prompt in it, and the check starts right away. Go through the fixes as usual, then:
 
 - **Use** puts the corrected prompt back in the box. Tilefold highlights every changed word and offers **Undo** (or ⌘Z / Ctrl+Z). Nothing is sent: read it and press Enter yourself.
+- **Send to agent** does the same and sends it to your agent right away, as Enter would (if the agent is busy, it waits in the box).
 - **Keep mine** closes the card and leaves the box as it was.
 
 If you edit the box while the card is open, Use doesn't overwrite it: the card says so, and you click **✦ Polish** again. While the check runs, Tilefold shows a **×** beside the spinning button: click it to stop waiting, and the card closes. The pill isn't drawn over a pane that has this box, since the button is in the box itself.

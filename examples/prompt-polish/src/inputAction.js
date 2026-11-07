@@ -10,8 +10,9 @@
  * the user writes to their agent. A click hands the tile what the box
  * holds: the card opens for that pane with the text in it and the check
  * already running. On the result, Use puts the corrected prompt back in
- * the box (`tf.input.replace`; Tilefold highlights the changes, offers
- * Undo and never sends it) and Keep mine leaves the box as it was
+ * the box (`tf.input.replace`; Tilefold highlights the changes and offers
+ * Undo), Send to agent does that and has Tilefold send it from the box (as
+ * Enter would), and Keep mine leaves the box as it was
  * (`tf.input.release`). If the user edited the box meanwhile, or took too
  * long, or the box went, the card says so.
  *
@@ -112,8 +113,8 @@ export function createInputAction(tf, deps) {
     await check(id, s.draft);
   };
 
-  /** Use: the corrected prompt goes back in the box. */
-  const use = async (id) => {
+  /** Use: the corrected prompt goes back in the box; with `send`, Tilefold sends it too. */
+  const use = async (id, send = false) => {
     const s = sessions.get(id);
     const request = s?.input?.request;
     if (!s || !request || s.step !== "result") return;
@@ -122,7 +123,7 @@ export function createInputAction(tf, deps) {
     s.input = null;
     let r;
     try {
-      r = await tf.input.replace(request, { text: build(s.parts, s.rejected) });
+      r = await tf.input.replace(request, { text: build(s.parts, s.rejected), send });
     } catch (err) {
       warn(err);
       r = { done: false, why: "gone" };
@@ -131,7 +132,7 @@ export function createInputAction(tf, deps) {
     if (r?.why === "stopped") return;
     if (r?.done) {
       // Counts only: never the prompt.
-      audit("used", { kept: total - undone, undone });
+      audit("used", { kept: total - undone, undone, sent: send });
       resetSession(s);
       await fold(id);
       return;

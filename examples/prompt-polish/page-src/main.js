@@ -20,6 +20,10 @@
  *   with Cancel, and a problem's "Ask the agent instead".
  * Modified 2026-11-06 (input actions): for a prompt from Tilefold's agent
  *   input box, Use and Keep mine in place of Send to agent.
+ * Modified 2026-11-07 (send from the card): for a prompt from the agent
+ *   input box, Send to agent beside Use.
+ * Modified 2026-11-07 (fitted card): the height sent is the content's own
+ *   (its children's extent), so the card also shrinks when there's less.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -224,12 +228,16 @@ function drawResult(v) {
   $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));
 }
 
-/** Send to agent; for a prompt from the agent input box, Keep mine and Use instead. */
+/**
+ * Send to agent; for a prompt from the agent input box, Keep mine, Use (put
+ * it back in the box) and Send to agent (put it back and send it).
+ */
 function sendButtons(v) {
   if (!v.input) return [button("btn primary", L.send, { type: "send" })];
   return [
     button("btn ghost", L.keep, { type: "keep" }),
-    button("btn primary", L.use, { type: "send" }),
+    button("btn", L.use, { type: "send" }),
+    button("btn primary", L.send, { type: "send-now" }),
   ];
 }
 
@@ -279,12 +287,28 @@ function draw(v) {
 }
 
 /* ------------------------------ the size ------------------------------- */
+/**
+ * How tall `el`'s content is, with its padding: its children's extent, not
+ * its scroll height, which never drops below the space it already fills
+ * (so the card could grow but never shrink back).
+ */
+function contentHeight(el) {
+  const range = document.createRange();
+  // Where ranges can't be measured, the scroll height is the best there is.
+  if (typeof range.getBoundingClientRect !== "function") return el.scrollHeight;
+  range.selectNodeContents(el);
+  const inner = el.childNodes.length ? range.getBoundingClientRect().height : 0;
+  const style = getComputedStyle(el);
+  return Math.ceil(
+    inner + parseFloat(style.paddingTop || "0") + parseFloat(style.paddingBottom || "0"),
+  );
+}
+
 /** Tells the tile how tall the content is, so the card fits it. */
 let lastH = 0;
 function reportSize() {
   requestAnimationFrame(() => {
-    const body = $("body");
-    const h = $("head").offsetHeight + body.scrollHeight + $("foot").offsetHeight + 2;
+    const h = $("head").offsetHeight + contentHeight($("body")) + $("foot").offsetHeight + 2;
     if (Math.abs(h - lastH) < 2) return;
     lastH = h;
     send({ type: "size", h });

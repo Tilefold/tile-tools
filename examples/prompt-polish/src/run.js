@@ -357,6 +357,7 @@ export function runPolish(tf) {
     }
     // From the agent input box: Use puts it back there, Keep mine leaves it.
     if (m.type === "send" && s.step === "result" && s.input) return inputAction.use(id);
+    if (m.type === "send-now" && s.step === "result" && s.input) return inputAction.use(id, true);
     if (m.type === "keep") return inputAction.keep(id);
     if (m.type === "send" && s.step === "result")
       return sendToAgent(id, build(s.parts, s.rejected), "corrected");

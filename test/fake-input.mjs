@@ -17,7 +17,8 @@
  * replacement that keeps every mask), a one-time request id and
  * `language`, and resolves to that request id. The tile answers with
  * `tf.input.replace(request, { text })`, which puts the text in the box
- * (kept in `host.box.replaced`) and resolves `{ done: true }`, or `{ done:
+ * (kept in `host.box.replaced`, and in `host.box.sent` too with `send:
+ * true`, as Tilefold then sends it) and resolves `{ done: true }`, or `{ done:
  * false, why }`: "changed" when the test changed `host.box.text` since the
  * click, "expired" after `host.expireInput()`, "gone" after
  * `host.closeBox()`, "stopped" after `host.stopAction()` (the user's ×
@@ -45,7 +46,7 @@ const SECRET = /\b(?:sk-|ghp_|AKIA)[\w-]{12,}/g;
  */
 export function addInput(tf, host, named, opts = {}) {
   host.actions = [];
-  host.box = { text: opts.text ?? "", replaced: [], released: [], open: true };
+  host.box = { text: opts.text ?? "", replaced: [], released: [], sent: [], open: true };
   /** Requests the tile hasn't answered: id → { text, expired, stopped }. */
   const requests = new Map();
   let seq = 0;
@@ -113,6 +114,8 @@ export function addInput(tf, host, named, opts = {}) {
       const r = own(request);
       if (typeof proposal?.text !== "string")
         throw named("TypeError", "tf.input.replace needs { text }");
+      if (proposal.send !== undefined && typeof proposal.send !== "boolean")
+        throw named("TypeError", "send: true or false");
       if (proposal.text.length > r.text.length * 2 + 200) {
         throw named("TypeError", "the replacement is too long");
       }
@@ -129,6 +132,8 @@ export function addInput(tf, host, named, opts = {}) {
           : proposal.text;
       host.box.text = text;
       host.box.replaced.push(text);
+      // The user pressed the tile's Send: the box sends it, as Enter would.
+      if (proposal.send === true) host.box.sent.push(text);
       return { done: true };
     },
     async release(request) {

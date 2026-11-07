@@ -24,7 +24,9 @@
  *   and why when the request couldn't go.
  */
 import {
+  agentBrief,
   agentQuestion,
+  agentRequest,
   createPending,
   HAND_BACK,
   newRequestId,
@@ -61,16 +63,24 @@ export function createAgentRun(tf, deps) {
   };
 
   /** Has the polish agent check pane `id`'s prompt: `question` for `request`. */
-  const viaHelper = async (id, s, entry, question, request) => {
+  const viaHelper = async (id, s, entry, request) => {
     // Waiting shows at once: the first time, the agent's tab takes a while to start.
     pending.add(request, entry);
     Object.assign(s, { step: "agent", helper: true, draft: entry.original, problem: "" });
     await render(id);
     let r;
     try {
+      // The rules go once per session (Tilefold sends the brief); each request is short.
       r = await tf.agent.helper({
         agent: helperAgent(),
-        question,
+        brief: agentBrief(`${TILE_ID}.${HAND_BACK}`),
+        question: agentRequest({
+          text: entry.original,
+          language: language().name,
+          mode: entry.mode,
+          uiLanguage: tf.t("ai-language"),
+          request,
+        }),
         about: tf.t("agent-check-about"),
       });
     } catch (err) {
@@ -109,7 +119,7 @@ export function createAgentRun(tf, deps) {
       command: `${TILE_ID}.${HAND_BACK}`,
     });
     const entry = { pane: id, original, language: lang.code, mode: m };
-    if (hasHelper()) return viaHelper(id, s, entry, question, request);
+    if (hasHelper()) return viaHelper(id, s, entry, request);
     let r;
     try {
       r = await tf.agent.ask({ question, about: tf.t("agent-check-about") });
