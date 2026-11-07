@@ -42,7 +42,7 @@ Every limit Tilefold puts on a tile, and every error name a `tf` call can fail w
 | `tf.overlay` | 8 items; 256 px a side; about 1 MB of pictures per scene; bubble and label 80 characters; moves up to 20 seconds; sprite sheets up to 64 frames at 30 fps; 60 changes a second |
 | `tf.annotate.draw` | 20 marks at once and in one draw; text to find 2–200 characters on one line (only the screen is searched, never the scrollback); note and arrow text 300 characters; 4 draws a second and 120 a minute (Tilefold 0.1.23) |
 | `tf.agent.ask` | `question` 1–4,000 characters; `about` 600 characters on one line; 6 a minute; never while an ask card is open |
-| `tf.agent.helper` | `agent` one of `claude`, `codex`, `gemini`, `cursor`, `agy`, `opencode`; `question` and `about` as for `tf.agent.ask`; 6 a minute; the agent has 30 seconds to start; never typed while it works, waits on the user, or the user types in its tab |
+| `tf.agent.helper` | `agent` one of `claude`, `codex`, `gemini`, `cursor`, `agy`, `opencode`; `question` and `about` as for `tf.agent.ask`; 6 a minute; the agent has two minutes to be ready (past its first questions, such as trusting its folder); never typed while it works, waits on the user, or the user types in its tab |
 | `tf.input` | 2 buttons per tile (4 shown in the box); `id` 1–32 characters, `label` 1–24; the box's text 8,000 characters; 10 clicks a minute per tile; one answer per click within 10 minutes; a replacement at most twice the clicked text plus 200 characters |
 | `tf.sound.play` | 400,000 characters of data URL (about 300 KB); 2 a second and 30 a minute |
 | `tf.net.fetch` | `https` on port 443 only; URL 8 KB; 64 headers, each value 8 KB; body 1 MB; answer 4 MB; 30 seconds; 5 redirects; 4 at once and 60 a minute |
