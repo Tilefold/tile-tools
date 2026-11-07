@@ -33,11 +33,13 @@
  * Modified 2026-11-07 (move, fill, fold): the card goes where the user
  *   dragged it or fills the pane (`offset`, `max`; `kept()` is the drag as
  *   it could be kept), and over the agent input box the pill shows while a
- *   folded card has something to come back to (`keepPill`).
+ *   folded card has something to come back to (`keepPill`). Folded to its
+ *   header bar (`collapsed`); where Tilefold docks nothing that short (before
+ *   0.1.27), the bar is SPOT_MIN tall from then on.
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
-import { placeFor, sameSpot } from "./place.js";
+import { BAR_H, SPOT_MIN, placeFor, sameSpot } from "./place.js";
 
 /** The overlay item id of the corner button. */
 export const BUTTON_ID = "polish-button";
@@ -63,6 +65,8 @@ export function createStage(tf, o) {
   let toldSmall = false;
   /** The user's drag of the card, as it could be kept inside the pane. */
   let kept = { dx: 0, dy: 0 };
+  /** How tall the header bar can be docked here (an older Tilefold refuses BAR_H). */
+  let barH = BAR_H;
 
   const rtl = () => tf.t("page-dir") === "rtl";
 
@@ -121,7 +125,7 @@ export function createStage(tf, o) {
     sceneShown = true;
   };
 
-  const toCard = async (card) => {
+  const dockAt = async (card) => {
     if (where === "card") {
       if (!sameSpot(card, spot)) await tf.page.dock(card);
     } else {
@@ -130,6 +134,17 @@ export function createStage(tf, o) {
     }
     where = "card";
     spot = card;
+  };
+
+  const toCard = async (card) => {
+    try {
+      await dockAt(card);
+    } catch (err) {
+      // A Tilefold that docks nothing under SPOT_MIN: the bar is that tall from now on.
+      if (card.h >= SPOT_MIN) throw err;
+      barH = SPOT_MIN;
+      await dockAt({ ...card, h: SPOT_MIN });
+    }
   };
 
   const toSide = async () => {
@@ -193,7 +208,16 @@ export function createStage(tf, o) {
      * even over the agent input box (`keepPill`). Returns where the page
      * ended up.
      */
-    async show({ view, open, active, waiting = 0, offset, max = false, keepPill = false }) {
+    async show({
+      view,
+      open,
+      active,
+      waiting = 0,
+      offset,
+      max = false,
+      collapsed = false,
+      keepPill = false,
+    }) {
       if (!active) {
         await closePage();
         await dropOverlay();
@@ -223,6 +247,8 @@ export function createStage(tf, o) {
         noPill: !keepPill && !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput,
         offset,
         max,
+        collapsed,
+        barH,
       });
       if (spots?.offset) kept = spots.offset;
       if (!spots) {

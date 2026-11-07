@@ -25,12 +25,15 @@
  *
  * Over the pane the card can be dragged (`offset`, from where it would be,
  * always kept inside the pane and above its input row) or fill the pane
- * (`max`, as far as Tilefold docks a page).
+ * (`max`, as far as Tilefold docks a page), or fold to its header bar
+ * (`collapsed`: BAR_H tall where the card's top was; `barH` when this
+ * Tilefold docks nothing that short).
  *
  * Pure: no Tilefold calls.
  *
  * Modified 2026-11-06 (input actions): no pill over the agent input box.
  * Modified 2026-11-07 (move and fill): `offset` and `max`.
+ * Modified 2026-11-07 (header bar): `collapsed`.
  */
 
 /** The views, in the order the setting lists them. */
@@ -39,6 +42,9 @@ export const VIEWS = ["corner", "bottom", "side"];
 /** Tilefold's limits for a page docked at a spot. */
 export const SPOT_MIN = 120;
 export const SPOT_MAX = 2000;
+
+/** How tall the card is folded to its header bar (Tilefold 0.1.27 docks pages this short). */
+export const BAR_H = 40;
 
 /** The gap between the card and the pane's edges. */
 export const GAP = 12;
@@ -79,7 +85,8 @@ export function focusedPane(layout, paneId) {
  *   pane: the pane to place over (by id), else the focused one;
  *   bw: the pill's width (its height is BUTTON_H); noPill: the pane's row
  *   has its own ✦ Polish button, so no pill is drawn; offset: how far the
- *   user dragged the card ({ dx, dy }); max: the card fills the pane.
+ *   user dragged the card ({ dx, dy }); max: the card fills the pane;
+ *   collapsed: only its header bar shows (`barH` tall, else BAR_H).
  *   With a card, `offset` in the answer is the drag as it could be kept.
  */
 export function placeFor(layout, view, opts = {}) {
@@ -135,7 +142,11 @@ export function adjust(card, pane, floor, opts = {}) {
   const o = offsetOf(opts.offset);
   const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
   const y = clamp(card.y + o.dy, top, floor - card.h);
-  return { card: { ...card, x, y }, offset: { dx: x - card.x, dy: y - card.y } };
+  const offset = { dx: x - card.x, dy: y - card.y };
+  if (!opts.collapsed) return { card: { ...card, x, y }, offset };
+  // Folded: the bar stays where the header was.
+  const h = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
+  return { card: { ...card, x, y, h }, offset };
 }
 
 /** A drag offset checked: finite numbers, else none. */

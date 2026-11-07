@@ -16,8 +16,8 @@
  * switches views and folds from its header; reports its height; and never
  * reads text from the tile (or from Claude) as markup.
  *
- * Modified 2026-11-07 (move and fill): ▢ and a double click fill the pane,
- *   and the header moves the card.
+ * Modified 2026-11-07 (move and fill): ▢ fills the pane, a double click
+ *   folds the card to its header bar, and the header moves the card.
  * Modified 2026-11-07 (readable see-through card): text keeps a solid
  *   surface over the pane.
  * Modified 2026-11-06 (no-key mode): waiting for the agent with Cancel, and
@@ -230,7 +230,7 @@ describe("the page", () => {
     expect(root.style.getPropertyValue("--solid")).toBe("30%");
   });
 
-  it("fills the pane from ▢ or a double click on the header, only over the pane", () => {
+  it("fills the pane from ▢, and folds to the header bar on a double click", () => {
     const p = page();
     ready(p, { view: "corner" });
     expect(p.$("fill").hidden).toBe(false);
@@ -238,7 +238,18 @@ describe("the page", () => {
     p.click(p.$("fill"));
     expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "max" });
     p.$("name").dispatchEvent(new p.w.MouseEvent("dblclick", { bubbles: true }));
-    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "max" });
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "collapse" });
+    // A double click on a header button is that button's, not a fold.
+    p.$("fill").dispatchEvent(new p.w.MouseEvent("dblclick", { bubbles: true }));
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "collapse" });
+    expect(p.posted.filter((m) => m.type === "collapse")).toHaveLength(1);
+    // Folded: only the header shows, and no size goes to the tile.
+    ready(p, { view: "corner", collapsed: true });
+    const root = p.w.document.documentElement;
+    expect(root.classList.contains("collapsed")).toBe(true);
+    expect(p.$("head").getAttribute("aria-expanded")).toBe("false");
+    ready(p, { view: "corner" });
+    expect(root.classList.contains("collapsed")).toBe(false);
     ready(p, { view: "corner", max: true });
     expect(p.$("fill").getAttribute("aria-pressed")).toBe("true");
     expect(p.$("fill").getAttribute("aria-label")).toBe("Back to its size");

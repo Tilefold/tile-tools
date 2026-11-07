@@ -115,6 +115,15 @@ html.dragging,
 html.dragging header {
   cursor: grabbing;
 }
+/* Folded to its header bar: only the header shows, filling the bar. */
+html.collapsed .body,
+html.collapsed .foot {
+  display: none;
+}
+html.collapsed header {
+  flex: 1;
+  border-bottom: 0;
+}
 header {
   display: flex;
   align-items: center;

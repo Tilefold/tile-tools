@@ -6,7 +6,7 @@
  * Prompt Polish page — moving and filling the card
  *
  * Over the pane, the header is a handle: dragging it moves the card, and a
- * double click makes it fill the pane (or go back). Only the tile moves the
+ * double click folds the card to its header bar (or unfolds it). Only the tile moves the
  * card, so the page tells it how far the pointer went since the drag began
  * (`drag` with `phase` "start", "move", "end", and `dx`, `dy` in screen
  * pixels, which stay true while the card moves under the pointer), at most
@@ -27,8 +27,8 @@ export const isHandle = (target) =>
  * Makes `head` a handle for the card.
  *
  * @param {HTMLElement} head
- * @param {{ send: (message: object) => void, movable: () => boolean, fillable: () => boolean }} o
- *   movable: the card can be dragged now; fillable: it can fill the pane now
+ * @param {{ send: (message: object) => void, movable: () => boolean, foldable: () => boolean }} o
+ *   movable: the card can be dragged now; foldable: it can fold to its header bar now
  */
 export function setupMoving(head, o) {
   /** The drag going on: its pointer, where it began, how far, and whether it started. */
@@ -77,6 +77,6 @@ export function setupMoving(head, o) {
   head.addEventListener("pointercancel", end);
 
   head.addEventListener("dblclick", (e) => {
-    if (o.fillable() && isHandle(e.target)) o.send({ type: "max" });
+    if (o.foldable() && isHandle(e.target)) o.send({ type: "collapse" });
   });
 }

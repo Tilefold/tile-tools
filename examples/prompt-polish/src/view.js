@@ -23,7 +23,8 @@
  *   it got the prompt (`since`, counted on the page).
  * Modified 2026-11-07 (see-through card): `solid`.
  * Modified 2026-11-07 (move and fill): `max` (the card fills the pane) and
- *   the labels to fill, restore and move it.
+ *   the labels to fill, restore and move it; `collapsed` (only its header
+ *   bar shows).
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -110,6 +111,8 @@ export function viewOf(s, t) {
     solid: Number.isFinite(s.solid) ? s.solid : 100,
     // The card fills the pane (its ▢ button is pressed).
     max: !!s.max,
+    // Folded to its header bar.
+    collapsed: !!s.collapsed,
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };

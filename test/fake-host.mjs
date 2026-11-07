@@ -94,6 +94,9 @@
  *   own helper agent are kept in `host.helperAsks`.
  * Modified 2026-11-07 (Tilefold 0.1.27): `page.open` checks `seeThrough`
  *   (a docked page only), as Tilefold does.
+ * Modified 2026-11-07 (Tilefold 0.1.27): a docked page's spot is checked as
+ *   Tilefold does: 120 to 2,000 px wide, 32 (`dockMinH`; 120 before 0.1.27)
+ *   to 2,000 px tall.
  *
  * Last updated by: Tilefold
  */
@@ -363,6 +366,7 @@ export async function startTile(dir, opts = {}) {
     addPage(tf, host, {
       dock: opts.page === "dock" || opts.page === "side",
       side: opts.page === "side",
+      minH: opts.dockMinH ?? 32,
     });
   }
   if (opts.theme !== undefined) {
@@ -487,7 +491,13 @@ function addFolders(
  * (Tilefold 0.1.11) a page can be docked in the window: `host.page.dock`
  * is its spot (null for a window of its own), and `dock()` moves it.
  */
-function addPage(tf, host, { dock = false, side = false } = {}) {
+function addPage(tf, host, { dock = false, side = false, minH = 32 } = {}) {
+  /** Refuses a spot this Tilefold wouldn't dock at. */
+  const checkSpot = (spot) => {
+    if (!spot) return;
+    if (spot.w < 120 || spot.w > 2000 || spot.h < minH || spot.h > 2000)
+      throw new TypeError(`a docked page is 120 to 2000 pixels wide and ${minH} to 2000 tall`);
+  };
   host.page = {
     open: false,
     opens: [],
@@ -504,6 +514,7 @@ function addPage(tf, host, { dock = false, side = false } = {}) {
         throw new TypeError("seeThrough must be true or false");
       if (options.seeThrough === true && !options.dock)
         throw new TypeError("only a docked page (dock) can be see-through");
+      if (dock) checkSpot(options.dock);
       // Beside the panes (Tilefold 0.1.20), as Tilefold checks it.
       if (side && options.side === true) {
         if (options.dock)
@@ -552,6 +563,7 @@ function addPage(tf, host, { dock = false, side = false } = {}) {
       if (!host.page.dock) {
         throw Object.assign(new Error("the page is not docked"), { name: "PageError" });
       }
+      checkSpot(spot);
       host.page.dock = { ...spot };
       host.page.docks.push({ ...spot });
       return null;

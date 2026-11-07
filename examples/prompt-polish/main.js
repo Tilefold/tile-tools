@@ -444,6 +444,7 @@ var px = (v) => Number.isFinite(v) ? Math.max(-MAX_DRAG, Math.min(MAX_DRAG, v)) 
 function createCardMoves(o) {
   let offset = ZERO;
   let max = false;
+  let collapsed = false;
   let base = null;
   let placing = null;
   let again = false;
@@ -461,18 +462,29 @@ function createCardMoves(o) {
     return placing;
   };
   return {
-    /** What the stage needs: the drag and whether the card fills the pane. */
-    state: () => ({ offset, max }),
+    /** What the stage needs: the drag, and whether the card fills the pane or is folded to its bar. */
+    state: () => ({ offset, max, collapsed }),
     /** Back where it belongs (another view was chosen). */
     reset() {
       offset = ZERO;
       max = false;
+      collapsed = false;
       base = null;
     },
-    /** Takes a `drag` or `max` message from the page; false for any other. */
+    /** Takes a `drag`, `max` or `collapse` message from the page; false for any other. */
     async hear(m) {
+      if (m.type === "collapse") {
+        collapsed = !collapsed;
+        if (collapsed) max = false;
+        base = null;
+        o.audit("card-collapsed", { on: collapsed });
+        await o.place();
+        await o.render();
+        return true;
+      }
       if (m.type === "max") {
         max = !max;
+        if (max) collapsed = false;
         base = null;
         o.audit("card-filled", { on: max });
         await o.place();
@@ -778,6 +790,7 @@ var isUnspaced = (code) => UNSPACED.has(code);
 var VIEWS = ["corner", "bottom", "side"];
 var SPOT_MIN = 120;
 var SPOT_MAX = 2e3;
+var BAR_H = 40;
 var GAP = 12;
 var BUTTON = 36;
 var BUTTON_H = 26;
@@ -828,15 +841,18 @@ function adjust(card, pane, floor, opts = {}) {
   const top = pane.y + GAP;
   if (opts.max) {
     const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
-    const h = Math.min(SPOT_MAX, floor - top);
-    if (w >= SPOT_MIN && h >= SPOT_MIN) {
-      return { card: { x: pane.x + GAP, y: top, w, h }, offset: offsetOf(opts.offset) };
+    const h2 = Math.min(SPOT_MAX, floor - top);
+    if (w >= SPOT_MIN && h2 >= SPOT_MIN) {
+      return { card: { x: pane.x + GAP, y: top, w, h: h2 }, offset: offsetOf(opts.offset) };
     }
   }
   const o = offsetOf(opts.offset);
   const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
   const y = clamp(card.y + o.dy, top, floor - card.h);
-  return { card: { ...card, x, y }, offset: { dx: x - card.x, dy: y - card.y } };
+  const offset = { dx: x - card.x, dy: y - card.y };
+  if (!opts.collapsed) return { card: { ...card, x, y }, offset };
+  const h = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
+  return { card: { ...card, x, y, h }, offset };
 }
 var offsetOf = (o) => ({
   dx: Number.isFinite(o?.dx) ? o.dx : 0,
@@ -974,6 +990,7 @@ function createStage(tf, o) {
   let accent = null;
   let toldSmall = false;
   let kept = { dx: 0, dy: 0 };
+  let barH = BAR_H;
   const rtl = () => tf.t("page-dir") === "rtl";
   const closePage = async () => {
     if (!where) return;
@@ -1015,7 +1032,7 @@ function createStage(tf, o) {
     buttonShown = true;
     sceneShown = true;
   };
-  const toCard = async (card) => {
+  const dockAt = async (card) => {
     if (where === "card") {
       if (!sameSpot(card, spot)) await tf.page.dock(card);
     } else {
@@ -1023,6 +1040,15 @@ function createStage(tf, o) {
     }
     where = "card";
     spot = card;
+  };
+  const toCard = async (card) => {
+    try {
+      await dockAt(card);
+    } catch (err) {
+      if (card.h >= SPOT_MIN) throw err;
+      barH = SPOT_MIN;
+      await dockAt({ ...card, h: SPOT_MIN });
+    }
   };
   const toSide = async () => {
     await hideButton();
@@ -1076,7 +1102,16 @@ function createStage(tf, o) {
      * even over the agent input box (`keepPill`). Returns where the page
      * ended up.
      */
-    async show({ view, open, active, waiting = 0, offset, max = false, keepPill = false }) {
+    async show({
+      view,
+      open,
+      active,
+      waiting = 0,
+      offset,
+      max = false,
+      collapsed = false,
+      keepPill = false
+    }) {
       if (!active) {
         await closePage();
         await dropOverlay();
@@ -1105,7 +1140,9 @@ function createStage(tf, o) {
         bw: pill().w,
         noPill: !keepPill && !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput,
         offset,
-        max
+        max,
+        collapsed,
+        barH
       });
       if (spots?.offset) kept = spots.offset;
       if (!spots) {
@@ -1198,7 +1235,9 @@ function viewOf2(s, t) {
     // How solid the card's background is over the pane (100: not see-through).
     solid: Number.isFinite(s.solid) ? s.solid : 100,
     // The card fills the pane (its ▢ button is pressed).
-    max: !!s.max
+    max: !!s.max,
+    // Folded to its header bar.
+    collapsed: !!s.collapsed
   };
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
@@ -1300,7 +1339,8 @@ function runPolish(tf) {
   const render = async (id = shown) => {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
-    const card = { ...cardSettings(current()), max: moves.state().max };
+    const { max, collapsed } = moves.state();
+    const card = { ...cardSettings(current()), max, collapsed };
     const called = agentRun.calledName();
     if (called) card.helperName = called;
     await post({

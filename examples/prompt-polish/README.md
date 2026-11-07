@@ -33,7 +33,7 @@ The three small pictures in its header switch where it is, and it remembers your
 - **Over the agent's pane**: the card stays open across the pane you work in, just above its input, only as tall as it needs to be.
 - **Beside the panes**: in the dock on the right, where your panes make room for it (Tilefold 0.1.20). It shows the prompt of the pane you're in. Tilefold's **Undock** brings it back over the pane.
 
-Over the pane, drag the card by its header to move it anywhere in the pane; it never covers the input row. **▢** in the header (or a double click on the header) makes the card fill the pane, and clicking it again brings the card back where it was. Choosing another view puts the card back in its place.
+Over the pane, drag the card by its header to move it anywhere in the pane; it never covers the input row. Double-click the header to fold the card to just its header bar, right where it is, and double-click again to see the whole card. **▢** in the header makes the card fill the pane, and clicking it again brings the card back where it was. Choosing another view puts the card back in its place.
 
 If a pane is too small for the card, it opens beside the panes instead. On a Tilefold that can't dock pages it opens in a window of its own.
 

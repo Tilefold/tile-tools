@@ -141,7 +141,8 @@ export function runPolish(tf) {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
     // The polish agent is called what the user renamed its pane to, if they did.
-    const card = { ...cardSettings(current()), max: moves.state().max };
+    const { max, collapsed } = moves.state();
+    const card = { ...cardSettings(current()), max, collapsed };
     const called = agentRun.calledName();
     if (called) card.helperName = called;
     await post({

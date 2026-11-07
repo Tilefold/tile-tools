@@ -9,7 +9,9 @@
  * Over the pane the user drags the card by its header: it moves as far as
  * the pointer went, never out of its pane or over the input row, and the
  * next drag starts where it was left. ▢ (or a double click) makes it fill
- * the pane and brings it back where it was. Choosing another view puts it
+ * the pane and brings it back where it was. A double click folds it to its
+ * header bar, right where its header was, and back; a Tilefold that docks
+ * nothing that short gets the shortest card it takes. Choosing another view puts it
  * back in place. Folded over Tilefold's agent input box, a card with fixes
  * leaves the pill, which opens it again. Audits carry no positions.
  */
@@ -17,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { startTile } from "../fake-host.mjs";
 import { createCardMoves } from "../../examples/prompt-polish/src/cardMoves.js";
-import { GAP } from "../../examples/prompt-polish/src/place.js";
+import { BAR_H, GAP, SPOT_MIN } from "../../examples/prompt-polish/src/place.js";
 
 const DIR = fileURLToPath(new URL("../../examples/prompt-polish/", import.meta.url));
 const PROMPT = "please fix teh login bug";
@@ -72,8 +74,8 @@ const drag = async (host, dx, dy) => {
 };
 
 /** Clicks ✦ Polish in the box and lets the check finish. */
-async function opened() {
-  const host = await start();
+async function opened(opts = {}) {
+  const host = await start(opts);
   await host.clickAction("polish", { spot: { x: 60, y: 720, w: 600, h: 40 } });
   await say(host, { type: "hello" });
   return host;
@@ -135,6 +137,44 @@ describe("filling the pane", () => {
     expect(lastView(host).max).toBe(false);
     expect(host.audits).toContainEqual({ action: "card-filled", details: { on: true } });
     expect(host.audits).toContainEqual({ action: "card-filled", details: { on: false } });
+  });
+});
+
+describe("folding to the header bar", () => {
+  it("shows only the bar where the header was, then the whole card again", async () => {
+    const host = await opened();
+    await drag(host, -100, -50);
+    const full = { ...host.page.dock };
+    await say(host, { type: "collapse" });
+    expect(host.page.dock).toEqual({ ...full, h: BAR_H });
+    expect(lastView(host).collapsed).toBe(true);
+    // It still moves, folded.
+    await drag(host, 0, -20);
+    expect(host.page.dock).toEqual({ ...full, y: full.y - 20, h: BAR_H });
+    await say(host, { type: "collapse" });
+    expect(host.page.dock).toEqual({ ...full, y: full.y - 20 });
+    expect(lastView(host).collapsed).toBe(false);
+    expect(host.audits).toContainEqual({ action: "card-collapsed", details: { on: true } });
+  });
+
+  it("unfolds to fill the pane from ▢", async () => {
+    const host = await opened();
+    await say(host, { type: "collapse" });
+    await say(host, { type: "max" });
+    expect(host.page.dock.h).toBe(FLOOR - (PANE.y + GAP));
+    expect(lastView(host)).toMatchObject({ max: true, collapsed: false });
+  });
+
+  it("is as short as this Tilefold docks a page", async () => {
+    // A Tilefold before 0.1.27 docks nothing under SPOT_MIN.
+    const host = await opened({ dockMinH: SPOT_MIN });
+    await say(host, { type: "collapse" });
+    expect(host.page.dock.h).toBe(SPOT_MIN);
+    // And from then on, without trying the shorter bar again.
+    const tries = host.page.docks.length;
+    await drag(host, 0, -10);
+    expect(host.page.docks.length - tries).toBeLessThanOrEqual(2);
+    expect(host.page.dock.h).toBe(SPOT_MIN);
   });
 });
 

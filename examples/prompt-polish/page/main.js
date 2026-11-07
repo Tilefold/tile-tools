@@ -28,7 +28,8 @@
  * Modified 2026-11-07 (send from the card): for a prompt from the agent
  *   input box, Send to agent beside Use.
  * Modified 2026-11-07 (move and fill): over the pane, the header moves the
- *   card and a double click (or ▢) makes it fill the pane (move.js).
+ *   card, ▢ makes it fill the pane, and a double click folds it to its
+ *   header bar or back (move.js); folded, it sends no size.
  * Modified 2026-11-07 (fitted card): the height sent is the content's own
  *   (its children's extent), so the card also shrinks when there's less.
  *
@@ -114,7 +115,7 @@
     head.addEventListener("pointerup", end);
     head.addEventListener("pointercancel", end);
     head.addEventListener("dblclick", (e) => {
-      if (o.fillable() && isHandle(e.target)) o.send({ type: "max" });
+      if (o.foldable() && isHandle(e.target)) o.send({ type: "collapse" });
     });
   }
 
@@ -183,6 +184,8 @@
     $("fill").setAttribute("aria-pressed", String(!!v.max));
     $("head").title = over && !v.max ? L.move : "";
     $("head").classList.toggle("movable", over && !v.max);
+    $("head").setAttribute("aria-expanded", String(!(over && v.collapsed)));
+    document.documentElement.classList.toggle("collapsed", over && !!v.collapsed);
     $("fold").hidden = v.view === "side" || v.view === "window";
     $("fold").title = L.fold;
     $("fold").setAttribute("aria-label", L.fold);
@@ -381,6 +384,7 @@
   var lastH = 0;
   function reportSize() {
     requestAnimationFrame(() => {
+      if (document.documentElement.classList.contains("collapsed")) return;
       const h = $("head").offsetHeight + contentHeight($("body")) + $("foot").offsetHeight + 2;
       if (Math.abs(h - lastH) < 2) return;
       lastH = h;
@@ -402,7 +406,7 @@
   $("fill").addEventListener("click", () => send({ type: "max" }));
   $("fold").addEventListener("click", () => send({ type: "fold" }));
   var overPane = () => !!view && (view.view === "bottom" || view.view === "corner");
-  setupMoving($("head"), { send, movable: () => overPane() && !view.max, fillable: overPane });
+  setupMoving($("head"), { send, movable: () => overPane() && !view.max, foldable: overPane });
   $("close").addEventListener("click", () => send({ type: "close" }));
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && view) {

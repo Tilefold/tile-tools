@@ -5,8 +5,10 @@
  *
  * Prompt Polish — moving and filling the card
  *
- * Over the pane the user can drag the card by its header and make it fill
- * the pane (its ▢ button, or a double click on the header). The page sends
+ * Over the pane the user can drag the card by its header, make it fill the
+ * pane (its ▢ button), and fold it to its header bar and back (a double
+ * click on the header, `collapse`; the bar stays where the header was, and
+ * filling the pane unfolds it). The page sends
  * `drag` with `phase` "start", "move" or "end" and how far the pointer went
  * since the start (`dx`, `dy`, in pixels), and `max` to switch filling on
  * or off. The drag is kept as an offset from where the card would be; the
@@ -14,8 +16,8 @@
  * starts from. Moves come many times a second, so only the latest waits
  * while one is being placed. Choosing another view puts the card back.
  *
- * Audited: `card-filled` (on or off) and `card-moved` once per drag, never
- * where to.
+ * Audited: `card-filled` and `card-collapsed` (on or off) and `card-moved`
+ * once per drag, never where to.
  */
 
 const ZERO = Object.freeze({ dx: 0, dy: 0 });
@@ -34,6 +36,8 @@ const px = (v) => (Number.isFinite(v) ? Math.max(-MAX_DRAG, Math.min(MAX_DRAG, v
 export function createCardMoves(o) {
   let offset = ZERO;
   let max = false;
+  /** Folded to its header bar. */
+  let collapsed = false;
   /** Where the card was when this drag started, or null between drags. */
   let base = null;
   let placing = null;
@@ -55,18 +59,29 @@ export function createCardMoves(o) {
   };
 
   return {
-    /** What the stage needs: the drag and whether the card fills the pane. */
-    state: () => ({ offset, max }),
+    /** What the stage needs: the drag, and whether the card fills the pane or is folded to its bar. */
+    state: () => ({ offset, max, collapsed }),
     /** Back where it belongs (another view was chosen). */
     reset() {
       offset = ZERO;
       max = false;
+      collapsed = false;
       base = null;
     },
-    /** Takes a `drag` or `max` message from the page; false for any other. */
+    /** Takes a `drag`, `max` or `collapse` message from the page; false for any other. */
     async hear(m) {
+      if (m.type === "collapse") {
+        collapsed = !collapsed;
+        if (collapsed) max = false;
+        base = null;
+        o.audit("card-collapsed", { on: collapsed });
+        await o.place();
+        await o.render();
+        return true;
+      }
       if (m.type === "max") {
         max = !max;
+        if (max) collapsed = false;
         base = null;
         o.audit("card-filled", { on: max });
         await o.place();

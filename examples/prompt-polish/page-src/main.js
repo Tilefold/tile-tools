@@ -28,7 +28,8 @@
  * Modified 2026-11-07 (send from the card): for a prompt from the agent
  *   input box, Send to agent beside Use.
  * Modified 2026-11-07 (move and fill): over the pane, the header moves the
- *   card and a double click (or ▢) makes it fill the pane (move.js).
+ *   card, ▢ makes it fill the pane, and a double click folds it to its
+ *   header bar or back (move.js); folded, it sends no size.
  * Modified 2026-11-07 (fitted card): the height sent is the content's own
  *   (its children's extent), so the card also shrinks when there's less.
  *
@@ -122,6 +123,8 @@ function drawHead(v) {
   $("fill").setAttribute("aria-pressed", String(!!v.max));
   $("head").title = over && !v.max ? L.move : "";
   $("head").classList.toggle("movable", over && !v.max);
+  $("head").setAttribute("aria-expanded", String(!(over && v.collapsed)));
+  document.documentElement.classList.toggle("collapsed", over && !!v.collapsed);
   $("fold").hidden = v.view === "side" || v.view === "window";
   $("fold").title = L.fold;
   $("fold").setAttribute("aria-label", L.fold);
@@ -359,6 +362,8 @@ function contentHeight(el) {
 let lastH = 0;
 function reportSize() {
   requestAnimationFrame(() => {
+    // Folded to its bar, the content's height isn't what the card should be when unfolded.
+    if (document.documentElement.classList.contains("collapsed")) return;
     const h = $("head").offsetHeight + contentHeight($("body")) + $("foot").offsetHeight + 2;
     if (Math.abs(h - lastH) < 2) return;
     lastH = h;
@@ -384,7 +389,7 @@ $("fill").addEventListener("click", () => send({ type: "max" }));
 $("fold").addEventListener("click", () => send({ type: "fold" }));
 // Over the pane: drag the header to move the card, double-click it to fill the pane.
 const overPane = () => !!view && (view.view === "bottom" || view.view === "corner");
-setupMoving($("head"), { send, movable: () => overPane() && !view.max, fillable: overPane });
+setupMoving($("head"), { send, movable: () => overPane() && !view.max, foldable: overPane });
 $("close").addEventListener("click", () => send({ type: "close" }));
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && view) {

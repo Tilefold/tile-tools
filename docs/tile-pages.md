@@ -132,7 +132,7 @@ Every opening and closing is recorded as `tile.page.open` and `tile.page.close`,
 
 ## 7. Dock the page in Tilefold's window
 
-From **Tilefold 0.1.11**, a page can sit **inside Tilefold's window** instead of in a window of its own: a video next to the tile's card, say. Open it with a spot, in the window's content and in CSS pixels, like overlay items (120 to 2,000 pixels a side):
+From **Tilefold 0.1.11**, a page can sit **inside Tilefold's window** instead of in a window of its own: a video next to the tile's card, say. Open it with a spot, in the window's content and in CSS pixels, like overlay items (120 to 2,000 pixels wide; 32 to 2,000 tall from Tilefold 0.1.27, enough for a header bar, and 120 to 2,000 before):
 
 ```js
 await tf.page.open({ origin: "https", dock: { x: 600, y: 300, w: 356, h: 200 } });
