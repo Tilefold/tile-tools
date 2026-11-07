@@ -33,7 +33,8 @@
  *
  * Modified 2026-11-06 (input actions): no pill over the agent input box.
  * Modified 2026-11-07 (move and fill): `offset` and `max`.
- * Modified 2026-11-07 (header bar): `collapsed`.
+ * Modified 2026-11-07 (header bar): `collapsed`; folded, the bar alone is
+ *   kept inside the pane, so it goes down to the input row.
  */
 
 /** The views, in the order the setting lists them. */
@@ -140,13 +141,13 @@ export function adjust(card, pane, floor, opts = {}) {
     }
   }
   const o = offsetOf(opts.offset);
+  // Folded, only the bar takes room (it goes down to the input row); a card
+  // unfolded too low for its height grows upward.
+  const bar = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
+  const h = opts.collapsed ? bar : card.h;
   const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
-  const y = clamp(card.y + o.dy, top, floor - card.h);
-  const offset = { dx: x - card.x, dy: y - card.y };
-  if (!opts.collapsed) return { card: { ...card, x, y }, offset };
-  // Folded: the bar stays where the header was.
-  const h = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
-  return { card: { ...card, x, y, h }, offset };
+  const y = clamp(card.y + o.dy, top, floor - h);
+  return { card: { ...card, x, y, h }, offset: { dx: x - card.x, dy: y - card.y } };
 }
 
 /** A drag offset checked: finite numbers, else none. */

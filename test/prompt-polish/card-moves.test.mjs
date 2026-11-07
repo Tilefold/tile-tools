@@ -157,6 +157,17 @@ describe("folding to the header bar", () => {
     expect(host.audits).toContainEqual({ action: "card-collapsed", details: { on: true } });
   });
 
+  it("goes down to the input row folded, and unfolded there grows upward", async () => {
+    const host = await opened();
+    const full = { ...host.page.dock };
+    await say(host, { type: "collapse" });
+    await drag(host, 0, 5000);
+    // Only the bar takes room: no empty card space under it.
+    expect(host.page.dock).toEqual({ ...full, y: FLOOR - BAR_H, h: BAR_H });
+    await say(host, { type: "collapse" });
+    expect(host.page.dock).toEqual({ ...full, y: FLOOR - full.h });
+  });
+
   it("unfolds to fill the pane from ▢", async () => {
     const host = await opened();
     await say(host, { type: "collapse" });

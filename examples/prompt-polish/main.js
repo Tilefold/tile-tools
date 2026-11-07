@@ -847,12 +847,11 @@ function adjust(card, pane, floor, opts = {}) {
     }
   }
   const o = offsetOf(opts.offset);
+  const bar = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
+  const h = opts.collapsed ? bar : card.h;
   const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
-  const y = clamp(card.y + o.dy, top, floor - card.h);
-  const offset = { dx: x - card.x, dy: y - card.y };
-  if (!opts.collapsed) return { card: { ...card, x, y }, offset };
-  const h = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
-  return { card: { ...card, x, y, h }, offset };
+  const y = clamp(card.y + o.dy, top, floor - h);
+  return { card: { ...card, x, y, h }, offset: { dx: x - card.x, dy: y - card.y } };
 }
 var offsetOf = (o) => ({
   dx: Number.isFinite(o?.dx) ? o.dx : 0,
