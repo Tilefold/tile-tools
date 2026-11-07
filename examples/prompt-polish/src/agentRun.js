@@ -66,7 +66,14 @@ export function createAgentRun(tf, deps) {
   const viaHelper = async (id, s, entry, request) => {
     // Waiting shows at once: the first time, the agent's tab takes a while to start.
     pending.add(request, entry);
-    Object.assign(s, { step: "agent", helper: true, draft: entry.original, problem: "" });
+    Object.assign(s, {
+      step: "agent",
+      helper: true,
+      helperStage: "starting",
+      helperSince: null,
+      draft: entry.original,
+      problem: "",
+    });
     await render(id);
     let r;
     try {
@@ -99,6 +106,9 @@ export function createAgentRun(tf, deps) {
       helper: true,
       opened: !!r.opened,
     });
+    // It has the prompt: the card says it's working on it, and for how long.
+    Object.assign(s, { helperStage: "working", helperSince: Date.now() });
+    await render(id);
   };
 
   /** Asks the polish agent (else the agent in the pane) to check pane `id`'s prompt `original`. */

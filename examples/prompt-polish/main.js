@@ -305,7 +305,14 @@ function createAgentRun(tf, deps) {
   };
   const viaHelper = async (id, s, entry, request) => {
     pending.add(request, entry);
-    Object.assign(s, { step: "agent", helper: true, draft: entry.original, problem: "" });
+    Object.assign(s, {
+      step: "agent",
+      helper: true,
+      helperStage: "starting",
+      helperSince: null,
+      draft: entry.original,
+      problem: ""
+    });
     await render(id);
     let r;
     try {
@@ -336,6 +343,8 @@ function createAgentRun(tf, deps) {
       helper: true,
       opened: !!r.opened
     });
+    Object.assign(s, { helperStage: "working", helperSince: Date.now() });
+    await render(id);
   };
   const check = async (id, original) => {
     const s = sessions.get(id);
@@ -1033,6 +1042,8 @@ function setupOf(t) {
       use: t("label-use"),
       keep: t("label-keep"),
       agentHint: t("label-agent-hint"),
+      // The time a check has taken; the page puts the seconds in place of {n}.
+      elapsed: t("label-elapsed", { seconds: "{n}" }),
       words: t("label-words", { count: "{count}" }),
       chars: t("label-chars", { count: "{count}" }),
       tooLong: t("label-too-long", { max: MAX_CHARS })
@@ -1056,8 +1067,19 @@ function viewOf2(s, t) {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
   }
   if (s.step === "agent") {
-    const text = s.helper ? t("label-helper-waiting", { language: lang.native, agent: s.helperName ?? "" }) : t("label-agent-waiting", { language: lang.native });
-    return { ...head, step: "agent", text };
+    if (!s.helper) {
+      const text = t("label-agent-waiting", { language: lang.native });
+      return { ...head, step: "agent", text, hint: t("label-agent-hint"), since: null };
+    }
+    const agent = s.helperName ?? "";
+    const working = s.helperStage === "working";
+    return {
+      ...head,
+      step: "agent",
+      text: working ? t("label-helper-working", { agent, language: lang.native }) : t("label-helper-starting", { agent }),
+      hint: t(working ? "label-helper-working-hint" : "label-helper-starting-hint"),
+      since: working && Number.isFinite(s.helperSince) ? s.helperSince : null
+    };
   }
   if (s.step === "problem") {
     const offer = AGENT_CAN_HELP.has(s.problem) && !!String(s.draft ?? "").trim();

@@ -20,6 +20,9 @@
  *   with Cancel, and a problem's "Ask the agent instead".
  * Modified 2026-11-06 (input actions): for a prompt from Tilefold's agent
  *   input box, Use and Keep mine in place of Send to agent.
+ * Modified 2026-11-07 (polish agent progress): the waiting step's own
+ *   hint, and, once the polish agent has the prompt, the seconds it has
+ *   taken and a moving bar.
  * Modified 2026-11-07 (send from the card): for a prompt from the agent
  *   input box, Send to agent beside Use.
  * Modified 2026-11-07 (fitted card): the height sent is the content's own
@@ -249,9 +252,28 @@ function drawSent() {
 }
 
 /** Waiting for the agent in the pane to hand its correction back. */
+/** The timer counting a check's seconds on the waiting step, while it shows. */
+let ticking = 0;
+
 function drawAgent(v) {
   const box = el("div", "state");
-  box.append(el("b", "", v.text), el("span", "muted", L.agentHint));
+  const head = el("b", "", v.text);
+  box.append(head);
+  if (Number.isFinite(v.since)) {
+    // Working on it: the seconds so far, and a moving bar.
+    const time = el("span", "muted elapsed");
+    const tick = () =>
+      (time.textContent = String(L.elapsed || "{n}").replace(
+        "{n}",
+        String(Math.max(0, Math.round((Date.now() - v.since) / 1000))),
+      ));
+    tick();
+    ticking = setInterval(tick, 1000);
+    const bar = el("div", "shimmer");
+    bar.append(el("i"));
+    box.append(time, bar);
+  }
+  box.append(el("span", "muted", v.hint || L.agentHint));
   $("body").replaceChildren(box);
   $("foot").replaceChildren(
     el("span", "spacer"),
@@ -276,6 +298,8 @@ function draw(v) {
   // A draft still waiting goes to its own pane before another pane's prompt is drawn.
   flushDraft();
   view = v;
+  // A waiting step's timer stops with it.
+  clearInterval(ticking);
   drawHead(v);
   if (v.step === "checking") drawChecking(v);
   else if (v.step === "agent") drawAgent(v);

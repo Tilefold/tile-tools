@@ -18,6 +18,9 @@
  *   agent input box, so the result offers Use and Keep mine); their labels.
  * Modified 2026-11-06 (polish agent): waiting for the polish agent, named
  *   (`helper`, `helperName`).
+ * Modified 2026-11-07 (polish agent progress): getting it ready, then
+ *   working on it (`helperStage`), with a hint for each and the time since
+ *   it got the prompt (`since`, counted on the page).
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -69,6 +72,8 @@ export function setupOf(t) {
       use: t("label-use"),
       keep: t("label-keep"),
       agentHint: t("label-agent-hint"),
+      // The time a check has taken; the page puts the seconds in place of {n}.
+      elapsed: t("label-elapsed", { seconds: "{n}" }),
       words: t("label-words", { count: "{count}" }),
       chars: t("label-chars", { count: "{count}" }),
       tooLong: t("label-too-long", { max: MAX_CHARS }),
@@ -100,10 +105,23 @@ export function viewOf(s, t) {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
   }
   if (s.step === "agent") {
-    const text = s.helper
-      ? t("label-helper-waiting", { language: lang.native, agent: s.helperName ?? "" })
-      : t("label-agent-waiting", { language: lang.native });
-    return { ...head, step: "agent", text };
+    if (!s.helper) {
+      const text = t("label-agent-waiting", { language: lang.native });
+      return { ...head, step: "agent", text, hint: t("label-agent-hint"), since: null };
+    }
+    // The polish agent: getting ready (it may be asking the user something
+    // in its tab), then working on it, with the time since it got the prompt.
+    const agent = s.helperName ?? "";
+    const working = s.helperStage === "working";
+    return {
+      ...head,
+      step: "agent",
+      text: working
+        ? t("label-helper-working", { agent, language: lang.native })
+        : t("label-helper-starting", { agent }),
+      hint: t(working ? "label-helper-working-hint" : "label-helper-starting-hint"),
+      since: working && Number.isFinite(s.helperSince) ? s.helperSince : null,
+    };
   }
   if (s.step === "problem") {
     // With a prompt to check, the agent in the pane can do it instead.

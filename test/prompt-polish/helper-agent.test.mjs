@@ -82,11 +82,30 @@ describe("checking with the polish agent", () => {
     expect(host.helperAsks[0].question).not.toMatch(/Never act/);
     expect(host.asks).toEqual([]);
     expect(lastView(host)).toMatchObject({ step: "agent" });
-    expect(lastView(host).text).toMatch(/^Claude Code is checking your English in its own tab/);
+    expect(lastView(host).text).toBe("Claude Code is working on your English…");
+    expect(lastView(host).hint).toMatch(/^It works in its own tab/);
+    expect(Number.isFinite(lastView(host).since)).toBe(true);
     expect(host.audits).toContainEqual({
       action: "agent-asked",
       details: { language: "en", mode: "fix", helper: true, opened: true },
     });
+  });
+
+  it("says it's getting the agent ready until the agent has the prompt", async () => {
+    let deliver;
+    const host = await start({
+      helper: () => new Promise((resolve) => (deliver = resolve)),
+    });
+    await polish(host);
+    expect(lastView(host)).toMatchObject({
+      step: "agent",
+      text: "Getting Claude Code ready in its own tab…",
+      since: null,
+    });
+    expect(lastView(host).hint).toMatch(/whether to trust its folder/);
+    deliver({ sent: true, opened: true });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(lastView(host).text).toBe("Claude Code is working on your English…");
   });
 
   it("shows the agent's fixes, and Use puts them in the box", async () => {
@@ -104,7 +123,7 @@ describe("checking with the polish agent", () => {
     const host = await start({ settings: { helperAgent: "codex" } });
     await polish(host);
     expect(host.helperAsks[0].agent).toBe("codex");
-    expect(lastView(host).text).toMatch(/^Codex is checking/);
+    expect(lastView(host).text).toMatch(/^Codex is working/);
     const odd = await start({ settings: { helperAgent: "rm -rf /" } });
     await polish(odd);
     expect(odd.helperAsks[0].agent).toBe("claude");

@@ -10,7 +10,9 @@
  * Tilefold checks (a known agent, a question of plain text), keeps each
  * request in `host.helperAsks`, and answers `{ sent: true, opened }`
  * (`opened` only the first time for each agent), or the object the test
- * gives (such as `{ sent: false, why: "busy", opened: false }`). Tests play
+ * gives (such as `{ sent: false, why: "busy", opened: false }`), or what a
+ * function it gives resolves to (to hold the answer back, as a helper
+ * that is still starting does). Tests play
  * the helper agent's answer by running the tile's command themselves.
  */
 
@@ -23,7 +25,8 @@ export const HELPER_AGENTS = ["claude", "codex", "gemini", "cursor", "agy", "ope
  * @param {any} tf
  * @param {any} host
  * @param {(name: string, message: string) => Error} named
- * @param {true | object} answer what each request answers (true: sent)
+ * @param {true | object | ((request: object) => Promise<object>)} answer what
+ *   each request answers (true: sent)
  */
 export function addHelper(tf, host, named, answer) {
   host.helperAsks = [];
@@ -36,6 +39,7 @@ export function addHelper(tf, host, named, answer) {
       if (typeof request.question !== "string" || !request.question.trim())
         throw named("TypeError", "question: text to ask");
       host.helperAsks.push(structuredClone(request));
+      if (typeof answer === "function") return answer(request);
       if (typeof answer === "object") return { ...answer };
       const opened = !started.has(request.agent);
       started.add(request.agent);

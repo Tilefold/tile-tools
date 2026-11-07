@@ -210,6 +210,32 @@ describe("the page", () => {
     expect(p.$("foot").textContent).not.toContain("Ask the agent instead");
   });
 
+  it("counts the polish agent's seconds while it works, with its hint", async () => {
+    const p = page();
+    const since = Date.now() - 5000;
+    ready(p, {
+      step: "agent",
+      helper: true,
+      helperName: "Claude Code",
+      helperStage: "working",
+      helperSince: since,
+    });
+    const body = () => p.$("body").textContent.replace(/[\u2068\u2069]/g, "");
+    expect(body()).toContain("Claude Code is working on your 한국어…");
+    expect(
+      p
+        .$("body")
+        .querySelector(".elapsed")
+        .textContent.replace(/[\u2068\u2069]/g, ""),
+    ).toBe("5 s");
+    expect(body()).toContain("It works in its own tab.");
+    expect(p.$("body").querySelector(".shimmer")).not.toBeNull();
+    // Getting it ready: no count yet, and the hint about its first questions.
+    ready(p, { step: "agent", helper: true, helperName: "Codex", helperStage: "starting" });
+    expect(body()).toContain("Getting Codex ready in its own tab…");
+    expect(p.$("body").querySelector(".elapsed")).toBeNull();
+  });
+
   it("offers Keep mine, Use and Send to agent for a prompt from the agent input box", () => {
     const p = page();
     const parts = changes(diff("안돼요", "안 돼요"));
