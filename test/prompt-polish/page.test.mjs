@@ -16,6 +16,8 @@
  * switches views and folds from its header; reports its height; and never
  * reads text from the tile (or from Claude) as markup.
  *
+ * Modified 2026-11-07 (readable see-through card): text keeps a solid
+ *   surface over the pane.
  * Modified 2026-11-06 (no-key mode): waiting for the agent with Cancel, and
  *   "Ask the agent instead" offered only for a missing key or Claude.
  */
@@ -224,6 +226,15 @@ describe("the page", () => {
     // Never below 30%, whatever it is told.
     ready(p, { solid: 5 });
     expect(root.style.getPropertyValue("--solid")).toBe("30%");
+  });
+
+  it("keeps every piece of text on a solid surface when see-through", () => {
+    const css = readFileSync(`${DIR}page/polish.css`, "utf8");
+    const rule = css.match(/([^{}]*)\{\s*background: var\(--bg\);\s*\}/g) ?? [];
+    const solid = rule.find((r) => r.includes("see-through")) ?? "";
+    for (const part of ["header", ".foot", ".body > *", ".notes li"]) {
+      expect(solid).toContain(part);
+    }
   });
 
   it("counts the polish agent's seconds while it works, with its hint", async () => {

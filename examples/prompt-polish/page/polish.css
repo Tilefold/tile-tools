@@ -6,7 +6,9 @@
  * Prompt Polish's page. Drawn in Tilefold's theme where Tilefold gives it
  * (the --tf-* variables, Tilefold 0.1.20), else in its own light or dark
  * following the system. Removed text is struck, added text underlined, and
- * a change the user undid shows their own words again, dotted.
+ * a change the user undid shows their own words again, dotted. Over the
+ * pane the card may be see-through, but only between its blocks: text always
+ * sits on a solid surface, so it stays readable over the pane's text.
  */
 
 :root {
@@ -67,6 +69,20 @@ html.see-through body {
 }
 html.see-through .card {
   background: color-mix(in srgb, var(--bg) var(--solid, 100%), transparent);
+}
+/* Text never sits over the pane's own text: the header, the footer and each
+   block of the body keep a solid surface, so only the gaps between them are
+   see-through. :where() keeps this weaker than a block's own background. */
+:where(html.see-through) header,
+:where(html.see-through) .foot,
+:where(html.see-through .body > *),
+:where(html.see-through .notes li) {
+  background: var(--bg);
+}
+:where(html.see-through .body > p) {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
 }
 .card {
   display: flex;
