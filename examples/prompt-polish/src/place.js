@@ -21,7 +21,7 @@
  *
  * Where the pane's row is Tilefold's agent input box (`agentInput`,
  * Tilefold 0.1.27), the ✦ Polish button is in the box itself, so the pill
- * isn't drawn there; the card still opens where the pill would be.
+ * isn't drawn there, and the card opens right above the box.
  *
  * Over the pane the card can be dragged (`offset`, from where it would be,
  * always kept inside the pane and above its input row) or fill the pane
@@ -33,6 +33,8 @@
  *
  * Modified 2026-11-06 (input actions): no pill over the agent input box.
  * Modified 2026-11-07 (move and fill): `offset` and `max`.
+ * Modified 2026-11-07 (closer to the box): with no pill, the corner card
+ *   sits right above the input row, not above the pill's empty spot.
  * Modified 2026-11-07 (header bar): `collapsed`; folded, the bar alone is
  *   kept inside the pane, so it goes down to the input row.
  */
@@ -117,10 +119,12 @@ export function placeFor(layout, view, opts = {}) {
   const shown = opts.noPill ? null : button;
   if (!opts.open) return { card: null, button: shown };
   const w = Math.min(CORNER_W, pane.w - 2 * GAP);
-  const ch = Math.min(h, button.y - GAP - top);
+  // Above the pill; with no pill (the agent input box), right above the box.
+  const bottom = shown ? button.y - GAP : floor;
+  const ch = Math.min(h, bottom - top);
   if (w < SPOT_MIN || ch < SPOT_MIN) return null;
   const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
-  const moved = adjust({ x, y: button.y - GAP - ch, w, h: ch }, pane, floor, opts);
+  const moved = adjust({ x, y: bottom - ch, w, h: ch }, pane, floor, opts);
   return { card: round(moved.card), button: shown, offset: moved.offset };
 }
 

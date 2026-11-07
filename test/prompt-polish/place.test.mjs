@@ -13,7 +13,8 @@
  * input, mirrored right to left, with its card above it when open. The
  * corner button picture and the languages are checked here too. A dragged
  * card moves by its offset but never leaves the pane or covers its input
- * row (the offset kept is what fit); a filled card spans the pane above
+ * row (the offset kept is what fit); with no pill (the agent input box)
+ * the corner card sits right above the box; a filled card spans the pane above
  * its input row, as far as Tilefold docks a page.
  */
 import { describe, expect, it } from "vitest";
@@ -104,6 +105,17 @@ describe("moving and filling the card", () => {
     const huge = placeFor(pane(5000, 5000), "bottom", { max: true });
     expect(huge.card.w).toBe(SPOT_MAX);
     expect(huge.card.h).toBe(SPOT_MAX);
+  });
+});
+
+describe("the corner card over the agent input box", () => {
+  it("sits right above the box, with no empty pill spot under it", () => {
+    const r = placeFor(twoPanes("p1"), "corner", { h: 200, open: true, noPill: true });
+    expect(r.button).toBeNull();
+    expect(r.card.y + r.card.h).toBe(694 - GAP);
+    // With the pill, the card stays above it.
+    const pill = placeFor(twoPanes("p1"), "corner", { h: 200, open: true });
+    expect(pill.card.y + pill.card.h).toBe(pill.button.y - GAP);
   });
 });
 

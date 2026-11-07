@@ -830,10 +830,11 @@ function placeFor(layout, view, opts = {}) {
   const shown = opts.noPill ? null : button;
   if (!opts.open) return { card: null, button: shown };
   const w = Math.min(CORNER_W, pane.w - 2 * GAP);
-  const ch = Math.min(h, button.y - GAP - top);
+  const bottom = shown ? button.y - GAP : floor;
+  const ch = Math.min(h, bottom - top);
   if (w < SPOT_MIN || ch < SPOT_MIN) return null;
   const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
-  const moved = adjust({ x, y: button.y - GAP - ch, w, h: ch }, pane, floor, opts);
+  const moved = adjust({ x, y: bottom - ch, w, h: ch }, pane, floor, opts);
   return { card: round(moved.card), button: shown, offset: moved.offset };
 }
 var clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
