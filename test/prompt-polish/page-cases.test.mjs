@@ -22,6 +22,7 @@
  * Modified 2026-11-07 (case rework): a rework's changes have their own
  *   ✕ and ↺ buttons; a click on the text does nothing there.
  * Modified 2026-11-08 (apply a case): the write step's Apply button.
+ * Modified 2026-11-08 (menu divider): a line between the cases and Edit / Add.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -220,6 +221,22 @@ describe("what to fix, asked before the check", () => {
       p.tell({ do: "show", view: viewFor({ ...ASKED, choosing: false }) });
       expect(p.$("draft").value).toBe("make a cut");
     }
+  });
+});
+
+describe("the menu's divider", () => {
+  it("sits between the last case and Edit / Add", () => {
+    const p = page();
+    ready(p, { ...CASES, modeId: "case:Video editing", caseName: "Video editing" });
+    p.click(p.$("chip"));
+    const kids = [...p.$("body").querySelector(".menu").children];
+    const line = kids.findIndex((k) => k.matches("hr.menu-line"));
+    expect(kids.filter((k) => k.matches("hr.menu-line"))).toHaveLength(1);
+    expect(kids[line - 1].textContent).toBe("Video editing");
+    expect(kids.slice(line + 1).map((k) => k.textContent)).toEqual([
+      t("label-edit-case", { name: "Video editing" }),
+      t("label-add-case"),
+    ]);
   });
 });
 

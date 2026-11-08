@@ -14,6 +14,8 @@
  *
  * Modified 2026-11-07 (case rework): a rework's changes have their own
  *   ✕ / ↺ buttons, and an undone addition stays in sight, struck.
+ * Modified 2026-11-08 (menu divider): the line between the cases and
+ *   Edit / Add uses the stronger border, with more room around it.
  */
 
 :root {
@@ -517,11 +519,13 @@ textarea {
   color: var(--accent);
   font-weight: 700;
 }
+/* Between the cases and Edit / Add: the stronger line, so it shows over any theme. */
 .menu-line {
+  flex: none;
+  height: 0;
   border: 0;
-  border-top: 1px solid var(--line);
-  margin: 4px 0;
-  width: 100%;
+  border-top: 1px solid var(--line-strong);
+  margin: 6px 4px;
 }
 
 /* The form for one of the user's own cases. */
