@@ -14,6 +14,8 @@
  *   agent checks the prompt instead, where Tilefold has one (`noKey`).
  * Modified 2026-11-07 (own cases): a case's instructions (`rules`) go to
  *   Claude with the prompt.
+ * Modified 2026-11-08 (translations): a case's languages (`translate`)
+ *   are asked for too, and the translations shown with the fixes.
  */
 import { buildAsk, errorKey, readAnswer } from "./answer.js";
 import { changeCount, changes, diff } from "./polish.js";
@@ -23,12 +25,15 @@ import { changeCount, changes, diff } from "./polish.js";
  * @param {{ sessions: any, render: (id: string) => Promise<void>,
  *   refreshButton: () => Promise<void>, audit: (action: string, details: object) => void,
  *   language: () => { code: string, name: string }, mode: () => string, rules?: () => string,
+ *   translate?: () => string[],
  *   fast: () => boolean, noKey?: (id: string, original: string) => Promise<boolean> }} deps
  */
 export function createClaudeRun(tf, deps) {
   const { sessions, render, refreshButton, audit, language, mode, fast, noKey } = deps;
   // A case's own instructions (none for the built-in modes).
   const rules = () => (typeof deps.rules === "function" ? deps.rules() : "");
+  // A case's languages to translate into (none for the built-in modes).
+  const translate = () => (typeof deps.translate === "function" ? deps.translate() : []);
 
   /** Asks Claude to check pane `id`'s prompt `original`, then shows the fixes there. */
   const check = async (id, original) => {
@@ -43,6 +48,7 @@ export function createClaudeRun(tf, deps) {
     s.busy = true;
     const lang = language();
     const m = mode();
+    const tl = m === "case" ? translate() : [];
     s.step = "checking";
     await render(id);
     try {
@@ -54,6 +60,7 @@ export function createClaudeRun(tf, deps) {
             language: lang.name,
             mode: m,
             rules: rules(),
+            translate: tl,
             uiLanguage: tf.t("ai-language"),
             fast: fast(),
           }),
@@ -65,7 +72,7 @@ export function createClaudeRun(tf, deps) {
         Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
         return render(id);
       }
-      const r = readAnswer(answer.text, original, m);
+      const r = readAnswer(answer.text, original, m, tl);
       if (!r.ok) {
         Object.assign(s, {
           step: "problem",
@@ -77,6 +84,7 @@ export function createClaudeRun(tf, deps) {
         step: "result",
         parts: changes(diff(original, r.corrected)),
         notes: r.notes,
+        translations: r.translations,
         rejected: new Set(),
         clean: false,
       });

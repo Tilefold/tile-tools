@@ -25,7 +25,11 @@
  * Modified 2026-11-07 (case rework): a picked case means the prompt is
  *   that kind (`casePicked`): it is reworked in full, however short, with
  *   more room for the answer.
+ * Modified 2026-11-08 (translations): a case may also ask for the
+ *   corrected prompt in other languages (`translateAsk`), answered in
+ *   "translations" ({ code: text }) and read like the corrected prompt.
  */
+import { LANGUAGES } from "./languages.js";
 import { keepsProtected } from "./polish.js";
 
 /** The kinds of fix a note may name; anything else counts as grammar. */
@@ -47,6 +51,25 @@ export function casePicked(who = "the user") {
     `${me ? "I" : "The user"} picked these instructions for this prompt, so treat it as a prompt of this kind, however short it is or whatever it says, and never decide ${theirs} instructions don't fit it.`,
     `Rework it into a full prompt of this kind: keep what ${wrote}, and add every point the instructions ask for that it is missing, choosing sensible, concrete details where the prompt gives none. Never hand back only the fixes.`,
   ].join(" ");
+}
+
+/** The languages of `codes` as the question names them: "Japanese (ja), Korean (ko)". */
+const named = (codes) =>
+  codes
+    .map((c) => LANGUAGES.find((l) => l.code === c))
+    .filter(Boolean)
+    .map((l) => `${l.name} (${l.code})`)
+    .join(", ");
+
+/**
+ * What a case's languages ask for (`codes`, none: nothing): the corrected
+ * prompt also translated into each, handed back under "translations",
+ * while the corrected prompt itself stays in its own language.
+ */
+export function translateAsk(codes) {
+  const list = Array.isArray(codes) ? named(codes) : "";
+  if (!list) return "";
+  return `Also translate the corrected prompt, in full, into each of these languages: ${list}. Give them in "translations", an object from each language's code to its translation, such as {"${codes[0]}": string}. Translate only the words: keep anything in backticks, file paths, links, names in code and numbers exactly as they are. The corrected prompt itself stays in its own language.`;
 }
 
 /** What to do, for each mode: the built-in two, or one of the user's own cases. */
@@ -75,30 +98,37 @@ export function caseRules(mode, rules) {
  * `uiLanguage` the one the user reads Tilefold in, for the notes' reasons,
  * `rules` a case's instructions (mode "case").
  */
-export function systemPrompt(language, mode, uiLanguage, rules = "") {
+export function systemPrompt(language, mode, uiLanguage, rules = "", translate = []) {
+  const also = translateAsk(translate);
   return [
     `You correct prompts a developer writes in ${language} to an AI coding agent.`,
     whatToDo(mode),
     mode === "case"
-      ? "Keep the meaning and the language. Never translate and never answer the prompt."
+      ? `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""} and never answer the prompt.`
       : "Keep the meaning and the language. Never translate, never answer the prompt, never add to it.",
     "Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `Give each note's "why" as one short sentence in ${uiLanguage}.`,
-    'Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]}.',
+    `Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]${also ? ', "translations": {string: string}' : ""}}.`,
     'When nothing needs fixing, answer {"corrected": <the prompt unchanged>, "notes": []}.',
     ...caseRules(mode, rules),
+    ...(also ? [also] : []),
   ].join("\n");
 }
 
 /** What `tf.ai.ask` gets: the prompt, a bounded answer, the fast model unless turned off. */
-export function buildAsk({ text, language, mode, uiLanguage, fast, rules = "" }) {
+export function buildAsk({ text, language, mode, uiLanguage, fast, rules = "", translate = [] }) {
   const n = String(text).length;
+  const k = translate.length;
   return {
-    system: systemPrompt(language, mode, uiLanguage, rules),
+    system: systemPrompt(language, mode, uiLanguage, rules, translate),
     messages: [{ role: "user", content: String(text) }],
     // Room for the corrected text twice over (it and the notes), bounded;
     // a case may add to the prompt, so it gets more.
-    maxTokens: Math.min(4000, mode === "case" ? 2500 + n * 2 : 400 + Math.ceil(n * 1.5)),
+    // Each translation is about as long as the corrected text again.
+    maxTokens: Math.min(
+      4000 + k * 2000,
+      (mode === "case" ? 2500 + n * 2 : 400 + Math.ceil(n * 1.5)) + k * (1500 + n * 2),
+    ),
     model: fast ? "fast" : "default",
   };
 }
@@ -151,7 +181,8 @@ function readNote(n) {
  * @param {string} text the answer's text
  * @param {string} original the prompt that was sent
  * @param {string} [mode] what to fix ("case" may add to the prompt)
- * @returns {{ ok: true, corrected: string, notes: object[] }
+ * @param {string[]} [translate] the languages a case asked for
+ * @returns {{ ok: true, corrected: string, notes: object[], translations: object[] }
  *   | { ok: false, why: "unreadable" | "changed-code" }}
  */
 /** The longest corrected prompt taken for `original`: a case may add to it. */
@@ -160,7 +191,25 @@ export const longestFor = (original, mode) => {
   return mode === "case" ? Math.min(8000, n * 4 + 3000) : n * 2 + 200;
 };
 
-export function readAnswer(text, original, mode = "fix") {
+/**
+ * The translations in an answer, read as the corrected text is: only the
+ * languages asked for (`codes`), in that order, each cleaned, within the
+ * corrected text's length, keeping the prompt's code, paths and links.
+ */
+export function readTranslations(raw, original, mode, codes) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !Array.isArray(codes)) return [];
+  const out = [];
+  for (const code of codes) {
+    if (!Object.hasOwn(raw, code)) continue;
+    const text = clean(raw[code]).trim();
+    if (!text || text.length > longestFor(original, mode)) continue;
+    if (!keepsProtected(original, text)) continue;
+    out.push({ code, text });
+  }
+  return out;
+}
+
+export function readAnswer(text, original, mode = "fix", translate = []) {
   const json = findJson(text);
   if (!json || typeof json !== "object" || typeof json.corrected !== "string") {
     return { ok: false, why: "unreadable" };
@@ -175,7 +224,12 @@ export function readAnswer(text, original, mode = "fix") {
     .slice(0, MAX_NOTES)
     .map(readNote)
     .filter(Boolean);
-  return { ok: true, corrected, notes };
+  return {
+    ok: true,
+    corrected,
+    notes,
+    translations: readTranslations(json.translations, original, mode, translate),
+  };
 }
 
 /** The message key for a `tf.ai.ask` error, or null for "Don't send" (the user's choice). */

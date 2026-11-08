@@ -18,6 +18,8 @@
  *
  * Modified 2026-11-07 (pick before checking): asked before a check, the
  *   menu says so above its entries.
+ * Modified 2026-11-08 (translations): the case form's languages to
+ *   translate into.
  * Modified 2026-11-08 (edit any case): Edit always shows above Add while
  *   there are cases; the question above the menu is a quiet note.
  */
@@ -106,8 +108,12 @@ export function drawCase(v, L, o) {
   const old = o.body.querySelector("form.case");
   const same = old && old.dataset.was === String(v.was ?? "");
   const typed = same
-    ? { name: old.elements.namedItem("name").value, rules: old.elements.namedItem("rules").value }
-    : { name: v.name, rules: v.rules };
+    ? {
+        name: old.elements.namedItem("name").value,
+        rules: old.elements.namedItem("rules").value,
+        translate: old.elements.namedItem("translate").value,
+      }
+    : { name: v.name, rules: v.rules, translate: v.translate ?? "" };
   const form = o.el("form", "case");
   form.dataset.was = String(v.was ?? "");
   form.append(o.el("b", "case-title", v.was === null ? L.caseNew : L.caseEdit));
@@ -124,6 +130,16 @@ export function drawCase(v, L, o) {
     value: typed.name,
     dir: "auto",
   });
+  // The languages to translate into: codes or names, such as "ja, ko".
+  const translate = o.el("input");
+  Object.assign(translate, {
+    name: "translate",
+    type: "text",
+    maxLength: 200,
+    value: typed.translate,
+    dir: "ltr",
+  });
+  translate.placeholder = L.caseTranslateHint;
   const rules = o.el("textarea");
   Object.assign(rules, {
     name: "rules",
@@ -133,13 +149,23 @@ export function drawCase(v, L, o) {
     dir: "auto",
   });
   rules.placeholder = L.caseRulesHint;
-  form.append(field(L.caseName, name), field(L.caseRules, rules));
+  form.append(
+    field(L.caseName, name),
+    field(L.caseRules, rules),
+    field(L.caseTranslate, translate),
+  );
   if (v.why) {
     const why = o.el("p", "warn", v.why);
     why.setAttribute("role", "alert");
     form.append(why);
   }
-  const save = () => o.send({ type: "case-save", name: name.value, rules: rules.value });
+  const save = () =>
+    o.send({
+      type: "case-save",
+      name: name.value,
+      rules: rules.value,
+      translate: translate.value,
+    });
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     save();

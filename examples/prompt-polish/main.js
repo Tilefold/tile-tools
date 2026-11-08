@@ -19,6 +19,28 @@
  * Built into main.js with `npx @tilefold/tile-tools build`.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
+// src/languages.js
+var LANGUAGES = [
+  { code: "ar", name: "Arabic", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
+  { code: "de", name: "German", native: "Deutsch" },
+  { code: "en", name: "English", native: "English" },
+  { code: "es", name: "Spanish", native: "Espa\xF1ol" },
+  { code: "fr", name: "French", native: "Fran\xE7ais" },
+  { code: "hi", name: "Hindi", native: "\u0939\u093F\u0928\u094D\u0926\u0940" },
+  { code: "it", name: "Italian", native: "Italiano" },
+  { code: "ja", name: "Japanese", native: "\u65E5\u672C\u8A9E" },
+  { code: "ko", name: "Korean", native: "\uD55C\uAD6D\uC5B4" },
+  { code: "pt-BR", name: "Brazilian Portuguese", native: "Portugu\xEAs (Brasil)" },
+  { code: "ru", name: "Russian", native: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439" },
+  { code: "zh-CN", name: "Simplified Chinese", native: "\u7B80\u4F53\u4E2D\u6587" }
+];
+var UNSPACED = /* @__PURE__ */ new Set(["ja", "zh-CN"]);
+function languageOf(setting, uiCode) {
+  const find = (code) => LANGUAGES.find((l) => l.code === code);
+  return find(setting) ?? find(uiCode) ?? find("en");
+}
+var isUnspaced = (code) => UNSPACED.has(code);
+
 // src/polish.js
 var MAX_CHARS = 2e3;
 var MAX_CELLS = 4e6;
@@ -138,6 +160,12 @@ function casePicked(who = "the user") {
     `Rework it into a full prompt of this kind: keep what ${wrote}, and add every point the instructions ask for that it is missing, choosing sensible, concrete details where the prompt gives none. Never hand back only the fixes.`
   ].join(" ");
 }
+var named = (codes) => codes.map((c) => LANGUAGES.find((l) => l.code === c)).filter(Boolean).map((l) => `${l.name} (${l.code})`).join(", ");
+function translateAsk(codes) {
+  const list = Array.isArray(codes) ? named(codes) : "";
+  if (!list) return "";
+  return `Also translate the corrected prompt, in full, into each of these languages: ${list}. Give them in "translations", an object from each language's code to its translation, such as {"${codes[0]}": string}. Translate only the words: keep anything in backticks, file paths, links, names in code and numbers exactly as they are. The corrected prompt itself stays in its own language.`;
+}
 function whatToDo(mode) {
   if (mode === "case") {
     return `Fix spelling, grammar, spacing and punctuation. Then rework the prompt as the user's own instructions for this kind of prompt say (below), as short clear phrases in the prompt's language, rewording what they ask to change; this goes before "do not reword". ${casePicked()} Note each addition or rewording with kind "style".`;
@@ -153,26 +181,33 @@ function caseRules(mode, rules) {
     "-----"
   ];
 }
-function systemPrompt(language, mode, uiLanguage, rules = "") {
+function systemPrompt(language, mode, uiLanguage, rules = "", translate = []) {
+  const also = translateAsk(translate);
   return [
     `You correct prompts a developer writes in ${language} to an AI coding agent.`,
     whatToDo(mode),
-    mode === "case" ? "Keep the meaning and the language. Never translate and never answer the prompt." : "Keep the meaning and the language. Never translate, never answer the prompt, never add to it.",
+    mode === "case" ? `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""} and never answer the prompt.` : "Keep the meaning and the language. Never translate, never answer the prompt, never add to it.",
     "Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `Give each note's "why" as one short sentence in ${uiLanguage}.`,
-    'Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]}.',
+    `Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]${also ? ', "translations": {string: string}' : ""}}.`,
     'When nothing needs fixing, answer {"corrected": <the prompt unchanged>, "notes": []}.',
-    ...caseRules(mode, rules)
+    ...caseRules(mode, rules),
+    ...also ? [also] : []
   ].join("\n");
 }
-function buildAsk({ text, language, mode, uiLanguage, fast, rules = "" }) {
+function buildAsk({ text, language, mode, uiLanguage, fast, rules = "", translate = [] }) {
   const n = String(text).length;
+  const k = translate.length;
   return {
-    system: systemPrompt(language, mode, uiLanguage, rules),
+    system: systemPrompt(language, mode, uiLanguage, rules, translate),
     messages: [{ role: "user", content: String(text) }],
     // Room for the corrected text twice over (it and the notes), bounded;
     // a case may add to the prompt, so it gets more.
-    maxTokens: Math.min(4e3, mode === "case" ? 2500 + n * 2 : 400 + Math.ceil(n * 1.5)),
+    // Each translation is about as long as the corrected text again.
+    maxTokens: Math.min(
+      4e3 + k * 2e3,
+      (mode === "case" ? 2500 + n * 2 : 400 + Math.ceil(n * 1.5)) + k * (1500 + n * 2)
+    ),
     model: fast ? "fast" : "default"
   };
 }
@@ -208,7 +243,19 @@ var longestFor = (original, mode) => {
   const n = String(original).length;
   return mode === "case" ? Math.min(8e3, n * 4 + 3e3) : n * 2 + 200;
 };
-function readAnswer(text, original, mode = "fix") {
+function readTranslations(raw, original, mode, codes) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !Array.isArray(codes)) return [];
+  const out = [];
+  for (const code of codes) {
+    if (!Object.hasOwn(raw, code)) continue;
+    const text = clean(raw[code]).trim();
+    if (!text || text.length > longestFor(original, mode)) continue;
+    if (!keepsProtected(original, text)) continue;
+    out.push({ code, text });
+  }
+  return out;
+}
+function readAnswer(text, original, mode = "fix", translate = []) {
   const json = findJson(text);
   if (!json || typeof json !== "object" || typeof json.corrected !== "string") {
     return { ok: false, why: "unreadable" };
@@ -219,7 +266,12 @@ function readAnswer(text, original, mode = "fix") {
   }
   if (!keepsProtected(original, corrected)) return { ok: false, why: "changed-code" };
   const notes = (Array.isArray(json.notes) ? json.notes : []).slice(0, MAX_NOTES).map(readNote).filter(Boolean);
-  return { ok: true, corrected, notes };
+  return {
+    ok: true,
+    corrected,
+    notes,
+    translations: readTranslations(json.translations, original, mode, translate)
+  };
 }
 function errorKey(err) {
   switch (err && typeof err === "object" ? err.name : "") {
@@ -249,11 +301,20 @@ function agentBrief(command) {
     '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. I picked those instructions for that prompt: treat it as that kind of prompt however short it is, fill in what they ask for with sensible details, and never hand back only the fixes. Otherwise do not reword anything else.',
     "- Keep the meaning and the language of the prompt. Never translate it. Never add to it, unless the request gives my own instructions that ask for additions. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `- Then call the Tilefold tool tile_run with command "${command}" and input {"request": <the request id>, "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence, in the language the request names for notes>}]}.`,
+    '- When the request also asks for translations, add "translations": {<language code>: <the corrected prompt translated into that language>} to that input; the corrected prompt itself stays in its own language.',
     '- If nothing needs fixing, hand back the prompt unchanged with "notes": [].',
     'Do nothing else, reply only "Done", and wait for the next request.'
   ].join("\n");
 }
-function agentRequest({ text, language, mode, uiLanguage, request, rules = "" }) {
+function agentRequest({
+  text,
+  language,
+  mode,
+  uiLanguage,
+  request,
+  rules = "",
+  translate = []
+}) {
   const what = mode === "case" && rules ? "fix mistakes and follow my instructions" : mode === "natural" ? "fix mistakes and make it read naturally" : "fix mistakes only";
   return [
     `Promptsmith request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
@@ -264,6 +325,7 @@ function agentRequest({ text, language, mode, uiLanguage, request, rules = "" })
       "-----",
       String(rules),
       "-----",
+      ...translateAsk(translate) ? [translateAsk(translate)] : [],
       "The prompt:"
     ] : [],
     "-----",
@@ -281,15 +343,26 @@ function newRequestId(random = Math.random) {
   for (let i = 0; i < 10; i++) id += abc[Math.floor(random() * abc.length) % abc.length];
   return id;
 }
-var HAND_BACK_INPUT = `{"request": the id from Promptsmith's request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}]}`;
-function agentQuestion({ text, language, mode, uiLanguage, request, command, rules = "" }) {
+var HAND_BACK_INPUT = `{"request": the id from Promptsmith's request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}], "translations"?: {code: text}}`;
+function agentQuestion({
+  text,
+  language,
+  mode,
+  uiLanguage,
+  request,
+  command,
+  rules = "",
+  translate = []
+}) {
   const own = mode === "case" && !!rules;
+  const also = own ? translateAsk(translate) : "";
   const lines = [
     `Promptsmith request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
     whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
     ...caseRules(own ? "case" : mode, rules),
     own ? "Keep the meaning and the language. Never translate it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are." : "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
-    `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]}.`,
+    ...also ? [also] : [],
+    `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]${also ? ', "translations": {<language code>: <translation>}' : ""}}.`,
     'If nothing needs fixing, hand back the prompt unchanged with "notes": []. Do nothing else, and reply only "Done".',
     "",
     "The prompt, between the lines:",
@@ -307,7 +380,15 @@ function readHandBack(input) {
   const corrected = str(input.corrected);
   if (!corrected || corrected.length > MAX_CORRECTED) return { ok: false };
   const notes = (Array.isArray(input.notes) ? input.notes : []).slice(0, MAX_NOTES2).filter((n) => n && typeof n === "object" && !Array.isArray(n)).map((n) => ({ from: str(n.from), to: str(n.to), kind: str(n.kind), why: str(n.why) }));
-  return { ok: true, request, answer: JSON.stringify({ corrected, notes }) };
+  const raw = input.translations;
+  const translations = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const l of LANGUAGES) {
+      const v = Object.hasOwn(raw, l.code) ? str(raw[l.code]) : "";
+      if (v && v.length <= MAX_CORRECTED) translations[l.code] = v;
+    }
+  }
+  return { ok: true, request, answer: JSON.stringify({ corrected, notes, translations }) };
 }
 function createPending(now = Date.now) {
   const byId = /* @__PURE__ */ new Map();
@@ -347,6 +428,7 @@ var HELPER_WHY = {
 function createAgentRun(tf, deps) {
   const { sessions, render, refreshButton, audit, warn, language, mode, helperAgent } = deps;
   const rules = () => typeof deps.rules === "function" ? deps.rules() : "";
+  const translate = () => typeof deps.translate === "function" ? deps.translate() : [];
   const hasHelper = () => typeof tf.agent?.helper === "function";
   const pending = createPending();
   const problem = (id, s, key) => {
@@ -376,6 +458,7 @@ function createAgentRun(tf, deps) {
           language: language().name,
           mode: entry.mode,
           rules: entry.rules,
+          translate: entry.translate,
           uiLanguage: tf.t("ai-language"),
           request
         }),
@@ -412,16 +495,18 @@ function createAgentRun(tf, deps) {
     const lang = language();
     const m = mode();
     const own = rules();
+    const tl = m === "case" ? translate() : [];
     const question = agentQuestion({
       text: original,
       language: lang.name,
       mode: m,
       rules: own,
+      translate: tl,
       uiLanguage: tf.t("ai-language"),
       request,
       command: `${TILE_ID}.${HAND_BACK}`
     });
-    const entry = { pane: id, original, language: lang.code, mode: m, rules: own };
+    const entry = { pane: id, original, language: lang.code, mode: m, rules: own, translate: tl };
     if (hasHelper()) return viaHelper(id, s, entry, request);
     let r;
     try {
@@ -453,7 +538,7 @@ function createAgentRun(tf, deps) {
     }
     const s = sessions.get(e.pane);
     if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Promptsmith");
-    const r = readAnswer(h.answer, e.original, e.mode);
+    const r = readAnswer(h.answer, e.original, e.mode, e.translate);
     if (!r.ok) {
       const changedCode = r.why === "changed-code";
       await problem(e.pane, s, changedCode ? "error-agent-changed-code" : "error-agent-unreadable");
@@ -465,6 +550,7 @@ function createAgentRun(tf, deps) {
       step: "result",
       parts: changes(diff(e.original, r.corrected)),
       notes: r.notes,
+      translations: r.translations,
       rejected: /* @__PURE__ */ new Set(),
       clean: false
     });
@@ -561,27 +647,48 @@ function createCardMoves(o) {
 var MAX_CASES = 20;
 var MAX_NAME2 = 60;
 var MAX_RULES = 2e3;
+var MAX_TRANSLATE = 8;
+var MAX_TRANSLATE_TEXT = 200;
+var TRANSLATE_LINE = /^\s*translate\s*[:：]\s*(.*)$/i;
 var MAX_TEXT = 8e3;
 var UNSAFE2 = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 var nameOf = (v) => String(v ?? "").replace(UNSAFE2, "").replace(/\s+/g, " ").trim().replace(/[:：]$/, "").trim().slice(0, MAX_NAME2);
 var rulesOf = (v) => String(v ?? "").replace(UNSAFE2, "").replace(/\r\n?/g, "\n").split("\n").map((l) => l.trimEnd()).filter((l) => l.trim()).join("\n").trim().slice(0, MAX_RULES);
+function translateOf(v) {
+  const words = Array.isArray(v) ? v.map((x) => String(x ?? "")) : String(typeof v === "string" ? v : "").replace(UNSAFE2, "").slice(0, MAX_TRANSLATE_TEXT).split(/[,;、，\n]+/);
+  const out = [];
+  for (const w of words) {
+    const key = w.trim().toLowerCase();
+    if (!key) continue;
+    const l = LANGUAGES.find(
+      (x) => x.code.toLowerCase() === key || x.name.toLowerCase() === key || x.native.toLowerCase() === key
+    );
+    if (l && !out.includes(l.code)) out.push(l.code);
+    if (out.length === MAX_TRANSLATE) break;
+  }
+  return out;
+}
+var translateText = (codes) => (codes ?? []).join(", ");
 function parseCases(text) {
   const out = [];
   const blocks = String(typeof text === "string" ? text : "").replace(/\r\n?/g, "\n").split(/\n[^\S\n]*\n/);
   for (const block of blocks) {
-    const lines = block.split("\n").filter((l) => l.trim());
+    const all = block.split("\n").filter((l) => l.trim());
+    const tl = all.slice(1).find((l) => TRANSLATE_LINE.test(l));
+    const lines = all.filter((l) => l !== tl);
     if (lines.length < 2) continue;
     const name = nameOf(lines[0]);
     const rules = rulesOf(lines.slice(1).join("\n"));
     if (!name || !rules || out.some((c) => c.name === name)) continue;
-    out.push({ name, rules });
+    out.push({ name, rules, translate: translateOf(tl ? tl.match(TRANSLATE_LINE)[1] : "") });
     if (out.length === MAX_CASES) break;
   }
   return out;
 }
 var CASE_FIELDS = [
   { key: "name", label: "label-case-name", max: MAX_NAME2 },
-  { key: "rules", label: "label-case-rules", multiline: true, max: MAX_RULES }
+  { key: "rules", label: "label-case-rules", multiline: true, max: MAX_RULES },
+  { key: "translate", label: "label-case-translate", max: MAX_TRANSLATE_TEXT }
 ];
 function casesOf(value) {
   if (!Array.isArray(value)) return parseCases(value);
@@ -590,22 +697,28 @@ function casesOf(value) {
     const name = nameOf(e?.name);
     const rules = rulesOf(e?.rules);
     if (!name || !rules || out.some((c) => c.name === name)) continue;
-    out.push({ name, rules });
+    out.push({ name, rules, translate: translateOf(e?.translate) });
     if (out.length === MAX_CASES) break;
   }
   return out;
 }
-var formatCases = (cases) => cases.map((c) => `${c.name}
-${c.rules}`).join("\n\n");
+var formatCases = (cases) => cases.map((c) => {
+  const tl = translateText(c.translate);
+  return `${c.name}
+${c.rules}${tl ? `
+Translate: ${tl}` : ""}`;
+}).join("\n\n");
 function saveCase(cases, was, input, maxText = MAX_TEXT) {
   const name = nameOf(input?.name);
   const rules = rulesOf(input?.rules);
+  const translate = translateOf(input?.translate);
   if (!name) return { why: "case-needs-name" };
   if (!rules) return { why: "case-needs-rules" };
   if (cases.some((c) => c.name === name && c.name !== was)) return { why: "case-name-taken" };
   const at = was === null ? -1 : cases.findIndex((c) => c.name === was);
   if (at < 0 && cases.length >= MAX_CASES) return { why: "case-too-many" };
-  const next = at < 0 ? [...cases, { name, rules }] : cases.map((c, i) => i === at ? { name, rules } : c);
+  const saved = { name, rules, translate };
+  const next = at < 0 ? [...cases, saved] : cases.map((c, i) => i === at ? saved : c);
   if (formatCases(next).length > maxText) return { why: "case-too-long" };
   return { cases: next, name };
 }
@@ -628,10 +741,10 @@ function createModes(tf, o) {
   const resolved = () => {
     if (pick?.startsWith("case:")) {
       const c = cases().find((x) => x.name === pick.slice(5));
-      if (c) return { mode: "case", name: c.name, rules: c.rules };
+      if (c) return { mode: "case", name: c.name, rules: c.rules, translate: c.translate ?? [] };
     }
-    if (pick === "fix" || pick === "natural") return { mode: pick, name: "", rules: "" };
-    return { mode: o.current().mode, name: "", rules: "" };
+    const mode = pick === "fix" || pick === "natural" ? pick : o.current().mode;
+    return { mode, name: "", rules: "", translate: [] };
   };
   const keep = async (next) => {
     pick = next;
@@ -658,7 +771,7 @@ function createModes(tf, o) {
     try {
       await tf.settings.set(
         "cases",
-        list.map((c) => ({ name: c.name, rules: c.rules }))
+        list.map((c) => ({ name: c.name, rules: c.rules, translate: translateText(c.translate) }))
       );
       return true;
     } catch (err) {
@@ -709,6 +822,7 @@ function createModes(tf, o) {
           was: was?.name ?? null,
           name: was?.name ?? "",
           rules: was?.rules ?? "",
+          translate: translateText(was?.translate),
           why: ""
         };
         await o.render();
@@ -722,8 +836,14 @@ function createModes(tf, o) {
       if (m.type === "case-save") {
         if (!s.editing || !canEdit()) return true;
         const was = s.editing.was;
-        const r = saveCase(cases(), was, { name: m.name, rules: m.rules }, Infinity);
-        const draft = { was, name: String(m.name ?? ""), rules: String(m.rules ?? "") };
+        const input = { name: m.name, rules: m.rules, translate: m.translate };
+        const r = saveCase(cases(), was, input, Infinity);
+        const draft = {
+          was,
+          name: String(m.name ?? ""),
+          rules: String(m.rules ?? ""),
+          translate: String(m.translate ?? "")
+        };
         if (r.why) {
           s.editing = { ...draft, why: r.why };
           return o.render().then(() => true);
@@ -767,6 +887,7 @@ function createLog(tf) {
 function createClaudeRun(tf, deps) {
   const { sessions, render, refreshButton, audit, language, mode, fast, noKey } = deps;
   const rules = () => typeof deps.rules === "function" ? deps.rules() : "";
+  const translate = () => typeof deps.translate === "function" ? deps.translate() : [];
   const check = async (id, original) => {
     const s = sessions.get(id);
     if (!s) return;
@@ -778,6 +899,7 @@ function createClaudeRun(tf, deps) {
     s.busy = true;
     const lang = language();
     const m = mode();
+    const tl = m === "case" ? translate() : [];
     s.step = "checking";
     await render(id);
     try {
@@ -789,6 +911,7 @@ function createClaudeRun(tf, deps) {
             language: lang.name,
             mode: m,
             rules: rules(),
+            translate: tl,
             uiLanguage: tf.t("ai-language"),
             fast: fast()
           })
@@ -799,7 +922,7 @@ function createClaudeRun(tf, deps) {
         Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
         return render(id);
       }
-      const r = readAnswer(answer.text, original, m);
+      const r = readAnswer(answer.text, original, m, tl);
       if (!r.ok) {
         Object.assign(s, {
           step: "problem",
@@ -811,6 +934,7 @@ function createClaudeRun(tf, deps) {
         step: "result",
         parts: changes(diff(original, r.corrected)),
         notes: r.notes,
+        translations: r.translations,
         rejected: /* @__PURE__ */ new Set(),
         clean: false
       });
@@ -866,6 +990,8 @@ function freshSession() {
     draft: "",
     parts: [],
     notes: [],
+    // A case's translations of the corrected prompt: [{ code, text }].
+    translations: [],
     rejected: /* @__PURE__ */ new Set(),
     clean: false,
     problem: "",
@@ -882,6 +1008,8 @@ function resetSession(s) {
     draft: "",
     parts: [],
     notes: [],
+    // A case's translations of the corrected prompt: [{ code, text }].
+    translations: [],
     rejected: /* @__PURE__ */ new Set(),
     clean: false,
     problem: "",
@@ -984,7 +1112,7 @@ function createInputAction(tf, deps) {
     if (s.choosing) return render(id);
     await check(id, s.draft);
   };
-  const use = async (id, send = false) => {
+  const use = async (id, send = false, text = null) => {
     const s = sessions.get(id);
     const request = s?.input?.request;
     if (!s || !request || s.step !== "result") return;
@@ -993,7 +1121,7 @@ function createInputAction(tf, deps) {
     s.input = null;
     let r;
     try {
-      r = await tf.input.replace(request, { text: build(s.parts, s.rejected), send });
+      r = await tf.input.replace(request, { text: text ?? build(s.parts, s.rejected), send });
     } catch (err) {
       warn(err);
       await tf.input.release(request).catch(warn);
@@ -1001,7 +1129,7 @@ function createInputAction(tf, deps) {
     }
     if (r?.why === "stopped") return;
     if (r?.done) {
-      audit("used", { kept: total - undone, undone, sent: send });
+      audit("used", { kept: total - undone, undone, sent: send, translation: !!text });
       resetSession(s);
       await fold(id);
       return;
@@ -1048,27 +1176,35 @@ function createSendToAgent(tf, deps) {
   };
 }
 
-// src/languages.js
-var LANGUAGES = [
-  { code: "ar", name: "Arabic", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
-  { code: "de", name: "German", native: "Deutsch" },
-  { code: "en", name: "English", native: "English" },
-  { code: "es", name: "Spanish", native: "Espa\xF1ol" },
-  { code: "fr", name: "French", native: "Fran\xE7ais" },
-  { code: "hi", name: "Hindi", native: "\u0939\u093F\u0928\u094D\u0926\u0940" },
-  { code: "it", name: "Italian", native: "Italiano" },
-  { code: "ja", name: "Japanese", native: "\u65E5\u672C\u8A9E" },
-  { code: "ko", name: "Korean", native: "\uD55C\uAD6D\uC5B4" },
-  { code: "pt-BR", name: "Brazilian Portuguese", native: "Portugu\xEAs (Brasil)" },
-  { code: "ru", name: "Russian", native: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439" },
-  { code: "zh-CN", name: "Simplified Chinese", native: "\u7B80\u4F53\u4E2D\u6587" }
-];
-var UNSPACED = /* @__PURE__ */ new Set(["ja", "zh-CN"]);
-function languageOf(setting, uiCode) {
-  const find = (code) => LANGUAGES.find((l) => l.code === code);
-  return find(setting) ?? find(uiCode) ?? find("en");
+// src/resultActions.js
+function createResultActions(o) {
+  return async (m, id, s) => {
+    const result = s.step === "result";
+    const asked = "translation" in m ? typeof m.translation === "string" ? m.translation : "" : null;
+    const tl = asked ? (s.translations ?? []).find((x) => x.code === asked)?.text ?? null : null;
+    if (asked !== null && !tl) return m.type === "send" || m.type === "send-now";
+    if ((m.type === "send" || m.type === "send-now") && result && s.input) {
+      await o.inputAction.use(id, m.type === "send-now", tl);
+      return true;
+    }
+    if (m.type === "keep") {
+      await o.inputAction.keep(id);
+      return true;
+    }
+    if (m.type === "send" && result) {
+      await o.sendToAgent(id, tl ?? build(s.parts, s.rejected), tl ? "translation" : "corrected");
+      return true;
+    }
+    if (m.type === "again") {
+      await o.inputAction.release(id);
+      o.agentRun.forget(id);
+      resetSession(s);
+      await o.render(id);
+      return true;
+    }
+    return false;
+  };
 }
-var isUnspaced = (code) => UNSPACED.has(code);
 
 // src/place.js
 var VIEWS = ["corner", "bottom", "side"];
@@ -1547,10 +1683,24 @@ function setupOf(t) {
       caseName: t("label-case-name"),
       caseRules: t("label-case-rules"),
       caseRulesHint: t("label-case-rules-hint"),
+      // A case's languages to translate into, and the result's translations.
+      caseTranslate: t("label-case-translate"),
+      caseTranslateHint: t("label-case-translate-hint"),
+      translations: t("label-translations"),
+      useThis: t("label-use-this"),
+      sendThis: t("label-send-this"),
+      copy: t("label-copy"),
+      copied: t("label-copied"),
       caseSave: t("label-case-save"),
       caseRemove: t("label-case-remove")
     }
   };
+}
+function translationsOf(s) {
+  return (Array.isArray(s.translations) ? s.translations : []).map((x) => {
+    const l = LANGUAGES.find((y) => y.code === x.code);
+    return { code: x.code, native: l ? l.native : x.code, text: x.text };
+  });
 }
 function modeLabel(s, t) {
   if (typeof s.modeId === "string" && s.modeId.startsWith("case:") && s.caseName) return s.caseName;
@@ -1595,6 +1745,7 @@ function viewOf2(s, t) {
       was: typeof e.was === "string" ? e.was : null,
       name: String(e.name ?? ""),
       rules: String(e.rules ?? ""),
+      translate: String(e.translate ?? ""),
       why: e.why ? t(e.why) : ""
     };
   }
@@ -1632,7 +1783,8 @@ function viewOf2(s, t) {
         step: "result",
         nothing: t("label-nothing", { language: lang.native }),
         parts: [],
-        notes: []
+        notes: [],
+        translations: translationsOf(s)
       };
     }
     return {
@@ -1646,7 +1798,8 @@ function viewOf2(s, t) {
       parts: s.parts.map(
         (p) => "same" in p ? { same: p.same } : { id: p.id, del: p.del, ins: p.ins, off: s.rejected.has(p.id) }
       ),
-      notes: s.notes.map((n) => ({ ...n, kindLabel: t(KIND_KEYS[n.kind] ?? "kind-grammar") }))
+      notes: s.notes.map((n) => ({ ...n, kindLabel: t(KIND_KEYS[n.kind] ?? "kind-grammar") })),
+      translations: translationsOf(s)
     };
   }
   return {
@@ -1824,6 +1977,7 @@ function runPolish(tf) {
     language,
     mode: () => modes.now().mode,
     rules: () => modes.now().rules,
+    translate: () => modes.now().translate,
     choose: () => current().cases.length > 0,
     fast: () => current().fast,
     helperAgent: () => current().helperAgent
@@ -1847,6 +2001,7 @@ function runPolish(tf) {
     fold: foldAfter,
     noPane: NO_PANE
   });
+  const results = createResultActions({ inputAction, sendToAgent, agentRun, render });
   const check = async (id, text, by = current().checker) => {
     const s = sessions.get(id);
     if (!s) return;
@@ -1888,17 +2043,7 @@ function runPolish(tf) {
       if (r.toggled && stage.buttonShown()) await place();
       return;
     }
-    if (m.type === "send" && s.step === "result" && s.input) return inputAction.use(id);
-    if (m.type === "send-now" && s.step === "result" && s.input) return inputAction.use(id, true);
-    if (m.type === "keep") return inputAction.keep(id);
-    if (m.type === "send" && s.step === "result")
-      return sendToAgent(id, build(s.parts, s.rejected), "corrected");
-    if (m.type === "again") {
-      await inputAction.release(id);
-      agentRun.forget(id);
-      resetSession(s);
-      return render(id);
-    }
+    await results(m, id, s);
   };
   const wake = async () => {
     await load();

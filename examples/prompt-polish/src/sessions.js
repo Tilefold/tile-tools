@@ -23,6 +23,7 @@
  *   the session: a change kept or undone, the result only, back to edit.
  * Modified 2026-11-07 (pick before checking): `choosing`, and its
  *   `choose-skip`.
+ * Modified 2026-11-08 (translations): a case's `translations`.
  */
 import { changeCount } from "./polish.js";
 
@@ -82,6 +83,8 @@ export function freshSession() {
     draft: "",
     parts: [],
     notes: [],
+    // A case's translations of the corrected prompt: [{ code, text }].
+    translations: [],
     rejected: new Set(),
     clean: false,
     problem: "",
@@ -100,6 +103,8 @@ export function resetSession(s) {
     draft: "",
     parts: [],
     notes: [],
+    // A case's translations of the corrected prompt: [{ code, text }].
+    translations: [],
     rejected: new Set(),
     clean: false,
     problem: "",

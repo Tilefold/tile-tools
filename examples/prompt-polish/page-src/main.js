@@ -41,11 +41,14 @@
  *   menu of what to fix (`choose`), and the pick starts the check.
  * Modified 2026-11-08 (apply a case): with a case picked, the write step's
  *   button applies it by name (`apply`).
+ * Modified 2026-11-08 (translations): a case's translations under the
+ *   fixes (translations.js).
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
 import { sizeText, viewIcon, wsShown } from "./bits.js";
 import { drawCase, drawModeMenu } from "./cases.js";
+import { translationsOf } from "./translations.js";
 import { setupMoving } from "./move.js";
 
 const bridge = window.tilefold;
@@ -248,7 +251,8 @@ function drawResult(v) {
   if (v.nothing) {
     const box = el("div", "state");
     box.append(el("b", "", v.nothing));
-    $("body").replaceChildren(box);
+    const tl = translationsOf(v, L, { el, button });
+    $("body").replaceChildren(box, ...(tl ? [tl] : []));
     $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));
     return;
   }
@@ -273,6 +277,7 @@ function drawResult(v) {
     diffOf(v),
     el("p", "muted", v.rework ? L.clickHintRework : L.clickHint),
     ...(v.notes.length ? [notes] : []),
+    ...[translationsOf(v, L, { el, button })].filter(Boolean),
   );
   $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));
 }

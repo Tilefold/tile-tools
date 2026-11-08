@@ -30,6 +30,8 @@
  *   check starts once they pick.
  * Modified 2026-11-07 (reworked prompts): a text Tilefold refuses ends the
  *   request and says so (`refused`), rather than that the box went.
+ * Modified 2026-11-08 (translations): Use may put a translation of the
+ *   corrected prompt in the box instead.
  */
 import { build, changeCount } from "./polish.js";
 import { resetSession } from "./sessions.js";
@@ -124,8 +126,11 @@ export function createInputAction(tf, deps) {
     await check(id, s.draft);
   };
 
-  /** Use: the corrected prompt goes back in the box; with `send`, Tilefold sends it too. */
-  const use = async (id, send = false) => {
+  /**
+   * Use: the corrected prompt (or `text`, a translation of it) goes back in
+   * the box; with `send`, Tilefold sends it too.
+   */
+  const use = async (id, send = false, text = null) => {
     const s = sessions.get(id);
     const request = s?.input?.request;
     if (!s || !request || s.step !== "result") return;
@@ -134,7 +139,7 @@ export function createInputAction(tf, deps) {
     s.input = null;
     let r;
     try {
-      r = await tf.input.replace(request, { text: build(s.parts, s.rejected), send });
+      r = await tf.input.replace(request, { text: text ?? build(s.parts, s.rejected), send });
     } catch (err) {
       // Refused, so the request is still open: it ends here, and the card says why.
       warn(err);
@@ -145,7 +150,7 @@ export function createInputAction(tf, deps) {
     if (r?.why === "stopped") return;
     if (r?.done) {
       // Counts only: never the prompt.
-      audit("used", { kept: total - undone, undone, sent: send });
+      audit("used", { kept: total - undone, undone, sent: send, translation: !!text });
       resetSession(s);
       await fold(id);
       return;

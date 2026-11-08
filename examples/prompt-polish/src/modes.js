@@ -35,8 +35,10 @@
  *   check starts it.
  * Modified 2026-11-08 (apply a case): a case picked or saved waits for the
  *   user's Apply instead of checking at once.
+ * Modified 2026-11-08 (translations): a case's languages to translate
+ *   into (`translate`), in its form and in what is saved.
  */
-import { nameOf, removeCase, saveCase } from "./cases.js";
+import { nameOf, removeCase, saveCase, translateText } from "./cases.js";
 
 /** The store key of the card's pick. */
 export const PICK_KEY = "mode-pick";
@@ -66,14 +68,14 @@ export function createModes(tf, o) {
     pick = typeof v === "string" ? v.slice(0, MAX_PICK) : null;
   };
 
-  /** What to fix now: `{ mode, name, rules }`; mode "fix", "natural" or "case". */
+  /** What to fix now: `{ mode, name, rules, translate }`; mode "fix", "natural" or "case". */
   const resolved = () => {
     if (pick?.startsWith("case:")) {
       const c = cases().find((x) => x.name === pick.slice(5));
-      if (c) return { mode: "case", name: c.name, rules: c.rules };
+      if (c) return { mode: "case", name: c.name, rules: c.rules, translate: c.translate ?? [] };
     }
-    if (pick === "fix" || pick === "natural") return { mode: pick, name: "", rules: "" };
-    return { mode: o.current().mode, name: "", rules: "" };
+    const mode = pick === "fix" || pick === "natural" ? pick : o.current().mode;
+    return { mode, name: "", rules: "", translate: [] };
   };
 
   /** Keeps the card's pick (null: back to the setting's). */
@@ -120,7 +122,7 @@ export function createModes(tf, o) {
     try {
       await tf.settings.set(
         "cases",
-        list.map((c) => ({ name: c.name, rules: c.rules })),
+        list.map((c) => ({ name: c.name, rules: c.rules, translate: translateText(c.translate) })),
       );
       return true;
     } catch (err) {
@@ -177,6 +179,7 @@ export function createModes(tf, o) {
           was: was?.name ?? null,
           name: was?.name ?? "",
           rules: was?.rules ?? "",
+          translate: translateText(was?.translate),
           why: "",
         };
         await o.render();
@@ -191,8 +194,14 @@ export function createModes(tf, o) {
         if (!s.editing || !canEdit()) return true;
         const was = s.editing.was;
         // A list holds each case on its own: no limit on the whole.
-        const r = saveCase(cases(), was, { name: m.name, rules: m.rules }, Infinity);
-        const draft = { was, name: String(m.name ?? ""), rules: String(m.rules ?? "") };
+        const input = { name: m.name, rules: m.rules, translate: m.translate };
+        const r = saveCase(cases(), was, input, Infinity);
+        const draft = {
+          was,
+          name: String(m.name ?? ""),
+          rules: String(m.rules ?? ""),
+          translate: String(m.translate ?? ""),
+        };
         if (r.why) {
           s.editing = { ...draft, why: r.why };
           return o.render().then(() => true);

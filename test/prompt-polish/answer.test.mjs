@@ -81,6 +81,7 @@ describe("the answer", () => {
         ok: true,
         corrected: body.corrected,
         notes: body.notes,
+        translations: [],
       });
     }
   });
@@ -146,6 +147,7 @@ describe("the answer", () => {
       ok: true,
       corrected: original,
       notes: [],
+      translations: [],
     });
   });
 });

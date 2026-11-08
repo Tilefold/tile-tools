@@ -26,6 +26,8 @@
  *   the user renamed its pane to (`calledName`), as Tilefold reports it.
  * Modified 2026-11-07 (own cases): a case's instructions go with the
  *   request (`rules`); audits name only the mode.
+ * Modified 2026-11-08 (translations): a case's languages (`translate`) go
+ *   with the request, and the translations handed back are shown.
  */
 import {
   agentBrief,
@@ -61,6 +63,8 @@ export function createAgentRun(tf, deps) {
   const { sessions, render, refreshButton, audit, warn, language, mode, helperAgent } = deps;
   // A case's own instructions (none for the built-in modes).
   const rules = () => (typeof deps.rules === "function" ? deps.rules() : "");
+  // A case's languages to translate into (none for the built-in modes).
+  const translate = () => (typeof deps.translate === "function" ? deps.translate() : []);
   /** True where Tilefold can give the tile a polish agent of its own. */
   const hasHelper = () => typeof tf.agent?.helper === "function";
   const pending = createPending();
@@ -100,6 +104,7 @@ export function createAgentRun(tf, deps) {
           language: language().name,
           mode: entry.mode,
           rules: entry.rules,
+          translate: entry.translate,
           uiLanguage: tf.t("ai-language"),
           request,
         }),
@@ -141,16 +146,18 @@ export function createAgentRun(tf, deps) {
     const lang = language();
     const m = mode();
     const own = rules();
+    const tl = m === "case" ? translate() : [];
     const question = agentQuestion({
       text: original,
       language: lang.name,
       mode: m,
       rules: own,
+      translate: tl,
       uiLanguage: tf.t("ai-language"),
       request,
       command: `${TILE_ID}.${HAND_BACK}`,
     });
-    const entry = { pane: id, original, language: lang.code, mode: m, rules: own };
+    const entry = { pane: id, original, language: lang.code, mode: m, rules: own, translate: tl };
     if (hasHelper()) return viaHelper(id, s, entry, request);
     let r;
     try {
@@ -187,7 +194,7 @@ export function createAgentRun(tf, deps) {
     }
     const s = sessions.get(e.pane);
     if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Promptsmith");
-    const r = readAnswer(h.answer, e.original, e.mode);
+    const r = readAnswer(h.answer, e.original, e.mode, e.translate);
     if (!r.ok) {
       const changedCode = r.why === "changed-code";
       await problem(e.pane, s, changedCode ? "error-agent-changed-code" : "error-agent-unreadable");
@@ -201,6 +208,7 @@ export function createAgentRun(tf, deps) {
       step: "result",
       parts: changes(diff(e.original, r.corrected)),
       notes: r.notes,
+      translations: r.translations,
       rejected: new Set(),
       clean: false,
     });

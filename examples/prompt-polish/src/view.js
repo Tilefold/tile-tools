@@ -37,8 +37,11 @@
  * Modified 2026-11-08 (apply a case): `apply` on the write step, the case
  *   its button applies, and that button's label.
  * Modified 2026-11-08 (edit any case): the labels to pick a case to edit.
+ * Modified 2026-11-08 (translations): the case form's languages, and the
+ *   result's translations (`translations`: each language's own name and
+ *   text), with their labels.
  */
-import { isUnspaced } from "./languages.js";
+import { LANGUAGES, isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
 
 /** Problems the agent in the pane can get around: no Claude, or no key for it. */
@@ -123,10 +126,26 @@ export function setupOf(t) {
       caseName: t("label-case-name"),
       caseRules: t("label-case-rules"),
       caseRulesHint: t("label-case-rules-hint"),
+      // A case's languages to translate into, and the result's translations.
+      caseTranslate: t("label-case-translate"),
+      caseTranslateHint: t("label-case-translate-hint"),
+      translations: t("label-translations"),
+      useThis: t("label-use-this"),
+      sendThis: t("label-send-this"),
+      copy: t("label-copy"),
+      copied: t("label-copied"),
       caseSave: t("label-case-save"),
       caseRemove: t("label-case-remove"),
     },
   };
+}
+
+/** The result's translations, each with its language's own name; none for anything else. */
+function translationsOf(s) {
+  return (Array.isArray(s.translations) ? s.translations : []).map((x) => {
+    const l = LANGUAGES.find((y) => y.code === x.code);
+    return { code: x.code, native: l ? l.native : x.code, text: x.text };
+  });
 }
 
 /** What to fix, as the chip says it: a case's own name, else the mode's label. */
@@ -182,6 +201,7 @@ export function viewOf(s, t) {
       was: typeof e.was === "string" ? e.was : null,
       name: String(e.name ?? ""),
       rules: String(e.rules ?? ""),
+      translate: String(e.translate ?? ""),
       why: e.why ? t(e.why) : "",
     };
   }
@@ -227,6 +247,7 @@ export function viewOf(s, t) {
         nothing: t("label-nothing", { language: lang.native }),
         parts: [],
         notes: [],
+        translations: translationsOf(s),
       };
     }
     return {
@@ -243,6 +264,7 @@ export function viewOf(s, t) {
           : { id: p.id, del: p.del, ins: p.ins, off: s.rejected.has(p.id) },
       ),
       notes: s.notes.map((n) => ({ ...n, kindLabel: t(KIND_KEYS[n.kind] ?? "kind-grammar") })),
+      translations: translationsOf(s),
     };
   }
   return {

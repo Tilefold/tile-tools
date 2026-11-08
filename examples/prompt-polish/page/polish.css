@@ -16,6 +16,8 @@
  *   ✕ / ↺ buttons, and an undone addition stays in sight, struck.
  * Modified 2026-11-08 (menu divider): the line between the cases and
  *   Edit / Add uses the stronger border, with more room around it.
+ * Modified 2026-11-08 (translations): a case's translations under the
+ *   fixes, one block per language.
  * Modified 2026-11-08 (quiet question): the note above the menu is small,
  *   italic and muted.
  */
@@ -558,4 +560,27 @@ textarea {
 }
 .case textarea {
   min-height: 7em;
+}
+
+/* A case's translations: one block per language, under the fixes. */
+.translations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.tl {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.tl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tl-text {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

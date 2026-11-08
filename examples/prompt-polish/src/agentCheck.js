@@ -33,8 +33,12 @@
  *   way to the user's own instructions, as the request for a case says;
  *   a picked case means the prompt is that kind, reworked in full however
  *   short (`casePicked`).
+ * Modified 2026-11-08 (translations): a case's languages go with the
+ *   request (`translateAsk`), and the hand-back may carry "translations"
+ *   ({ code: text }), each read and bounded like the corrected prompt.
  */
-import { casePicked, caseRules, whatToDo } from "./answer.js";
+import { casePicked, caseRules, translateAsk, whatToDo } from "./answer.js";
+import { LANGUAGES } from "./languages.js";
 
 /** The tile's id, as in tile.json: the first part of the command id agents run. */
 export const TILE_ID = "example.prompt-polish";
@@ -53,6 +57,7 @@ export function agentBrief(command) {
     '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. I picked those instructions for that prompt: treat it as that kind of prompt however short it is, fill in what they ask for with sensible details, and never hand back only the fixes. Otherwise do not reword anything else.',
     "- Keep the meaning and the language of the prompt. Never translate it. Never add to it, unless the request gives my own instructions that ask for additions. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `- Then call the Tilefold tool tile_run with command "${command}" and input {"request": <the request id>, "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence, in the language the request names for notes>}]}.`,
+    '- When the request also asks for translations, add "translations": {<language code>: <the corrected prompt translated into that language>} to that input; the corrected prompt itself stays in its own language.',
     '- If nothing needs fixing, hand back the prompt unchanged with "notes": [].',
     'Do nothing else, reply only "Done", and wait for the next request.',
   ].join("\n");
@@ -66,7 +71,15 @@ export function agentBrief(command) {
  * @param {{ text: string, language: string, mode: string, uiLanguage: string,
  *   request: string, rules?: string }} r `rules`: a case's instructions (mode "case")
  */
-export function agentRequest({ text, language, mode, uiLanguage, request, rules = "" }) {
+export function agentRequest({
+  text,
+  language,
+  mode,
+  uiLanguage,
+  request,
+  rules = "",
+  translate = [],
+}) {
   const what =
     mode === "case" && rules
       ? "fix mistakes and follow my instructions"
@@ -83,6 +96,7 @@ export function agentRequest({ text, language, mode, uiLanguage, request, rules 
           "-----",
           String(rules),
           "-----",
+          ...(translateAsk(translate) ? [translateAsk(translate)] : []),
           "The prompt:",
         ]
       : []),
@@ -120,7 +134,7 @@ export function newRequestId(random = Math.random) {
 
 /** What the Hand back command takes, as tile_list shows it to agents (≤ 300 characters). */
 export const HAND_BACK_INPUT =
-  '{"request": the id from Promptsmith\'s request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}]}';
+  '{"request": the id from Promptsmith\'s request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}], "translations"?: {code: text}}';
 
 /**
  * The request on the ask card: what to do, the rules (the same as Claude's),
@@ -131,8 +145,18 @@ export const HAND_BACK_INPUT =
  *   command id for tile_run (the tile's id, a dot, HAND_BACK); `rules` a
  *   case's instructions (mode "case")
  */
-export function agentQuestion({ text, language, mode, uiLanguage, request, command, rules = "" }) {
+export function agentQuestion({
+  text,
+  language,
+  mode,
+  uiLanguage,
+  request,
+  command,
+  rules = "",
+  translate = [],
+}) {
   const own = mode === "case" && !!rules;
+  const also = own ? translateAsk(translate) : "";
   const lines = [
     `Promptsmith request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
     whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
@@ -140,7 +164,8 @@ export function agentQuestion({ text, language, mode, uiLanguage, request, comma
     own
       ? "Keep the meaning and the language. Never translate it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are."
       : "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
-    `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]}.`,
+    ...(also ? [also] : []),
+    `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]${also ? ', "translations": {<language code>: <translation>}' : ""}}.`,
     'If nothing needs fixing, hand back the prompt unchanged with "notes": []. Do nothing else, and reply only "Done".',
     "",
     "The prompt, between the lines:",
@@ -171,7 +196,16 @@ export function readHandBack(input) {
     .slice(0, MAX_NOTES)
     .filter((n) => n && typeof n === "object" && !Array.isArray(n))
     .map((n) => ({ from: str(n.from), to: str(n.to), kind: str(n.kind), why: str(n.why) }));
-  return { ok: true, request, answer: JSON.stringify({ corrected, notes }) };
+  // Only Promptsmith's languages, each a bounded string; answer.js keeps those asked for.
+  const raw = input.translations;
+  const translations = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const l of LANGUAGES) {
+      const v = Object.hasOwn(raw, l.code) ? str(raw[l.code]) : "";
+      if (v && v.length <= MAX_CORRECTED) translations[l.code] = v;
+    }
+  }
+  return { ok: true, request, answer: JSON.stringify({ corrected, notes, translations }) };
 }
 
 /**

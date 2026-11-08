@@ -41,6 +41,8 @@
  *   menu of what to fix (`choose`), and the pick starts the check.
  * Modified 2026-11-08 (apply a case): with a case picked, the write step's
  *   button applies it by name (`apply`).
+ * Modified 2026-11-08 (translations): a case's translations under the
+ *   fixes (translations.js).
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -135,7 +137,11 @@
   function drawCase(v, L2, o) {
     const old = o.body.querySelector("form.case");
     const same = old && old.dataset.was === String(v.was ?? "");
-    const typed = same ? { name: old.elements.namedItem("name").value, rules: old.elements.namedItem("rules").value } : { name: v.name, rules: v.rules };
+    const typed = same ? {
+      name: old.elements.namedItem("name").value,
+      rules: old.elements.namedItem("rules").value,
+      translate: old.elements.namedItem("translate").value
+    } : { name: v.name, rules: v.rules, translate: v.translate ?? "" };
     const form = o.el("form", "case");
     form.dataset.was = String(v.was ?? "");
     form.append(o.el("b", "case-title", v.was === null ? L2.caseNew : L2.caseEdit));
@@ -152,6 +158,15 @@
       value: typed.name,
       dir: "auto"
     });
+    const translate = o.el("input");
+    Object.assign(translate, {
+      name: "translate",
+      type: "text",
+      maxLength: 200,
+      value: typed.translate,
+      dir: "ltr"
+    });
+    translate.placeholder = L2.caseTranslateHint;
     const rules = o.el("textarea");
     Object.assign(rules, {
       name: "rules",
@@ -161,13 +176,22 @@
       dir: "auto"
     });
     rules.placeholder = L2.caseRulesHint;
-    form.append(field(L2.caseName, name), field(L2.caseRules, rules));
+    form.append(
+      field(L2.caseName, name),
+      field(L2.caseRules, rules),
+      field(L2.caseTranslate, translate)
+    );
     if (v.why) {
       const why = o.el("p", "warn", v.why);
       why.setAttribute("role", "alert");
       form.append(why);
     }
-    const save = () => o.send({ type: "case-save", name: name.value, rules: rules.value });
+    const save = () => o.send({
+      type: "case-save",
+      name: name.value,
+      rules: rules.value,
+      translate: translate.value
+    });
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       save();
@@ -184,6 +208,57 @@
     foot.at(-1).addEventListener("click", save);
     o.foot.replaceChildren(...foot);
     if (!same) (typed.name ? rules : name).focus();
+  }
+
+  // page-src/translations.js
+  function translationsOf(v, L2, o) {
+    const list = Array.isArray(v.translations) ? v.translations : [];
+    if (!list.length) return null;
+    const box = o.el("section", "translations");
+    box.setAttribute("aria-label", L2.translations);
+    box.append(o.el("b", "case-title", L2.translations));
+    for (const x of list) {
+      const item = o.el("div", "tl");
+      const head = o.el("div", "tl-head");
+      const copy = o.button("link", L2.copy, null);
+      copy.addEventListener("click", () => {
+        void copyText(x.text).then((ok) => {
+          if (ok) copy.textContent = L2.copied;
+        });
+      });
+      const go = o.button("btn", v.input ? L2.useThis : L2.sendThis, {
+        type: "send",
+        translation: x.code
+      });
+      head.append(o.el("b", "tl-lang", x.native), o.el("span", "spacer"), copy, go);
+      const text = o.el("p", "tl-text", x.text);
+      text.lang = x.code;
+      text.dir = "auto";
+      item.append(head, text);
+      box.append(item);
+    }
+    return box;
+  }
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.append(area);
+      area.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      area.remove();
+      return ok;
+    }
   }
 
   // page-src/move.js
@@ -400,7 +475,8 @@
     if (v.nothing) {
       const box = el("div", "state");
       box.append(el("b", "", v.nothing));
-      $("body").replaceChildren(box);
+      const tl = translationsOf(v, L, { el, button });
+      $("body").replaceChildren(box, ...tl ? [tl] : []);
       $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));
       return;
     }
@@ -424,7 +500,8 @@
       sum,
       diffOf(v),
       el("p", "muted", v.rework ? L.clickHintRework : L.clickHint),
-      ...v.notes.length ? [notes] : []
+      ...v.notes.length ? [notes] : [],
+      ...[translationsOf(v, L, { el, button })].filter(Boolean)
     );
     $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));
   }

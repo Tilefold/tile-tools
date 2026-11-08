@@ -58,6 +58,9 @@
  *   pill while there is something to come back to.
  * Modified 2026-11-07 (own cases): what to fix is picked on the card, from
  *   the built-in modes and the user's own cases (modes.js).
+ * Modified 2026-11-08 (translations): a case's languages go to the checks;
+ *   the result's buttons moved to resultActions.js, which also takes a
+ *   translation.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
@@ -67,9 +70,10 @@ import { createLog } from "./log.js";
 import { createClaudeRun } from "./claudeRun.js";
 import { createInputAction } from "./inputAction.js";
 import { createSendToAgent } from "./sendToAgent.js";
+import { createResultActions } from "./resultActions.js";
 import { languageOf } from "./languages.js";
 import { viewOf as checkView } from "./place.js";
-import { blocker, build } from "./polish.js";
+import { blocker } from "./polish.js";
 import {
   applyToSession,
   createSessions,
@@ -290,6 +294,7 @@ export function runPolish(tf) {
     language,
     mode: () => modes.now().mode,
     rules: () => modes.now().rules,
+    translate: () => modes.now().translate,
     choose: () => current().cases.length > 0,
     fast: () => current().fast,
     helperAgent: () => current().helperAgent,
@@ -314,6 +319,7 @@ export function runPolish(tf) {
     fold: foldAfter,
     noPane: NO_PANE,
   });
+  const results = createResultActions({ inputAction, sendToAgent, agentRun, render });
 
   /** Checks pane `id`'s prompt: by Claude with the user's key, or by the agent in the pane. */
   const check = async (id, text, by = current().checker) => {
@@ -361,18 +367,8 @@ export function runPolish(tf) {
       if (r.toggled && stage.buttonShown()) await place();
       return;
     }
-    // From the agent input box: Use puts it back there, Keep mine leaves it.
-    if (m.type === "send" && s.step === "result" && s.input) return inputAction.use(id);
-    if (m.type === "send-now" && s.step === "result" && s.input) return inputAction.use(id, true);
-    if (m.type === "keep") return inputAction.keep(id);
-    if (m.type === "send" && s.step === "result")
-      return sendToAgent(id, build(s.parts, s.rejected), "corrected");
-    if (m.type === "again") {
-      await inputAction.release(id);
-      agentRun.forget(id);
-      resetSession(s);
-      return render(id);
-    }
+    // Use, Send, Keep mine and Ask again, for the corrected prompt or a translation.
+    await results(m, id, s);
   };
 
   /**

@@ -137,7 +137,7 @@ describe("the ✦ Polish button in the agent input box", () => {
     expect(host.box.sent).toEqual([]);
     expect(host.audits).toContainEqual({
       action: "used",
-      details: { kept: 2, undone: 0, sent: false },
+      details: { kept: 2, undone: 0, sent: false, translation: false },
     });
   });
 
@@ -150,7 +150,7 @@ describe("the ✦ Polish button in the agent input box", () => {
     expect(host.page.open).toBe(false);
     expect(host.audits).toContainEqual({
       action: "used",
-      details: { kept: 2, undone: 0, sent: true },
+      details: { kept: 2, undone: 0, sent: true, translation: false },
     });
   });
 

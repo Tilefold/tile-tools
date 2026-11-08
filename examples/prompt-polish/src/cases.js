@@ -27,8 +27,16 @@
  * list of { name, rules }, one case at a time (`CASE_FIELDS`); `casesOf`
  * reads either.
  *
+ * A case may also name languages to translate the corrected prompt into
+ * (`translate`: codes such as "ja, ko", or the languages' names), on a
+ * line "Translate: ja, ko" of its block in the text, or in its own field
+ * of the list. Only Promptsmith's languages are kept, each once.
+ *
  * Pure: no Tilefold calls.
+ *
+ * Modified 2026-11-08 (translations): a case's languages to translate into.
  */
+import { LANGUAGES } from "./languages.js";
 
 /** The most cases kept. */
 export const MAX_CASES = 20;
@@ -36,6 +44,12 @@ export const MAX_CASES = 20;
 export const MAX_NAME = 60;
 /** The longest instructions, in characters. */
 export const MAX_RULES = 2000;
+/** The most languages a case translates into. */
+export const MAX_TRANSLATE = 8;
+/** The longest the languages' field may be, in characters. */
+export const MAX_TRANSLATE_TEXT = 200;
+/** The line of a case's block that names its languages. */
+const TRANSLATE_LINE = /^\s*translate\s*[:：]\s*(.*)$/i;
 /** The longest the whole setting may be (Tilefold's multiline limit). */
 export const MAX_TEXT = 8000;
 
@@ -69,7 +83,40 @@ export const rulesOf = (v) =>
     .slice(0, MAX_RULES);
 
 /**
- * The cases in the setting's text: `[{ name, rules }]`, in order.
+ * The languages a case translates into: known language codes, each once,
+ * at most MAX_TRANSLATE, from a text such as "ja, ko, zh-CN" (codes, or
+ * English or native names, any case) or a list of them.
+ *
+ * @param {unknown} v
+ */
+export function translateOf(v) {
+  const words = Array.isArray(v)
+    ? v.map((x) => String(x ?? ""))
+    : String(typeof v === "string" ? v : "")
+        .replace(UNSAFE, "")
+        .slice(0, MAX_TRANSLATE_TEXT)
+        .split(/[,;、，\n]+/);
+  const out = [];
+  for (const w of words) {
+    const key = w.trim().toLowerCase();
+    if (!key) continue;
+    const l = LANGUAGES.find(
+      (x) =>
+        x.code.toLowerCase() === key ||
+        x.name.toLowerCase() === key ||
+        x.native.toLowerCase() === key,
+    );
+    if (l && !out.includes(l.code)) out.push(l.code);
+    if (out.length === MAX_TRANSLATE) break;
+  }
+  return out;
+}
+
+/** The text of a case's languages, as the field and the block's line hold it. */
+export const translateText = (codes) => (codes ?? []).join(", ");
+
+/**
+ * The cases in the setting's text: `[{ name, rules, translate }]`, in order.
  *
  * @param {unknown} text
  */
@@ -79,12 +126,15 @@ export function parseCases(text) {
     .replace(/\r\n?/g, "\n")
     .split(/\n[^\S\n]*\n/);
   for (const block of blocks) {
-    const lines = block.split("\n").filter((l) => l.trim());
+    const all = block.split("\n").filter((l) => l.trim());
+    // The languages' line, wherever it is under the name.
+    const tl = all.slice(1).find((l) => TRANSLATE_LINE.test(l));
+    const lines = all.filter((l) => l !== tl);
     if (lines.length < 2) continue;
     const name = nameOf(lines[0]);
     const rules = rulesOf(lines.slice(1).join("\n"));
     if (!name || !rules || out.some((c) => c.name === name)) continue;
-    out.push({ name, rules });
+    out.push({ name, rules, translate: translateOf(tl ? tl.match(TRANSLATE_LINE)[1] : "") });
     if (out.length === MAX_CASES) break;
   }
   return out;
@@ -94,9 +144,10 @@ export function parseCases(text) {
 export const CASE_FIELDS = [
   { key: "name", label: "label-case-name", max: MAX_NAME },
   { key: "rules", label: "label-case-rules", multiline: true, max: MAX_RULES },
+  { key: "translate", label: "label-case-translate", max: MAX_TRANSLATE_TEXT },
 ];
 
-/** The cases in the setting, a list of { name, rules } or the text of several lines. */
+/** The cases in the setting, a list of { name, rules, translate } or the text of several lines. */
 export function casesOf(value) {
   if (!Array.isArray(value)) return parseCases(value);
   const out = [];
@@ -104,31 +155,38 @@ export function casesOf(value) {
     const name = nameOf(e?.name);
     const rules = rulesOf(e?.rules);
     if (!name || !rules || out.some((c) => c.name === name)) continue;
-    out.push({ name, rules });
+    out.push({ name, rules, translate: translateOf(e?.translate) });
     if (out.length === MAX_CASES) break;
   }
   return out;
 }
 
 /** The setting's text for `cases`. */
-export const formatCases = (cases) => cases.map((c) => `${c.name}\n${c.rules}`).join("\n\n");
+export const formatCases = (cases) =>
+  cases
+    .map((c) => {
+      const tl = translateText(c.translate);
+      return `${c.name}\n${c.rules}${tl ? `\nTranslate: ${tl}` : ""}`;
+    })
+    .join("\n\n");
 
 /**
  * `cases` with case `was` (a name, or null for a new one) saved as
- * `{ name, rules }` (the whole within `maxText` when the setting is one
+ * `{ name, rules, translate }` (the whole within `maxText` when the setting is one
  * text); or why not: "case-needs-name", "case-needs-rules",
  * "case-name-taken", "case-too-many" or "case-too-long".
  */
 export function saveCase(cases, was, input, maxText = MAX_TEXT) {
   const name = nameOf(input?.name);
   const rules = rulesOf(input?.rules);
+  const translate = translateOf(input?.translate);
   if (!name) return { why: "case-needs-name" };
   if (!rules) return { why: "case-needs-rules" };
   if (cases.some((c) => c.name === name && c.name !== was)) return { why: "case-name-taken" };
   const at = was === null ? -1 : cases.findIndex((c) => c.name === was);
   if (at < 0 && cases.length >= MAX_CASES) return { why: "case-too-many" };
-  const next =
-    at < 0 ? [...cases, { name, rules }] : cases.map((c, i) => (i === at ? { name, rules } : c));
+  const saved = { name, rules, translate };
+  const next = at < 0 ? [...cases, saved] : cases.map((c, i) => (i === at ? saved : c));
   if (formatCases(next).length > maxText) return { why: "case-too-long" };
   return { cases: next, name };
 }

@@ -25,6 +25,8 @@
  * Modified 2026-11-08 (menu divider): a line between the cases and Edit / Add.
  * Modified 2026-11-08 (edit any case): Edit… above Add with no case in use,
  *   asking which case first.
+ * Modified 2026-11-08 (translations): a case's translations under the
+ *   fixes, with Copy and Use this / Send this; the form's languages field.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -170,6 +172,7 @@ describe("the case form", () => {
       type: "case-save",
       name: "Email",
       rules: "Keep it short.",
+      translate: "",
     });
     // The tile draws the form again, saying why: what was typed stays.
     p.tell({ do: "show", view: viewFor(editing({ why: "case-name-taken" })) });
@@ -271,6 +274,46 @@ describe("editing a case with none in use", () => {
     ready(p, { cases: [], canEditCases: true });
     p.click(p.$("chip"));
     expect(items(p).map((b) => b.textContent)).not.toContain(t("label-edit-cases"));
+  });
+});
+
+describe("a case's translations", () => {
+  const RESULT = {
+    ...CASES,
+    modeId: "case:Video editing",
+    caseName: "Video editing",
+    step: "result",
+    draft: "for it",
+    parts: [{ id: 1, del: "for", ins: "For" }, { same: " it" }],
+    translations: [{ code: "ja", text: "それのために" }],
+  };
+
+  it("shows each under the fixes, in its language, with Send this", () => {
+    const p = page();
+    ready(p, RESULT);
+    const tl = p.$("body").querySelector(".translations .tl");
+    expect(tl.querySelector(".tl-lang").textContent).toBe("日本語");
+    const text = tl.querySelector(".tl-text");
+    expect(text.textContent).toBe("それのために");
+    expect(text.lang).toBe("ja");
+    const go = [...tl.querySelectorAll("button")].find(
+      (b) => b.textContent === t("label-send-this"),
+    );
+    p.click(go);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "send", translation: "ja" });
+  });
+
+  it("offers Use this for a prompt from the agent input box", () => {
+    const p = page();
+    ready(p, { ...RESULT, input: true });
+    const labels = [...p.$("body").querySelectorAll(".tl button")].map((b) => b.textContent);
+    expect(labels).toEqual([t("label-copy"), t("label-use-this")]);
+  });
+
+  it("shows none without translations", () => {
+    const p = page();
+    ready(p, { ...RESULT, translations: [] });
+    expect(p.$("body").querySelector(".translations")).toBeNull();
   });
 });
 

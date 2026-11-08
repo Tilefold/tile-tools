@@ -99,7 +99,7 @@ describe("agentCheck pieces", () => {
     });
     expect(ok.ok).toBe(true);
     expect(ok.request).toBe("abcde12345");
-    expect(JSON.parse(ok.answer)).toEqual({ corrected: FIXED, notes: NOTES });
+    expect(JSON.parse(ok.answer)).toEqual({ corrected: FIXED, notes: NOTES, translations: {} });
     expect(
       JSON.parse(readHandBack({ request: "abcde12345", corrected: "x" }).answer).notes,
     ).toEqual([]);

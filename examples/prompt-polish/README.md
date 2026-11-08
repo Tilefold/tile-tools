@@ -41,6 +41,8 @@ If a pane is too small for the card, it opens beside the panes instead. On a Til
 
 Click the chip in the card's header (such as **Mistakes only · English**) to pick what to fix: **Mistakes only**, **Mistakes, and make it read naturally**, or one of your own cases. The chip names your pick first, and hovering over it shows the whole name. Your pick stays until you pick again or change **What to fix** in Settings. A built-in mode checks a prompt already checked again right away; one of your cases takes you back to your prompt with an **Apply “…”** button, and the rework starts when you press it. With one of your cases, the spelling and grammar are fixed as usual, and the prompt is also reworked as that case says, for example adding what a video prompt should always state. Picking a case says the prompt is of that kind, so even a few words are reworked into a full prompt, with sensible details filled in where you gave none; while it works, the card names the case. What a case adds comes one sentence or line at a time, each with its own **✕** to drop it (your words stay) and **↺** to bring it back; clicking the text itself changes nothing, so a stray click can't undo the rework.
 
+A case can also translate. Fill in **Also translate into** with the languages you want, as codes or names (for example `ja, ko, zh-CN, fr, es`; up to eight of Tilefold's twelve languages). The corrected prompt stays in the language you wrote it in, and under the fixes the card shows **Translations**: one block per language, with **Copy**, and **Use this** (it goes in Tilefold's input box) or **Send this** (it goes on the ask card). Code in backticks, file paths and links stay exactly as they are in every translation; one that changed them isn't shown.
+
 From the same menu, **Add your own…** opens a small form for a case's name and what to do, and **Edit…**, just above it, changes a case or removes it: the case in use, or, with none in use, the one you pick from your list. They're saved to **Your own cases of what to fix** in Settings, so you can also add and edit them there, one case at a time (Tilefold 0.1.27; on an older Tilefold, add them in Settings only).
 
 ## Settings
@@ -57,7 +59,10 @@ In **Settings → Tiles → Promptsmith**:
 
   Email to a client
   Keep it short and polite.
+  Translate: ja, ko
   ```
+
+  A line starting with **Translate:** names the languages to translate that case's prompts into.
 - **Where Promptsmith shows**: as above.
 - **Who checks your prompts**: Claude with your Anthropic key, and without one your polish agent (the default), or always your polish agent (see below).
 - **Your polish agent**: which agent checks your prompts in a tab of its own: Claude Code (the default), Codex, Gemini CLI, Cursor Agent, Antigravity CLI or OpenCode. It must be installed.

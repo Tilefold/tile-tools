@@ -50,19 +50,23 @@ import { viewOf } from "../../examples/prompt-polish/src/view.js";
 
 const RLO = String.fromCharCode(0x202e);
 const BEL = String.fromCharCode(7);
-const VIDEO = { name: "Video editing", rules: "Say the clip's length.\nSay its style." };
+const VIDEO = {
+  name: "Video editing",
+  rules: "Say the clip's length.\nSay its style.",
+  translate: [],
+};
 
 describe("reading the cases setting", () => {
   it("reads blocks of a name and its instructions", () => {
     const text =
       "Video editing:\nSay the clip's length.\nSay its style.\n\n  \nEmail\nKeep it short.";
-    expect(parseCases(text)).toEqual([VIDEO, { name: "Email", rules: "Keep it short." }]);
+    expect(parseCases(text)).toEqual([VIDEO, { name: "Email", rules: "Keep it short.", translate: [] }]);
     expect(parseCases(formatCases(parseCases(text)))).toEqual(parseCases(text));
   });
 
   it("leaves out blocks without instructions, repeated names, and anything past 20", () => {
     expect(parseCases("Only a name\n\nEmail\nShort.\n\nEmail\nAgain.")).toEqual([
-      { name: "Email", rules: "Short." },
+      { name: "Email", rules: "Short.", translate: [] },
     ]);
     const many = Array.from({ length: 30 }, (_, i) => `Case ${i}\nDo ${i}.`).join("\n\n");
     expect(parseCases(many)).toHaveLength(MAX_CASES);
@@ -83,7 +87,11 @@ describe("saving and removing a case", () => {
       name: "Video",
       rules: "Say the length.\n\nSay the style.",
     });
-    expect(renamed.cases[0]).toEqual({ name: "Video", rules: "Say the length.\nSay the style." });
+    expect(renamed.cases[0]).toEqual({
+      name: "Video",
+      rules: "Say the length.\nSay the style.",
+      translate: [],
+    });
     expect(renamed.cases[1].name).toBe("Email");
   });
 

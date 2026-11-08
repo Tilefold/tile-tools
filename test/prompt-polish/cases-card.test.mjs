@@ -150,7 +150,10 @@ describe("the user's own cases on the card", () => {
     await say(host, { type: "case-save", name: "Email:", rules: "Keep it short." });
     expect(host.settingSets.at(-1)).toEqual({
       key: "cases",
-      value: [VIDEO, { name: "Email", rules: "Keep it short." }],
+      value: [
+        { ...VIDEO, translate: "" },
+        { name: "Email", rules: "Keep it short.", translate: "" },
+      ],
     });
     expect(lastView(host)).toMatchObject({ modeId: "case:Email" });
     await apply(host, "Email", 1);
@@ -175,7 +178,7 @@ describe("the user's own cases on the card", () => {
     });
     expect(host.settingSets).toEqual([]);
     await say(host, { type: "case-save", name: "Video", rules: "Say it." });
-    expect(host.settingSets.at(-1).value).toEqual([{ name: "Video", rules: "Say it." }]);
+    expect(host.settingSets.at(-1).value).toEqual([{ name: "Video", rules: "Say it.", translate: "" }]);
     await say(host, { type: "case-edit", was: null });
     await say(host, { type: "case-cancel" });
     expect(lastView(host)).toMatchObject({ step: "write", apply: "Video" });
@@ -202,6 +205,7 @@ describe("the user's own cases on the card", () => {
         fields: [
           { key: "name", label: "Name", max: 60 },
           { key: "rules", label: "What to do for this kind of prompt", multiline: true, max: 2000 },
+          { key: "translate", label: "Also translate into", max: 200 },
         ],
       },
     });
