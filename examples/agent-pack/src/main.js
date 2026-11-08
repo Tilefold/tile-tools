@@ -5,39 +5,99 @@
  *
  * Agent Pack (example tile)
  *
- * Offers AI coding agents Tilefold doesn't know yet (Grok Build, Kimi CLI,
- * Mistral Vibe and others), one command each. Running one asks Tilefold to
- * add it to the user's own agents (`tf.agent.define`); Tilefold shows the
- * user the agent and its exact command first, and adds it only when they
- * press Add agent. A notice says how it went. The activity log records only
- * which preset was offered and whether it was added.
+ * Adds AI coding agents to the user's own agents in two ways. **Add your
+ * own agent…** opens a panel where the user types any agent's name and
+ * command, picks what clears its context and presses Add this agent; the
+ * panel also lists the ready-made agents (Grok Build, Kimi CLI, Mistral
+ * Vibe and others), which are one palette command each too. Every offer
+ * goes through `tf.agent.define`: Tilefold shows the user the agent and its
+ * exact command first, and adds it only when they press Add agent. A
+ * notice says how it went. The activity log records only which preset was
+ * offered (or that it was the user's own) and whether it was added, never
+ * a name or a command.
  *
  * Build:  npx @tilefold/tile-tools build
  */
+import { draftProblem, emptyDraft, nextClear, toDefinition } from "./ownAgent.js";
+import { clickTarget, panelContent, ROW } from "./panel.js";
 import { PRESETS, resultKey } from "./presets.js";
 
 export default (tf) => {
-  for (const p of PRESETS) {
-    tf.command(
-      tf.t(p.titleKey),
-      async () => {
-        if (typeof tf.agent?.define !== "function") return tf.toast(tf.t("toast-needs-tilefold"));
-        let r;
-        try {
-          r = await tf.agent.define({
-            name: p.name,
-            command: p.command,
-            clear: p.clear,
-            ...(p.title ? { title: p.title } : {}),
-          });
-        } catch (err) {
-          // Busy with another question, asked too often, or not allowed.
-          return tf.toast(tf.t("toast-failed", { reason: String((err && err.name) || err) }));
-        }
-        await tf.audit("offered", { preset: p.id, added: r?.added === true });
-        return tf.toast(tf.t(resultKey(r), { name: p.name }));
-      },
-      { id: `add-${p.id}` },
-    );
+  /** What the user has typed for their own agent so far. */
+  let draft = emptyDraft();
+
+  /**
+   * Offers `agent` to Tilefold and says how it went. `details` is what
+   * the activity log keeps. Resolves to whether it was added.
+   */
+  async function offer(agent, details) {
+    if (typeof tf.agent?.define !== "function") {
+      await tf.toast(tf.t("toast-needs-tilefold"));
+      return false;
+    }
+    let r;
+    try {
+      r = await tf.agent.define(agent);
+    } catch (err) {
+      // Busy with another question, asked too often, not allowed, or a
+      // command Tilefold won't take.
+      await tf.toast(tf.t("toast-failed", { reason: String((err && err.name) || err) }));
+      return false;
+    }
+    const added = r?.added === true;
+    await tf.audit("offered", { ...details, added });
+    await tf.toast(tf.t(resultKey(r), { name: agent.name }));
+    return added;
   }
+
+  /** Offers ready-made agent `p`. */
+  const offerPreset = (p) =>
+    offer(
+      { name: p.name, command: p.command, clear: p.clear, ...(p.title ? { title: p.title } : {}) },
+      { preset: p.id },
+    );
+
+  /** Draws the panel for the draft. */
+  async function draw() {
+    if (!tf.panel) return;
+    await tf.panel.show(panelContent(tf.t, draft));
+  }
+
+  /** Offers the user's own agent, starting over once it is added. */
+  async function offerOwn() {
+    if (draftProblem(draft)) return draw();
+    if (await offer(toDefinition(draft), { preset: "own" })) draft = emptyDraft();
+    return draw();
+  }
+
+  tf.command(
+    tf.t("cmd-add-own"),
+    async () => {
+      if (typeof tf.agent?.define !== "function" || !tf.panel) {
+        return tf.toast(tf.t("toast-needs-tilefold"));
+      }
+      return draw();
+    },
+    { id: "add-own" },
+  );
+  for (const p of PRESETS)
+    tf.command(tf.t(p.titleKey), () => offerPreset(p), { id: `add-${p.id}` });
+
+  tf.on("panel.input", ({ row, text }) => {
+    if (typeof text !== "string") return;
+    if (row === ROW.nameField) draft = { ...draft, name: text };
+    else if (row === ROW.commandField) draft = { ...draft, command: text };
+    else return;
+    return draw();
+  });
+
+  tf.on("panel.click", ({ row }) => {
+    const target = typeof row === "string" ? clickTarget(row) : null;
+    if (!target) return;
+    if (target.kind === "add") return offerOwn();
+    if (target.kind === "preset") return offerPreset(target.preset);
+    if (target.kind === "clear") draft = { ...draft, clear: nextClear(draft.clear) };
+    if (target.kind === "start") draft = emptyDraft();
+    return draw();
+  });
 };

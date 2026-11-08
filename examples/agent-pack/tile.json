@@ -1,11 +1,14 @@
 {
   "id": "example.agent-pack",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
     {
       "agent.define": "to offer AI coding agents Tilefold doesn't know yet, which you add to your own agents only after you confirm"
+    },
+    {
+      "window.panel": "to show a panel where you type the name and command of any agent you want to add"
     }
   ]
 }
