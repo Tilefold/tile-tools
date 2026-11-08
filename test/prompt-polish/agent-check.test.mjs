@@ -179,6 +179,9 @@ describe("the polish agent's brief and requests", () => {
     expect(brief).toContain('command "example.prompt-polish.hand-back"');
     expect(brief).toContain('"and make it read naturally"');
     expect(brief).not.toMatch(/request [a-z0-9]{10}/);
+    // "Never add to it" gives way to the user's own instructions, never stands against them.
+    expect(brief).toContain("Never add to it, unless the request gives my own instructions");
+    expect(brief).not.toContain("never add to it.");
   });
 
   it("sends each request as one line and the prompt between the lines", () => {

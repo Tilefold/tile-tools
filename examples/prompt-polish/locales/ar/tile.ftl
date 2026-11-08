@@ -103,6 +103,7 @@ toast-needs-tilefold = يحتاج Prompt Polish إلى إصدار أحدث من 
 setting-cases = حالاتك الخاصة: الاسم في السطر الأول، وتحته ما يجب فعله، وسطر فارغ بين الحالات
 setting-case-list = حالاتك الخاصة لما يُصحَّح
 label-mode-menu = ما يُصحَّح
+label-mode-choose = ماذا يحتاج هذا الطلب؟ اختر ويبدأ الفحص.
 label-add-case = أضف حالتك…
 label-edit-case = تعديل «{ $name }»…
 label-cases-in-settings = أضف حالاتك في الإعدادات ← البلاطات ← Prompt Polish

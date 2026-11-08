@@ -23,8 +23,14 @@
  * ({ was }), `case-save` ({ was, name, rules }), `case-cancel`,
  * `case-remove` ({ name }).
  *
+ * Asked before a check (the session's `choosing`, a prompt from the agent
+ * input box), the pick or a saved case starts that check.
+ *
  * Audited: `mode-picked` ({ mode }: "fix", "natural" or "case"),
  * `case-saved` ({ added }), `case-removed`; never a case's name or words.
+ *
+ * Modified 2026-11-07 (pick before checking): a pick asked before the
+ *   check starts it.
  */
 import { nameOf, removeCase, saveCase } from "./cases.js";
 
@@ -73,10 +79,26 @@ export function createModes(tf, o) {
     else await tf.store.set(PICK_KEY, next).catch(o.warn);
   };
 
-  /** Checks pane `id`'s prompt again if it was already checked. */
-  const again = async (id) => {
+  /**
+   * Whether pane `id` asked what to fix before its check; the question is
+   * answered (so the next drawing shows the prompt, not the menu again).
+   */
+  const answered = (id) => {
     const s = o.sessions.get(id);
-    if (s?.step === "result" && s.draft) await o.check(id, s.draft);
+    if (!(s?.step === "write" && s.choosing)) return false;
+    s.choosing = false;
+    return true;
+  };
+
+  /**
+   * After a pick: checks pane `id`'s prompt again if it was already
+   * checked, or for the first time if the pick was asked before the check
+   * (`first`).
+   */
+  const again = async (id, first = false) => {
+    const s = o.sessions.get(id);
+    if (first && s?.draft) await o.check(id, s.draft);
+    else if (s?.step === "result" && s.draft) await o.check(id, s.draft);
   };
 
   /** Writes `list` to the setting; false when Tilefold refused it. */
@@ -121,8 +143,9 @@ export function createModes(tf, o) {
         if (!known) return true;
         await keep(to);
         o.audit("mode-picked", { mode: to.startsWith("case:") ? "case" : to });
+        const first = answered(id);
         await o.render();
-        await again(id);
+        await again(id, first);
         return true;
       }
       if (!s) return m.type.startsWith("case-");
@@ -160,8 +183,9 @@ export function createModes(tf, o) {
         s.editing = null;
         await keep(`case:${r.name}`);
         o.audit("case-saved", { added: was === null });
+        const first = answered(id);
         await o.render();
-        await again(id);
+        await again(id, first);
         return true;
       }
       if (m.type === "case-remove") {

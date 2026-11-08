@@ -13,8 +13,14 @@
  * saved keeps the form, saying why; removing one drops it and its pick. A
  * change of the mode setting wins over the card's pick. Where Tilefold has
  * list settings, the cases are a list saved one case at a time; on a
- * Tilefold that can't save settings, they are one text, from Settings only. Audits never carry a
- * case's name or words.
+ * Tilefold that can't save settings, they are one text, from Settings
+ * only. From the agent input box, with cases, what to fix is asked before
+ * the check: the pick starts it, a saved case too, and closing the menu
+ * leaves the prompt to check as set. Audits never carry a case's name or
+ * words.
+ *
+ * Modified 2026-11-07 (pick before checking): the card is opened, then a
+ *   pick made, before each check here; tests for the question asked first.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -59,11 +65,15 @@ const lastView = (host) => host.page.posted.filter((m) => m.do === "show").at(-1
 /** The system prompt of the last question to Claude. */
 const lastSystem = (host) => host.questions.at(-1)?.system ?? "";
 
-/** Opens the card for the prompt and lets Claude check it. */
-async function checked(opts) {
+/**
+ * Opens the card for the prompt, picks what to fix (asked first, as the
+ * user has cases), and lets Claude check it.
+ */
+async function checked(opts, to = "fix") {
   const host = await start(opts);
   await host.clickAction("polish");
   await say(host, { type: "hello" });
+  await say(host, { type: "mode", to });
   return host;
 }
 
@@ -108,6 +118,7 @@ describe("picking what to fix", () => {
     const host = await start({ ai: undefined, agentAsk: true, helper: true });
     await host.clickAction("polish");
     await say(host, { type: "hello" });
+    await say(host, { type: "mode", to: "fix" });
     const request = host.helperAsks[0].question.match(/request ([a-z0-9]{10})/)[1];
     await host.command(HAND_BACK, { request, corrected: "Make a video of my cat.", notes: [] });
     await say(host, { type: "mode", to: "case:Video editing" });
@@ -192,5 +203,68 @@ describe("the user's own cases on the card", () => {
     expect(lastView(host).canEditCases).toBe(false);
     await say(host, { type: "case-edit", was: null });
     expect(lastView(host).step).toBe("result");
+  });
+});
+
+describe("what to fix, asked before checking a prompt from the agent input box", () => {
+  /** Opens the card from ✦ Polish, without picking yet. */
+  async function asked(opts) {
+    const host = await start(opts);
+    await host.clickAction("polish");
+    await say(host, { type: "hello" });
+    return host;
+  }
+
+  it("opens on the menu with the prompt kept, and checks nothing yet", async () => {
+    const host = await asked();
+    expect(host.questions).toHaveLength(0);
+    expect(lastView(host)).toMatchObject({ step: "write", draft: PROMPT, choose: true });
+  });
+
+  it("starts the check with the case picked, and asks no more", async () => {
+    const host = await asked();
+    await say(host, { type: "mode", to: "case:Video editing" });
+    expect(host.questions).toHaveLength(1);
+    expect(lastSystem(host)).toContain("Say the clip's length.");
+    expect(lastView(host)).toMatchObject({ step: "result", mode: "Video editing" });
+    // Back to the prompt: the menu isn't asked again.
+    await say(host, { type: "back" });
+    expect(lastView(host)).toMatchObject({ step: "write", choose: false });
+  });
+
+  it("starts the check for the polish agent too, with the case's instructions", async () => {
+    const host = await asked({ ai: undefined, agentAsk: true, helper: true });
+    expect(host.helperAsks).toHaveLength(0);
+    await say(host, { type: "mode", to: "case:Video editing" });
+    expect(host.helperAsks).toHaveLength(1);
+    expect(host.helperAsks[0].question).toContain("Say the clip's length.");
+  });
+
+  it("closed without a pick, shows the prompt to check as it is set", async () => {
+    const host = await asked();
+    await say(host, { type: "choose-skip" });
+    expect(host.questions).toHaveLength(0);
+    expect(lastView(host)).toMatchObject({ step: "write", draft: PROMPT, choose: false });
+    await say(host, { type: "check", text: PROMPT });
+    expect(host.questions).toHaveLength(1);
+  });
+
+  it("starts the check with a case added from the menu", async () => {
+    const host = await asked();
+    await say(host, { type: "case-edit", was: null });
+    expect(lastView(host).step).toBe("case");
+    await say(host, { type: "case-cancel" });
+    // Cancelling the form goes back to the question.
+    expect(lastView(host)).toMatchObject({ step: "write", choose: true });
+    await say(host, { type: "case-edit", was: null });
+    await say(host, { type: "case-save", name: "Short", rules: "Keep it short." });
+    expect(host.questions).toHaveLength(1);
+    expect(lastSystem(host)).toContain("Keep it short.");
+  });
+
+  it("isn't asked without own cases: the check starts at once", async () => {
+    const host = await asked({ settings: { cases: [] } });
+    expect(host.questions).toHaveLength(1);
+    expect(lastView(host).choose).toBeUndefined();
   });
 });

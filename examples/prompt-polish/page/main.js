@@ -36,6 +36,9 @@
  *   header bar or back (move.js); folded, it sends no size.
  * Modified 2026-11-07 (fitted card): the height sent is the content's own
  *   (its children's extent), so the card also shrinks when there's less.
+ * Modified 2026-11-07 (pick before checking): the chip names what to fix
+ *   first; a prompt from the agent input box, with own cases, opens on the
+ *   menu of what to fix (`choose`), and the pick starts the check.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -100,7 +103,8 @@
     } else {
       list.append(o.el("p", "muted", L2.casesInSettings));
     }
-    o.body.replaceChildren(list);
+    const ask = v.step === "write" && v.choose ? [o.el("b", "case-title", L2.modeChoose)] : [];
+    o.body.replaceChildren(...ask, list);
     o.foot.replaceChildren(o.button("btn ghost", L2.cancel, null));
     o.foot.firstChild.addEventListener("click", o.close);
     list.querySelector("[aria-checked='true'], button")?.focus();
@@ -250,8 +254,8 @@
   function drawHead(v) {
     $("name").textContent = L.name;
     $("where").textContent = v.view === "side" ? L.inDock : L.overPane;
-    $("chip").textContent = `${v.language} \xB7 ${v.mode}`;
-    $("chip").title = L.modeMenu;
+    $("chip").textContent = `${v.mode} \xB7 ${v.language}`;
+    $("chip").title = `${L.modeMenu}: ${v.mode} \xB7 ${v.language}`;
     $("chip").setAttribute("aria-expanded", String(menuOpen));
     $("views").setAttribute("aria-label", L.views.bottom);
     $("views").replaceChildren(
@@ -449,6 +453,7 @@
     drawHead(v);
     const parts = { el, button, send, body: $("body"), foot: $("foot") };
     if (menuOpen) drawModeMenu(v, L, { ...parts, pick: pickMode, close: closeMenu });
+    else if (choosing(v)) drawModeMenu(v, L, { ...parts, pick: pickMode, close: skipChoice });
     else if (v.step === "case") drawCase(v, L, parts);
     else if (v.step === "checking") drawChecking(v);
     else if (v.step === "agent") drawAgent(v);
@@ -461,6 +466,11 @@
   function closeMenu() {
     menuOpen = false;
     if (view) draw(view);
+  }
+  var choosing = (v) => !!v && v.step === "write" && !!v.choose;
+  function skipChoice() {
+    menuOpen = false;
+    send({ type: "choose-skip" });
   }
   function pickMode(message) {
     menuOpen = false;
@@ -509,6 +519,7 @@
     send({ type: "hello" });
   }
   $("chip").addEventListener("click", () => {
+    if (choosing(view) && !menuOpen) return skipChoice();
     menuOpen = !menuOpen;
     if (view) draw(view);
   });
@@ -526,6 +537,7 @@
       } else if (view.step === "result") send({ type: "send" });
     }
     if (e.key === "Escape" && menuOpen) return closeMenu();
+    if (e.key === "Escape" && choosing(view)) return skipChoice();
     if (e.key === "Escape" && view?.step === "case") return send({ type: "case-cancel" });
     if (e.key === "Escape" && view && view.view !== "side" && view.view !== "window")
       send({ type: "fold" });

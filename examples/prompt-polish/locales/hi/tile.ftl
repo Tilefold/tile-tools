@@ -103,6 +103,7 @@ toast-needs-tilefold = अपना पेज दिखाने के लि�
 setting-cases = आपके अपने केस: पहली पंक्ति में नाम, उसके नीचे क्या करना है, केसों के बीच एक खाली पंक्ति
 setting-case-list = क्या ठीक करना है, इसके आपके अपने केस
 label-mode-menu = क्या ठीक करना है
+label-mode-choose = इस प्रॉम्प्ट को क्या चाहिए? चुनें, और जाँच शुरू हो जाएगी।
 label-add-case = अपना जोड़ें…
 label-edit-case = “{ $name }” बदलें…
 label-cases-in-settings = अपने केस सेटिंग्स → टाइल्स → Prompt Polish में जोड़ें

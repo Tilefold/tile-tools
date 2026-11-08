@@ -22,6 +22,8 @@
  *   surface over the pane.
  * Modified 2026-11-06 (no-key mode): waiting for the agent with Cancel, and
  *   "Ask the agent instead" offered only for a missing key or Claude.
+ * Modified 2026-11-07 (pick before checking): the chip names what to
+ *   fix before the language.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -106,7 +108,7 @@ describe("the page", () => {
     ready(p, { draft: "로그인 하면 안돼요" });
     expect(p.$("name").textContent).toBe("Prompt Polish");
     expect(p.$("where").textContent).toBe("over the pane");
-    expect(p.$("chip").textContent).toBe("한국어 · Mistakes only");
+    expect(p.$("chip").textContent).toBe("Mistakes only · 한국어");
     expect(p.$("draft").value).toBe("로그인 하면 안돼요");
     expect(p.$("foot").textContent).toContain("Words: 3");
     expect(p.$("views").querySelectorAll("button")).toHaveLength(3);

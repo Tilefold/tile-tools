@@ -103,6 +103,7 @@ toast-needs-tilefold = Prompt Polish нужен более новый Tilefold, 
 setting-cases = Ваши случаи: название в первой строке, под ним что делать, пустая строка между случаями
 setting-case-list = Ваши случаи: что исправлять
 label-mode-menu = Что исправлять
+label-mode-choose = Что нужно этому промпту? Выберите — и проверка начнётся.
 label-add-case = Добавить свой…
 label-edit-case = Изменить «{ $name }»…
 label-cases-in-settings = Свои случаи добавляются в Настройки → Плитки → Prompt Polish

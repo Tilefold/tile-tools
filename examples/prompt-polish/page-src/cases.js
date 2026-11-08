@@ -14,6 +14,9 @@
  * last save didn't go, and Save, Cancel and (editing) Remove. What the
  * user typed survives the tile drawing the form again. Text is set with
  * textContent and values only.
+ *
+ * Modified 2026-11-07 (pick before checking): asked before a check, the
+ *   menu says so above its entries.
  */
 
 /**
@@ -48,7 +51,9 @@ export function drawModeMenu(v, L, o) {
   } else {
     list.append(o.el("p", "muted", L.casesInSettings));
   }
-  o.body.replaceChildren(list);
+  // Asked before the check (a prompt from the agent input box): say why it shows.
+  const ask = v.step === "write" && v.choose ? [o.el("b", "case-title", L.modeChoose)] : [];
+  o.body.replaceChildren(...ask, list);
   o.foot.replaceChildren(o.button("btn ghost", L.cancel, null));
   o.foot.firstChild.addEventListener("click", o.close);
   list.querySelector("[aria-checked='true'], button")?.focus();

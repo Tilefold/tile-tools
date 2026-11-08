@@ -9,10 +9,15 @@
  * Sessions are found and made by pane id, start empty and closed, reset
  * back to writing; past the limit the least recently used one goes, never
  * one that is checking; the focused pane's id is read from a layout.
+ * Whether what to fix is asked first is cleared by a reset, by going back
+ * to the prompt, and by closing the menu (only while it is asked).
+ *
+ * Modified 2026-11-07 (pick before checking): `choosing`.
  */
 import { describe, expect, it } from "vitest";
 import {
   MAX_SESSIONS,
+  applyToSession,
   createSessions,
   focusedId,
   freshSession,
@@ -70,5 +75,31 @@ describe("sessions", () => {
     expect(focusedId({ panes: [{ id: "p1" }, { id: "p2", focused: true }] })).toBe("p2");
     expect(focusedId({ panes: [{ id: "p1" }] })).toBeNull();
     expect(focusedId(null)).toBeNull();
+  });
+});
+
+describe("what to fix, asked before the check", () => {
+  it("starts unasked, and a reset clears it", () => {
+    const s = freshSession();
+    expect(s.choosing).toBe(false);
+    s.choosing = true;
+    expect(resetSession(s).choosing).toBe(false);
+  });
+
+  it("is cleared by closing the menu, only while it is asked", () => {
+    const s = { ...freshSession(), choosing: true };
+    expect(applyToSession(s, { type: "choose-skip" })).toEqual({
+      done: true,
+      changed: true,
+      toggled: false,
+    });
+    expect(s.choosing).toBe(false);
+    expect(applyToSession(s, { type: "choose-skip" }).done).toBe(false);
+  });
+
+  it("is cleared by going back to the prompt", () => {
+    const s = { ...freshSession(), step: "result", choosing: true };
+    applyToSession(s, { type: "back" });
+    expect(s).toMatchObject({ step: "write", choosing: false });
   });
 });

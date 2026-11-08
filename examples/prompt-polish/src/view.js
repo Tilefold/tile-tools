@@ -29,6 +29,8 @@
  *   menu's entries (`modes`: the built-in two, then the user's own cases;
  *   `modeId`, the one picked), whether cases can be edited here, and the
  *   `case` step: the form to add or edit a case, over whatever was there.
+ * Modified 2026-11-07 (pick before checking): `choose` on the write step,
+ *   and the menu's heading for it.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -90,6 +92,7 @@ export function setupOf(t) {
       tooLong: t("label-too-long", { max: MAX_CHARS }),
       // What to fix: the chip's menu and the form for the user's own cases.
       modeMenu: t("label-mode-menu"),
+      modeChoose: t("label-mode-choose"),
       addCase: t("label-add-case"),
       editCase: t("label-edit-case", { name: "{name}" }),
       casesInSettings: t("label-cases-in-settings"),
@@ -218,6 +221,8 @@ export function viewOf(s, t) {
     ...head,
     step: "write",
     draft: s.draft,
+    // From the agent input box with own cases: what to fix is picked first.
+    choose: !!s.choosing,
     placeholder: t("label-placeholder", { language: lang.native }),
   };
 }

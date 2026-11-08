@@ -290,6 +290,7 @@ export function runPolish(tf) {
     language,
     mode: () => modes.now().mode,
     rules: () => modes.now().rules,
+    choose: () => current().cases.length > 0,
     fast: () => current().fast,
     helperAgent: () => current().helperAgent,
   };

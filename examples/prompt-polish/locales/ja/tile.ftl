@@ -103,6 +103,7 @@ toast-needs-tilefold = Prompt Polish の画面を表示するには、新しい 
 setting-cases = 自分のケース：1 行目に名前、その下にすること、ケースの間は空行
 setting-case-list = 直す内容の自分のケース
 label-mode-menu = 直す内容
+label-mode-choose = このプロンプトに何をしますか？選ぶとチェックが始まります。
 label-add-case = 自分のケースを追加…
 label-edit-case = 「{ $name }」を編集…
 label-cases-in-settings = 自分のケースは 設定 → タイル → Prompt Polish で追加します

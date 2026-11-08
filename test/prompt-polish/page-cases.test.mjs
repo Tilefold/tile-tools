@@ -12,7 +12,12 @@
  * for a case in use, adding always, or where to add cases in Settings when
  * this Tilefold can't save them from the card. The case form sends what
  * was typed, keeps it when the tile draws the form again (with the reason
- * a save didn't go), and offers Remove only for a case being edited.
+ * a save didn't go), and offers Remove only for a case being edited. The
+ * chip names what to fix before the language. Asked before a check, the
+ * menu shows first with its heading, and closing it tells the tile.
+ *
+ * Modified 2026-11-07 (pick before checking): the chip's order, and the
+ *   menu asked before the check.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -96,7 +101,7 @@ describe("the menu of what to fix", () => {
   it("opens from the chip with the modes and cases, the one in use checked", () => {
     const p = page();
     ready(p, { ...CASES, modeId: "case:Video editing", caseName: "Video editing" });
-    expect(p.$("chip").textContent).toBe("한국어 · Video editing");
+    expect(p.$("chip").textContent).toBe("Video editing · 한국어");
     expect(p.$("chip").getAttribute("aria-expanded")).toBe("false");
     p.click(p.$("chip"));
     expect(p.$("chip").getAttribute("aria-expanded")).toBe("true");
@@ -180,5 +185,36 @@ describe("the case form", () => {
     expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "case-remove", name: "Video editing" });
     p.w.document.dispatchEvent(new p.w.KeyboardEvent("keydown", { key: "Escape" }));
     expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "case-cancel" });
+  });
+});
+
+describe("what to fix, asked before the check", () => {
+  const ASKED = { ...CASES, draft: "make a cut", input: true, choosing: true };
+
+  it("shows the menu first, saying the pick starts the check", () => {
+    const p = page();
+    ready(p, ASKED);
+    expect(p.$("body").querySelector(".case-title").textContent).toBe(t("label-mode-choose"));
+    expect(items(p).map((b) => b.textContent)).toContain("Video editing");
+    expect(p.$("draft")).toBeNull();
+    p.click(items(p)[2]);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "mode", to: "case:Video editing" });
+  });
+
+  it("closes with Cancel, the chip or Escape, telling the tile", () => {
+    for (const close of [
+      (p) => p.click(p.$("foot").querySelector("button")),
+      (p) => p.click(p.$("chip")),
+      (p) => p.w.document.dispatchEvent(new p.w.KeyboardEvent("keydown", { key: "Escape" })),
+    ]) {
+      const p = page();
+      ready(p, ASKED);
+      close(p);
+      expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "choose-skip" });
+      expect(p.posted.some((m) => m.type === "fold")).toBe(false);
+      // The tile answers with the prompt, no longer asking.
+      p.tell({ do: "show", view: viewFor({ ...ASKED, choosing: false }) });
+      expect(p.$("draft").value).toBe("make a cut");
+    }
   });
 });

@@ -24,6 +24,10 @@
  * never keeps spinning for a card that isn't there. When the user presses
  * × beside the spinning button (`input.cancelled`), that pane's card
  * closes. Only counts are audited (`used`), never the prompt.
+ *
+ * Modified 2026-11-07 (pick before checking): where the user has their own
+ *   cases (`choose`), the card opens on the menu of what to fix, and the
+ *   check starts once they pick.
  */
 import { build, changeCount } from "./polish.js";
 import { resetSession } from "./sessions.js";
@@ -63,10 +67,10 @@ export function paneAt(layout, spot) {
  *   audit: (action: string, details: object) => void, warn: (err: unknown) => void,
  *   layout: () => Promise<object | null>, openFor: (id: string) => Promise<void>,
  *   check: (id: string, text: string) => Promise<void>, fold: (id: string) => Promise<void>,
- *   noPane: string }} deps
+ *   noPane: string, choose?: () => boolean }} deps `choose`: ask what to fix first
  */
 export function createInputAction(tf, deps) {
-  const { sessions, render, audit, warn, layout, openFor, check, fold, noPane } = deps;
+  const { sessions, render, audit, warn, layout, openFor, check, fold, noPane, choose } = deps;
   const available = () => typeof tf.input?.action === "function";
 
   /** Adds the ✦ Polish button (registered with everything else, up front). */
@@ -109,7 +113,10 @@ export function createInputAction(tf, deps) {
     resetSession(s);
     s.input = { request: e.request };
     s.draft = String(e.text ?? "");
+    // With own cases, what to fix is picked first: the pick starts the check.
+    s.choosing = !!choose?.();
     await openFor(id);
+    if (s.choosing) return render(id);
     await check(id, s.draft);
   };
 

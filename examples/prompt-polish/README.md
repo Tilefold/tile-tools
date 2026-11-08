@@ -13,7 +13,7 @@ Corrects the prompts you write to AI agents, in the language you choose. Click t
 
 ## In Tilefold's own input box
 
-With **Settings → Agents → Write to agents in Tilefold's input box** on (Tilefold 0.1.27), you write to your agent in a box Tilefold draws under the terminal, and Prompt Polish puts a **✦ Polish** button at its end once you've written something. Click it: the card opens above the box with your prompt in it, and the check starts right away. Go through the fixes as usual, then:
+With **Settings → Agents → Write to agents in Tilefold's input box** on (Tilefold 0.1.27), you write to your agent in a box Tilefold draws under the terminal, and Prompt Polish puts a **✦ Polish** button at its end once you've written something. Click it: the card opens above the box with your prompt in it, and the check starts right away. If you have your own cases, the card first asks what to fix, and the check starts once you pick; **Cancel** shows your prompt instead, to check as it is set. Go through the fixes as usual, then:
 
 - **Use** puts the corrected prompt back in the box. Tilefold highlights every changed word and offers **Undo** (or ⌘Z / Ctrl+Z). Nothing is sent: read it and press Enter yourself.
 - **Send to agent** does the same and sends it to your agent right away, as Enter would (if the agent is busy, it waits in the box).
@@ -39,7 +39,7 @@ If a pane is too small for the card, it opens beside the panes instead. On a Til
 
 ## What to fix, and your own cases
 
-Click the chip in the card's header (such as **English · Mistakes only**) to pick what to fix: **Mistakes only**, **Mistakes, and make it read naturally**, or one of your own cases. Your pick stays until you pick again or change **What to fix** in Settings, and a prompt already checked is checked again with it. With one of your cases, the spelling and grammar are fixed as usual, and the prompt is also reworked as that case says, for example adding what a video prompt should always state.
+Click the chip in the card's header (such as **Mistakes only · English**) to pick what to fix: **Mistakes only**, **Mistakes, and make it read naturally**, or one of your own cases. The chip names your pick first, and hovering over it shows the whole name. Your pick stays until you pick again or change **What to fix** in Settings, and a prompt already checked is checked again with it. With one of your cases, the spelling and grammar are fixed as usual, and the prompt is also reworked as that case says, for example adding what a video prompt should always state. A case reworks prompts of its own kind: a prompt that isn't about what the case covers only gets its mistakes fixed, rather than details made up for it.
 
 From the same menu, **Add your own…** opens a small form for a case's name and what to do, and **Edit “…”…** changes the case in use or removes it. They're saved to **Your own cases of what to fix** in Settings, so you can also add and edit them there, one case at a time (Tilefold 0.1.27; on an older Tilefold, add them in Settings only).
 
@@ -86,4 +86,4 @@ Needs Tilefold 0.1.23 (`tf.agent.ask`); over the pane from 0.1.11, beside the pa
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-11-06 by Tilefold
+Last updated: 2026-11-07 by Tilefold

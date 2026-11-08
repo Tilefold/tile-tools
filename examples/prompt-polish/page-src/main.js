@@ -36,6 +36,9 @@
  *   header bar or back (move.js); folded, it sends no size.
  * Modified 2026-11-07 (fitted card): the height sent is the content's own
  *   (its children's extent), so the card also shrinks when there's less.
+ * Modified 2026-11-07 (pick before checking): the chip names what to fix
+ *   first; a prompt from the agent input box, with own cases, opens on the
+ *   menu of what to fix (`choose`), and the pick starts the check.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -107,8 +110,10 @@ function withCode(text) {
 function drawHead(v) {
   $("name").textContent = L.name;
   $("where").textContent = v.view === "side" ? L.inDock : L.overPane;
-  $("chip").textContent = `${v.language} · ${v.mode}`;
-  $("chip").title = L.modeMenu;
+  // What to fix first: a long case name would otherwise hide behind the
+  // chip's ellipsis, after the language. The tooltip has it all.
+  $("chip").textContent = `${v.mode} · ${v.language}`;
+  $("chip").title = `${L.modeMenu}: ${v.mode} · ${v.language}`;
   $("chip").setAttribute("aria-expanded", String(menuOpen));
   $("views").setAttribute("aria-label", L.views.bottom);
   $("views").replaceChildren(
@@ -330,6 +335,8 @@ function draw(v) {
   drawHead(v);
   const parts = { el, button, send, body: $("body"), foot: $("foot") };
   if (menuOpen) drawModeMenu(v, L, { ...parts, pick: pickMode, close: closeMenu });
+  // From the agent input box with own cases: what to fix is picked before the check.
+  else if (choosing(v)) drawModeMenu(v, L, { ...parts, pick: pickMode, close: skipChoice });
   else if (v.step === "case") drawCase(v, L, parts);
   else if (v.step === "checking") drawChecking(v);
   else if (v.step === "agent") drawAgent(v);
@@ -344,6 +351,15 @@ function draw(v) {
 function closeMenu() {
   menuOpen = false;
   if (view) draw(view);
+}
+
+/** Whether view `v` asks what to fix before checking its prompt. */
+const choosing = (v) => !!v && v.step === "write" && !!v.choose;
+
+/** Closes the menu asked before the check: the prompt shows, to check as it is set. */
+function skipChoice() {
+  menuOpen = false;
+  send({ type: "choose-skip" });
 }
 
 /** Sends the menu's choice and closes it. */
@@ -415,6 +431,8 @@ if (bridge) {
 }
 
 $("chip").addEventListener("click", () => {
+  // The menu asked before the check closes like the one the chip opened.
+  if (choosing(view) && !menuOpen) return skipChoice();
   menuOpen = !menuOpen;
   if (view) draw(view);
 });
@@ -434,6 +452,7 @@ document.addEventListener("keydown", (e) => {
   }
   // Escape closes the menu (or the case form) before it folds the card.
   if (e.key === "Escape" && menuOpen) return closeMenu();
+  if (e.key === "Escape" && choosing(view)) return skipChoice();
   if (e.key === "Escape" && view?.step === "case") return send({ type: "case-cancel" });
   if (e.key === "Escape" && view && view.view !== "side" && view.view !== "window")
     send({ type: "fold" });

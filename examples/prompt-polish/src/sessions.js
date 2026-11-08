@@ -21,6 +21,8 @@
  *   `keepsPill`, whether a folded card has something to come back to; and
  *   `applyToSession` (from run.js), the page's messages that change only
  *   the session: a change kept or undone, the result only, back to edit.
+ * Modified 2026-11-07 (pick before checking): `choosing`, and its
+ *   `choose-skip`.
  */
 import { changeCount } from "./polish.js";
 
@@ -35,9 +37,10 @@ export const keepsPill = (s) => !!s && !s.open && s.step !== "write";
 
 /**
  * Applies page message `m` if it changes only session `s`: `toggle` (keep
- * or undo change `id`), `clean` (show the result only) and `back` (to the
- * draft). Whether it was one (`done`), whether `s` changed, and whether a
- * change was toggled (the pill's count moves).
+ * or undo change `id`), `clean` (show the result only), `back` (to the
+ * draft) and `choose-skip` (the menu asked before the check closed).
+ * Whether it was one (`done`), whether `s` changed, and whether a change
+ * was toggled (the pill's count moves).
  */
 export function applyToSession(s, m) {
   if (m.type === "toggle" && s.step === "result") {
@@ -53,6 +56,11 @@ export function applyToSession(s, m) {
   }
   if (m.type === "back") {
     s.step = "write";
+    s.choosing = false;
+    return { done: true, changed: true, toggled: false };
+  }
+  if (m.type === "choose-skip" && s.choosing) {
+    s.choosing = false;
     return { done: true, changed: true, toggled: false };
   }
   return { done: false, changed: false, toggled: false };
@@ -80,6 +88,8 @@ export function freshSession() {
     busy: false,
     // A click on ✦ Polish in the agent input box waiting for Use or Keep mine.
     input: null,
+    // What to fix is asked before that click's prompt is checked.
+    choosing: false,
   };
 }
 
@@ -93,6 +103,7 @@ export function resetSession(s) {
     rejected: new Set(),
     clean: false,
     problem: "",
+    choosing: false,
   });
   return s;
 }
