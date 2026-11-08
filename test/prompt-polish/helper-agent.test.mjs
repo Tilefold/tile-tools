@@ -86,9 +86,11 @@ describe("checking with the polish agent", () => {
     expect(lastView(host).text).toBe("Claude Code is working on your English…");
     expect(lastView(host).hint).toMatch(/^It works in its own tab/);
     expect(Number.isFinite(lastView(host).since)).toBe(true);
+    // The card started the polish agent as it showed, so the request found it open.
+    expect(host.helperStarts[0]).toEqual({ agent: "claude" });
     expect(host.audits).toContainEqual({
       action: "agent-asked",
-      details: { language: "en", mode: "fix", helper: true, opened: true },
+      details: { language: "en", mode: "fix", helper: true, opened: false },
     });
   });
 

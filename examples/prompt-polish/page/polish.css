@@ -20,6 +20,8 @@
  *   fixes, one block per language.
  * Modified 2026-11-08 (quiet question): the note above the menu is small,
  *   italic and muted.
+ * Modified 2026-11-08 (built-in translations): a built-in case's name in
+ *   its form, and the note under it.
  */
 
 :root {
@@ -560,6 +562,14 @@ textarea {
 }
 .case textarea {
   min-height: 7em;
+}
+/* A built-in case's name, which can't change: plain text, not a field. */
+.case .case-name {
+  margin: 0;
+  font-weight: 600;
+}
+.case .case-name + .muted {
+  margin: 0;
 }
 
 /* A case's translations: one block per language, under the fixes. */

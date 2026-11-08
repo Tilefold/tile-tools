@@ -61,10 +61,16 @@
  * Modified 2026-11-08 (translations): a case's languages go to the checks;
  *   the result's buttons moved to resultActions.js, which also takes a
  *   translation.
+ * Modified 2026-11-08 (polish agent start): the polish agent starts ahead
+ *   of time when the card shows (helperTab), Show and Restart the polish
+ *   agent are commands and card buttons; the commands and the input box's
+ *   events, and the pill's, are registered in commands.js.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
 import { createCardMoves } from "./cardMoves.js";
+import { registerCommands, registerPill } from "./commands.js";
+import { createHelperTab } from "./helperTab.js";
 import { createModes } from "./modes.js";
 import { createLog } from "./log.js";
 import { createClaudeRun } from "./claudeRun.js";
@@ -83,7 +89,7 @@ import {
   resetSession,
   waitingFixes,
 } from "./sessions.js";
-import { cardSettings, COMMANDS, settingsOf } from "./settings.js";
+import { cardSettings, settingsOf } from "./settings.js";
 import { BUTTON_ID, createStage } from "./show.js";
 import { setupOf, viewOf } from "./view.js";
 
@@ -109,6 +115,13 @@ export function runPolish(tf) {
     render: () => render(),
   };
   const modes = createModes(tf, { ...later, sessions, audit, warn });
+  const helperTab = createHelperTab(tf, {
+    ...later,
+    render: (id) => render(id),
+    sessions,
+    audit,
+    warn,
+  });
   /** Whether Promptsmith is on at all (the pill and the side dock show while it is). */
   let active = false;
   /** The user closed it from the palette: the pill stays away until Write a prompt. */
@@ -150,9 +163,17 @@ export function runPolish(tf) {
   const render = async (id = shown) => {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
+    // The card shows: the polish agent gets ready, if it will check (never awaited).
+    helperTab.ensure().catch(warn);
     // The polish agent is called what the user renamed its pane to, if they did.
     const { max, collapsed } = moves.state();
-    const card = { ...cardSettings(current()), ...modes.view(), max, collapsed };
+    const card = {
+      ...cardSettings(current()),
+      ...modes.view(),
+      ...helperTab.view(),
+      max,
+      collapsed,
+    };
     const called = agentRun.calledName();
     if (called) card.helperName = called;
     await post({
@@ -298,6 +319,7 @@ export function runPolish(tf) {
     choose: () => current().cases.length > 0,
     fast: () => current().fast,
     helperAgent: () => current().helperAgent,
+    usedHelper: () => helperTab.noteUsed(),
   };
   const agentRun = createAgentRun(tf, deps);
   // Without a key, the polish agent checks it (where Tilefold has one).
@@ -338,7 +360,12 @@ export function runPolish(tf) {
       await post({ do: "setup", ...setupOf(tf.t) });
       return render();
     }
-    if ((await moves.hear(m)) || (await modes.hear(m, typeof m.pane === "string" ? m.pane : shown)))
+    const pane = typeof m.pane === "string" ? m.pane : shown;
+    if (
+      (await moves.hear(m)) ||
+      (await modes.hear(m, pane)) ||
+      (await helperTab.hear({ ...m, pane }))
+    )
       return;
     if (m.type === "view") return chooseView(m.to);
     if (m.type === "fold") return fold();
@@ -384,30 +411,20 @@ export function runPolish(tf) {
   };
 
   // ------------------------------------------------- registration (nothing awaited above)
-  // ✦ Polish in Tilefold's agent input box, where this Tilefold has it.
-  inputAction.register();
-  tf.on(
-    "input.action",
-    background((e) => inputAction.clicked(e)),
-  );
-  tf.on(
-    "input.cancelled",
-    background((e) => inputAction.cancelled(e)),
-  );
-  const runs = { open, close: closeAll };
-  for (const c of COMMANDS) {
-    tf.command(
-      tf.t(c.title),
-      background(() => runs[c.id]()),
-      { id: c.id },
-    );
-  }
-  // For AI agents: the agent in the pane hands back the prompt it corrected.
-  tf.command(
-    tf.t("cmd-hand-back"),
-    async (input) => (input == null ? void (await open()) : agentRun.handBack(input)),
-    { id: HAND_BACK, input: HAND_BACK_INPUT },
-  );
+  registerCommands(tf, {
+    background,
+    inputAction,
+    open,
+    runs: {
+      open,
+      close: closeAll,
+      "helper-show": () => helperTab.show(),
+      "helper-restart": () => helperTab.show(true),
+    },
+    handBack: (input) => agentRun.handBack(input),
+    handBackId: HAND_BACK,
+    handBackInput: HAND_BACK_INPUT,
+  });
   tf.on(
     "page.message",
     background((e) => hear(e && e.message)),
@@ -446,30 +463,15 @@ export function runPolish(tf) {
       if (active) await place();
     }),
   );
-  tf.on(
-    "overlay.pointer",
-    background(async (e) => {
-      if (!e || e.item !== BUTTON_ID || e.type !== "click") return;
-      const s = sessions.ensure(focusId());
-      s.open = !s.open;
-      await place();
-    }),
-  );
-  tf.on(
-    "overlay.hidden",
-    // The user hid tile overlays: the button goes, and the card with it.
-    background(async () => {
-      stage.lostOverlay();
-      if (stage.where() === "card") await closeAll();
-    }),
-  );
-  tf.on(
-    "theme.changed",
-    background(async (e) => {
-      stage.setAccent(e?.colors?.accent ?? null);
-      if (stage.buttonShown()) await place();
-    }),
-  );
+  registerPill(tf, {
+    background,
+    stage,
+    sessions,
+    focusId,
+    place,
+    closeAll,
+    buttonId: BUTTON_ID,
+  });
   tf.on(
     "setting.changed",
     background(async (e) => {

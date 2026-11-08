@@ -633,6 +633,34 @@ export interface Tf {
       | { sent: false; why: "busy" | "you-are-typing" | "not-started"; opened: boolean }
     >;
     /**
+     * Needs agent.helper (Tilefold 0.1.27; missing before). How the tile's
+     * helper running `agent` is: `none` (not running), `starting` (not yet
+     * past its first questions), `ready`, or `busy` (it works or waits on
+     * the user); `name` as for `helper`.
+     */
+    helperStatus?(request: {
+      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
+    }): Promise<{ state: "none" | "starting" | "ready" | "busy"; name: string | null }>;
+    /**
+     * Needs agent.helper (Tilefold 0.1.27; missing before). Starts the
+     * tile's helper running `agent` without typing anything, and resolves
+     * once it is ready or gave up (`not-started`, after two minutes): its tab
+     * opens in the background when it isn't running, and comes forward only
+     * while the agent asks something. `show: true` brings its tab to the
+     * front and leaves it there; `restart: true` closes the tile's own
+     * helper tabs first. Use them when the user asks. Counts toward the six
+     * calls a minute (`RateLimitError`).
+     */
+    helperStart?(request: {
+      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
+      show?: boolean;
+      restart?: boolean;
+    }): Promise<{
+      state: "ready" | "busy" | "not-started";
+      opened: boolean;
+      name: string | null;
+    }>;
+    /**
      * Needs agent.define (Tilefold 0.1.27; missing before). Offers the user
      * an AI coding agent to add to their own agents: Tilefold asks them
      * first, showing your tile, the name and the exact command. `command`

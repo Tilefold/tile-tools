@@ -36,6 +36,8 @@
  * Modified 2026-11-08 (translations): a case's languages go with the
  *   request (`translateAsk`), and the hand-back may carry "translations"
  *   ({ code: text }), each read and bounded like the corrected prompt.
+ * Modified 2026-11-08 (built-in translations): the translations asked
+ *   for go with a built-in mode too.
  */
 import { casePicked, caseRules, translateAsk, whatToDo } from "./answer.js";
 import { LANGUAGES } from "./languages.js";
@@ -96,10 +98,11 @@ export function agentRequest({
           "-----",
           String(rules),
           "-----",
-          ...(translateAsk(translate) ? [translateAsk(translate)] : []),
-          "The prompt:",
         ]
       : []),
+    // The languages to translate into, for a case or a built-in one.
+    ...(translateAsk(translate) ? [translateAsk(translate)] : []),
+    ...(mode === "case" && rules ? ["The prompt:"] : []),
     "-----",
     String(text),
     "-----",
@@ -156,14 +159,14 @@ export function agentQuestion({
   translate = [],
 }) {
   const own = mode === "case" && !!rules;
-  const also = own ? translateAsk(translate) : "";
+  const also = translateAsk(translate);
   const lines = [
     `Promptsmith request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
     whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
     ...caseRules(own ? "case" : mode, rules),
     own
-      ? "Keep the meaning and the language. Never translate it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are."
-      : "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
+      ? `Keep the meaning and the language. Never translate it${also ? " (the corrected prompt itself)" : ""}. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.`
+      : `Keep the meaning and the language. Never translate it${also ? " (the corrected prompt itself)" : ""} and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.`,
     ...(also ? [also] : []),
     `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]${also ? ', "translations": {<language code>: <translation>}' : ""}}.`,
     'If nothing needs fixing, hand back the prompt unchanged with "notes": []. Do nothing else, and reply only "Done".',

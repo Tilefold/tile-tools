@@ -108,10 +108,17 @@ describe("asking for translations", () => {
     expect(q).toContain('"translations"');
     const one = agentRequest({ ...r, mode: "case", rules: "Say it.", translate: ["ko"] });
     expect(one).toContain("Korean (ko)");
-    // Never for the built-in modes.
-    expect(agentQuestion({ ...r, mode: "fix", command: "x.y", translate: ["ja"] })).not.toContain(
-      "Japanese",
+    // A built-in case translates too when its setting names languages, and only then.
+    const fix = agentQuestion({ ...r, mode: "fix", command: "x.y", translate: ["ja"] });
+    expect(fix).toContain("Japanese (ja)");
+    expect(fix).toContain("Never translate it (the corrected prompt itself)");
+    expect(agentQuestion({ ...r, mode: "fix", command: "x.y", translate: [] })).not.toContain(
+      "translations",
     );
+    const natural = agentRequest({ ...r, mode: "natural", translate: ["fr"] });
+    expect(natural).toContain("French (fr)");
+    // The translation ask comes before the prompt.
+    expect(natural.indexOf("French (fr)")).toBeLessThan(natural.indexOf("-----"));
   });
 });
 

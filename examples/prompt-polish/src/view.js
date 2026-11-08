@@ -37,6 +37,9 @@
  * Modified 2026-11-08 (apply a case): `apply` on the write step, the case
  *   its button applies, and that button's label.
  * Modified 2026-11-08 (edit any case): the labels to pick a case to edit.
+ * Modified 2026-11-08 (built-in translations): the form for a built-in
+ *   case's languages (`builtin`), and the polish agent's Show its tab and
+ *   Restart it (`showHelper`, `helperFix`, from `canShowHelper`).
  * Modified 2026-11-08 (translations): the case form's languages, and the
  *   result's translations (`translations`: each language's own name and
  *   text), with their labels.
@@ -46,6 +49,8 @@ import { MAX_CHARS, changeCount } from "./polish.js";
 
 /** Problems the agent in the pane can get around: no Claude, or no key for it. */
 const AGENT_CAN_HELP = new Set(["error-no-ai", "error-no-key"]);
+/** Problems the polish agent's tab can solve: the card offers to show or restart it. */
+const HELPER_CAN_FIX = new Set(["error-helper-not-started", "error-helper-failed"]);
 
 /** Each waiting text, as it reads while one of the user's own cases is picked. */
 const CASE_KEYS = {
@@ -120,6 +125,13 @@ export function setupOf(t) {
       // No case in use: Edit… first asks which case.
       editCases: t("label-edit-cases"),
       editWhich: t("label-edit-which"),
+      // With a built-in case in use: edit one of the user's own cases instead.
+      editAnother: t("label-edit-another"),
+      caseBuiltin: t("label-case-builtin"),
+      caseBuiltinNote: t("label-case-builtin-note"),
+      // The polish agent's tab: bring it to the front, or start it afresh.
+      helperShow: t("label-helper-show"),
+      helperRestart: t("label-helper-restart"),
       casesInSettings: t("label-cases-in-settings"),
       caseNew: t("label-case-new"),
       caseEdit: t("label-case-edit"),
@@ -195,6 +207,19 @@ export function viewOf(s, t) {
   // The form to add or edit a case shows over whatever step was there.
   if (s.editing) {
     const e = s.editing;
+    // A built-in case: its name, and only its languages to change.
+    if (e.builtin === "fix" || e.builtin === "natural") {
+      return {
+        ...head,
+        step: "case",
+        builtin: e.builtin,
+        was: null,
+        name: t(e.builtin === "natural" ? "setting-mode-natural" : "setting-mode-fix"),
+        rules: "",
+        translate: String(e.translate ?? ""),
+        why: e.why ? t(e.why) : "",
+      };
+    }
     return {
       ...head,
       step: "case",
@@ -229,12 +254,16 @@ export function viewOf(s, t) {
         : t("label-helper-starting", { agent }),
       hint: t(working ? "label-helper-working-hint" : "label-helper-starting-hint"),
       since: working && Number.isFinite(s.helperSince) ? s.helperSince : null,
+      // Its tab can be brought to the front, to answer it or watch it.
+      showHelper: !!s.canShowHelper,
     };
   }
   if (s.step === "problem") {
     // With a prompt to check, the agent in the pane can do it instead.
     const offer = AGENT_CAN_HELP.has(s.problem) && !!String(s.draft ?? "").trim();
-    return { ...head, step: "problem", text: t(s.problem), askAgent: offer };
+    // The polish agent didn't start: its tab can be shown, or it can start afresh.
+    const helperFix = !!s.canShowHelper && HELPER_CAN_FIX.has(s.problem);
+    return { ...head, step: "problem", text: t(s.problem), askAgent: offer, helperFix };
   }
   if (s.step === "sent") return { ...head, step: "sent" };
   if (s.step === "result") {

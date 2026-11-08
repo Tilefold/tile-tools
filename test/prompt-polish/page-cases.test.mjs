@@ -27,6 +27,9 @@
  *   asking which case first.
  * Modified 2026-11-08 (translations): a case's translations under the
  *   fixes, with Copy and Use this / Send this; the form's languages field.
+ * Modified 2026-11-08 (built-in translations): Edit for the built-in case
+ *   in use, Edit another case…, and the built-in case's form (its name,
+ *   a note, the languages field; Save and Cancel, no Remove).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -245,15 +248,23 @@ describe("the menu's divider", () => {
   });
 });
 
-describe("editing a case with none in use", () => {
-  it("shows Edit… right above Add, asking which case first", () => {
+describe("editing a case with a built-in one in use", () => {
+  it("edits the built-in one, or asks which own case with Edit another", () => {
     const p = page();
     ready(p, { cases: ["Video editing", "Email"], canEditCases: true });
     p.click(p.$("chip"));
-    const tail = items(p).slice(-2);
-    expect(tail.map((b) => b.textContent)).toEqual([t("label-edit-cases"), t("label-add-case")]);
+    const tail = items(p).slice(-3);
+    expect(tail.map((b) => b.textContent)).toEqual([
+      t("label-edit-case", { name: t("setting-mode-fix") }),
+      t("label-edit-another"),
+      t("label-add-case"),
+    ]);
     p.click(tail[0]);
-    expect(p.posted.some((m) => m.type === "case-edit")).toBe(false);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "case-edit", builtin: "fix" });
+    p.click(p.$("chip"));
+    const before = p.posted.length;
+    p.click(items(p).slice(-2)[0]);
+    expect(p.posted.slice(before).some((m) => m.type === "case-edit")).toBe(false);
     expect(p.$("body").querySelector(".menu-ask").textContent).toBe(t("label-edit-which"));
     expect(items(p).map((b) => b.textContent)).toEqual(["Video editing", "Email"]);
     p.click(items(p)[1]);
@@ -385,5 +396,62 @@ describe("a case's rework", () => {
     expect(first.querySelector("button")).toBeNull();
     p.click(first);
     expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "toggle", id: 1 });
+  });
+});
+
+describe("the form for a built-in case", () => {
+  it("shows its name and a note, only the languages field, and no Remove", () => {
+    const p = page();
+    ready(p, { ...CASES, editing: { builtin: "natural", translate: "ja, ko", why: "" } });
+    const form = p.$("body").querySelector("form.case");
+    expect(form.querySelector(".case-title").textContent).toBe(t("label-case-builtin"));
+    expect(form.querySelector(".case-name").textContent).toBe(t("setting-mode-natural"));
+    expect(form.textContent).toContain(t("label-case-builtin-note"));
+    expect(form.querySelector("textarea")).toBeNull();
+    expect(form.querySelector("input[name=name]")).toBeNull();
+    expect(form.elements.namedItem("translate").value).toBe("ja, ko");
+    const labels = [...p.$("foot").querySelectorAll("button")].map((b) => b.textContent);
+    expect(labels).toEqual([t("label-cancel"), t("label-case-save")]);
+  });
+
+  it("saves the languages typed, keeping them over a redraw", () => {
+    const p = page();
+    const s = { ...CASES, editing: { builtin: "fix", translate: "", why: "" } };
+    ready(p, s);
+    const field = p.$("body").querySelector("form.case").elements.namedItem("translate");
+    field.value = "fr, es";
+    p.tell({ do: "show", view: viewFor(s) });
+    const again = p.$("body").querySelector("form.case").elements.namedItem("translate");
+    expect(again.value).toBe("fr, es");
+    p.click([...p.$("foot").querySelectorAll("button")].at(-1));
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "case-save", translate: "fr, es" });
+  });
+
+  it("shows why a save didn't go", () => {
+    const p = page();
+    ready(p, { ...CASES, editing: { builtin: "fix", translate: "ja", why: "case-not-saved" } });
+    expect(p.$("body").querySelector("[role=alert]").textContent).toBe(t("case-not-saved"));
+  });
+});
+
+describe("the polish agent's buttons", () => {
+  it("offers Show its tab while it starts", () => {
+    const p = page();
+    ready(p, { step: "agent", helper: true, helperStage: "starting", canShowHelper: true });
+    const show = [...p.$("foot").querySelectorAll("button")].find(
+      (b) => b.textContent === t("label-helper-show"),
+    );
+    p.click(show);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "helper-show" });
+  });
+
+  it("offers Show and Restart when it didn't start, and nothing on an older Tilefold", () => {
+    const p = page();
+    ready(p, { step: "problem", problem: "error-helper-not-started", canShowHelper: true });
+    const labels = [...p.$("foot").querySelectorAll("button")].map((b) => b.textContent);
+    expect(labels).toEqual([t("label-back"), t("label-helper-restart"), t("label-helper-show")]);
+    const old = page();
+    ready(old, { step: "problem", problem: "error-helper-not-started" });
+    expect([...old.$("foot").querySelectorAll("button")]).toHaveLength(1);
   });
 });

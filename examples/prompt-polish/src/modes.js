@@ -37,8 +37,15 @@
  *   user's Apply instead of checking at once.
  * Modified 2026-11-08 (translations): a case's languages to translate
  *   into (`translate`), in its form and in what is saved.
+ * Modified 2026-11-08 (built-in translations): the built-in cases translate
+ *   too, into the languages of their settings (`fixTranslate`,
+ *   `naturalTranslate`); `case-edit` with `builtin` ("fix" or "natural")
+ *   opens a form for just those, and its save writes that setting and
+ *   picks the built-in case. Audited `builtin-saved` ({ mode, languages:
+ *   a count }).
  */
-import { nameOf, removeCase, saveCase, translateText } from "./cases.js";
+import { nameOf, removeCase, saveCase, translateOf, translateText } from "./cases.js";
+import { TRANSLATE_SETTINGS } from "./settings.js";
 
 /** The store key of the card's pick. */
 export const PICK_KEY = "mode-pick";
@@ -48,7 +55,8 @@ const MAX_PICK = 80;
 
 /**
  * @param {any} tf
- * @param {{ current: () => { mode: string, cases: { name: string, rules: string }[] },
+ * @param {{ current: () => { mode: string, cases: { name: string, rules: string }[],
+ *     builtinTranslate?: { fix: string[], natural: string[] } },
  *   sessions: { get: (id: string) => any }, check: (id: string, text: string) => Promise<void>,
  *   render: () => Promise<void>, audit: (action: string, details?: object) => void,
  *   warn: (err: unknown) => void }} o
@@ -75,7 +83,7 @@ export function createModes(tf, o) {
       if (c) return { mode: "case", name: c.name, rules: c.rules, translate: c.translate ?? [] };
     }
     const mode = pick === "fix" || pick === "natural" ? pick : o.current().mode;
-    return { mode, name: "", rules: "", translate: [] };
+    return { mode, name: "", rules: "", translate: o.current().builtinTranslate?.[mode] ?? [] };
   };
 
   /** Keeps the card's pick (null: back to the setting's). */
@@ -131,6 +139,28 @@ export function createModes(tf, o) {
     }
   };
 
+  /**
+   * Saves a built-in case's languages (`m.translate`) to its setting, picks
+   * it, and checks the shown prompt again if it was checked.
+   */
+  const saveBuiltin = async (s, id, m) => {
+    const mode = s.editing.builtin;
+    const codes = translateOf(typeof m.translate === "string" ? m.translate : "");
+    try {
+      await tf.settings.set(TRANSLATE_SETTINGS[mode], translateText(codes));
+    } catch (err) {
+      o.warn(err);
+      s.editing = { ...s.editing, translate: String(m.translate ?? ""), why: "case-not-saved" };
+      await o.render();
+      return true;
+    }
+    s.editing = null;
+    await keep(mode);
+    o.audit("builtin-saved", { mode, languages: codes.length });
+    await settle(id, answered(id));
+    return true;
+  };
+
   /** After a pick or a save: holds a case for Apply, else checks as before. */
   const settle = async (id, first) => {
     const s = o.sessions.get(id);
@@ -174,6 +204,13 @@ export function createModes(tf, o) {
       if (!s) return m.type.startsWith("case-");
       if (m.type === "case-edit") {
         if (!canEdit()) return true;
+        // A built-in case: only its languages can change.
+        if (m.builtin === "fix" || m.builtin === "natural") {
+          const codes = o.current().builtinTranslate?.[m.builtin] ?? [];
+          s.editing = { builtin: m.builtin, translate: translateText(codes), why: "" };
+          await o.render();
+          return true;
+        }
         const was = typeof m.was === "string" ? cases().find((c) => c.name === m.was) : null;
         s.editing = {
           was: was?.name ?? null,
@@ -192,6 +229,7 @@ export function createModes(tf, o) {
       }
       if (m.type === "case-save") {
         if (!s.editing || !canEdit()) return true;
+        if (s.editing.builtin) return saveBuiltin(s, id, m);
         const was = s.editing.was;
         // A list holds each case on its own: no limit on the whole.
         const input = { name: m.name, rules: m.rules, translate: m.translate };

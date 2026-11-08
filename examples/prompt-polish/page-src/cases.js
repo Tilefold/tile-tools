@@ -22,6 +22,9 @@
  *   translate into.
  * Modified 2026-11-08 (edit any case): Edit always shows above Add while
  *   there are cases; the question above the menu is a quiet note.
+ * Modified 2026-11-08 (built-in translations): with a built-in case in use,
+ *   Edit opens its form (the languages it translates into only), and
+ *   "Edit another case…" asks which of the user's own cases to edit.
  */
 
 /**
@@ -49,13 +52,19 @@ export function drawModeMenu(v, L, o) {
   list.append(o.el("hr", "menu-line"));
   if (v.canEditCases) {
     const names = (v.modes ?? []).filter((m) => String(m.id).startsWith("case:"));
-    if (String(v.modeId).startsWith("case:")) {
-      const name = String(v.modeId).slice(5);
+    const id = String(v.modeId);
+    if (id.startsWith("case:")) {
+      const name = id.slice(5);
       list.append(item(L.editCase.replace("{name}", name), { type: "case-edit", was: name }));
-    } else if (names.length) {
-      const edit = item(L.editCases, null);
-      edit.addEventListener("click", () => drawEditWhich(v, L, o, names));
-      list.append(edit);
+    } else {
+      // A built-in case in use: its languages can be edited too.
+      const label = (v.modes ?? []).find((m) => m.id === id)?.label ?? id;
+      list.append(item(L.editCase.replace("{name}", label), { type: "case-edit", builtin: id }));
+      if (names.length) {
+        const edit = item(L.editAnother, null);
+        edit.addEventListener("click", () => drawEditWhich(v, L, o, names));
+        list.append(edit);
+      }
     }
     list.append(item(L.addCase, { type: "case-edit", was: null }));
   } else {
@@ -105,6 +114,7 @@ function drawEditWhich(v, L, o, names) {
  *   send: (message: object) => void }} o
  */
 export function drawCase(v, L, o) {
+  if (v.builtin) return drawBuiltin(v, L, o);
   const old = o.body.querySelector("form.case");
   const same = old && old.dataset.was === String(v.was ?? "");
   const typed = same
@@ -182,4 +192,57 @@ export function drawCase(v, L, o) {
   foot.at(-1).addEventListener("click", save);
   o.foot.replaceChildren(...foot);
   if (!same) (typed.name ? rules : name).focus();
+}
+
+/**
+ * Draws the form for a built-in case: its name and a note that its
+ * instructions are built in, then the languages it also translates into,
+ * the only thing to change; Save and Cancel, no Remove. What the user
+ * typed survives the tile drawing the form again.
+ *
+ * @param {any} v the view (`step` "case" with `builtin`, `name`, `translate`, `why`)
+ * @param {any} L the labels
+ * @param {any} o as for drawCase
+ */
+function drawBuiltin(v, L, o) {
+  const old = o.body.querySelector("form.case");
+  const key = `builtin:${v.builtin}`;
+  const same = old && old.dataset.was === key;
+  const typed = same ? old.elements.namedItem("translate").value : (v.translate ?? "");
+  const form = o.el("form", "case");
+  form.dataset.was = key;
+  form.append(o.el("b", "case-title", L.caseBuiltin));
+  const name = o.el("p", "case-name", v.name);
+  name.dir = "auto";
+  form.append(name, o.el("p", "muted", L.caseBuiltinNote));
+  const translate = o.el("input");
+  Object.assign(translate, {
+    name: "translate",
+    type: "text",
+    maxLength: 200,
+    value: typed,
+    dir: "ltr",
+  });
+  translate.placeholder = L.caseTranslateHint;
+  const wrap = o.el("label", "case-field");
+  wrap.append(o.el("span", "muted", L.caseTranslate), translate);
+  form.append(wrap);
+  if (v.why) {
+    const why = o.el("p", "warn", v.why);
+    why.setAttribute("role", "alert");
+    form.append(why);
+  }
+  const save = () => o.send({ type: "case-save", translate: translate.value });
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    save();
+  });
+  o.body.replaceChildren(form);
+  o.foot.replaceChildren(
+    o.el("span", "spacer"),
+    o.button("btn ghost", L.cancel, { type: "case-cancel" }),
+    o.button("btn primary", L.caseSave, null),
+  );
+  o.foot.lastChild.addEventListener("click", save);
+  if (!same) translate.focus();
 }

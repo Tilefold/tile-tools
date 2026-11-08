@@ -43,6 +43,9 @@
  *   button applies it by name (`apply`).
  * Modified 2026-11-08 (translations): a case's translations under the
  *   fixes (translations.js).
+ * Modified 2026-11-08 (polish agent start): Show its tab while the polish
+ *   agent starts or works, and Show its tab and Restart it when it didn't
+ *   start.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -326,7 +329,10 @@ function drawAgent(v) {
   }
   box.append(el("span", "muted", v.hint || L.agentHint));
   $("body").replaceChildren(box);
+  // The polish agent's tab can come to the front, to answer it or watch it work.
+  const show = v.showHelper ? [button("btn ghost", L.helperShow, { type: "helper-show" })] : [];
   $("foot").replaceChildren(
+    ...show,
     el("span", "spacer"),
     button("btn", L.cancel, { type: "cancel-agent" }),
   );
@@ -339,6 +345,13 @@ function drawProblem(v) {
   const foot = [button("btn", L.back, { type: "back" })];
   if (v.askAgent) {
     foot.push(el("span", "spacer"), button("btn primary", L.askAgent, { type: "agent-check" }));
+  } else if (v.helperFix) {
+    // The polish agent didn't start: see its tab, or start it afresh.
+    foot.push(
+      el("span", "spacer"),
+      button("btn ghost", L.helperRestart, { type: "helper-restart" }),
+      button("btn primary", L.helperShow, { type: "helper-show" }),
+    );
   }
   $("foot").replaceChildren(...foot);
 }

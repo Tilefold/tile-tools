@@ -23,8 +23,11 @@
  *   cases (cases.js): where Tilefold has list settings (it has
  *   `tf.settings.set` too), a list of { name, rules } edited one case at a
  *   time; else a text of several lines.
+ * Modified 2026-11-08 (built-in translations): `fixTranslate` and
+ *   `naturalTranslate`, the languages each built-in case also translates
+ *   into; and the Show and Restart the polish agent commands.
  */
-import { CASE_FIELDS, MAX_CASES, casesOf } from "./cases.js";
+import { CASE_FIELDS, MAX_CASES, casesOf, translateOf } from "./cases.js";
 import { LANGUAGES } from "./languages.js";
 import { VIEWS, viewOf } from "./place.js";
 
@@ -63,7 +66,12 @@ const VIEW_KEYS = {
 export const COMMANDS = [
   { id: "open", title: "cmd-open" },
   { id: "close", title: "cmd-close" },
+  { id: "helper-show", title: "cmd-helper-show" },
+  { id: "helper-restart", title: "cmd-helper-restart" },
 ];
+
+/** The setting holding each built-in mode's languages to translate into. */
+export const TRANSLATE_SETTINGS = { fix: "fixTranslate", natural: "naturalTranslate" };
 
 /** Whether this Tilefold keeps the cases as a list (it can also save settings). */
 export const hasCaseList = (tf) => typeof tf.settings?.set === "function";
@@ -92,6 +100,9 @@ export function registerSettings(tf) {
   } else {
     tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
   }
+  // The languages each built-in case also translates into ("ja, ko"; none by default).
+  tf.setting(TRANSLATE_SETTINGS.fix, "", tf.t("setting-fix-translate"));
+  tf.setting(TRANSLATE_SETTINGS.natural, "", tf.t("setting-natural-translate"));
   tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) })),
   });
@@ -131,6 +142,11 @@ export function settingsOf(settings) {
     language: read(settings, "language"),
     mode: mode === "natural" ? "natural" : "fix",
     cases: casesOf(read(settings, "cases")),
+    // The languages each built-in case translates into, as codes.
+    builtinTranslate: {
+      fix: translateOf(read(settings, TRANSLATE_SETTINGS.fix)),
+      natural: translateOf(read(settings, TRANSLATE_SETTINGS.natural)),
+    },
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
     checker: read(settings, "checker") === "agent" ? "agent" : "claude",

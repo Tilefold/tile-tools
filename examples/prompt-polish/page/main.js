@@ -43,6 +43,9 @@
  *   button applies it by name (`apply`).
  * Modified 2026-11-08 (translations): a case's translations under the
  *   fixes (translations.js).
+ * Modified 2026-11-08 (polish agent start): Show its tab while the polish
+ *   agent starts or works, and Show its tab and Restart it when it didn't
+ *   start.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -100,13 +103,18 @@
     list.append(o.el("hr", "menu-line"));
     if (v.canEditCases) {
       const names = (v.modes ?? []).filter((m) => String(m.id).startsWith("case:"));
-      if (String(v.modeId).startsWith("case:")) {
-        const name = String(v.modeId).slice(5);
+      const id = String(v.modeId);
+      if (id.startsWith("case:")) {
+        const name = id.slice(5);
         list.append(item(L2.editCase.replace("{name}", name), { type: "case-edit", was: name }));
-      } else if (names.length) {
-        const edit = item(L2.editCases, null);
-        edit.addEventListener("click", () => drawEditWhich(v, L2, o, names));
-        list.append(edit);
+      } else {
+        const label = (v.modes ?? []).find((m) => m.id === id)?.label ?? id;
+        list.append(item(L2.editCase.replace("{name}", label), { type: "case-edit", builtin: id }));
+        if (names.length) {
+          const edit = item(L2.editAnother, null);
+          edit.addEventListener("click", () => drawEditWhich(v, L2, o, names));
+          list.append(edit);
+        }
       }
       list.append(item(L2.addCase, { type: "case-edit", was: null }));
     } else {
@@ -135,6 +143,7 @@
     list.querySelector("button")?.focus();
   }
   function drawCase(v, L2, o) {
+    if (v.builtin) return drawBuiltin(v, L2, o);
     const old = o.body.querySelector("form.case");
     const same = old && old.dataset.was === String(v.was ?? "");
     const typed = same ? {
@@ -208,6 +217,48 @@
     foot.at(-1).addEventListener("click", save);
     o.foot.replaceChildren(...foot);
     if (!same) (typed.name ? rules : name).focus();
+  }
+  function drawBuiltin(v, L2, o) {
+    const old = o.body.querySelector("form.case");
+    const key = `builtin:${v.builtin}`;
+    const same = old && old.dataset.was === key;
+    const typed = same ? old.elements.namedItem("translate").value : v.translate ?? "";
+    const form = o.el("form", "case");
+    form.dataset.was = key;
+    form.append(o.el("b", "case-title", L2.caseBuiltin));
+    const name = o.el("p", "case-name", v.name);
+    name.dir = "auto";
+    form.append(name, o.el("p", "muted", L2.caseBuiltinNote));
+    const translate = o.el("input");
+    Object.assign(translate, {
+      name: "translate",
+      type: "text",
+      maxLength: 200,
+      value: typed,
+      dir: "ltr"
+    });
+    translate.placeholder = L2.caseTranslateHint;
+    const wrap = o.el("label", "case-field");
+    wrap.append(o.el("span", "muted", L2.caseTranslate), translate);
+    form.append(wrap);
+    if (v.why) {
+      const why = o.el("p", "warn", v.why);
+      why.setAttribute("role", "alert");
+      form.append(why);
+    }
+    const save = () => o.send({ type: "case-save", translate: translate.value });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      save();
+    });
+    o.body.replaceChildren(form);
+    o.foot.replaceChildren(
+      o.el("span", "spacer"),
+      o.button("btn ghost", L2.cancel, { type: "case-cancel" }),
+      o.button("btn primary", L2.caseSave, null)
+    );
+    o.foot.lastChild.addEventListener("click", save);
+    if (!same) translate.focus();
   }
 
   // page-src/translations.js
@@ -538,7 +589,9 @@
     }
     box.append(el("span", "muted", v.hint || L.agentHint));
     $("body").replaceChildren(box);
+    const show = v.showHelper ? [button("btn ghost", L.helperShow, { type: "helper-show" })] : [];
     $("foot").replaceChildren(
+      ...show,
       el("span", "spacer"),
       button("btn", L.cancel, { type: "cancel-agent" })
     );
@@ -550,6 +603,12 @@
     const foot = [button("btn", L.back, { type: "back" })];
     if (v.askAgent) {
       foot.push(el("span", "spacer"), button("btn primary", L.askAgent, { type: "agent-check" }));
+    } else if (v.helperFix) {
+      foot.push(
+        el("span", "spacer"),
+        button("btn ghost", L.helperRestart, { type: "helper-restart" }),
+        button("btn primary", L.helperShow, { type: "helper-show" })
+      );
     }
     $("foot").replaceChildren(...foot);
   }

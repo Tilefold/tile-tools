@@ -186,7 +186,7 @@ function systemPrompt(language, mode, uiLanguage, rules = "", translate = []) {
   return [
     `You correct prompts a developer writes in ${language} to an AI coding agent.`,
     whatToDo(mode),
-    mode === "case" ? `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""} and never answer the prompt.` : "Keep the meaning and the language. Never translate, never answer the prompt, never add to it.",
+    mode === "case" ? `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""} and never answer the prompt.` : `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""}, never answer the prompt, never add to it.`,
     "Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `Give each note's "why" as one short sentence in ${uiLanguage}.`,
     `Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]${also ? ', "translations": {string: string}' : ""}}.`,
@@ -324,10 +324,11 @@ function agentRequest({
       "My instructions for this kind of prompt:",
       "-----",
       String(rules),
-      "-----",
-      ...translateAsk(translate) ? [translateAsk(translate)] : [],
-      "The prompt:"
+      "-----"
     ] : [],
+    // The languages to translate into, for a case or a built-in one.
+    ...translateAsk(translate) ? [translateAsk(translate)] : [],
+    ...mode === "case" && rules ? ["The prompt:"] : [],
     "-----",
     String(text),
     "-----"
@@ -355,12 +356,12 @@ function agentQuestion({
   translate = []
 }) {
   const own = mode === "case" && !!rules;
-  const also = own ? translateAsk(translate) : "";
+  const also = translateAsk(translate);
   const lines = [
     `Promptsmith request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
     whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
     ...caseRules(own ? "case" : mode, rules),
-    own ? "Keep the meaning and the language. Never translate it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are." : "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
+    own ? `Keep the meaning and the language. Never translate it${also ? " (the corrected prompt itself)" : ""}. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.` : `Keep the meaning and the language. Never translate it${also ? " (the corrected prompt itself)" : ""} and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.`,
     ...also ? [also] : [],
     `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]${also ? ', "translations": {<language code>: <translation>}' : ""}}.`,
     'If nothing needs fixing, hand back the prompt unchanged with "notes": []. Do nothing else, and reply only "Done".',
@@ -438,6 +439,7 @@ function createAgentRun(tf, deps) {
   const called = /* @__PURE__ */ new Map();
   const calledName = () => called.get(helperAgent()) ?? null;
   const viaHelper = async (id, s, entry, request) => {
+    deps.usedHelper?.();
     pending.add(request, entry);
     Object.assign(s, {
       step: "agent",
@@ -495,7 +497,7 @@ function createAgentRun(tf, deps) {
     const lang = language();
     const m = mode();
     const own = rules();
-    const tl = m === "case" ? translate() : [];
+    const tl = translate();
     const question = agentQuestion({
       text: original,
       language: lang.name,
@@ -724,6 +726,324 @@ function saveCase(cases, was, input, maxText = MAX_TEXT) {
 }
 var removeCase = (cases, name) => cases.filter((c) => c.name !== name);
 
+// src/place.js
+var VIEWS = ["corner", "bottom", "side"];
+var SPOT_MIN = 120;
+var SPOT_MAX = 2e3;
+var BAR_H = 40;
+var GAP = 12;
+var BUTTON = 36;
+var BUTTON_H = 26;
+var CORNER_W = 420;
+var MAX_H = 440;
+var viewOf = (value) => VIEWS.includes(value) ? value : "corner";
+function focusedPane(layout, paneId) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  const ok = panes.filter((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
+  if (paneId !== void 0 && paneId !== null) return ok.find((p) => p.id === paneId) ?? null;
+  return ok.find((p) => p.focused) ?? ok[0] ?? null;
+}
+function placeFor(layout, view, opts = {}) {
+  const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
+  const pane = focusedPane(layout, opts.pane);
+  if (!pane || view !== "bottom" && view !== "corner") return null;
+  const top = pane.y + GAP;
+  const composer = pane.composer && Number.isFinite(pane.composer.y) ? pane.composer : null;
+  const floor = (composer ? composer.y : pane.y + pane.h) - GAP;
+  const round = (r) => ({
+    x: Math.round(r.x),
+    y: Math.round(r.y),
+    w: Math.round(r.w),
+    h: Math.round(r.h)
+  });
+  if (view === "bottom") {
+    const w2 = Math.min(SPOT_MAX, pane.w - 2 * GAP);
+    const ch2 = Math.min(h, floor - top);
+    if (w2 < SPOT_MIN || ch2 < SPOT_MIN) return null;
+    const moved2 = adjust({ x: pane.x + GAP, y: floor - ch2, w: w2, h: ch2 }, pane, floor, opts);
+    return { card: round(moved2.card), button: null, offset: moved2.offset };
+  }
+  const bw = Number.isFinite(opts.bw) ? opts.bw : BUTTON;
+  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
+  const button = round({ x: bx, y: floor - BUTTON_H, w: bw, h: BUTTON_H });
+  if (button.y < top || pane.w < bw + 2 * GAP) return null;
+  const shown = opts.noPill ? null : button;
+  if (!opts.open) return { card: null, button: shown };
+  const w = Math.min(CORNER_W, pane.w - 2 * GAP);
+  const bottom = shown ? button.y - GAP : floor;
+  const ch = Math.min(h, bottom - top);
+  if (w < SPOT_MIN || ch < SPOT_MIN) return null;
+  const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
+  const moved = adjust({ x, y: bottom - ch, w, h: ch }, pane, floor, opts);
+  return { card: round(moved.card), button: shown, offset: moved.offset };
+}
+var clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+function adjust(card, pane, floor, opts = {}) {
+  const top = pane.y + GAP;
+  if (opts.max) {
+    const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
+    const h2 = Math.min(SPOT_MAX, floor - top);
+    if (w >= SPOT_MIN && h2 >= SPOT_MIN) {
+      return { card: { x: pane.x + GAP, y: top, w, h: h2 }, offset: offsetOf(opts.offset) };
+    }
+  }
+  const o = offsetOf(opts.offset);
+  const bar = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
+  const h = opts.collapsed ? bar : card.h;
+  const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
+  const y = clamp(card.y + o.dy, top, floor - h);
+  return { card: { ...card, x, y, h }, offset: { dx: x - card.x, dy: y - card.y } };
+}
+var offsetOf = (o) => ({
+  dx: Number.isFinite(o?.dx) ? o.dx : 0,
+  dy: Number.isFinite(o?.dy) ? o.dy : 0
+});
+var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+
+// src/settings.js
+var MODES = ["fix", "natural"];
+var CHECKERS = ["claude", "agent"];
+var SOLIDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+var solidOf = (v) => SOLIDS.includes(Number(v)) ? Number(v) : 100;
+var HELPER_AGENTS = [
+  { value: "claude", label: "Claude Code" },
+  { value: "codex", label: "Codex" },
+  { value: "gemini", label: "Gemini CLI" },
+  { value: "cursor", label: "Cursor Agent" },
+  { value: "agy", label: "Antigravity CLI" },
+  { value: "opencode", label: "OpenCode" }
+];
+var MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
+var CHECKER_KEYS = { claude: "setting-checker-claude", agent: "setting-checker-agent" };
+var VIEW_KEYS = {
+  corner: "setting-view-corner",
+  bottom: "setting-view-bottom",
+  side: "setting-view-side"
+};
+var COMMANDS = [
+  { id: "open", title: "cmd-open" },
+  { id: "close", title: "cmd-close" },
+  { id: "helper-show", title: "cmd-helper-show" },
+  { id: "helper-restart", title: "cmd-helper-restart" }
+];
+var TRANSLATE_SETTINGS = { fix: "fixTranslate", natural: "naturalTranslate" };
+var hasCaseList = (tf) => typeof tf.settings?.set === "function";
+function registerSettings(tf) {
+  tf.setting("language", "auto", tf.t("setting-language"), {
+    choices: [
+      { value: "auto", label: tf.t("setting-language-auto") },
+      ...LANGUAGES.map((l) => ({ value: l.code, label: l.native }))
+    ]
+  });
+  tf.setting("mode", "fix", tf.t("setting-mode"), {
+    choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) }))
+  });
+  if (hasCaseList(tf)) {
+    tf.setting("cases", [], tf.t("setting-case-list"), {
+      list: {
+        fields: CASE_FIELDS.map((f) => ({ ...f, label: tf.t(f.label) })),
+        max: MAX_CASES,
+        title: "name"
+      }
+    });
+  } else {
+    tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+  }
+  tf.setting(TRANSLATE_SETTINGS.fix, "", tf.t("setting-fix-translate"));
+  tf.setting(TRANSLATE_SETTINGS.natural, "", tf.t("setting-natural-translate"));
+  tf.setting("view", "corner", tf.t("setting-view"), {
+    choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) }))
+  });
+  tf.setting("checker", "claude", tf.t("setting-checker"), {
+    choices: CHECKERS.map((value) => ({ value, label: tf.t(CHECKER_KEYS[value]) }))
+  });
+  tf.setting("helperAgent", "claude", tf.t("setting-helper-agent"), {
+    choices: HELPER_AGENTS.map((a) => ({ ...a }))
+  });
+  tf.setting("solid", "100", tf.t("setting-solid"), {
+    choices: SOLIDS.map((v) => ({
+      value: String(v),
+      label: v === 100 ? tf.t("setting-solid-full") : v === 0 ? tf.t("setting-solid-text-only") : tf.t("setting-solid-percent", { percent: v })
+    }))
+  });
+  tf.setting("fast", true, tf.t("setting-fast"));
+}
+var read = (settings, key) => {
+  try {
+    return settings.get(key);
+  } catch {
+    return void 0;
+  }
+};
+function settingsOf(settings) {
+  const mode = read(settings, "mode");
+  return {
+    language: read(settings, "language"),
+    mode: mode === "natural" ? "natural" : "fix",
+    cases: casesOf(read(settings, "cases")),
+    // The languages each built-in case translates into, as codes.
+    builtinTranslate: {
+      fix: translateOf(read(settings, TRANSLATE_SETTINGS.fix)),
+      natural: translateOf(read(settings, TRANSLATE_SETTINGS.natural))
+    },
+    view: viewOf(read(settings, "view")),
+    fast: read(settings, "fast") !== false,
+    checker: read(settings, "checker") === "agent" ? "agent" : "claude",
+    helperAgent: helperAgentOf(read(settings, "helperAgent")),
+    solid: solidOf(read(settings, "solid"))
+  };
+}
+var helperAgentOf = (v) => HELPER_AGENTS.some((a) => a.value === v) ? v : HELPER_AGENTS[0].value;
+var helperAgentName = (v) => HELPER_AGENTS.find((a) => a.value === helperAgentOf(v)).label;
+var cardSettings = (c) => ({
+  mode: c.mode,
+  helperName: helperAgentName(c.helperAgent),
+  solid: c.solid
+});
+
+// src/commands.js
+function registerCommands(tf, o) {
+  o.inputAction.register();
+  tf.on(
+    "input.action",
+    o.background((e) => o.inputAction.clicked(e))
+  );
+  tf.on(
+    "input.cancelled",
+    o.background((e) => o.inputAction.cancelled(e))
+  );
+  for (const c of COMMANDS) {
+    tf.command(
+      tf.t(c.title),
+      o.background(() => o.runs[c.id]()),
+      { id: c.id }
+    );
+  }
+  tf.command(
+    tf.t("cmd-hand-back"),
+    async (input) => input == null ? void await o.open() : o.handBack(input),
+    { id: o.handBackId, input: o.handBackInput }
+  );
+}
+function registerPill(tf, o) {
+  tf.on(
+    "overlay.pointer",
+    o.background(async (e) => {
+      if (!e || e.item !== o.buttonId || e.type !== "click") return;
+      const s = o.sessions.ensure(o.focusId());
+      s.open = !s.open;
+      await o.place();
+    })
+  );
+  tf.on(
+    "overlay.hidden",
+    // The user hid tile overlays: the button goes, and the card with it.
+    o.background(async () => {
+      o.stage.lostOverlay();
+      if (o.stage.where() === "card") await o.closeAll();
+    })
+  );
+  tf.on(
+    "theme.changed",
+    o.background(async (e) => {
+      o.stage.setAccent(e?.colors?.accent ?? null);
+      if (o.stage.buttonShown()) await o.place();
+    })
+  );
+}
+
+// src/helperTab.js
+var START_GAP_MS = 3e4;
+var USED_KEY = "helper-used";
+var RESULT_KEYS = {
+  ready: "toast-helper-ready",
+  busy: "toast-helper-busy",
+  "not-started": "error-helper-not-started"
+};
+var HELPER_PROBLEMS = /* @__PURE__ */ new Set(["error-helper-not-started", "error-helper-failed"]);
+function createHelperTab(tf, o) {
+  const now = o.now ?? Date.now;
+  let lastAuto = 0;
+  let starting = false;
+  let used = null;
+  const supported = () => typeof tf.agent?.helperStart === "function" && typeof tf.agent?.helperStatus === "function";
+  const wasUsed = async () => {
+    if (used === null) used = await tf.store.get(USED_KEY).catch(() => null) === true;
+    return used;
+  };
+  const willCheck = async () => o.current().checker === "agent" || typeof tf.ai?.ask !== "function" || await wasUsed();
+  const start = async (how) => {
+    starting = true;
+    try {
+      const r = await tf.agent.helperStart({
+        agent: o.current().helperAgent,
+        ...how === "auto" ? {} : { show: true },
+        ...how === "restart" ? { restart: true } : {}
+      });
+      const state = typeof r?.state === "string" ? r.state : "not-started";
+      o.audit("helper-started", { how, state });
+      return state;
+    } catch (err) {
+      o.warn(err);
+      if (how !== "auto") {
+        const reason = String(err && err.name || err).slice(0, 64);
+        await tf.toast(tf.t("toast-helper-failed", { reason })).catch(o.warn);
+      }
+      return null;
+    } finally {
+      starting = false;
+    }
+  };
+  return {
+    /** Whether the card can offer to show or restart the agent. */
+    view: () => ({ canShowHelper: supported() }),
+    /** The polish agent checked a prompt: start it ahead of time from now on. */
+    async noteUsed() {
+      if (used === true) return;
+      used = true;
+      await tf.store.set(USED_KEY, true).catch(o.warn);
+    },
+    /**
+     * The card opened: starts the polish agent in the background when it
+     * will check and isn't running. Never awaited by the card.
+     */
+    async ensure() {
+      if (!supported() || starting || now() - lastAuto < START_GAP_MS) return;
+      if (!await willCheck()) return;
+      lastAuto = now();
+      let status;
+      try {
+        status = await tf.agent.helperStatus({ agent: o.current().helperAgent });
+      } catch (err) {
+        return o.warn(err);
+      }
+      if (status?.state === "none") await start("auto");
+    },
+    /** Shows the agent's tab (`restart`: after starting it afresh) and says how it went. */
+    async show(restart = false) {
+      if (!supported()) return tf.toast(tf.t("toast-helper-unsupported"));
+      if (starting && !restart) return;
+      const state = await start(restart ? "restart" : "show");
+      if (state) await tf.toast(tf.t(RESULT_KEYS[state] ?? "error-helper-not-started"));
+    },
+    /**
+     * Takes a message from the page about the agent; false for any other.
+     * From a problem card, the card goes back to the prompt, to try again.
+     */
+    async hear(m) {
+      if (m.type !== "helper-show" && m.type !== "helper-restart") return false;
+      const id = typeof m.pane === "string" ? m.pane : null;
+      const s = id ? o.sessions.get(id) : null;
+      if (s?.step === "problem" && HELPER_PROBLEMS.has(s.problem)) {
+        Object.assign(s, { step: "write", problem: "" });
+        await o.render(id);
+      }
+      await this.show(m.type === "helper-restart");
+      return true;
+    }
+  };
+}
+
 // src/modes.js
 var PICK_KEY = "mode-pick";
 var MAX_PICK = 80;
@@ -744,7 +1064,7 @@ function createModes(tf, o) {
       if (c) return { mode: "case", name: c.name, rules: c.rules, translate: c.translate ?? [] };
     }
     const mode = pick === "fix" || pick === "natural" ? pick : o.current().mode;
-    return { mode, name: "", rules: "", translate: [] };
+    return { mode, name: "", rules: "", translate: o.current().builtinTranslate?.[mode] ?? [] };
   };
   const keep = async (next) => {
     pick = next;
@@ -778,6 +1098,23 @@ function createModes(tf, o) {
       o.warn(err);
       return false;
     }
+  };
+  const saveBuiltin = async (s, id, m) => {
+    const mode = s.editing.builtin;
+    const codes = translateOf(typeof m.translate === "string" ? m.translate : "");
+    try {
+      await tf.settings.set(TRANSLATE_SETTINGS[mode], translateText(codes));
+    } catch (err) {
+      o.warn(err);
+      s.editing = { ...s.editing, translate: String(m.translate ?? ""), why: "case-not-saved" };
+      await o.render();
+      return true;
+    }
+    s.editing = null;
+    await keep(mode);
+    o.audit("builtin-saved", { mode, languages: codes.length });
+    await settle(id, answered(id));
+    return true;
   };
   const settle = async (id, first) => {
     const s = o.sessions.get(id);
@@ -817,6 +1154,12 @@ function createModes(tf, o) {
       if (!s) return m.type.startsWith("case-");
       if (m.type === "case-edit") {
         if (!canEdit()) return true;
+        if (m.builtin === "fix" || m.builtin === "natural") {
+          const codes = o.current().builtinTranslate?.[m.builtin] ?? [];
+          s.editing = { builtin: m.builtin, translate: translateText(codes), why: "" };
+          await o.render();
+          return true;
+        }
         const was = typeof m.was === "string" ? cases().find((c) => c.name === m.was) : null;
         s.editing = {
           was: was?.name ?? null,
@@ -835,6 +1178,7 @@ function createModes(tf, o) {
       }
       if (m.type === "case-save") {
         if (!s.editing || !canEdit()) return true;
+        if (s.editing.builtin) return saveBuiltin(s, id, m);
         const was = s.editing.was;
         const input = { name: m.name, rules: m.rules, translate: m.translate };
         const r = saveCase(cases(), was, input, Infinity);
@@ -899,7 +1243,7 @@ function createClaudeRun(tf, deps) {
     s.busy = true;
     const lang = language();
     const m = mode();
-    const tl = m === "case" ? translate() : [];
+    const tl = translate();
     s.step = "checking";
     await render(id);
     try {
@@ -1206,171 +1550,6 @@ function createResultActions(o) {
   };
 }
 
-// src/place.js
-var VIEWS = ["corner", "bottom", "side"];
-var SPOT_MIN = 120;
-var SPOT_MAX = 2e3;
-var BAR_H = 40;
-var GAP = 12;
-var BUTTON = 36;
-var BUTTON_H = 26;
-var CORNER_W = 420;
-var MAX_H = 440;
-var viewOf = (value) => VIEWS.includes(value) ? value : "corner";
-function focusedPane(layout, paneId) {
-  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
-  const ok = panes.filter((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
-  if (paneId !== void 0 && paneId !== null) return ok.find((p) => p.id === paneId) ?? null;
-  return ok.find((p) => p.focused) ?? ok[0] ?? null;
-}
-function placeFor(layout, view, opts = {}) {
-  const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
-  const pane = focusedPane(layout, opts.pane);
-  if (!pane || view !== "bottom" && view !== "corner") return null;
-  const top = pane.y + GAP;
-  const composer = pane.composer && Number.isFinite(pane.composer.y) ? pane.composer : null;
-  const floor = (composer ? composer.y : pane.y + pane.h) - GAP;
-  const round = (r) => ({
-    x: Math.round(r.x),
-    y: Math.round(r.y),
-    w: Math.round(r.w),
-    h: Math.round(r.h)
-  });
-  if (view === "bottom") {
-    const w2 = Math.min(SPOT_MAX, pane.w - 2 * GAP);
-    const ch2 = Math.min(h, floor - top);
-    if (w2 < SPOT_MIN || ch2 < SPOT_MIN) return null;
-    const moved2 = adjust({ x: pane.x + GAP, y: floor - ch2, w: w2, h: ch2 }, pane, floor, opts);
-    return { card: round(moved2.card), button: null, offset: moved2.offset };
-  }
-  const bw = Number.isFinite(opts.bw) ? opts.bw : BUTTON;
-  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
-  const button = round({ x: bx, y: floor - BUTTON_H, w: bw, h: BUTTON_H });
-  if (button.y < top || pane.w < bw + 2 * GAP) return null;
-  const shown = opts.noPill ? null : button;
-  if (!opts.open) return { card: null, button: shown };
-  const w = Math.min(CORNER_W, pane.w - 2 * GAP);
-  const bottom = shown ? button.y - GAP : floor;
-  const ch = Math.min(h, bottom - top);
-  if (w < SPOT_MIN || ch < SPOT_MIN) return null;
-  const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
-  const moved = adjust({ x, y: bottom - ch, w, h: ch }, pane, floor, opts);
-  return { card: round(moved.card), button: shown, offset: moved.offset };
-}
-var clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
-function adjust(card, pane, floor, opts = {}) {
-  const top = pane.y + GAP;
-  if (opts.max) {
-    const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
-    const h2 = Math.min(SPOT_MAX, floor - top);
-    if (w >= SPOT_MIN && h2 >= SPOT_MIN) {
-      return { card: { x: pane.x + GAP, y: top, w, h: h2 }, offset: offsetOf(opts.offset) };
-    }
-  }
-  const o = offsetOf(opts.offset);
-  const bar = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
-  const h = opts.collapsed ? bar : card.h;
-  const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
-  const y = clamp(card.y + o.dy, top, floor - h);
-  return { card: { ...card, x, y, h }, offset: { dx: x - card.x, dy: y - card.y } };
-}
-var offsetOf = (o) => ({
-  dx: Number.isFinite(o?.dx) ? o.dx : 0,
-  dy: Number.isFinite(o?.dy) ? o.dy : 0
-});
-var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
-
-// src/settings.js
-var MODES = ["fix", "natural"];
-var CHECKERS = ["claude", "agent"];
-var SOLIDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
-var solidOf = (v) => SOLIDS.includes(Number(v)) ? Number(v) : 100;
-var HELPER_AGENTS = [
-  { value: "claude", label: "Claude Code" },
-  { value: "codex", label: "Codex" },
-  { value: "gemini", label: "Gemini CLI" },
-  { value: "cursor", label: "Cursor Agent" },
-  { value: "agy", label: "Antigravity CLI" },
-  { value: "opencode", label: "OpenCode" }
-];
-var MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
-var CHECKER_KEYS = { claude: "setting-checker-claude", agent: "setting-checker-agent" };
-var VIEW_KEYS = {
-  corner: "setting-view-corner",
-  bottom: "setting-view-bottom",
-  side: "setting-view-side"
-};
-var COMMANDS = [
-  { id: "open", title: "cmd-open" },
-  { id: "close", title: "cmd-close" }
-];
-var hasCaseList = (tf) => typeof tf.settings?.set === "function";
-function registerSettings(tf) {
-  tf.setting("language", "auto", tf.t("setting-language"), {
-    choices: [
-      { value: "auto", label: tf.t("setting-language-auto") },
-      ...LANGUAGES.map((l) => ({ value: l.code, label: l.native }))
-    ]
-  });
-  tf.setting("mode", "fix", tf.t("setting-mode"), {
-    choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) }))
-  });
-  if (hasCaseList(tf)) {
-    tf.setting("cases", [], tf.t("setting-case-list"), {
-      list: {
-        fields: CASE_FIELDS.map((f) => ({ ...f, label: tf.t(f.label) })),
-        max: MAX_CASES,
-        title: "name"
-      }
-    });
-  } else {
-    tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
-  }
-  tf.setting("view", "corner", tf.t("setting-view"), {
-    choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) }))
-  });
-  tf.setting("checker", "claude", tf.t("setting-checker"), {
-    choices: CHECKERS.map((value) => ({ value, label: tf.t(CHECKER_KEYS[value]) }))
-  });
-  tf.setting("helperAgent", "claude", tf.t("setting-helper-agent"), {
-    choices: HELPER_AGENTS.map((a) => ({ ...a }))
-  });
-  tf.setting("solid", "100", tf.t("setting-solid"), {
-    choices: SOLIDS.map((v) => ({
-      value: String(v),
-      label: v === 100 ? tf.t("setting-solid-full") : v === 0 ? tf.t("setting-solid-text-only") : tf.t("setting-solid-percent", { percent: v })
-    }))
-  });
-  tf.setting("fast", true, tf.t("setting-fast"));
-}
-var read = (settings, key) => {
-  try {
-    return settings.get(key);
-  } catch {
-    return void 0;
-  }
-};
-function settingsOf(settings) {
-  const mode = read(settings, "mode");
-  return {
-    language: read(settings, "language"),
-    mode: mode === "natural" ? "natural" : "fix",
-    cases: casesOf(read(settings, "cases")),
-    view: viewOf(read(settings, "view")),
-    fast: read(settings, "fast") !== false,
-    checker: read(settings, "checker") === "agent" ? "agent" : "claude",
-    helperAgent: helperAgentOf(read(settings, "helperAgent")),
-    solid: solidOf(read(settings, "solid"))
-  };
-}
-var helperAgentOf = (v) => HELPER_AGENTS.some((a) => a.value === v) ? v : HELPER_AGENTS[0].value;
-var helperAgentName = (v) => HELPER_AGENTS.find((a) => a.value === helperAgentOf(v)).label;
-var cardSettings = (c) => ({
-  mode: c.mode,
-  helperName: helperAgentName(c.helperAgent),
-  solid: c.solid
-});
-
 // src/button.js
 var PILL_H = 26;
 var PILL_MIN_W = 64;
@@ -1613,6 +1792,7 @@ function createStage(tf, o) {
 
 // src/view.js
 var AGENT_CAN_HELP = /* @__PURE__ */ new Set(["error-no-ai", "error-no-key"]);
+var HELPER_CAN_FIX = /* @__PURE__ */ new Set(["error-helper-not-started", "error-helper-failed"]);
 var CASE_KEYS = {
   "label-checking": "label-checking-case",
   "label-agent-waiting": "label-agent-waiting-case",
@@ -1677,6 +1857,13 @@ function setupOf(t) {
       // No case in use: Edit… first asks which case.
       editCases: t("label-edit-cases"),
       editWhich: t("label-edit-which"),
+      // With a built-in case in use: edit one of the user's own cases instead.
+      editAnother: t("label-edit-another"),
+      caseBuiltin: t("label-case-builtin"),
+      caseBuiltinNote: t("label-case-builtin-note"),
+      // The polish agent's tab: bring it to the front, or start it afresh.
+      helperShow: t("label-helper-show"),
+      helperRestart: t("label-helper-restart"),
       casesInSettings: t("label-cases-in-settings"),
       caseNew: t("label-case-new"),
       caseEdit: t("label-case-edit"),
@@ -1739,6 +1926,18 @@ function viewOf2(s, t) {
   };
   if (s.editing) {
     const e = s.editing;
+    if (e.builtin === "fix" || e.builtin === "natural") {
+      return {
+        ...head,
+        step: "case",
+        builtin: e.builtin,
+        was: null,
+        name: t(e.builtin === "natural" ? "setting-mode-natural" : "setting-mode-fix"),
+        rules: "",
+        translate: String(e.translate ?? ""),
+        why: e.why ? t(e.why) : ""
+      };
+    }
     return {
       ...head,
       step: "case",
@@ -1766,12 +1965,15 @@ function viewOf2(s, t) {
       step: "agent",
       text: working ? waitText("label-helper-working", { agent }) : t("label-helper-starting", { agent }),
       hint: t(working ? "label-helper-working-hint" : "label-helper-starting-hint"),
-      since: working && Number.isFinite(s.helperSince) ? s.helperSince : null
+      since: working && Number.isFinite(s.helperSince) ? s.helperSince : null,
+      // Its tab can be brought to the front, to answer it or watch it.
+      showHelper: !!s.canShowHelper
     };
   }
   if (s.step === "problem") {
     const offer = AGENT_CAN_HELP.has(s.problem) && !!String(s.draft ?? "").trim();
-    return { ...head, step: "problem", text: t(s.problem), askAgent: offer };
+    const helperFix = !!s.canShowHelper && HELPER_CAN_FIX.has(s.problem);
+    return { ...head, step: "problem", text: t(s.problem), askAgent: offer, helperFix };
   }
   if (s.step === "sent") return { ...head, step: "sent" };
   if (s.step === "result") {
@@ -1830,6 +2032,13 @@ function runPolish(tf) {
     render: () => render()
   };
   const modes = createModes(tf, { ...later, sessions, audit, warn });
+  const helperTab = createHelperTab(tf, {
+    ...later,
+    render: (id) => render(id),
+    sessions,
+    audit,
+    warn
+  });
   let active = false;
   let dismissed = false;
   let shown = null;
@@ -1858,8 +2067,15 @@ function runPolish(tf) {
   const render = async (id = shown) => {
     const s = sessions.get(id);
     if (!s || id !== shown) return;
+    helperTab.ensure().catch(warn);
     const { max, collapsed } = moves.state();
-    const card = { ...cardSettings(current()), ...modes.view(), max, collapsed };
+    const card = {
+      ...cardSettings(current()),
+      ...modes.view(),
+      ...helperTab.view(),
+      max,
+      collapsed
+    };
     const called = agentRun.calledName();
     if (called) card.helperName = called;
     await post({
@@ -1980,7 +2196,8 @@ function runPolish(tf) {
     translate: () => modes.now().translate,
     choose: () => current().cases.length > 0,
     fast: () => current().fast,
-    helperAgent: () => current().helperAgent
+    helperAgent: () => current().helperAgent,
+    usedHelper: () => helperTab.noteUsed()
   };
   const agentRun = createAgentRun(tf, deps);
   const claudeRun = createClaudeRun(tf, { ...deps, noKey: agentRun.takeOver });
@@ -2016,7 +2233,8 @@ function runPolish(tf) {
       await post({ do: "setup", ...setupOf(tf.t) });
       return render();
     }
-    if (await moves.hear(m) || await modes.hear(m, typeof m.pane === "string" ? m.pane : shown))
+    const pane = typeof m.pane === "string" ? m.pane : shown;
+    if (await moves.hear(m) || await modes.hear(m, pane) || await helperTab.hear({ ...m, pane }))
       return;
     if (m.type === "view") return chooseView(m.to);
     if (m.type === "fold") return fold();
@@ -2051,28 +2269,20 @@ function runPolish(tf) {
     active = true;
     await place();
   };
-  inputAction.register();
-  tf.on(
-    "input.action",
-    background((e) => inputAction.clicked(e))
-  );
-  tf.on(
-    "input.cancelled",
-    background((e) => inputAction.cancelled(e))
-  );
-  const runs = { open, close: closeAll };
-  for (const c of COMMANDS) {
-    tf.command(
-      tf.t(c.title),
-      background(() => runs[c.id]()),
-      { id: c.id }
-    );
-  }
-  tf.command(
-    tf.t("cmd-hand-back"),
-    async (input) => input == null ? void await open() : agentRun.handBack(input),
-    { id: HAND_BACK, input: HAND_BACK_INPUT }
-  );
+  registerCommands(tf, {
+    background,
+    inputAction,
+    open,
+    runs: {
+      open,
+      close: closeAll,
+      "helper-show": () => helperTab.show(),
+      "helper-restart": () => helperTab.show(true)
+    },
+    handBack: (input) => agentRun.handBack(input),
+    handBackId: HAND_BACK,
+    handBackInput: HAND_BACK_INPUT
+  });
   tf.on(
     "page.message",
     background((e) => hear(e && e.message))
@@ -2109,30 +2319,15 @@ function runPolish(tf) {
       if (active) await place();
     })
   );
-  tf.on(
-    "overlay.pointer",
-    background(async (e) => {
-      if (!e || e.item !== BUTTON_ID || e.type !== "click") return;
-      const s = sessions.ensure(focusId());
-      s.open = !s.open;
-      await place();
-    })
-  );
-  tf.on(
-    "overlay.hidden",
-    // The user hid tile overlays: the button goes, and the card with it.
-    background(async () => {
-      stage.lostOverlay();
-      if (stage.where() === "card") await closeAll();
-    })
-  );
-  tf.on(
-    "theme.changed",
-    background(async (e) => {
-      stage.setAccent(e?.colors?.accent ?? null);
-      if (stage.buttonShown()) await place();
-    })
-  );
+  registerPill(tf, {
+    background,
+    stage,
+    sessions,
+    focusId,
+    place,
+    closeAll,
+    buttonId: BUTTON_ID
+  });
   tf.on(
     "setting.changed",
     background(async (e) => {

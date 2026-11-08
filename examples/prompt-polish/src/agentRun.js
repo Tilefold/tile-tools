@@ -28,6 +28,8 @@
  *   request (`rules`); audits name only the mode.
  * Modified 2026-11-08 (translations): a case's languages (`translate`) go
  *   with the request, and the translations handed back are shown.
+ * Modified 2026-11-08 (built-in translations): the built-in cases'
+ *   languages go too.
  */
 import {
   agentBrief,
@@ -57,13 +59,13 @@ const HELPER_WHY = {
  * @param {{ sessions: any, render: (id: string) => Promise<void>,
  *   refreshButton: () => Promise<void>, audit: (action: string, details: object) => void,
  *   warn: (err: unknown) => void, language: () => { code: string, name: string, native: string },
- *   mode: () => string, helperAgent: () => string }} deps
+ *   mode: () => string, helperAgent: () => string, usedHelper?: () => void }} deps
  */
 export function createAgentRun(tf, deps) {
   const { sessions, render, refreshButton, audit, warn, language, mode, helperAgent } = deps;
   // A case's own instructions (none for the built-in modes).
   const rules = () => (typeof deps.rules === "function" ? deps.rules() : "");
-  // A case's languages to translate into (none for the built-in modes).
+  // The languages to translate into: a case's, or a built-in case's setting.
   const translate = () => (typeof deps.translate === "function" ? deps.translate() : []);
   /** True where Tilefold can give the tile a polish agent of its own. */
   const hasHelper = () => typeof tf.agent?.helper === "function";
@@ -82,6 +84,8 @@ export function createAgentRun(tf, deps) {
 
   /** Has the polish agent check pane `id`'s prompt: `question` for `request`. */
   const viaHelper = async (id, s, entry, request) => {
+    // From now on Promptsmith starts its polish agent ahead of time.
+    deps.usedHelper?.();
     // Waiting shows at once: the first time, the agent's tab takes a while to start.
     pending.add(request, entry);
     Object.assign(s, {
@@ -146,7 +150,7 @@ export function createAgentRun(tf, deps) {
     const lang = language();
     const m = mode();
     const own = rules();
-    const tl = m === "case" ? translate() : [];
+    const tl = translate();
     const question = agentQuestion({
       text: original,
       language: lang.name,

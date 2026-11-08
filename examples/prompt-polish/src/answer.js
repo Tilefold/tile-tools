@@ -28,6 +28,8 @@
  * Modified 2026-11-08 (translations): a case may also ask for the
  *   corrected prompt in other languages (`translateAsk`), answered in
  *   "translations" ({ code: text }) and read like the corrected prompt.
+ * Modified 2026-11-08 (built-in translations): a built-in mode may ask
+ *   for translations too.
  */
 import { LANGUAGES } from "./languages.js";
 import { keepsProtected } from "./polish.js";
@@ -105,7 +107,7 @@ export function systemPrompt(language, mode, uiLanguage, rules = "", translate =
     whatToDo(mode),
     mode === "case"
       ? `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""} and never answer the prompt.`
-      : "Keep the meaning and the language. Never translate, never answer the prompt, never add to it.",
+      : `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""}, never answer the prompt, never add to it.`,
     "Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `Give each note's "why" as one short sentence in ${uiLanguage}.`,
     `Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]${also ? ', "translations": {string: string}' : ""}}.`,

@@ -16,6 +16,8 @@
  *   Claude with the prompt.
  * Modified 2026-11-08 (translations): a case's languages (`translate`)
  *   are asked for too, and the translations shown with the fixes.
+ * Modified 2026-11-08 (built-in translations): the built-in cases'
+ *   languages go too.
  */
 import { buildAsk, errorKey, readAnswer } from "./answer.js";
 import { changeCount, changes, diff } from "./polish.js";
@@ -32,7 +34,7 @@ export function createClaudeRun(tf, deps) {
   const { sessions, render, refreshButton, audit, language, mode, fast, noKey } = deps;
   // A case's own instructions (none for the built-in modes).
   const rules = () => (typeof deps.rules === "function" ? deps.rules() : "");
-  // A case's languages to translate into (none for the built-in modes).
+  // The languages to translate into: a case's, or a built-in case's setting.
   const translate = () => (typeof deps.translate === "function" ? deps.translate() : []);
 
   /** Asks Claude to check pane `id`'s prompt `original`, then shows the fixes there. */
@@ -48,7 +50,7 @@ export function createClaudeRun(tf, deps) {
     s.busy = true;
     const lang = language();
     const m = mode();
-    const tl = m === "case" ? translate() : [];
+    const tl = translate();
     s.step = "checking";
     await render(id);
     try {

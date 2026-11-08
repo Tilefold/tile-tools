@@ -89,6 +89,8 @@
  *   language }`) adds `tf.input` (fake-input.mjs): the agent input box's
  *   buttons, a click (`host.clickAction`) and the tile's replacement in
  *   `host.box`.
+ * Modified 2026-11-08 (helper start): with `helper`, `tf.agent.helperStatus`
+ *   and `helperStart` too (fake-helper.mjs), unless `helperControl: false`.
  * Modified 2026-11-08 (Tilefold 0.1.27): `define` adds `tf.agent.define`
  *   (`true`: added; or the answer to give, or a function of the offer,
  *   which may return a promise to hold the answer back);
@@ -442,7 +444,7 @@ export async function startTile(dir, opts = {}) {
     };
   }
 
-  if (opts.helper) addHelper(tf, host, named, opts.helper);
+  if (opts.helper) addHelper(tf, host, named, opts.helper, opts.helperControl !== false);
   if (opts.define) {
     // tf.agent.define: each offer is kept; the answer is `define` (a function of the offer, or an object).
     host.defines = [];
