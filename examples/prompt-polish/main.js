@@ -41,6 +41,80 @@ function languageOf(setting, uiCode) {
 }
 var isUnspaced = (code) => UNSPACED.has(code);
 
+// src/translateLanguages.js
+var MAX_WORD = 40;
+var TAG = /^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/i;
+var NAMED = "aa ab af ak am an ar as av ay az ba be bg bi bm bn bo br bs ca ce ch co cr cs cu cv cy da de dv dz ee el en eo es et eu fa ff fi fj fo fr fy ga gd gl gn gu gv ha he hi ho hr ht hu hy hz ia id ie ig ii ik io is it iu ja jv ka kg ki kj kk kl km kn ko kr ks ku kv kw ky la lb lg li ln lo lt lu lv mg mh mi mk ml mn mr ms mt my na nb nd ne ng nl nn no nr nv ny oc oj om or os pa pi pl ps pt qu rm rn ro ru rw sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw ta te tg th ti tk tl tn to tr ts tt tw ty ug uk ur uz ve vi vo wa wo xh yi yo za zh zu fil yue haw ceb hmn zh-Hans zh-Hant zh-TW zh-HK pt-PT pt-BR es-419 en-GB en-US fr-CA sr-Latn".split(" ");
+function displayNames(locale) {
+  try {
+    if (typeof Intl?.DisplayNames !== "function") return null;
+    return new Intl.DisplayNames([locale], { type: "language", fallback: "none" });
+  } catch {
+    return null;
+  }
+}
+var ENGLISH = displayNames("en");
+function canonical(tag) {
+  if (!TAG.test(tag)) return null;
+  try {
+    return Intl.getCanonicalLocales(tag)[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+function englishName(code) {
+  const own = LANGUAGES.find((l) => l.code === code);
+  if (own) return own.name;
+  try {
+    return ENGLISH?.of(code) ?? null;
+  } catch {
+    return null;
+  }
+}
+function nativeName(code) {
+  const own = LANGUAGES.find((l) => l.code === code);
+  if (own) return own.native;
+  try {
+    const name = displayNames(code)?.of(code);
+    if (name) return name;
+  } catch {
+  }
+  return englishName(code) ?? code;
+}
+var byName = null;
+function names() {
+  if (byName) return byName;
+  byName = /* @__PURE__ */ new Map();
+  const add = (name, code) => {
+    const key = String(name ?? "").toLocaleLowerCase();
+    if (key && !byName.has(key)) byName.set(key, code);
+  };
+  for (const l of LANGUAGES) {
+    add(l.name, l.code);
+    add(l.native, l.code);
+  }
+  for (const code of NAMED) {
+    const english = englishName(code);
+    if (!english) continue;
+    add(english, code);
+    add(nativeName(code), code);
+  }
+  return byName;
+}
+function languageCode(word) {
+  const w = String(typeof word === "string" ? word : "").trim();
+  if (!w || [...w].length > MAX_WORD) return null;
+  const key = w.toLocaleLowerCase();
+  const own = LANGUAGES.find((l) => l.code.toLowerCase() === key);
+  if (own) return own.code;
+  const named2 = names().get(key);
+  if (named2) return named2;
+  const code = canonical(w);
+  return code && englishName(code) && englishName(code) !== code ? code : null;
+}
+var askName = (code) => `${englishName(code) ?? code} (${code})`;
+var shownName = (code) => `${nativeName(code)} \xB7 ${code}`;
+
 // src/polish.js
 var MAX_CHARS = 2e3;
 var MAX_CELLS = 4e6;
@@ -160,7 +234,7 @@ function casePicked(who = "the user") {
     `Rework it into a full prompt of this kind: keep what ${wrote}, and add every point the instructions ask for that it is missing, choosing sensible, concrete details where the prompt gives none. Never hand back only the fixes.`
   ].join(" ");
 }
-var named = (codes) => codes.map((c) => LANGUAGES.find((l) => l.code === c)).filter(Boolean).map((l) => `${l.name} (${l.code})`).join(", ");
+var named = (codes) => codes.filter((c) => typeof c === "string" && languageCode(c) === c).map(askName).join(", ");
 function translateAsk(codes) {
   const list = Array.isArray(codes) ? named(codes) : "";
   if (!list) return "";
@@ -336,6 +410,7 @@ function agentRequest({
 }
 var REQUEST_ID = /^[a-z0-9]{10}$/;
 var MAX_CORRECTED = 8e3;
+var MAX_HANDED = 16;
 var MAX_NOTES2 = 40;
 var MAX_QUESTION = 4e3;
 function newRequestId(random = Math.random) {
@@ -384,9 +459,10 @@ function readHandBack(input) {
   const raw = input.translations;
   const translations = {};
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    for (const l of LANGUAGES) {
-      const v = Object.hasOwn(raw, l.code) ? str(raw[l.code]) : "";
-      if (v && v.length <= MAX_CORRECTED) translations[l.code] = v;
+    for (const code of Object.keys(raw).slice(0, MAX_HANDED)) {
+      if (code.length > 24 || languageCode(code) !== code) continue;
+      const v = str(raw[code]);
+      if (v && v.length <= MAX_CORRECTED) translations[code] = v;
     }
   }
   return { ok: true, request, answer: JSON.stringify({ corrected, notes, translations }) };
@@ -660,12 +736,8 @@ function translateOf(v) {
   const words = Array.isArray(v) ? v.map((x) => String(x ?? "")) : String(typeof v === "string" ? v : "").replace(UNSAFE2, "").slice(0, MAX_TRANSLATE_TEXT).split(/[,;、，\n]+/);
   const out = [];
   for (const w of words) {
-    const key = w.trim().toLowerCase();
-    if (!key) continue;
-    const l = LANGUAGES.find(
-      (x) => x.code.toLowerCase() === key || x.name.toLowerCase() === key || x.native.toLowerCase() === key
-    );
-    if (l && !out.includes(l.code)) out.push(l.code);
+    const code = languageCode(w);
+    if (code && !out.includes(code)) out.push(code);
     if (out.length === MAX_TRANSLATE) break;
   }
   return out;
@@ -1017,7 +1089,7 @@ function createHelperTab(tf, o) {
       } catch (err) {
         return o.warn(err);
       }
-      if (status?.state === "none") await start("auto");
+      if (status?.state === "none" || status?.state === "stopped") await start("auto");
     },
     /** Shows the agent's tab (`restart`: after starting it afresh) and says how it went. */
     async show(restart = false) {
@@ -1873,6 +1945,11 @@ function setupOf(t) {
       // A case's languages to translate into, and the result's translations.
       caseTranslate: t("label-case-translate"),
       caseTranslateHint: t("label-case-translate-hint"),
+      // How to name the languages, and what the field reads them as while typing.
+      caseTranslateHelp: t("label-case-translate-help"),
+      translatePreview: t("label-translate-preview"),
+      translateUnknown: t("label-translate-unknown", { words: "{words}" }),
+      translateTooMany: t("label-translate-too-many", { max: 8 }),
       translations: t("label-translations"),
       useThis: t("label-use-this"),
       sendThis: t("label-send-this"),
@@ -1884,10 +1961,11 @@ function setupOf(t) {
   };
 }
 function translationsOf(s) {
-  return (Array.isArray(s.translations) ? s.translations : []).map((x) => {
-    const l = LANGUAGES.find((y) => y.code === x.code);
-    return { code: x.code, native: l ? l.native : x.code, text: x.text };
-  });
+  return (Array.isArray(s.translations) ? s.translations : []).map((x) => ({
+    code: x.code,
+    native: shownName(x.code),
+    text: x.text
+  }));
 }
 function modeLabel(s, t) {
   if (typeof s.modeId === "string" && s.modeId.startsWith("case:") && s.caseName) return s.caseName;

@@ -37,6 +37,9 @@
  * Modified 2026-11-08 (apply a case): `apply` on the write step, the case
  *   its button applies, and that button's label.
  * Modified 2026-11-08 (edit any case): the labels to pick a case to edit.
+ * Modified 2026-11-08 (any language): a translation is shown with its
+ *   language's own name and code, and the labels for the languages field's
+ *   help and what it reads.
  * Modified 2026-11-08 (built-in translations): the form for a built-in
  *   case's languages (`builtin`), and the polish agent's Show its tab and
  *   Restart it (`showHelper`, `helperFix`, from `canShowHelper`).
@@ -44,7 +47,8 @@
  *   result's translations (`translations`: each language's own name and
  *   text), with their labels.
  */
-import { LANGUAGES, isUnspaced } from "./languages.js";
+import { isUnspaced } from "./languages.js";
+import { shownName } from "./translateLanguages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
 
 /** Problems the agent in the pane can get around: no Claude, or no key for it. */
@@ -141,6 +145,11 @@ export function setupOf(t) {
       // A case's languages to translate into, and the result's translations.
       caseTranslate: t("label-case-translate"),
       caseTranslateHint: t("label-case-translate-hint"),
+      // How to name the languages, and what the field reads them as while typing.
+      caseTranslateHelp: t("label-case-translate-help"),
+      translatePreview: t("label-translate-preview"),
+      translateUnknown: t("label-translate-unknown", { words: "{words}" }),
+      translateTooMany: t("label-translate-too-many", { max: 8 }),
       translations: t("label-translations"),
       useThis: t("label-use-this"),
       sendThis: t("label-send-this"),
@@ -152,12 +161,13 @@ export function setupOf(t) {
   };
 }
 
-/** The result's translations, each with its language's own name; none for anything else. */
+/** The result's translations, each with its language's own name and code; none for anything else. */
 function translationsOf(s) {
-  return (Array.isArray(s.translations) ? s.translations : []).map((x) => {
-    const l = LANGUAGES.find((y) => y.code === x.code);
-    return { code: x.code, native: l ? l.native : x.code, text: x.text };
-  });
+  return (Array.isArray(s.translations) ? s.translations : []).map((x) => ({
+    code: x.code,
+    native: shownName(x.code),
+    text: x.text,
+  }));
 }
 
 /** What to fix, as the chip says it: a case's own name, else the mode's label. */

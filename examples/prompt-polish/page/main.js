@@ -85,6 +85,136 @@
     return svg;
   }
 
+  // src/languages.js
+  var LANGUAGES = [
+    { code: "ar", name: "Arabic", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
+    { code: "de", name: "German", native: "Deutsch" },
+    { code: "en", name: "English", native: "English" },
+    { code: "es", name: "Spanish", native: "Espa\xF1ol" },
+    { code: "fr", name: "French", native: "Fran\xE7ais" },
+    { code: "hi", name: "Hindi", native: "\u0939\u093F\u0928\u094D\u0926\u0940" },
+    { code: "it", name: "Italian", native: "Italiano" },
+    { code: "ja", name: "Japanese", native: "\u65E5\u672C\u8A9E" },
+    { code: "ko", name: "Korean", native: "\uD55C\uAD6D\uC5B4" },
+    { code: "pt-BR", name: "Brazilian Portuguese", native: "Portugu\xEAs (Brasil)" },
+    { code: "ru", name: "Russian", native: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439" },
+    { code: "zh-CN", name: "Simplified Chinese", native: "\u7B80\u4F53\u4E2D\u6587" }
+  ];
+
+  // src/translateLanguages.js
+  var MAX_WORD = 40;
+  var TAG = /^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/i;
+  var NAMED = "aa ab af ak am an ar as av ay az ba be bg bi bm bn bo br bs ca ce ch co cr cs cu cv cy da de dv dz ee el en eo es et eu fa ff fi fj fo fr fy ga gd gl gn gu gv ha he hi ho hr ht hu hy hz ia id ie ig ii ik io is it iu ja jv ka kg ki kj kk kl km kn ko kr ks ku kv kw ky la lb lg li ln lo lt lu lv mg mh mi mk ml mn mr ms mt my na nb nd ne ng nl nn no nr nv ny oc oj om or os pa pi pl ps pt qu rm rn ro ru rw sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw ta te tg th ti tk tl tn to tr ts tt tw ty ug uk ur uz ve vi vo wa wo xh yi yo za zh zu fil yue haw ceb hmn zh-Hans zh-Hant zh-TW zh-HK pt-PT pt-BR es-419 en-GB en-US fr-CA sr-Latn".split(" ");
+  function displayNames(locale) {
+    try {
+      if (typeof Intl?.DisplayNames !== "function") return null;
+      return new Intl.DisplayNames([locale], { type: "language", fallback: "none" });
+    } catch {
+      return null;
+    }
+  }
+  var ENGLISH = displayNames("en");
+  function canonical(tag) {
+    if (!TAG.test(tag)) return null;
+    try {
+      return Intl.getCanonicalLocales(tag)[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function englishName(code) {
+    const own = LANGUAGES.find((l) => l.code === code);
+    if (own) return own.name;
+    try {
+      return ENGLISH?.of(code) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function nativeName(code) {
+    const own = LANGUAGES.find((l) => l.code === code);
+    if (own) return own.native;
+    try {
+      const name = displayNames(code)?.of(code);
+      if (name) return name;
+    } catch {
+    }
+    return englishName(code) ?? code;
+  }
+  var byName = null;
+  function names() {
+    if (byName) return byName;
+    byName = /* @__PURE__ */ new Map();
+    const add = (name, code) => {
+      const key = String(name ?? "").toLocaleLowerCase();
+      if (key && !byName.has(key)) byName.set(key, code);
+    };
+    for (const l of LANGUAGES) {
+      add(l.name, l.code);
+      add(l.native, l.code);
+    }
+    for (const code of NAMED) {
+      const english = englishName(code);
+      if (!english) continue;
+      add(english, code);
+      add(nativeName(code), code);
+    }
+    return byName;
+  }
+  function languageCode(word) {
+    const w = String(typeof word === "string" ? word : "").trim();
+    if (!w || [...w].length > MAX_WORD) return null;
+    const key = w.toLocaleLowerCase();
+    const own = LANGUAGES.find((l) => l.code.toLowerCase() === key);
+    if (own) return own.code;
+    const named = names().get(key);
+    if (named) return named;
+    const code = canonical(w);
+    return code && englishName(code) && englishName(code) !== code ? code : null;
+  }
+  var shownName = (code) => `${nativeName(code)} \xB7 ${code}`;
+
+  // page-src/languagesField.js
+  var MAX = 8;
+  function readLanguages(text) {
+    const codes = [];
+    const unknown = [];
+    for (const w of String(text).slice(0, 200).split(/[,;、，\n]+/)) {
+      const word = w.trim();
+      if (!word) continue;
+      const code = languageCode(word);
+      if (!code) unknown.push(word);
+      else if (!codes.includes(code)) codes.push(code);
+    }
+    return { codes, unknown };
+  }
+  function languagesField(L2, el2, value) {
+    const input = el2("input");
+    Object.assign(input, { name: "translate", type: "text", maxLength: 200, value, dir: "ltr" });
+    input.placeholder = L2.caseTranslateHint;
+    const wrap = el2("label", "case-field");
+    const help = el2("span", "muted tl-help", L2.caseTranslateHelp);
+    const reads = el2("span", "tl-reads");
+    reads.setAttribute("aria-live", "polite");
+    wrap.append(el2("span", "muted", L2.caseTranslate), input, help, reads);
+    const show = () => {
+      const { codes, unknown } = readLanguages(input.value);
+      const parts = [];
+      if (codes.length) {
+        parts.push(`${L2.translatePreview} ${codes.slice(0, MAX).map(shownName).join(", ")}`);
+      }
+      if (codes.length > MAX) parts.push(L2.translateTooMany);
+      if (unknown.length) {
+        parts.push(String(L2.translateUnknown).replace("{words}", unknown.join(", ")));
+      }
+      reads.textContent = parts.join(" ");
+      reads.classList.toggle("warn", unknown.length > 0 || codes.length > MAX);
+    };
+    input.addEventListener("input", show);
+    show();
+    return { wrap, input };
+  }
+
   // page-src/cases.js
   function drawModeMenu(v, L2, o) {
     const list = o.el("div", "menu");
@@ -102,7 +232,7 @@
       list.append(item(m.label, { type: "mode", to: m.id }, m.id === v.modeId));
     list.append(o.el("hr", "menu-line"));
     if (v.canEditCases) {
-      const names = (v.modes ?? []).filter((m) => String(m.id).startsWith("case:"));
+      const names2 = (v.modes ?? []).filter((m) => String(m.id).startsWith("case:"));
       const id = String(v.modeId);
       if (id.startsWith("case:")) {
         const name = id.slice(5);
@@ -110,9 +240,9 @@
       } else {
         const label = (v.modes ?? []).find((m) => m.id === id)?.label ?? id;
         list.append(item(L2.editCase.replace("{name}", label), { type: "case-edit", builtin: id }));
-        if (names.length) {
+        if (names2.length) {
           const edit = item(L2.editAnother, null);
-          edit.addEventListener("click", () => drawEditWhich(v, L2, o, names));
+          edit.addEventListener("click", () => drawEditWhich(v, L2, o, names2));
           list.append(edit);
         }
       }
@@ -126,11 +256,11 @@
     o.foot.firstChild.addEventListener("click", o.close);
     list.querySelector("[aria-checked='true'], button")?.focus();
   }
-  function drawEditWhich(v, L2, o, names) {
+  function drawEditWhich(v, L2, o, names2) {
     const list = o.el("div", "menu");
     list.setAttribute("role", "menu");
     list.setAttribute("aria-label", L2.editWhich);
-    for (const m of names) {
+    for (const m of names2) {
       const b = o.button("menu-item", m.label, null);
       b.setAttribute("role", "menuitem");
       b.dir = "auto";
@@ -167,15 +297,8 @@
       value: typed.name,
       dir: "auto"
     });
-    const translate = o.el("input");
-    Object.assign(translate, {
-      name: "translate",
-      type: "text",
-      maxLength: 200,
-      value: typed.translate,
-      dir: "ltr"
-    });
-    translate.placeholder = L2.caseTranslateHint;
+    const tl = languagesField(L2, o.el, typed.translate);
+    const translate = tl.input;
     const rules = o.el("textarea");
     Object.assign(rules, {
       name: "rules",
@@ -185,11 +308,7 @@
       dir: "auto"
     });
     rules.placeholder = L2.caseRulesHint;
-    form.append(
-      field(L2.caseName, name),
-      field(L2.caseRules, rules),
-      field(L2.caseTranslate, translate)
-    );
+    form.append(field(L2.caseName, name), field(L2.caseRules, rules), tl.wrap);
     if (v.why) {
       const why = o.el("p", "warn", v.why);
       why.setAttribute("role", "alert");
@@ -229,18 +348,9 @@
     const name = o.el("p", "case-name", v.name);
     name.dir = "auto";
     form.append(name, o.el("p", "muted", L2.caseBuiltinNote));
-    const translate = o.el("input");
-    Object.assign(translate, {
-      name: "translate",
-      type: "text",
-      maxLength: 200,
-      value: typed,
-      dir: "ltr"
-    });
-    translate.placeholder = L2.caseTranslateHint;
-    const wrap = o.el("label", "case-field");
-    wrap.append(o.el("span", "muted", L2.caseTranslate), translate);
-    form.append(wrap);
+    const tl = languagesField(L2, o.el, typed);
+    const translate = tl.input;
+    form.append(tl.wrap);
     if (v.why) {
       const why = o.el("p", "warn", v.why);
       why.setAttribute("role", "alert");

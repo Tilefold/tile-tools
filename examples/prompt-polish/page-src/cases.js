@@ -22,10 +22,13 @@
  *   translate into.
  * Modified 2026-11-08 (edit any case): Edit always shows above Add while
  *   there are cases; the question above the menu is a quiet note.
+ * Modified 2026-11-08 (any language): both forms' languages field is
+ *   languagesField.js, with its help and what it reads.
  * Modified 2026-11-08 (built-in translations): with a built-in case in use,
  *   Edit opens its form (the languages it translates into only), and
  *   "Edit another case…" asks which of the user's own cases to edit.
  */
+import { languagesField } from "./languagesField.js";
 
 /**
  * Draws the menu of what to fix into `body` and `foot`.
@@ -140,16 +143,9 @@ export function drawCase(v, L, o) {
     value: typed.name,
     dir: "auto",
   });
-  // The languages to translate into: codes or names, such as "ja, ko".
-  const translate = o.el("input");
-  Object.assign(translate, {
-    name: "translate",
-    type: "text",
-    maxLength: 200,
-    value: typed.translate,
-    dir: "ltr",
-  });
-  translate.placeholder = L.caseTranslateHint;
+  // The languages to translate into: any, as codes or names, such as "ja, vi".
+  const tl = languagesField(L, o.el, typed.translate);
+  const translate = tl.input;
   const rules = o.el("textarea");
   Object.assign(rules, {
     name: "rules",
@@ -159,11 +155,7 @@ export function drawCase(v, L, o) {
     dir: "auto",
   });
   rules.placeholder = L.caseRulesHint;
-  form.append(
-    field(L.caseName, name),
-    field(L.caseRules, rules),
-    field(L.caseTranslate, translate),
-  );
+  form.append(field(L.caseName, name), field(L.caseRules, rules), tl.wrap);
   if (v.why) {
     const why = o.el("p", "warn", v.why);
     why.setAttribute("role", "alert");
@@ -215,18 +207,9 @@ function drawBuiltin(v, L, o) {
   const name = o.el("p", "case-name", v.name);
   name.dir = "auto";
   form.append(name, o.el("p", "muted", L.caseBuiltinNote));
-  const translate = o.el("input");
-  Object.assign(translate, {
-    name: "translate",
-    type: "text",
-    maxLength: 200,
-    value: typed,
-    dir: "ltr",
-  });
-  translate.placeholder = L.caseTranslateHint;
-  const wrap = o.el("label", "case-field");
-  wrap.append(o.el("span", "muted", L.caseTranslate), translate);
-  form.append(wrap);
+  const tl = languagesField(L, o.el, typed);
+  const translate = tl.input;
+  form.append(tl.wrap);
   if (v.why) {
     const why = o.el("p", "warn", v.why);
     why.setAttribute("role", "alert");

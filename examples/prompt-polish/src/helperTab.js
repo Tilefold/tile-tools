@@ -11,7 +11,8 @@
  * - when the card opens and the polish agent is the one that will check
  *   (the `checker` setting is "agent", there is no Claude to ask, or a
  *   check already went to the agent once), Promptsmith asks whether it is
- *   running and, if not, starts it in the background, so it is ready by
+ *   running (a tab with no agent in it counts as not running) and, if not,
+ *   starts it in the background, so it is ready by
  *   the time the prompt is written. At most once every START_GAP_MS;
  * - **Show the polish agent** brings its tab to the front (starting it if
  *   it isn't running), to answer its first questions or see what it does;
@@ -118,7 +119,8 @@ export function createHelperTab(tf, o) {
       } catch (err) {
         return o.warn(err);
       }
-      if (status?.state === "none") await start("auto");
+      // Not running, or its tab is there with no agent in it: Tilefold starts it afresh.
+      if (status?.state === "none" || status?.state === "stopped") await start("auto");
     },
 
     /** Shows the agent's tab (`restart`: after starting it afresh) and says how it went. */

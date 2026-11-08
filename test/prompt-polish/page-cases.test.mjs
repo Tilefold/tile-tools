@@ -30,6 +30,9 @@
  * Modified 2026-11-08 (built-in translations): Edit for the built-in case
  *   in use, Edit another case…, and the built-in case's form (its name,
  *   a note, the languages field; Save and Cancel, no Remove).
+ * Modified 2026-11-08 (any language): the languages field's help, and what
+ *   it reads as the user types (each language's own name and code, what it
+ *   doesn't recognize, and a note past eight).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -303,7 +306,7 @@ describe("a case's translations", () => {
     const p = page();
     ready(p, RESULT);
     const tl = p.$("body").querySelector(".translations .tl");
-    expect(tl.querySelector(".tl-lang").textContent).toBe("日本語");
+    expect(tl.querySelector(".tl-lang").textContent).toBe("日本語 · ja");
     const text = tl.querySelector(".tl-text");
     expect(text.textContent).toBe("それのために");
     expect(text.lang).toBe("ja");
@@ -453,5 +456,48 @@ describe("the polish agent's buttons", () => {
     const old = page();
     ready(old, { step: "problem", problem: "error-helper-not-started" });
     expect([...old.$("foot").querySelectorAll("button")]).toHaveLength(1);
+  });
+});
+
+describe("the languages field", () => {
+  /** Types `text` in the open form's languages field. */
+  const type = (p, text) => {
+    const field = p.$("body").querySelector("form.case").elements.namedItem("translate");
+    field.value = text;
+    field.dispatchEvent(new p.w.Event("input", { bubbles: true }));
+    return p.$("body").querySelector(".tl-reads");
+  };
+
+  it("says how to name the languages, and reads them as the user types", () => {
+    const p = page();
+    ready(p, { ...CASES, editing: { builtin: "fix", translate: "ja", why: "" } });
+    const form = p.$("body").querySelector("form.case");
+    expect(form.querySelector(".tl-help").textContent).toBe(t("label-case-translate-help"));
+    expect(form.querySelector(".tl-reads").textContent).toBe(
+      `${t("label-translate-preview")} 日本語 · ja`,
+    );
+    const reads = type(p, "Vietnamese, pt-pt, Elvish");
+    expect(reads.textContent).toBe(
+      `${t("label-translate-preview")} Tiếng Việt · vi, ${"português europeu"} · pt-PT ` +
+        t("label-translate-unknown", { words: "Elvish" }),
+    );
+    expect(reads.classList.contains("warn")).toBe(true);
+  });
+
+  it("notes when there are more than eight, and is quiet when empty", () => {
+    const p = page();
+    ready(p, { ...CASES, editing: { was: null, name: "", rules: "", translate: "", why: "" } });
+    expect(type(p, "").textContent).toBe("");
+    const reads = type(p, "vi, th, id, ms, sw, am, yo, zu, xh");
+    expect(reads.textContent).toContain(t("label-translate-too-many", { max: 8 }));
+    expect(reads.textContent.split(",")).toHaveLength(8);
+  });
+
+  it("sets what it reads as text only", () => {
+    const p = page();
+    ready(p, { ...CASES, editing: { builtin: "fix", translate: "", why: "" } });
+    const reads = type(p, "<img src=x onerror=alert(1)>");
+    expect(reads.querySelector("img")).toBeNull();
+    expect(reads.textContent).toContain("<img");
   });
 });

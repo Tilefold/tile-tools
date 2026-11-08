@@ -30,8 +30,9 @@
  *   "translations" ({ code: text }) and read like the corrected prompt.
  * Modified 2026-11-08 (built-in translations): a built-in mode may ask
  *   for translations too.
+ * Modified 2026-11-08 (any language): translations into any language.
  */
-import { LANGUAGES } from "./languages.js";
+import { askName, languageCode } from "./translateLanguages.js";
 import { keepsProtected } from "./polish.js";
 
 /** The kinds of fix a note may name; anything else counts as grammar. */
@@ -55,12 +56,11 @@ export function casePicked(who = "the user") {
   ].join(" ");
 }
 
-/** The languages of `codes` as the question names them: "Japanese (ja), Korean (ko)". */
+/** The languages of `codes` as the question names them: "Japanese (ja), Vietnamese (vi)". */
 const named = (codes) =>
   codes
-    .map((c) => LANGUAGES.find((l) => l.code === c))
-    .filter(Boolean)
-    .map((l) => `${l.name} (${l.code})`)
+    .filter((c) => typeof c === "string" && languageCode(c) === c)
+    .map(askName)
     .join(", ");
 
 /**

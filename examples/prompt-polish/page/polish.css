@@ -22,6 +22,8 @@
  *   italic and muted.
  * Modified 2026-11-08 (built-in translations): a built-in case's name in
  *   its form, and the note under it.
+ * Modified 2026-11-08 (any language): the languages field's help and what
+ *   it reads.
  */
 
 :root {
@@ -563,6 +565,16 @@ textarea {
 .case textarea {
   min-height: 7em;
 }
+/* The languages field: how to name them, and what it reads as the user types. */
+.case .tl-help,
+.case .tl-reads {
+  font-size: 0.85em;
+  line-height: 1.35;
+}
+.case .tl-reads:empty {
+  display: none;
+}
+
 /* A built-in case's name, which can't change: plain text, not a field. */
 .case .case-name {
   margin: 0;

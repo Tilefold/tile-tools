@@ -30,13 +30,15 @@
  * A case may also name languages to translate the corrected prompt into
  * (`translate`: codes such as "ja, ko", or the languages' names), on a
  * line "Translate: ja, ko" of its block in the text, or in its own field
- * of the list. Only Promptsmith's languages are kept, each once.
+ * of the list. Any language is kept (translateLanguages.js), each once.
  *
  * Pure: no Tilefold calls.
  *
  * Modified 2026-11-08 (translations): a case's languages to translate into.
+ * Modified 2026-11-08 (any language): translations into any language,
+ *   named by code or name (translateLanguages.js).
  */
-import { LANGUAGES } from "./languages.js";
+import { languageCode } from "./translateLanguages.js";
 
 /** The most cases kept. */
 export const MAX_CASES = 20;
@@ -83,9 +85,10 @@ export const rulesOf = (v) =>
     .slice(0, MAX_RULES);
 
 /**
- * The languages a case translates into: known language codes, each once,
- * at most MAX_TRANSLATE, from a text such as "ja, ko, zh-CN" (codes, or
- * English or native names, any case) or a list of them.
+ * The languages a case translates into: language codes, each once, at
+ * most MAX_TRANSLATE, from a text such as "ja, ko, vi, pt-PT" (codes, or
+ * English or native names, any case; any language, not only Promptsmith's
+ * twelve) or a list of them. What names no language is left out.
  *
  * @param {unknown} v
  */
@@ -98,15 +101,9 @@ export function translateOf(v) {
         .split(/[,;、，\n]+/);
   const out = [];
   for (const w of words) {
-    const key = w.trim().toLowerCase();
-    if (!key) continue;
-    const l = LANGUAGES.find(
-      (x) =>
-        x.code.toLowerCase() === key ||
-        x.name.toLowerCase() === key ||
-        x.native.toLowerCase() === key,
-    );
-    if (l && !out.includes(l.code)) out.push(l.code);
+    // Any language, as a code ("vi", "pt-PT") or a name ("Vietnamese", "Tiếng Việt").
+    const code = languageCode(w);
+    if (code && !out.includes(code)) out.push(code);
     if (out.length === MAX_TRANSLATE) break;
   }
   return out;

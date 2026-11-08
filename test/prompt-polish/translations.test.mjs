@@ -194,8 +194,8 @@ describe("translations on the card", () => {
     expect(lastView(host)).toMatchObject({
       step: "result",
       translations: [
-        { code: "ja", native: "日本語", text: JA },
-        { code: "ko", native: "한국어", text: KO },
+        { code: "ja", native: "日本語 · ja", text: JA },
+        { code: "ko", native: "한국어 · ko", text: KO },
       ],
     });
   });

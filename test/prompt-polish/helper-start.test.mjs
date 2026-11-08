@@ -8,7 +8,8 @@
  *
  * When the card shows and the polish agent will check (the checker set to
  * the agent, no Claude at all, or the agent used before), Promptsmith asks
- * whether it runs and starts it in the background if not, at most once
+ * whether it runs and starts it in the background if not (a tab with no
+ * agent in it counts as not running), at most once
  * every thirty seconds; with Claude to ask it never does. Show and Restart
  * the polish agent, from the palette or the card, start it with its tab
  * in front (Restart afresh) and say how it went; the card offers them
@@ -81,6 +82,13 @@ describe("starting the polish agent ahead of time", () => {
     await say(host, { type: "hello" });
     expect(host.helperStarts).toHaveLength(2);
     vi.restoreAllMocks();
+  });
+
+  it("starts it afresh when its tab is there with no agent in it", async () => {
+    const host = await start({ settings: { checker: "agent" } });
+    host.helperState = "stopped";
+    await openCard(host);
+    expect(host.helperStarts).toEqual([{ agent: "claude" }]);
   });
 
   it("leaves a running agent alone", async () => {

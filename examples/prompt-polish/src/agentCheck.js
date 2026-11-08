@@ -38,9 +38,11 @@
  *   ({ code: text }), each read and bounded like the corrected prompt.
  * Modified 2026-11-08 (built-in translations): the translations asked
  *   for go with a built-in mode too.
+ * Modified 2026-11-08 (any language): the hand-back's translations may be
+ *   in any language, by code.
  */
 import { casePicked, caseRules, translateAsk, whatToDo } from "./answer.js";
-import { LANGUAGES } from "./languages.js";
+import { languageCode } from "./translateLanguages.js";
 
 /** The tile's id, as in tile.json: the first part of the command id agents run. */
 export const TILE_ID = "example.prompt-polish";
@@ -116,6 +118,8 @@ const REQUEST_ID = /^[a-z0-9]{10}$/;
 
 /** The longest corrected text taken from the agent, in characters (before answer.js). */
 const MAX_CORRECTED = 8000;
+/** The most translations read from a hand-back (a case asks for at most eight). */
+const MAX_HANDED = 16;
 
 /** The most notes taken from the agent. */
 const MAX_NOTES = 40;
@@ -199,13 +203,14 @@ export function readHandBack(input) {
     .slice(0, MAX_NOTES)
     .filter((n) => n && typeof n === "object" && !Array.isArray(n))
     .map((n) => ({ from: str(n.from), to: str(n.to), kind: str(n.kind), why: str(n.why) }));
-  // Only Promptsmith's languages, each a bounded string; answer.js keeps those asked for.
+  // Language codes only (a few), each a bounded string; answer.js keeps those asked for.
   const raw = input.translations;
   const translations = {};
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    for (const l of LANGUAGES) {
-      const v = Object.hasOwn(raw, l.code) ? str(raw[l.code]) : "";
-      if (v && v.length <= MAX_CORRECTED) translations[l.code] = v;
+    for (const code of Object.keys(raw).slice(0, MAX_HANDED)) {
+      if (code.length > 24 || languageCode(code) !== code) continue;
+      const v = str(raw[code]);
+      if (v && v.length <= MAX_CORRECTED) translations[code] = v;
     }
   }
   return { ok: true, request, answer: JSON.stringify({ corrected, notes, translations }) };

@@ -634,13 +634,17 @@ export interface Tf {
     >;
     /**
      * Needs agent.helper (Tilefold 0.1.27; missing before). How the tile's
-     * helper running `agent` is: `none` (not running), `starting` (not yet
+     * helper running `agent` is: `none` (not running), `stopped` (its tab is
+     * there but no agent runs in it; a start replaces it), `starting` (not yet
      * past its first questions), `ready`, or `busy` (it works or waits on
      * the user); `name` as for `helper`.
      */
     helperStatus?(request: {
       agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
-    }): Promise<{ state: "none" | "starting" | "ready" | "busy"; name: string | null }>;
+    }): Promise<{
+      state: "none" | "stopped" | "starting" | "ready" | "busy";
+      name: string | null;
+    }>;
     /**
      * Needs agent.helper (Tilefold 0.1.27; missing before). Starts the
      * tile's helper running `agent` without typing anything, and resolves
