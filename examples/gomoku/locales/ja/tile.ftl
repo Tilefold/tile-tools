@@ -70,3 +70,6 @@ error-room-full = そのゲームにはすでに2人います。
 error-room-gone = そのゲームはサーバー上で終了しました。
 error-offline = ゲームサーバーに接続できません。再試行しています…
 error-server = ゲームサーバーに拒否されました。少ししてからもう一度お試しください。
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

@@ -70,3 +70,6 @@ error-room-full = उस खेल में पहले से दो खि�
 error-room-gone = वह खेल सर्वर पर खत्म हो चुका है।
 error-offline = गेम सर्वर तक नहीं पहुँच पा रहे। कोशिश जारी है…
 error-server = गेम सर्वर ने मना कर दिया। थोड़ी देर बाद फिर कोशिश करें।
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

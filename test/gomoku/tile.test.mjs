@@ -268,3 +268,15 @@ describe("an AI agent's commands", () => {
     await expect(run).rejects.toThrow("The board was closed.");
   });
 });
+
+describe("one tab or every tab", () => {
+  it("opens beside the panes on the tab in front by default, and on every tab when asked", async () => {
+    const host = await start();
+    await host.command("open");
+    expect(host.page.opens.at(-1)).toMatchObject({ side: true, perTab: true });
+    // The choice changes while it is open: the page moves at once.
+    await host.setSetting("showOn", "all");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(host.page.opens.at(-1)).toMatchObject({ side: true, perTab: false });
+  });
+});

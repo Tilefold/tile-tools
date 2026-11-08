@@ -29,6 +29,9 @@
  *
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
+ *
+ * Modified 2026-11-08 (one tab or every tab): beside the panes, the page
+ *   is on the tab where it was opened or on every tab, as "Show on" says.
  */
 import { areaWords } from "./area.js";
 import { askAgent } from "./askAgent.js";
@@ -87,6 +90,8 @@ export function runWhiteboard(tf) {
 
   // Docking beside the panes came with Tilefold's theme for tiles (0.1.20).
   const canSide = () => !!tf.page && typeof tf.theme === "function";
+  /** "Show on": the tab in front (true) or every tab (false), beside the panes. */
+  const perTab = () => tf.settings.get("showOn") !== "all";
 
   /** The board, loaded from the store the first time. */
   async function current() {
@@ -121,7 +126,7 @@ export function runWhiteboard(tf) {
     }
     if (where) return true;
     const side = canSide();
-    await tf.page.open(side ? { side: true } : {});
+    await tf.page.open(side ? { side: true, perTab: perTab() } : {});
     where = side ? "side" : "window";
     audit("opened");
     return true;
@@ -292,6 +297,12 @@ export function runWhiteboard(tf) {
   }
 
   // For AI agents. A refused input throws, and the agent gets the reason.
+  // "Show on" changed while the page is beside the panes: it moves at once.
+  tf.on("setting.changed", (e) => {
+    if (e && e.key === "showOn" && where === "side") {
+      void tf.page.open({ side: true, perTab: perTab() }).catch(warn);
+    }
+  });
   tf.command(
     tf.t("cmd-show"),
     async (input) => {

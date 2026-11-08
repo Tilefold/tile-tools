@@ -51,3 +51,6 @@ scene-reset = 그린 선과 선택 지우기
 scene-close = 이 3D 보기 닫기
 scene-closed = 닫은 3D 보기 표시 ({ $n })
 scene-tags = 레이블 표시/숨기기
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

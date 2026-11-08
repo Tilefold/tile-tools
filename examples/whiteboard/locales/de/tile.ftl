@@ -51,3 +51,6 @@ scene-reset = Zeichnung und Auswahl löschen
 scene-close = Diese 3D-Ansicht schließen
 scene-closed = Geschlossene 3D-Ansichten zeigen ({ $n })
 scene-tags = Beschriftungen ein- oder ausblenden
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

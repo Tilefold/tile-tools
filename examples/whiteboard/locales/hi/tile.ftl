@@ -51,3 +51,6 @@ scene-reset = ड्रॉइंग और चयन हटाएँ
 scene-close = यह 3D व्यू बंद करें
 scene-closed = बंद 3D व्यू दिखाएँ ({ $n })
 scene-tags = लेबल दिखाएँ या छिपाएँ
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

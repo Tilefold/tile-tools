@@ -70,3 +70,6 @@ error-room-full = Essa partida já tem dois jogadores.
 error-room-gone = Essa partida terminou no servidor.
 error-offline = Não foi possível falar com o servidor do jogo. Tentando de novo…
 error-server = O servidor do jogo recusou. Tente de novo daqui a pouco.
+setting-show-on = Mostrar em
+setting-show-on-tab = A aba onde foi aberto
+setting-show-on-all = Todas as abas

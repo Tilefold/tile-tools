@@ -51,3 +51,6 @@ scene-reset = 描いた線と選択を消す
 scene-close = この3Dビューを閉じる
 scene-closed = 閉じた3Dビューを表示 ({ $n })
 scene-tags = ラベルの表示/非表示
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

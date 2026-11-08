@@ -18,6 +18,8 @@
  * commands with data, 0.1.20 to dock the board beside the panes.
  *
  * Built into main.js with `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-11-08 (one tab or every tab): the "Show on" setting.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
 // src/area.js
@@ -970,6 +972,7 @@ function runWhiteboard(tf) {
   let waiters = [];
   let moves = [];
   const canSide = () => !!tf.page && typeof tf.theme === "function";
+  const perTab = () => tf.settings.get("showOn") !== "all";
   async function current() {
     if (board) return board;
     const kept = await tf.store.get(BOARD);
@@ -993,7 +996,7 @@ function runWhiteboard(tf) {
     }
     if (where) return true;
     const side = canSide();
-    await tf.page.open(side ? { side: true } : {});
+    await tf.page.open(side ? { side: true, perTab: perTab() } : {});
     where = side ? "side" : "window";
     audit("opened");
     return true;
@@ -1125,6 +1128,11 @@ function runWhiteboard(tf) {
   ]) {
     tf.command(tf.t(title), () => void runs[id]().catch(warn), { id });
   }
+  tf.on("setting.changed", (e) => {
+    if (e && e.key === "showOn" && where === "side") {
+      void tf.page.open({ side: true, perTab: perTab() }).catch(warn);
+    }
+  });
   tf.command(
     tf.t("cmd-show"),
     async (input) => {
@@ -1203,6 +1211,12 @@ function runWhiteboard(tf) {
 
 // src/main.js
 var main_default = (tf) => {
+  tf.setting("showOn", "tab", tf.t("setting-show-on"), {
+    choices: [
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+      { value: "all", label: tf.t("setting-show-on-all") }
+    ]
+  });
   runWhiteboard(tf);
 };
 export default main_default;

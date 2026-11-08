@@ -70,3 +70,6 @@ error-room-full = 这个对局已经有两名玩家了。
 error-room-gone = 这个对局已在服务器上结束。
 error-offline = 无法连接游戏服务器，正在重试…
 error-server = 游戏服务器拒绝了请求，请稍后再试。
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

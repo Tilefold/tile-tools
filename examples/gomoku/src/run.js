@@ -38,6 +38,9 @@
  *   away from the board.
  *
  * Last updated by: Tilefold
+ *
+ * Modified 2026-11-08 (one tab or every tab): beside the panes, the page
+ *   is on the tab where it was opened or on every tab, as "Show on" says.
  */
 import { RELAY_URL } from "./config.js";
 import { NOTICE_KEYS, pageLabels } from "./strings.js";
@@ -95,12 +98,14 @@ export function runGomoku(tf) {
 
   // Docking beside the panes came with Tilefold's theme for tiles (0.1.20).
   const canSide = () => !!tf.page && typeof tf.theme === "function";
+  /** "Show on": the tab in front (true) or every tab (false), beside the panes. */
+  const perTab = () => tf.settings.get("showOn") !== "all";
 
   /** Opens the page (beside the panes where Tilefold can), or brings it back. */
   async function open() {
     if (!tf.page) return tf.toast(tf.t("toast-needs-tilefold"));
     const side = canSide();
-    await tf.page.open(side ? { side: true } : {});
+    await tf.page.open(side ? { side: true, perTab: perTab() } : {});
     if (!where) audit("opened", { as: side ? "side" : "window" });
     where = side ? "side" : "window";
   }
@@ -254,6 +259,12 @@ export function runGomoku(tf) {
     if (reply.error) throw new Error(`${reply.error}`);
     return reply;
   };
+  // "Show on" changed while the page is beside the panes: it moves at once.
+  tf.on("setting.changed", (e) => {
+    if (e && e.key === "showOn" && where === "side") {
+      void tf.page.open({ side: true, perTab: perTab() }).catch(warn);
+    }
+  });
   tf.command(tf.t("cmd-versus"), () => forAgent("versus"), { id: "versus" });
   tf.command(tf.t("cmd-board"), (input) => forAgent("board", input), {
     id: "board",
