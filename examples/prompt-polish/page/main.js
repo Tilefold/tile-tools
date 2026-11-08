@@ -335,22 +335,31 @@
     $("foot").replaceChildren();
   }
   function diffOf(v) {
-    const box = el("div", `diff${v.clean ? " clean" : ""}`);
+    const box = el("div", `diff${v.clean ? " clean" : ""}${v.rework ? " rework" : ""}`);
     for (const p of v.parts) {
       if ("same" in p) {
         box.append(withCode(p.same));
         continue;
       }
       const c = el("span", `chg${p.off ? " off" : ""}`);
-      c.setAttribute("role", "button");
-      c.tabIndex = 0;
+      const toggle = () => send({ type: "toggle", id: p.id });
       if (p.del)
         c.append(
           el("del", wsShown(p.del) ? "ws" : "", wsShown(p.del) && !(v.clean && p.off) ? "\u2423" : p.del)
         );
       if (p.ins)
         c.append(el("ins", wsShown(p.ins) ? "ws" : "", wsShown(p.ins) && !v.clean ? "\u2423" : p.ins));
-      const toggle = () => send({ type: "toggle", id: p.id });
+      if (v.rework) {
+        const x = button("chg-x", p.off ? "\u21BA" : "\u2715", null);
+        x.title = p.off ? L.restoreChange : L.undoChange;
+        x.setAttribute("aria-label", x.title);
+        x.addEventListener("click", toggle);
+        c.append(x);
+        box.append(c);
+        continue;
+      }
+      c.setAttribute("role", "button");
+      c.tabIndex = 0;
       c.addEventListener("click", toggle);
       c.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -390,7 +399,7 @@
     $("body").replaceChildren(
       sum,
       diffOf(v),
-      el("p", "muted", L.clickHint),
+      el("p", "muted", v.rework ? L.clickHintRework : L.clickHint),
       ...v.notes.length ? [notes] : []
     );
     $("foot").replaceChildren(back, el("span", "spacer"), ...sendButtons(v));

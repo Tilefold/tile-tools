@@ -15,6 +15,9 @@
  *   results.
  *
  * Pure: no Tilefold calls.
+ *
+ * Modified 2026-11-07 (case rework): a long addition is offered one
+ *   sentence or line at a time (`sentencesOf`, `SPLIT_OVER`).
  */
 
 /** The longest prompt the tile checks, in characters: it bounds the cost and the diff. */
@@ -127,10 +130,27 @@ export function diff(a, b) {
   return ops;
 }
 
+/** An addition longer than this, in characters, is offered one sentence or line at a time. */
+export const SPLIT_OVER = 100;
+
+/*
+ * A sentence with the space after it: up to a full stop, question or
+ * exclamation mark followed by a space or the end (so "0.5" and "e.g" in a
+ * word stay whole), a CJK one, or a line break; or the rest.
+ */
+const SENTENCE = /[\s\S]*?(?:[.!?]+["'”’)\]]*(?:\s+|$)|[。！？]+\s*|\n+|$)/gu;
+
+/** `text` cut into sentences and lines, each with the space after it; together they are `text`. */
+export function sentencesOf(text) {
+  return (String(text ?? "").match(SENTENCE) ?? []).filter(Boolean);
+}
+
 /**
  * The diff as parts the user works with: `{ same }`, or a change
  * `{ id, del, ins }` (a removal and the addition next to it are one
- * change). Ids count from 1 in reading order.
+ * change). A long addition (a case's rework) is one change per sentence or
+ * line, the removal going with the first, so one can be undone without
+ * the rest. Ids count from 1 in reading order.
  */
 export function changes(ops) {
   const parts = [];
@@ -141,14 +161,15 @@ export function changes(ops) {
       parts.push({ same: o.text });
       continue;
     }
-    const c = { id: ++id, del: "", ins: "" };
+    const c = { del: "", ins: "" };
     c[o.op] = o.text;
     const next = ops[k + 1];
     if (next && next.op !== "same" && next.op !== o.op) {
       c[next.op] = next.text;
       k++;
     }
-    parts.push(c);
+    const pieces = c.ins.length > SPLIT_OVER ? sentencesOf(c.ins) : [c.ins];
+    pieces.forEach((ins, i) => parts.push({ id: ++id, del: i === 0 ? c.del : "", ins }));
   }
   return parts;
 }

@@ -11,6 +11,9 @@
  * spacing fix is one change), rebuilds both texts, gives up on detail for
  * a huge middle; changes are numbered in reading order and undone one by
  * one; empty and over-long prompts aren't checked.
+ *
+ * Modified 2026-11-07 (case rework): a long addition is one change per
+ *   sentence or line.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -23,6 +26,8 @@ import {
   keepsProtected,
   protectedSpans,
   tokenize,
+  SPLIT_OVER,
+  sentencesOf,
 } from "../../examples/prompt-polish/src/polish.js";
 
 const before = (ops) =>
@@ -137,5 +142,50 @@ describe("what can be checked", () => {
     expect(blocker(null)).toBe("empty");
     expect(blocker("x".repeat(MAX_CHARS + 1))).toBe("too-long");
     expect(blocker("ok")).toBe("");
+  });
+});
+
+describe("a long addition, one sentence or line at a time", () => {
+  const SHORT = "for Tilefold?";
+  const LONG =
+    "For Tilefold? Create a 20-second motion graphic. Use a flat style at 0.5 opacity.\nRender it at 1920x1080 and 60 fps. Add music!";
+
+  it("cuts text into sentences and lines that make it up again", () => {
+    const text = "One. Two at 0.5 e.g. here? Three!\nFour。五";
+    const pieces = sentencesOf(text);
+    expect(pieces.join("")).toBe(text);
+    expect(pieces).toEqual(["One. ", "Two at 0.5 e.g. ", "here? ", "Three!\n", "Four。", "五"]);
+  });
+
+  it("splits a rework into a change per sentence, the removal with the first", () => {
+    const parts = changes(diff(SHORT, LONG));
+    const ins = parts.filter((p) => p.id).map((p) => p.ins);
+    expect(ins).toEqual([
+      "For",
+      " Create a 20-second motion graphic. ",
+      "Use a flat style at 0.5 opacity.\n",
+      "Render it at 1920x1080 and 60 fps. ",
+      "Add music!",
+    ]);
+    expect(parts.find((p) => p.id === 1).del).toBe("for");
+    expect(parts.filter((p) => p.id > 1).every((p) => p.del === "")).toBe(true);
+    // Ids count in reading order.
+    expect(parts.filter((p) => p.id).map((p) => p.id)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("builds the rework, the original, or the rework without one sentence", () => {
+    const parts = changes(diff(SHORT, LONG));
+    const ids = parts.filter((p) => p.id).map((p) => p.id);
+    expect(build(parts, new Set())).toBe(LONG);
+    expect(build(parts, new Set(ids))).toBe(SHORT);
+    expect(build(parts, new Set([3]))).toBe(
+      "For Tilefold? Create a 20-second motion graphic. Render it at 1920x1080 and 60 fps. Add music!",
+    );
+  });
+
+  it("leaves a short addition whole", () => {
+    const parts = changes(diff("Go.", "Go. Then stop. Now."));
+    expect(" Then stop. Now.".length).toBeLessThan(SPLIT_OVER);
+    expect(parts.filter((p) => p.id)).toHaveLength(1);
   });
 });

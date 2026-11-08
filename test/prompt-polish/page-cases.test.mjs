@@ -18,6 +18,8 @@
  *
  * Modified 2026-11-07 (pick before checking): the chip's order, and the
  *   menu asked before the check.
+ * Modified 2026-11-07 (case rework): a rework's changes have their own
+ *   ✕ and ↺ buttons; a click on the text does nothing there.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -216,5 +218,58 @@ describe("what to fix, asked before the check", () => {
       p.tell({ do: "show", view: viewFor({ ...ASKED, choosing: false }) });
       expect(p.$("draft").value).toBe("make a cut");
     }
+  });
+});
+
+describe("a case's rework", () => {
+  const REWORK = {
+    ...CASES,
+    modeId: "case:Video editing",
+    caseName: "Video editing",
+    step: "result",
+    draft: "for it?",
+    parts: [
+      { id: 1, del: "for", ins: "For" },
+      { same: " it?" },
+      { id: 2, del: "", ins: " Make it 15 seconds." },
+    ],
+  };
+  const changesOf = (p) => [...p.$("body").querySelectorAll(".chg")];
+
+  it("undoes a change only with its own ✕, never by a click on the text", () => {
+    const p = page();
+    ready(p, REWORK);
+    expect(p.$("body").querySelector(".diff").classList.contains("rework")).toBe(true);
+    expect(p.$("body").textContent).toContain(t("label-click-hint-rework"));
+    const [, second] = changesOf(p);
+    expect(second.getAttribute("role")).toBeNull();
+    p.click(second.querySelector("ins"));
+    expect(p.posted.some((m) => m.type === "toggle")).toBe(false);
+    const x = second.querySelector("button.chg-x");
+    expect(x.textContent).toBe("✕");
+    expect(x.getAttribute("aria-label")).toBe(t("label-undo-change"));
+    p.click(x);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "toggle", id: 2 });
+  });
+
+  it("keeps an undone addition in sight, with ↺ to bring it back", () => {
+    const p = page();
+    ready(p, { ...REWORK, rejected: new Set([2]) });
+    const second = changesOf(p)[1];
+    expect(second.classList.contains("off")).toBe(true);
+    expect(second.querySelector("ins").textContent).toBe(" Make it 15 seconds.");
+    const x = second.querySelector("button.chg-x");
+    expect(x.textContent).toBe("↺");
+    expect(x.title).toBe(t("label-restore-change"));
+  });
+
+  it("keeps click-to-undo for the built-in modes", () => {
+    const p = page();
+    ready(p, { ...REWORK, modeId: "fix", caseName: "" });
+    const [first] = changesOf(p);
+    expect(first.getAttribute("role")).toBe("button");
+    expect(first.querySelector("button")).toBeNull();
+    p.click(first);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "toggle", id: 1 });
   });
 });

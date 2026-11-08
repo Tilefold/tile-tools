@@ -32,7 +32,8 @@
  * Modified 2026-11-07 (pick before checking): `choose` on the write step,
  *   and the menu's heading for it.
  * Modified 2026-11-07 (case rework): while a case is picked, checking and
- *   waiting name the case, not the language.
+ *   waiting name the case, not the language; its result is a `rework`,
+ *   whose changes are undone with their own buttons.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -85,6 +86,10 @@ export function setupOf(t) {
       showResult: t("label-show-result"),
       showChanges: t("label-show-changes"),
       clickHint: t("label-click-hint"),
+      // A case's rework: each change has its own button to undo or bring it back.
+      clickHintRework: t("label-click-hint-rework"),
+      undoChange: t("label-undo-change"),
+      restoreChange: t("label-restore-change"),
       back: t("label-back"),
       send: t("label-send"),
       sent: t("label-sent"),
@@ -220,6 +225,8 @@ export function viewOf(s, t) {
       ...head,
       step: "result",
       summary: t("label-changes", { count: total }),
+      // A case's rework: undone with each change's button, never by a click on the text.
+      rework: String(head.modeId).startsWith("case:"),
       undone: undone ? t("label-undone", { count: undone }) : "",
       clean: !!s.clean,
       parts: s.parts.map((p) =>

@@ -88,6 +88,11 @@ function diff(a, b) {
   push("same", x.slice(x.length - tail).join(""));
   return ops;
 }
+var SPLIT_OVER = 100;
+var SENTENCE = /[\s\S]*?(?:[.!?]+["'”’)\]]*(?:\s+|$)|[。！？]+\s*|\n+|$)/gu;
+function sentencesOf(text) {
+  return (String(text ?? "").match(SENTENCE) ?? []).filter(Boolean);
+}
 function changes(ops) {
   const parts = [];
   let id = 0;
@@ -97,14 +102,15 @@ function changes(ops) {
       parts.push({ same: o.text });
       continue;
     }
-    const c = { id: ++id, del: "", ins: "" };
+    const c = { del: "", ins: "" };
     c[o.op] = o.text;
     const next = ops[k + 1];
     if (next && next.op !== "same" && next.op !== o.op) {
       c[next.op] = next.text;
       k++;
     }
-    parts.push(c);
+    const pieces = c.ins.length > SPLIT_OVER ? sentencesOf(c.ins) : [c.ins];
+    pieces.forEach((ins, i) => parts.push({ id: ++id, del: i === 0 ? c.del : "", ins }));
   }
   return parts;
 }
@@ -1495,6 +1501,10 @@ function setupOf(t) {
       showResult: t("label-show-result"),
       showChanges: t("label-show-changes"),
       clickHint: t("label-click-hint"),
+      // A case's rework: each change has its own button to undo or bring it back.
+      clickHintRework: t("label-click-hint-rework"),
+      undoChange: t("label-undo-change"),
+      restoreChange: t("label-restore-change"),
       back: t("label-back"),
       send: t("label-send"),
       sent: t("label-sent"),
@@ -1612,6 +1622,8 @@ function viewOf2(s, t) {
       ...head,
       step: "result",
       summary: t("label-changes", { count: total }),
+      // A case's rework: undone with each change's button, never by a click on the text.
+      rework: String(head.modeId).startsWith("case:"),
       undone: undone ? t("label-undone", { count: undone }) : "",
       clean: !!s.clean,
       parts: s.parts.map(

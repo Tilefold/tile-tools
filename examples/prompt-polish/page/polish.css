@@ -11,6 +11,9 @@
  * (text sits on a solid surface), below that the blocks fade too and the
  * text gets a halo, and at "Text only" every surface is clear. The
  * chip opens a menu of what to fix, and a form adds the user's own case.
+ *
+ * Modified 2026-11-07 (case rework): a rework's changes have their own
+ *   ✕ / ↺ buttons, and an undone addition stays in sight, struck.
  */
 
 :root {
@@ -382,6 +385,39 @@ textarea {
   text-underline-offset: 3px;
 }
 .chg.off ins {
+  display: none;
+}
+/* A case's rework: the text isn't clickable; each change has a small ✕ / ↺,
+   and an undone addition stays in sight, faded and struck, to bring back. */
+.diff.rework .chg {
+  cursor: text;
+}
+.diff.rework .chg.off ins {
+  display: inline;
+  color: var(--muted);
+  background: none;
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.chg-x {
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  margin-inline: 2px 4px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--text-2);
+  vertical-align: 1px;
+}
+.chg-x:hover,
+.chg-x:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.diff.clean .chg-x {
   display: none;
 }
 .chg.off del {
