@@ -18,7 +18,9 @@
  *
  * Modified 2026-11-06 (input actions): a session's open `input` request.
  * Modified 2026-11-07 (move, fill, fold): `waitingFixes` (from run.js) and
- *   `keepsPill`, whether a folded card has something to come back to.
+ *   `keepsPill`, whether a folded card has something to come back to; and
+ *   `applyToSession` (from run.js), the page's messages that change only
+ *   the session: a change kept or undone, the result only, back to edit.
  */
 import { changeCount } from "./polish.js";
 
@@ -30,6 +32,36 @@ export const waitingFixes = (s) =>
 
 /** Whether session `s` is folded with something to come back to (its pill stays). */
 export const keepsPill = (s) => !!s && !s.open && s.step !== "write";
+
+/**
+ * Applies page message `m` if it changes only session `s`: `toggle` (keep
+ * or undo change `id`), `clean` (show the result only) and `back` (to the
+ * draft). Whether it was one (`done`), whether `s` changed, and whether a
+ * change was toggled (the pill's count moves).
+ */
+export function applyToSession(s, m) {
+  if (m.type === "toggle" && s.step === "result") {
+    const n = Number(m.id);
+    if (!s.parts.some((p) => p.id === n)) return { done: true, changed: false, toggled: false };
+    if (s.rejected.has(n)) s.rejected.delete(n);
+    else s.rejected.add(n);
+    return { done: true, changed: true, toggled: true };
+  }
+  if (m.type === "clean" && s.step === "result") {
+    s.clean = !s.clean;
+    return { done: true, changed: true, toggled: false };
+  }
+  if (m.type === "back") {
+    s.step = "write";
+    return { done: true, changed: true, toggled: false };
+  }
+  return { done: false, changed: false, toggled: false };
+}
+
+/** The longest draft kept from the page, in characters. */
+export const MAX_DRAFT = 20_000;
+/** The session id used where Tilefold reports no panes (a page in a window). */
+export const NO_PANE = "window";
 
 /** The most sessions kept; the least recently used goes first. */
 export const MAX_SESSIONS = 24;

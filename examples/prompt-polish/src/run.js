@@ -56,10 +56,13 @@
  * Modified 2026-11-07 (move, fill, fold): the card can be dragged and fill
  *   the pane (cardMoves.js); folded over the agent input box, it leaves the
  *   pill while there is something to come back to.
+ * Modified 2026-11-07 (own cases): what to fix is picked on the card, from
+ *   the built-in modes and the user's own cases (modes.js).
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
 import { createCardMoves } from "./cardMoves.js";
+import { createModes } from "./modes.js";
 import { createLog } from "./log.js";
 import { createClaudeRun } from "./claudeRun.js";
 import { createInputAction } from "./inputAction.js";
@@ -67,7 +70,15 @@ import { createSendToAgent } from "./sendToAgent.js";
 import { languageOf } from "./languages.js";
 import { viewOf as checkView } from "./place.js";
 import { blocker, build } from "./polish.js";
-import { createSessions, keepsPill, resetSession, waitingFixes } from "./sessions.js";
+import {
+  applyToSession,
+  createSessions,
+  MAX_DRAFT,
+  NO_PANE,
+  keepsPill,
+  resetSession,
+  waitingFixes,
+} from "./sessions.js";
 import { cardSettings, COMMANDS, settingsOf } from "./settings.js";
 import { BUTTON_ID, createStage } from "./show.js";
 import { setupOf, viewOf } from "./view.js";
@@ -75,10 +86,6 @@ import { setupOf, viewOf } from "./view.js";
 export { BUTTON_ID };
 /** The store key of the view the user last chose on the page. */
 export const VIEW_KEY = "view";
-/** The longest draft kept from the page, in characters. */
-const MAX_DRAFT = 20_000;
-/** The session id used where Tilefold reports no panes (a page in a window). */
-const NO_PANE = "window";
 
 /** @param {any} tf */
 export function runPolish(tf) {
@@ -92,6 +99,12 @@ export function runPolish(tf) {
   const stage = createStage(tf, { warn, canSide });
   const kept = () => stage.kept();
   const moves = createCardMoves({ place: () => place(), render: () => render(), audit, kept });
+  const later = {
+    current: () => current(),
+    check: (id, t) => check(id, t),
+    render: () => render(),
+  };
+  const modes = createModes(tf, { ...later, sessions, audit, warn });
   /** Whether Prompt Polish is on at all (the pill and the side dock show while it is). */
   let active = false;
   /** The user closed it from the palette: the pill stays away until Write a prompt. */
@@ -119,6 +132,7 @@ export function runPolish(tf) {
   const load = async () => {
     if (loaded) return;
     loaded = true;
+    await modes.load();
     const v = await tf.store.get(VIEW_KEY).catch(() => null);
     chosen = v === "bottom" || v === "corner" || v === "side" ? v : null;
     if (typeof tf.theme === "function") {
@@ -126,15 +140,7 @@ export function runPolish(tf) {
     }
   };
 
-  /** Sends the page a message; a closed page drops it (it gets everything on hello). */
-  const post = async (message) => {
-    if (!stage.where()) return;
-    try {
-      await tf.page.post(message);
-    } catch {
-      // Closed in the meantime.
-    }
-  };
+  const post = (message) => stage.post(message);
 
   /** Draws pane `id`'s session on the page, if it is the one showing. */
   const render = async (id = shown) => {
@@ -142,7 +148,7 @@ export function runPolish(tf) {
     if (!s || id !== shown) return;
     // The polish agent is called what the user renamed its pane to, if they did.
     const { max, collapsed } = moves.state();
-    const card = { ...cardSettings(current()), max, collapsed };
+    const card = { ...cardSettings(current()), ...modes.view(), max, collapsed };
     const called = agentRun.calledName();
     if (called) card.helperName = called;
     await post({
@@ -282,7 +288,8 @@ export function runPolish(tf) {
     audit,
     warn,
     language,
-    mode: () => current().mode,
+    mode: () => modes.now().mode,
+    rules: () => modes.now().rules,
     fast: () => current().fast,
     helperAgent: () => current().helperAgent,
   };
@@ -324,7 +331,8 @@ export function runPolish(tf) {
       await post({ do: "setup", ...setupOf(tf.t) });
       return render();
     }
-    if (await moves.hear(m)) return;
+    if ((await moves.hear(m)) || (await modes.hear(m, typeof m.pane === "string" ? m.pane : shown)))
+      return;
     if (m.type === "view") return chooseView(m.to);
     if (m.type === "fold") return fold();
     if (m.type === "size") {
@@ -345,22 +353,12 @@ export function runPolish(tf) {
     if (m.type === "cancel-agent") return agentRun.cancel(id);
     if (m.type === "as-is")
       return sendToAgent(id, String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
-    if (m.type === "toggle" && s.step === "result") {
-      const n = Number(m.id);
-      if (!s.parts.some((p) => p.id === n)) return;
-      if (s.rejected.has(n)) s.rejected.delete(n);
-      else s.rejected.add(n);
-      await render(id);
-      if (stage.buttonShown()) await place();
+    const r = applyToSession(s, m);
+    if (r.done) {
+      if (r.changed) await render(id);
+      // A fix kept or undone changes the pill's count.
+      if (r.toggled && stage.buttonShown()) await place();
       return;
-    }
-    if (m.type === "clean" && s.step === "result") {
-      s.clean = !s.clean;
-      return render(id);
-    }
-    if (m.type === "back") {
-      s.step = "write";
-      return render(id);
     }
     // From the agent input box: Use puts it back there, Keep mine leaves it.
     if (m.type === "send" && s.step === "result" && s.input) return inputAction.use(id);
@@ -479,6 +477,7 @@ export function runPolish(tf) {
     "setting.changed",
     background(async (e) => {
       await load();
+      if (e?.key === "mode") await modes.settingChanged();
       if (e?.key === "view") {
         // A choice in Settings wins over the page's last switch.
         chosen = null;

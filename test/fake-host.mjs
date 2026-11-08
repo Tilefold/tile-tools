@@ -97,6 +97,9 @@
  * Modified 2026-11-07 (Tilefold 0.1.27): a docked page's spot is checked as
  *   Tilefold does: 120 to 2,000 px wide, 32 (`dockMinH`; 120 before 0.1.27)
  *   to 2,000 px tall.
+ * Modified 2026-11-07 (Tilefold 0.1.27): `tf.settings.set` changes the
+ *   tile's own setting, checked as Tilefold does (`multiline` text up to
+ *   8,000 characters), kept in `host.settingSets`.
  *
  * Last updated by: Tilefold
  */
@@ -178,6 +181,8 @@ export async function startTile(dir, opts = {}) {
   const host = {
     regs: [],
     audits: [],
+    /** What the tile saved with tf.settings.set, in order. */
+    settingSets: [],
     /** Notices shown with tf.toast, as text. */
     toasts: [],
     sounds: [],
@@ -266,7 +271,27 @@ export async function startTile(dir, opts = {}) {
       host.regs.push({ kind: "hook", event });
       handlers.set(event, [...(handlers.get(event) ?? []), run]);
     },
-    settings: { get: (key) => (values.has(key) ? values.get(key) : defaults.get(key)) },
+    settings: {
+      get: (key) => (values.has(key) ? values.get(key) : defaults.get(key)),
+      // Tilefold 0.1.27: the tile's own settings, checked as Tilefold does
+      // (`settingsSet: false` plays an older Tilefold, without it).
+      async set(key, value) {
+        const def = defaults.get(key);
+        const reg = host.regs.find((r) => r.kind === "setting" && r.key === key);
+        const max = reg?.multiline ? 8000 : 1000;
+        const fits =
+          reg &&
+          typeof value === typeof def &&
+          (typeof value !== "string" || value.length <= max) &&
+          (!reg.choices || reg.choices.some((c) => (c?.value ?? c) === value));
+        if (!fits)
+          throw named("TypeError", "not one of this tile's settings, or a value it can't take");
+        values.set(key, value);
+        host.settingSets.push({ key, value });
+        await host.emit("setting.changed", { key });
+        return null;
+      },
+    },
     store: {
       get: async (key) => (host.store.has(key) ? host.store.get(key) : null),
       set: async (key, value) => {
@@ -362,6 +387,7 @@ export async function startTile(dir, opts = {}) {
   };
 
   if (opts.folders) addFolders(tf, host, opts.folders, named);
+  if (opts.settingsSet === false) tf.settings = { get: tf.settings.get };
   if (opts.page) {
     addPage(tf, host, {
       dock: opts.page === "dock" || opts.page === "side",

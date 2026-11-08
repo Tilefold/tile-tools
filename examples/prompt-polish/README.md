@@ -37,12 +37,27 @@ Over the pane, drag the card by its header to move it anywhere in the pane; it n
 
 If a pane is too small for the card, it opens beside the panes instead. On a Tilefold that can't dock pages it opens in a window of its own.
 
+## What to fix, and your own cases
+
+Click the chip in the card's header (such as **English · Mistakes only**) to pick what to fix: **Mistakes only**, **Mistakes, and make it read naturally**, or one of your own cases. Your pick stays until you pick again or change **What to fix** in Settings, and a prompt already checked is checked again with it. With one of your cases, the spelling and grammar are fixed as usual, and the prompt is also reworked as that case says, for example adding what a video prompt should always state.
+
+From the same menu, **Add your own…** opens a small form for a case's name and what to do, and **Edit “…”…** changes the case in use or removes it. They're saved to **Your own cases** in Settings, so you can also write them there (Tilefold 0.1.27; on an older Tilefold, add them in Settings only).
+
 ## Settings
 
 In **Settings → Tiles → Prompt Polish**:
 
 - **Language you write prompts in**: any of Tilefold's twelve languages, or the same as Tilefold. The reasons are written in Tilefold's language.
-- **What to fix**: mistakes only, or also make it read naturally.
+- **What to fix**: mistakes only, or also make it read naturally. This is where checks start; the card can pick another (below).
+- **Your own cases**: kinds of prompt you write often, each with what to do for it. Write each case's name on its first line and what to do on the lines under it, with a blank line between cases:
+
+  ```
+  Video editing
+  Say the clip's length, its style and the music.
+
+  Email to a client
+  Keep it short and polite.
+  ```
 - **Where Prompt Polish shows**: as above.
 - **Who checks your prompts**: Claude with your Anthropic key, and without one your polish agent (the default), or always your polish agent (see below).
 - **Your polish agent**: which agent checks your prompts in a tab of its own: Claude Code (the default), Codex, Gemini CLI, Cursor Agent, Antigravity CLI or OpenCode. It must be installed.

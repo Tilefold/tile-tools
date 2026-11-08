@@ -17,7 +17,10 @@
  *   is no key (or always, with `checker` "agent").
  * Modified 2026-11-07 (see-through card): the `solid` setting, how solid
  *   the card's background is over the pane (100: not see-through).
+ * Modified 2026-11-07 (own cases): the `cases` setting, the user's own
+ *   cases (cases.js), a text of several lines (Tilefold 0.1.27).
  */
+import { parseCases } from "./cases.js";
 import { LANGUAGES } from "./languages.js";
 import { VIEWS, viewOf } from "./place.js";
 
@@ -69,6 +72,8 @@ export function registerSettings(tf) {
   tf.setting("mode", "fix", tf.t("setting-mode"), {
     choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) })),
   });
+  // The user's own cases: several lines (a Tilefold before 0.1.27 shows one line).
+  tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
   tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) })),
   });
@@ -102,6 +107,7 @@ export function settingsOf(settings) {
   return {
     language: read(settings, "language"),
     mode: mode === "natural" ? "natural" : "fix",
+    cases: parseCases(read(settings, "cases")),
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
     checker: read(settings, "checker") === "agent" ? "agent" : "claude",

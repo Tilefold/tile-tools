@@ -97,3 +97,23 @@ error-input-gone = जिस बॉक्स में आप लिख रह�
 error-ask-failed = प्रॉम्प्ट प्रश्न कार्ड पर नहीं रखा जा सका। फिर कोशिश करें।
 toast-too-small = पेन Prompt Polish के लिए बहुत छोटा है, इसलिए यह पेन के बगल में खुला।
 toast-needs-tilefold = अपना पेज दिखाने के लिए Prompt Polish को नया Tilefold चाहिए।
+
+# Your own cases (what to fix)
+setting-cases = आपके अपने केस: पहली पंक्ति में नाम, उसके नीचे क्या करना है, केसों के बीच एक खाली पंक्ति
+label-mode-menu = क्या ठीक करना है
+label-add-case = अपना जोड़ें…
+label-edit-case = “{ $name }” बदलें…
+label-cases-in-settings = अपने केस सेटिंग्स → टाइल्स → Prompt Polish में जोड़ें
+label-case-new = आपका अपना केस
+label-case-edit = अपना केस बदलें
+label-case-name = नाम
+label-case-rules = इस तरह के प्रॉम्प्ट के लिए क्या करना है
+label-case-rules-hint = उदाहरण: क्लिप की लंबाई, उसकी शैली और संगीत बताएँ।
+label-case-save = सहेजें
+label-case-remove = हटाएँ
+case-needs-name = केस को एक नाम दें।
+case-needs-rules = बताएँ कि इस तरह के प्रॉम्प्ट के लिए क्या करना है।
+case-name-taken = इस नाम का केस पहले से है।
+case-too-many = आपके 20 केस हैं, जितने हो सकते हैं। पहले एक हटाएँ।
+case-too-long = आपके केस मिलाकर बहुत लंबे हैं (ज़्यादा से ज़्यादा 8,000 अक्षर)।
+case-not-saved = Tilefold ने केस नहीं सहेजा। फिर से आज़माएँ।

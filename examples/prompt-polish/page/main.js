@@ -27,6 +27,8 @@
  *   taken and a moving bar.
  * Modified 2026-11-07 (send from the card): for a prompt from the agent
  *   input box, Send to agent beside Use.
+ * Modified 2026-11-07 (own cases): the chip opens the menu of what to fix,
+ *   and the form to add or edit one of the user's own cases (cases.js).
  * Modified 2026-11-07 (move and fill): over the pane, the header moves the
  *   card, ▢ makes it fill the pane, and a double click folds it to its
  *   header bar or back (move.js); folded, it sends no size.
@@ -69,6 +71,90 @@
       svg.append(svgEl("circle", { cx: 12, cy: 8, r: 2, fill: "currentColor" }));
     else svg.append(svgEl("rect", { x: 2, y: 6, width: 12, height: 4, rx: 1, fill: "currentColor" }));
     return svg;
+  }
+
+  // page-src/cases.js
+  function drawModeMenu(v, L2, o) {
+    const list = o.el("div", "menu");
+    list.setAttribute("role", "menu");
+    list.setAttribute("aria-label", L2.modeMenu);
+    const item = (label, message, checked) => {
+      const b = o.button(checked === void 0 ? "menu-item" : "menu-item pick", label, null);
+      b.setAttribute("role", checked === void 0 ? "menuitem" : "menuitemradio");
+      if (checked !== void 0) b.setAttribute("aria-checked", String(checked));
+      b.dir = "auto";
+      b.addEventListener("click", () => o.pick(message));
+      return b;
+    };
+    for (const m of v.modes ?? [])
+      list.append(item(m.label, { type: "mode", to: m.id }, m.id === v.modeId));
+    list.append(o.el("hr", "menu-line"));
+    if (v.canEditCases) {
+      if (String(v.modeId).startsWith("case:")) {
+        const name = String(v.modeId).slice(5);
+        list.append(item(L2.editCase.replace("{name}", name), { type: "case-edit", was: name }));
+      }
+      list.append(item(L2.addCase, { type: "case-edit", was: null }));
+    } else {
+      list.append(o.el("p", "muted", L2.casesInSettings));
+    }
+    o.body.replaceChildren(list);
+    o.foot.replaceChildren(o.button("btn ghost", L2.cancel, null));
+    o.foot.firstChild.addEventListener("click", o.close);
+    list.querySelector("[aria-checked='true'], button")?.focus();
+  }
+  function drawCase(v, L2, o) {
+    const old = o.body.querySelector("form.case");
+    const same = old && old.dataset.was === String(v.was ?? "");
+    const typed = same ? { name: old.elements.namedItem("name").value, rules: old.elements.namedItem("rules").value } : { name: v.name, rules: v.rules };
+    const form = o.el("form", "case");
+    form.dataset.was = String(v.was ?? "");
+    form.append(o.el("b", "case-title", v.was === null ? L2.caseNew : L2.caseEdit));
+    const field = (label, control) => {
+      const wrap = o.el("label", "case-field");
+      wrap.append(o.el("span", "muted", label), control);
+      return wrap;
+    };
+    const name = o.el("input");
+    Object.assign(name, {
+      name: "name",
+      type: "text",
+      maxLength: 60,
+      value: typed.name,
+      dir: "auto"
+    });
+    const rules = o.el("textarea");
+    Object.assign(rules, {
+      name: "rules",
+      rows: 5,
+      maxLength: 2e3,
+      value: typed.rules,
+      dir: "auto"
+    });
+    rules.placeholder = L2.caseRulesHint;
+    form.append(field(L2.caseName, name), field(L2.caseRules, rules));
+    if (v.why) {
+      const why = o.el("p", "warn", v.why);
+      why.setAttribute("role", "alert");
+      form.append(why);
+    }
+    const save = () => o.send({ type: "case-save", name: name.value, rules: rules.value });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      save();
+    });
+    o.body.replaceChildren(form);
+    const foot = [];
+    if (v.was !== null)
+      foot.push(o.button("btn ghost", L2.caseRemove, { type: "case-remove", name: v.was }));
+    foot.push(
+      o.el("span", "spacer"),
+      o.button("btn ghost", L2.cancel, { type: "case-cancel" }),
+      o.button("btn primary", L2.caseSave, null)
+    );
+    foot.at(-1).addEventListener("click", save);
+    o.foot.replaceChildren(...foot);
+    if (!same) (typed.name ? rules : name).focus();
   }
 
   // page-src/move.js
@@ -124,6 +210,7 @@
   var $ = (id) => document.getElementById(id);
   var L = null;
   var view = null;
+  var menuOpen = false;
   var send = (message) => {
     if (!bridge) return;
     bridge.post({ pane: view ? view.pane : null, ...message }).catch(() => {
@@ -162,7 +249,8 @@
     $("name").textContent = L.name;
     $("where").textContent = v.view === "side" ? L.inDock : L.overPane;
     $("chip").textContent = `${v.language} \xB7 ${v.mode}`;
-    $("chip").title = v.mode;
+    $("chip").title = L.modeMenu;
+    $("chip").setAttribute("aria-expanded", String(menuOpen));
     $("views").setAttribute("aria-label", L.views.bottom);
     $("views").replaceChildren(
       ...["bottom", "corner", "side"].map((k) => {
@@ -355,14 +443,27 @@
     view = v;
     seeThrough(v);
     clearInterval(ticking);
+    if (v.step === "case") menuOpen = false;
     drawHead(v);
-    if (v.step === "checking") drawChecking(v);
+    const parts = { el, button, send, body: $("body"), foot: $("foot") };
+    if (menuOpen) drawModeMenu(v, L, { ...parts, pick: pickMode, close: closeMenu });
+    else if (v.step === "case") drawCase(v, L, parts);
+    else if (v.step === "checking") drawChecking(v);
     else if (v.step === "agent") drawAgent(v);
     else if (v.step === "result") drawResult(v);
     else if (v.step === "sent") drawSent();
     else if (v.step === "problem") drawProblem(v);
     else drawWrite(v);
     reportSize();
+  }
+  function closeMenu() {
+    menuOpen = false;
+    if (view) draw(view);
+  }
+  function pickMode(message) {
+    menuOpen = false;
+    send(message);
+    if (view) draw(view);
   }
   function seeThrough(v) {
     const card = v.view === "bottom" || v.view === "corner";
@@ -403,6 +504,10 @@
     });
     send({ type: "hello" });
   }
+  $("chip").addEventListener("click", () => {
+    menuOpen = !menuOpen;
+    if (view) draw(view);
+  });
   $("fill").addEventListener("click", () => send({ type: "max" }));
   $("fold").addEventListener("click", () => send({ type: "fold" }));
   var overPane = () => !!view && (view.view === "bottom" || view.view === "corner");
@@ -416,6 +521,8 @@
         if (area && area.value.trim()) send({ type: "check", text: area.value });
       } else if (view.step === "result") send({ type: "send" });
     }
+    if (e.key === "Escape" && menuOpen) return closeMenu();
+    if (e.key === "Escape" && view?.step === "case") return send({ type: "case-cancel" });
     if (e.key === "Escape" && view && view.view !== "side" && view.view !== "window")
       send({ type: "fold" });
   });

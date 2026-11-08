@@ -81,6 +81,7 @@ Adds a setting under the tile's card in Settings → Tiles.
 |---|---|
 | `key` | A letter, then letters, digits, `_`, `.` or `-`, at most 64 characters, unique within the tile |
 | `default` | `true` / `false` gives a switch, a number gives a number box, text (at most 1,000 characters) gives a text box |
+| `options.multiline` | `true` on a text setting without choices: a box of several lines in Settings, holding up to 8,000 characters (Tilefold 0.1.27) |
 | `description` | The label, at most 200 characters. Translate it with `tf.t` |
 | `options.choices` | A drop-down instead: 2 to 24 entries, each a string or `{ value, label }` (values at most 64 characters, labels at most 80). The default must be one of the values |
 
@@ -96,6 +97,16 @@ tf.setting("corner", "bottom-right", tf.t("setting-corner"), {
 ### tf.settings.get(key)
 
 The setting's current value, at once (not a promise): the user's value when it fits the setting's type, otherwise the default. When the user changes a setting, the tile gets `setting.changed` with `{ key }`.
+
+### tf.settings.set(key, value)
+
+Changes one of your tile's own settings, as the user could in Settings → Tiles (Tilefold 0.1.27): for something the user did on your page, such as adding an entry to a list setting. The value must fit the setting as registered (its type, its choices, its length), else it rejects with a `TypeError`; your tile then gets `setting.changed`, as for the user's change. At most 30 changes a minute (`RateLimitError`). Tilefold records that the tile changed the setting, never the value.
+
+```js
+tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+// Later, when the user saves a case on the tile's page:
+await tf.settings.set("cases", `${tf.settings.get("cases")}\n\n${name}\n${rules}`.trim());
+```
 
 ### tf.on(event, handler)
 

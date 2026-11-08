@@ -27,6 +27,8 @@
  *   taken and a moving bar.
  * Modified 2026-11-07 (send from the card): for a prompt from the agent
  *   input box, Send to agent beside Use.
+ * Modified 2026-11-07 (own cases): the chip opens the menu of what to fix,
+ *   and the form to add or edit one of the user's own cases (cases.js).
  * Modified 2026-11-07 (move and fill): over the pane, the header moves the
  *   card, ▢ makes it fill the pane, and a double click folds it to its
  *   header bar or back (move.js); folded, it sends no size.
@@ -36,6 +38,7 @@
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
 import { sizeText, viewIcon, wsShown } from "./bits.js";
+import { drawCase, drawModeMenu } from "./cases.js";
 import { setupMoving } from "./move.js";
 
 const bridge = window.tilefold;
@@ -44,6 +47,8 @@ const $ = (id) => document.getElementById(id);
 let L = null;
 /** The view last drawn. */
 let view = null;
+/** Whether the menu of what to fix is open (drawn in the body). */
+let menuOpen = false;
 
 /**
  * Sends a message to the tile, naming the pane whose prompt is showing
@@ -101,7 +106,8 @@ function drawHead(v) {
   $("name").textContent = L.name;
   $("where").textContent = v.view === "side" ? L.inDock : L.overPane;
   $("chip").textContent = `${v.language} · ${v.mode}`;
-  $("chip").title = v.mode;
+  $("chip").title = L.modeMenu;
+  $("chip").setAttribute("aria-expanded", String(menuOpen));
   $("views").setAttribute("aria-label", L.views.bottom);
   $("views").replaceChildren(
     ...["bottom", "corner", "side"].map((k) => {
@@ -317,14 +323,32 @@ function draw(v) {
   seeThrough(v);
   // A waiting step's timer stops with it.
   clearInterval(ticking);
+  // The form for a case replaces the menu it was opened from.
+  if (v.step === "case") menuOpen = false;
   drawHead(v);
-  if (v.step === "checking") drawChecking(v);
+  const parts = { el, button, send, body: $("body"), foot: $("foot") };
+  if (menuOpen) drawModeMenu(v, L, { ...parts, pick: pickMode, close: closeMenu });
+  else if (v.step === "case") drawCase(v, L, parts);
+  else if (v.step === "checking") drawChecking(v);
   else if (v.step === "agent") drawAgent(v);
   else if (v.step === "result") drawResult(v);
   else if (v.step === "sent") drawSent();
   else if (v.step === "problem") drawProblem(v);
   else drawWrite(v);
   reportSize();
+}
+
+/** Closes the menu of what to fix, back to the step it covered. */
+function closeMenu() {
+  menuOpen = false;
+  if (view) draw(view);
+}
+
+/** Sends the menu's choice and closes it. */
+function pickMode(message) {
+  menuOpen = false;
+  send(message);
+  if (view) draw(view);
 }
 
 /* --------------------------- the see-through ---------------------------- */
@@ -385,6 +409,10 @@ if (bridge) {
   send({ type: "hello" });
 }
 
+$("chip").addEventListener("click", () => {
+  menuOpen = !menuOpen;
+  if (view) draw(view);
+});
 $("fill").addEventListener("click", () => send({ type: "max" }));
 $("fold").addEventListener("click", () => send({ type: "fold" }));
 // Over the pane: drag the header to move the card, double-click it to fill the pane.
@@ -399,6 +427,9 @@ document.addEventListener("keydown", (e) => {
       if (area && area.value.trim()) send({ type: "check", text: area.value });
     } else if (view.step === "result") send({ type: "send" });
   }
+  // Escape closes the menu (or the case form) before it folds the card.
+  if (e.key === "Escape" && menuOpen) return closeMenu();
+  if (e.key === "Escape" && view?.step === "case") return send({ type: "case-cancel" });
   if (e.key === "Escape" && view && view.view !== "side" && view.view !== "window")
     send({ type: "fold" });
 });

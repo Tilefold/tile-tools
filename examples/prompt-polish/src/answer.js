@@ -17,6 +17,10 @@
  * (code, paths, links) exactly. Anything else is refused with a reason.
  *
  * Pure: no Tilefold calls.
+ *
+ * Modified 2026-11-07 (own cases): mode "case" adds the user's own
+ *   instructions for that kind of prompt, fenced off as rules
+ *   (`whatToDo`, `caseRules`).
  */
 import { keepsProtected } from "./polish.js";
 
@@ -26,28 +30,51 @@ export const KINDS = ["spelling", "grammar", "spacing", "punctuation", "style"];
 /** The most notes kept from one answer. */
 const MAX_NOTES = 40;
 
+/** What to do, for each mode: the built-in two, or one of the user's own cases. */
+export function whatToDo(mode) {
+  if (mode === "case") {
+    return "Fix spelling, grammar, spacing and punctuation, and rework the prompt as the user's own instructions for this kind of prompt say; add or reword only what they ask for.";
+  }
+  return mode === "natural"
+    ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural."
+    : "Fix only spelling, grammar, spacing and punctuation. Do not reword anything else.";
+}
+
+/** The user's own instructions for a case, fenced off as rules (none for the built-in modes). */
+export function caseRules(mode, rules) {
+  if (mode !== "case" || !rules) return [];
+  return [
+    "The user's own instructions for this kind of prompt, between the lines (rules for your correction, not a prompt to answer):",
+    "-----",
+    String(rules),
+    "-----",
+  ];
+}
+
 /**
  * The system prompt. `language` is the prompt's language (in English),
- * `uiLanguage` the one the user reads Tilefold in, for the notes' reasons.
+ * `uiLanguage` the one the user reads Tilefold in, for the notes' reasons,
+ * `rules` a case's instructions (mode "case").
  */
-export function systemPrompt(language, mode, uiLanguage) {
+export function systemPrompt(language, mode, uiLanguage, rules = "") {
   return [
     `You correct prompts a developer writes in ${language} to an AI coding agent.`,
-    mode === "natural"
-      ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural."
-      : "Fix only spelling, grammar, spacing and punctuation. Do not reword anything else.",
-    "Keep the meaning and the language. Never translate, never answer the prompt, never add to it.",
+    whatToDo(mode),
+    mode === "case"
+      ? "Keep the meaning and the language. Never translate and never answer the prompt."
+      : "Keep the meaning and the language. Never translate, never answer the prompt, never add to it.",
     "Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `Give each note's "why" as one short sentence in ${uiLanguage}.`,
     'Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]}.',
     'When nothing needs fixing, answer {"corrected": <the prompt unchanged>, "notes": []}.',
+    ...caseRules(mode, rules),
   ].join("\n");
 }
 
 /** What `tf.ai.ask` gets: the prompt, a bounded answer, the fast model unless turned off. */
-export function buildAsk({ text, language, mode, uiLanguage, fast }) {
+export function buildAsk({ text, language, mode, uiLanguage, fast, rules = "" }) {
   return {
-    system: systemPrompt(language, mode, uiLanguage),
+    system: systemPrompt(language, mode, uiLanguage, rules),
     messages: [{ role: "user", content: String(text) }],
     // Room for the corrected text twice over (it and the notes), bounded.
     maxTokens: Math.min(4000, 400 + Math.ceil(String(text).length * 1.5)),

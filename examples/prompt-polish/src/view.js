@@ -25,6 +25,10 @@
  * Modified 2026-11-07 (move and fill): `max` (the card fills the pane) and
  *   the labels to fill, restore and move it; `collapsed` (only its header
  *   bar shows).
+ * Modified 2026-11-07 (own cases): what to fix as the card picked it, the
+ *   menu's entries (`modes`: the built-in two, then the user's own cases;
+ *   `modeId`, the one picked), whether cases can be edited here, and the
+ *   `case` step: the form to add or edit a case, over whatever was there.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -84,8 +88,27 @@ export function setupOf(t) {
       words: t("label-words", { count: "{count}" }),
       chars: t("label-chars", { count: "{count}" }),
       tooLong: t("label-too-long", { max: MAX_CHARS }),
+      // What to fix: the chip's menu and the form for the user's own cases.
+      modeMenu: t("label-mode-menu"),
+      addCase: t("label-add-case"),
+      editCase: t("label-edit-case", { name: "{name}" }),
+      casesInSettings: t("label-cases-in-settings"),
+      caseNew: t("label-case-new"),
+      caseEdit: t("label-case-edit"),
+      caseName: t("label-case-name"),
+      caseRules: t("label-case-rules"),
+      caseRulesHint: t("label-case-rules-hint"),
+      caseSave: t("label-case-save"),
+      caseRemove: t("label-case-remove"),
     },
   };
+}
+
+/** What to fix, as the chip says it: a case's own name, else the mode's label. */
+function modeLabel(s, t) {
+  if (typeof s.modeId === "string" && s.modeId.startsWith("case:") && s.caseName) return s.caseName;
+  const id = typeof s.modeId === "string" ? s.modeId : s.mode;
+  return id === "natural" ? t("setting-mode-natural") : t("setting-mode-fix");
 }
 
 /**
@@ -102,7 +125,18 @@ export function viewOf(s, t) {
     pane: typeof s.pane === "string" ? s.pane : null,
     view: s.view,
     language: lang.native,
-    mode: s.mode === "natural" ? t("setting-mode-natural") : t("setting-mode-fix"),
+    // What to fix, as the card picked it (a case shows its own name).
+    mode: modeLabel(s, t),
+    modeId: typeof s.modeId === "string" ? s.modeId : s.mode === "natural" ? "natural" : "fix",
+    modes: [
+      { id: "fix", label: t("setting-mode-fix") },
+      { id: "natural", label: t("setting-mode-natural") },
+      ...(Array.isArray(s.cases) ? s.cases : []).map((name) => ({
+        id: `case:${name}`,
+        label: name,
+      })),
+    ],
+    canEditCases: !!s.canEditCases,
     unspaced: isUnspaced(lang.code),
     langCode: lang.code,
     // From the agent input box: Use puts the result back there.
@@ -114,6 +148,18 @@ export function viewOf(s, t) {
     // Folded to its header bar.
     collapsed: !!s.collapsed,
   };
+  // The form to add or edit a case shows over whatever step was there.
+  if (s.editing) {
+    const e = s.editing;
+    return {
+      ...head,
+      step: "case",
+      was: typeof e.was === "string" ? e.was : null,
+      name: String(e.name ?? ""),
+      rules: String(e.rules ?? ""),
+      why: e.why ? t(e.why) : "",
+    };
+  }
   if (s.step === "checking") {
     return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
   }

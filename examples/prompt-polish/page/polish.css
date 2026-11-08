@@ -8,7 +8,8 @@
  * following the system. Removed text is struck, added text underlined, and
  * a change the user undid shows their own words again, dotted. Over the
  * pane the card may be see-through, but only between its blocks: text always
- * sits on a solid surface, so it stays readable over the pane's text.
+ * sits on a solid surface, so it stays readable over the pane's text. The
+ * chip opens a menu of what to fix, and a form adds the user's own case.
  */
 
 :root {
@@ -179,6 +180,10 @@ header {
   color: var(--accent);
 }
 .chip {
+  cursor: pointer;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 999px;
@@ -408,4 +413,62 @@ textarea {
   grid-column: 2;
   color: var(--muted);
   font-size: 12px;
+}
+
+/* What to fix: the chip's menu, drawn in the body. */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu-item {
+  text-align: start;
+  padding: 6px 10px 6px 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  overflow-wrap: anywhere;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--hover);
+}
+/* The one in use: a check mark, never color alone. */
+.menu-item.pick[aria-checked="true"]::before {
+  content: "✓";
+  position: absolute;
+  inset-inline-start: 10px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.menu-line {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 4px 0;
+  width: 100%;
+}
+
+/* The form for one of the user's own cases. */
+.case {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.case-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.case input {
+  font: inherit;
+  color: var(--text);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.case textarea {
+  min-height: 7em;
 }

@@ -97,3 +97,23 @@ error-input-gone = 쓰던 입력 상자가 없어져서(패널이 닫혔거나 �
 error-ask-failed = 프롬프트를 질문 카드에 올리지 못했어요. 다시 해 보세요.
 toast-too-small = 창이 너무 작아서 Prompt Polish를 창 옆에 열었어요.
 toast-needs-tilefold = Prompt Polish 화면을 보려면 더 새로운 Tilefold가 필요해요.
+
+# Your own cases (what to fix)
+setting-cases = 나만의 경우: 첫 줄에 이름, 그 아래에 할 일, 경우 사이에는 빈 줄
+label-mode-menu = 고칠 내용
+label-add-case = 직접 추가…
+label-edit-case = “{ $name }” 편집…
+label-cases-in-settings = 나만의 경우는 설정 → 타일 → Prompt Polish에서 추가합니다
+label-case-new = 나만의 경우
+label-case-edit = 경우 편집
+label-case-name = 이름
+label-case-rules = 이런 프롬프트에서 할 일
+label-case-rules-hint = 예: 클립 길이, 스타일, 음악을 적어 줘.
+label-case-save = 저장
+label-case-remove = 삭제
+case-needs-name = 경우에 이름을 붙여 주세요.
+case-needs-rules = 이런 프롬프트에서 무엇을 할지 적어 주세요.
+case-name-taken = 같은 이름의 경우가 이미 있습니다.
+case-too-many = 경우는 20개까지입니다. 먼저 하나를 삭제하세요.
+case-too-long = 경우를 모두 합치면 너무 깁니다(최대 8,000자).
+case-not-saved = Tilefold가 경우를 저장하지 못했습니다. 다시 시도하세요.

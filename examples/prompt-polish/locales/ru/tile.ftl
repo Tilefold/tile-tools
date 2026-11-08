@@ -97,3 +97,23 @@ error-input-gone = Поля, в котором вы писали, больше �
 error-ask-failed = Не удалось положить промпт на карточку вопроса. Попробуйте ещё раз.
 toast-too-small = Панель слишком мала для Prompt Polish, поэтому он открылся рядом с панелями.
 toast-needs-tilefold = Prompt Polish нужен более новый Tilefold, чтобы показать свою страницу.
+
+# Your own cases (what to fix)
+setting-cases = Ваши случаи: название в первой строке, под ним что делать, пустая строка между случаями
+label-mode-menu = Что исправлять
+label-add-case = Добавить свой…
+label-edit-case = Изменить «{ $name }»…
+label-cases-in-settings = Свои случаи добавляются в Настройки → Плитки → Prompt Polish
+label-case-new = Ваш случай
+label-case-edit = Изменить случай
+label-case-name = Название
+label-case-rules = Что делать с таким промптом
+label-case-rules-hint = Например: укажи длину ролика, его стиль и музыку.
+label-case-save = Сохранить
+label-case-remove = Удалить
+case-needs-name = Дайте случаю название.
+case-needs-rules = Напишите, что делать с таким промптом.
+case-name-taken = Случай с таким названием уже есть.
+case-too-many = У вас 20 случаев — это предел. Сначала удалите один.
+case-too-long = Ваши случаи вместе слишком длинные (не больше 8 000 символов).
+case-not-saved = Tilefold не сохранил случай. Попробуйте ещё раз.

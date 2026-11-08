@@ -97,3 +97,23 @@ error-input-gone = A caixa em que você escrevia não existe mais (o painel foi 
 error-ask-failed = Não foi possível colocar o prompt no cartão de pergunta. Tente de novo.
 toast-too-small = O painel é pequeno demais para o Prompt Polish, então ele abriu ao lado dos painéis.
 toast-needs-tilefold = O Prompt Polish precisa de um Tilefold mais novo para mostrar sua página.
+
+# Your own cases (what to fix)
+setting-cases = Seus próprios casos: o nome na primeira linha, o que fazer embaixo, uma linha em branco entre os casos
+label-mode-menu = O que corrigir
+label-add-case = Adicionar o seu…
+label-edit-case = Editar “{ $name }”…
+label-cases-in-settings = Adicione os seus em Configurações → Tiles → Prompt Polish
+label-case-new = Seu próprio caso
+label-case-edit = Editar seu caso
+label-case-name = Nome
+label-case-rules = O que fazer com este tipo de prompt
+label-case-rules-hint = Por exemplo: Diga a duração do clipe, o estilo e a música.
+label-case-save = Salvar
+label-case-remove = Remover
+case-needs-name = Dê um nome ao caso.
+case-needs-rules = Diga o que fazer com este tipo de prompt.
+case-name-taken = Você já tem um caso com este nome.
+case-too-many = Você tem 20 casos, o máximo. Remova um antes.
+case-too-long = Seus casos juntos são longos demais (no máximo 8.000 caracteres).
+case-not-saved = O Tilefold não salvou o caso. Tente de novo.

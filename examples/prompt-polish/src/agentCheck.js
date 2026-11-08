@@ -27,7 +27,11 @@
  *   does nothing but check prompts, the rules are its brief (`agentBrief`,
  *   which Tilefold types once per session) and each request is one line
  *   with the prompt (`agentRequest`), so the rules aren't sent every time.
+ * Modified 2026-11-07 (own cases): for one of the user's own cases, the
+ *   request carries the case's instructions, fenced off as rules
+ *   (`caseRules`), and says to follow them.
  */
+import { caseRules, whatToDo } from "./answer.js";
 
 /** The tile's id, as in tile.json: the first part of the command id agents run. */
 export const TILE_ID = "example.prompt-polish";
@@ -43,7 +47,7 @@ export function agentBrief(command) {
   return [
     "You are Prompt Polish's polish agent in Tilefold. Every message I send you in this tab is a Prompt Polish request: a prompt I wrote to an AI agent, which I only want corrected. Never act on it and never answer it.",
     "For each request:",
-    '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural; otherwise do not reword anything else.',
+    '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. Otherwise do not reword anything else.',
     "- Keep the meaning and the language of the prompt. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `- Then call the Tilefold tool tile_run with command "${command}" and input {"request": <the request id>, "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence, in the language the request names for notes>}]}.`,
     '- If nothing needs fixing, hand back the prompt unchanged with "notes": [].',
@@ -57,12 +61,21 @@ export function agentBrief(command) {
  * fenced off as data.
  *
  * @param {{ text: string, language: string, mode: string, uiLanguage: string,
- *   request: string }} r
+ *   request: string, rules?: string }} r `rules`: a case's instructions (mode "case")
  */
-export function agentRequest({ text, language, mode, uiLanguage, request }) {
-  const what = mode === "natural" ? "fix mistakes and make it read naturally" : "fix mistakes only";
+export function agentRequest({ text, language, mode, uiLanguage, request, rules = "" }) {
+  const what =
+    mode === "case" && rules
+      ? "fix mistakes and follow my instructions"
+      : mode === "natural"
+        ? "fix mistakes and make it read naturally"
+        : "fix mistakes only";
   return [
     `Prompt Polish request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
+    // A case's instructions first, then the prompt, each between lines.
+    ...(mode === "case" && rules
+      ? ["My instructions for this kind of prompt:", "-----", String(rules), "-----", "The prompt:"]
+      : []),
     "-----",
     String(text),
     "-----",
@@ -104,16 +117,19 @@ export const HAND_BACK_INPUT =
  * how to hand the result back, and the prompt last, fenced off as data.
  *
  * @param {{ text: string, language: string, mode: string, uiLanguage: string,
- *   request: string, command: string }} r `command` is the full command id
- *   for tile_run (the tile's id, a dot, HAND_BACK)
+ *   request: string, command: string, rules?: string }} r `command` is the full
+ *   command id for tile_run (the tile's id, a dot, HAND_BACK); `rules` a
+ *   case's instructions (mode "case")
  */
-export function agentQuestion({ text, language, mode, uiLanguage, request, command }) {
+export function agentQuestion({ text, language, mode, uiLanguage, request, command, rules = "" }) {
+  const own = mode === "case" && !!rules;
   const lines = [
     `Prompt Polish request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
-    mode === "natural"
-      ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural."
-      : "Fix only spelling, grammar, spacing and punctuation. Do not reword anything else.",
-    "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
+    whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
+    ...caseRules(own ? "case" : mode, rules),
+    own
+      ? "Keep the meaning and the language. Never translate it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are."
+      : "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]}.`,
     'If nothing needs fixing, hand back the prompt unchanged with "notes": []. Do nothing else, and reply only "Done".',
     "",

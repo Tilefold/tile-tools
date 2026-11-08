@@ -97,3 +97,23 @@ error-input-gone = المربع الذي كنت تكتب فيه لم يعد مو
 error-ask-failed = تعذّر وضع الطلب على بطاقة السؤال. حاول مجددًا.
 toast-too-small = الجزء صغير جدًا على Prompt Polish، لذا فُتح بجانب الأجزاء.
 toast-needs-tilefold = يحتاج Prompt Polish إلى إصدار أحدث من Tilefold لعرض صفحته.
+
+# Your own cases (what to fix)
+setting-cases = حالاتك الخاصة: الاسم في السطر الأول، وتحته ما يجب فعله، وسطر فارغ بين الحالات
+label-mode-menu = ما يُصحَّح
+label-add-case = أضف حالتك…
+label-edit-case = تعديل «{ $name }»…
+label-cases-in-settings = أضف حالاتك في الإعدادات ← البلاطات ← Prompt Polish
+label-case-new = حالتك الخاصة
+label-case-edit = تعديل حالتك
+label-case-name = الاسم
+label-case-rules = ما يجب فعله مع هذا النوع من الأوامر
+label-case-rules-hint = مثلًا: اذكر طول المقطع وأسلوبه والموسيقى.
+label-case-save = حفظ
+label-case-remove = إزالة
+case-needs-name = أعطِ الحالة اسمًا.
+case-needs-rules = اذكر ما يجب فعله مع هذا النوع من الأوامر.
+case-name-taken = لديك حالة بهذا الاسم بالفعل.
+case-too-many = لديك 20 حالة، وهو الحد الأقصى. أزل واحدة أولًا.
+case-too-long = حالاتك معًا طويلة جدًا (8,000 حرف على الأكثر).
+case-not-saved = لم يحفظ Tilefold الحالة. حاول مرة أخرى.

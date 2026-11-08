@@ -24,6 +24,8 @@
  *   and why when the request couldn't go.
  * Modified 2026-11-07 (helper names): the card calls the polish agent what
  *   the user renamed its pane to (`calledName`), as Tilefold reports it.
+ * Modified 2026-11-07 (own cases): a case's instructions go with the
+ *   request (`rules`); audits name only the mode.
  */
 import {
   agentBrief,
@@ -57,6 +59,8 @@ const HELPER_WHY = {
  */
 export function createAgentRun(tf, deps) {
   const { sessions, render, refreshButton, audit, warn, language, mode, helperAgent } = deps;
+  // A case's own instructions (none for the built-in modes).
+  const rules = () => (typeof deps.rules === "function" ? deps.rules() : "");
   /** True where Tilefold can give the tile a polish agent of its own. */
   const hasHelper = () => typeof tf.agent?.helper === "function";
   const pending = createPending();
@@ -95,6 +99,7 @@ export function createAgentRun(tf, deps) {
           text: entry.original,
           language: language().name,
           mode: entry.mode,
+          rules: entry.rules,
           uiLanguage: tf.t("ai-language"),
           request,
         }),
@@ -135,15 +140,17 @@ export function createAgentRun(tf, deps) {
     const request = newRequestId();
     const lang = language();
     const m = mode();
+    const own = rules();
     const question = agentQuestion({
       text: original,
       language: lang.name,
       mode: m,
+      rules: own,
       uiLanguage: tf.t("ai-language"),
       request,
       command: `${TILE_ID}.${HAND_BACK}`,
     });
-    const entry = { pane: id, original, language: lang.code, mode: m };
+    const entry = { pane: id, original, language: lang.code, mode: m, rules: own };
     if (hasHelper()) return viaHelper(id, s, entry, request);
     let r;
     try {

@@ -97,3 +97,23 @@ error-input-gone = 書いていたボックスがなくなったため（ペイ�
 error-ask-failed = 質問カードにプロンプトを載せられませんでした。もう一度お試しください。
 toast-too-small = ペインが小さすぎるため、Prompt Polish をペインの横に開きました。
 toast-needs-tilefold = Prompt Polish の画面を表示するには、新しい Tilefold が必要です。
+
+# Your own cases (what to fix)
+setting-cases = 自分のケース：1 行目に名前、その下にすること、ケースの間は空行
+label-mode-menu = 直す内容
+label-add-case = 自分のケースを追加…
+label-edit-case = 「{ $name }」を編集…
+label-cases-in-settings = 自分のケースは 設定 → タイル → Prompt Polish で追加します
+label-case-new = 自分のケース
+label-case-edit = ケースを編集
+label-case-name = 名前
+label-case-rules = この種のプロンプトですること
+label-case-rules-hint = 例：クリップの長さ、スタイル、音楽を書く。
+label-case-save = 保存
+label-case-remove = 削除
+case-needs-name = ケースに名前を付けてください。
+case-needs-rules = この種のプロンプトで何をするか書いてください。
+case-name-taken = 同じ名前のケースがすでにあります。
+case-too-many = ケースは 20 個までです。先に 1 つ削除してください。
+case-too-long = ケースの合計が長すぎます（8,000 文字まで）。
+case-not-saved = Tilefold はケースを保存しませんでした。もう一度お試しください。

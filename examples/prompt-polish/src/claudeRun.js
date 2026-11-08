@@ -12,6 +12,8 @@
  * audited (`checked`), never the prompt or the fixes.
  * Modified 2026-11-06 (polish agent): without a key (or AI), the polish
  *   agent checks the prompt instead, where Tilefold has one (`noKey`).
+ * Modified 2026-11-07 (own cases): a case's instructions (`rules`) go to
+ *   Claude with the prompt.
  */
 import { buildAsk, errorKey, readAnswer } from "./answer.js";
 import { changeCount, changes, diff } from "./polish.js";
@@ -20,11 +22,13 @@ import { changeCount, changes, diff } from "./polish.js";
  * @param {any} tf
  * @param {{ sessions: any, render: (id: string) => Promise<void>,
  *   refreshButton: () => Promise<void>, audit: (action: string, details: object) => void,
- *   language: () => { code: string, name: string }, mode: () => string,
+ *   language: () => { code: string, name: string }, mode: () => string, rules?: () => string,
  *   fast: () => boolean, noKey?: (id: string, original: string) => Promise<boolean> }} deps
  */
 export function createClaudeRun(tf, deps) {
   const { sessions, render, refreshButton, audit, language, mode, fast, noKey } = deps;
+  // A case's own instructions (none for the built-in modes).
+  const rules = () => (typeof deps.rules === "function" ? deps.rules() : "");
 
   /** Asks Claude to check pane `id`'s prompt `original`, then shows the fixes there. */
   const check = async (id, original) => {
@@ -49,6 +53,7 @@ export function createClaudeRun(tf, deps) {
             text: original,
             language: lang.name,
             mode: m,
+            rules: rules(),
             uiLanguage: tf.t("ai-language"),
             fast: fast(),
           }),

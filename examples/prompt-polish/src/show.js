@@ -186,6 +186,15 @@ export function createStage(tf, o) {
     focusOn: (id) => void (focus = id ?? focus),
     where: () => where,
     kept: () => kept,
+    /** Sends the page a message; a closed page drops it (it gets everything on hello). */
+    async post(message) {
+      if (!where) return;
+      try {
+        await tf.page.post(message);
+      } catch {
+        // Closed in the meantime.
+      }
+    },
     buttonShown: () => buttonShown,
     setAccent: (a) => void (accent = a ?? accent),
     setHeight(h) {
