@@ -28,6 +28,23 @@ const HIDDEN = new RegExp(
   "[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]",
 );
 
+/** Longest text kept from a field (Tilefold sends at most this much). */
+export const MAX_TYPED = 4096;
+
+/**
+ * Text as kept from a field: a string cut to MAX_TYPED, anything else "".
+ *
+ * @param {unknown} text
+ */
+export const typed = (text) => (typeof text === "string" ? text.slice(0, MAX_TYPED) : "");
+
+/**
+ * `text` with hidden characters removed, for showing it back to the user.
+ *
+ * @param {string} text
+ */
+export const visible = (text) => text.replace(new RegExp(HIDDEN.source, "g"), "");
+
 /** A new, empty draft. */
 export const emptyDraft = () => ({ name: "", command: "", clear: "/clear" });
 

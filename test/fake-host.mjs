@@ -90,7 +90,8 @@
  *   buttons, a click (`host.clickAction`) and the tile's replacement in
  *   `host.box`.
  * Modified 2026-11-08 (Tilefold 0.1.27): `define` adds `tf.agent.define`
- *   (`true`: added; or the answer to give, or a function of the offer);
+ *   (`true`: added; or the answer to give, or a function of the offer,
+ *   which may return a promise to hold the answer back);
  *   offers are kept in `host.defines`.
  * Modified 2026-11-06 (Tilefold 0.1.27): `helper: true` (or the answer to
  *   give) adds `tf.agent.helper` (fake-helper.mjs): requests to the tile's
@@ -454,7 +455,7 @@ export async function startTile(dir, opts = {}) {
       )
         throw named("TypeError", "define({ name, command, title?, clear? })");
       host.defines.push(structuredClone(agent));
-      const a = typeof opts.define === "function" ? opts.define(agent) : opts.define;
+      const a = await (typeof opts.define === "function" ? opts.define(agent) : opts.define);
       return a === true
         ? { added: true, id: agent.name.toLowerCase().replace(/\W+/g, "-") }
         : { ...a };

@@ -14,7 +14,8 @@
  * exact command first, and adds it only when they press Add agent. A
  * notice says how it went. The activity log records only which preset was
  * offered (or that it was the user's own) and whether it was added, never
- * a name or a command.
+ * a name or a command. What the user types is kept to 4,096 characters
+ * and shown without hidden characters, and only one offer is open at a time.
  *
  * Build:  npx @tilefold/tile-tools build
  */
@@ -28,6 +29,9 @@ var SAFE_WORD = /^[A-Za-z0-9._,:=@%+/~-]+$/;
 var HIDDEN = new RegExp(
   "[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]"
 );
+var MAX_TYPED = 4096;
+var typed = (text) => typeof text === "string" ? text.slice(0, MAX_TYPED) : "";
+var visible = (text) => text.replace(new RegExp(HIDDEN.source, "g"), "");
 var emptyDraft = () => ({ name: "", command: "", clear: "/clear" });
 function nameProblem(name) {
   const n = name.trim();
@@ -118,8 +122,8 @@ var ROW = {
 };
 var SHOWN = 120;
 var shorten = (text) => {
-  const chars = [...text];
-  return chars.length > SHOWN ? `${chars.slice(0, SHOWN - 1).join("")}\u2026` : text;
+  const chars = [...visible(text)];
+  return chars.length > SHOWN ? `${chars.slice(0, SHOWN - 1).join("")}\u2026` : chars.join("");
 };
 var presetRow = (id) => `preset:${id}`;
 function clickTarget(row) {
@@ -135,8 +139,8 @@ function clickTarget(row) {
 var clearLabel = (t, clear) => t("own-clear", { how: clear === "" ? t("own-clear-none") : clear });
 function panelContent(t, draft) {
   const problem = draftProblem(draft);
-  const typed = draft.name.trim() !== "" || draft.command.trim() !== "";
-  const showProblem = problem && typed && !(problem === "own-problem-name-empty" && !draft.name) && !(problem === "own-problem-command-empty" && !draft.command);
+  const typed2 = draft.name.trim() !== "" || draft.command.trim() !== "";
+  const showProblem = problem && typed2 && !(problem === "own-problem-name-empty" && !draft.name) && !(problem === "own-problem-command-empty" && !draft.command);
   const rows = [
     { id: "own", label: t("own-section"), section: true },
     {
@@ -165,7 +169,7 @@ function panelContent(t, draft) {
   rows.push(
     problem ? { id: ROW.add, label: t("own-add"), muted: true, hint: t("own-add-hint") } : { id: ROW.add, label: t("own-add"), tone: "accent" }
   );
-  if (typed) rows.push({ id: ROW.start, label: t("own-start-over"), muted: true });
+  if (typed2) rows.push({ id: ROW.start, label: t("own-start-over"), muted: true });
   rows.push({ id: "ready", label: t("ready-section"), section: true });
   for (const p of PRESETS) {
     rows.push({ id: presetRow(p.id), label: p.name, trail: p.command, hint: t("ready-hint") });
@@ -176,17 +180,24 @@ function panelContent(t, draft) {
 // src/main.js
 var main_default = (tf) => {
   let draft = emptyDraft();
+  let asking = false;
   async function offer(agent, details) {
     if (typeof tf.agent?.define !== "function") {
       await tf.toast(tf.t("toast-needs-tilefold"));
       return false;
     }
+    if (asking) return false;
+    asking = true;
     let r;
     try {
       r = await tf.agent.define(agent);
     } catch (err) {
-      await tf.toast(tf.t("toast-failed", { reason: String(err && err.name || err) }));
+      await tf.toast(
+        tf.t("toast-failed", { reason: String(err && err.name || err).slice(0, 64) })
+      );
       return false;
+    } finally {
+      asking = false;
     }
     const added = r?.added === true;
     await tf.audit("offered", { ...details, added });
@@ -220,8 +231,8 @@ var main_default = (tf) => {
     tf.command(tf.t(p.titleKey), () => offerPreset(p), { id: `add-${p.id}` });
   tf.on("panel.input", ({ row, text }) => {
     if (typeof text !== "string") return;
-    if (row === ROW.nameField) draft = { ...draft, name: text };
-    else if (row === ROW.commandField) draft = { ...draft, command: text };
+    if (row === ROW.nameField) draft = { ...draft, name: typed(text) };
+    else if (row === ROW.commandField) draft = { ...draft, command: typed(text) };
     else return;
     return draw();
   });

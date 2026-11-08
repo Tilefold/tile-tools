@@ -13,7 +13,7 @@
  * with its command; a click offers it. Pure: builds the rows from the
  * draft, and names what a click on a row asks for.
  */
-import { commandWords, draftProblem } from "./ownAgent.js";
+import { commandWords, draftProblem, visible } from "./ownAgent.js";
 import { PRESETS } from "./presets.js";
 
 /** Row ids. */
@@ -31,10 +31,10 @@ export const ROW = {
 /** Longest name or command shown in a row (a row's label holds at most 256 characters). */
 const SHOWN = 120;
 
-/** `text` cut to SHOWN characters, with an ellipsis when it was longer. */
+/** `text` without hidden characters, cut to SHOWN characters with an ellipsis when longer. */
 const shorten = (text) => {
-  const chars = [...text];
-  return chars.length > SHOWN ? `${chars.slice(0, SHOWN - 1).join("")}…` : text;
+  const chars = [...visible(text)];
+  return chars.length > SHOWN ? `${chars.slice(0, SHOWN - 1).join("")}…` : chars.join("");
 };
 
 /** The row id for a preset. */

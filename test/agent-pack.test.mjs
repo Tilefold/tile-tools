@@ -19,7 +19,9 @@
  * with single spaces, and starts over once it is added (keeping it when
  * declined); a command a shell would treat as special is never offered;
  * the ready-made agents are rows that offer themselves; audits never hold
- * a name or a command. The checks match Tilefold's rules.
+ * a name or a command. The checks match Tilefold's rules. Hardening: typed
+ * text is shown without hidden characters and kept to 4,096 characters,
+ * wrong types are ignored, and a second offer while one is open is not sent.
  *
  * Modified 2026-11-08 (own agent): the panel and its checks.
  */
@@ -223,5 +225,46 @@ describe("Agent Pack: your own agent", () => {
     for (const r of content.rows) expect(r.label.length).toBeLessThanOrEqual(256);
     expect(clickTarget("own-add")).toEqual({ kind: "add" });
     expect(clickTarget("own-name")).toBeNull();
+  });
+
+  it("shows typed text without hidden characters, caps it, and ignores wrong types", async () => {
+    const host = await startTile(DIR, { define: true, panel: true });
+    await host.command("add-own");
+    await host.emit("panel.input", { row: "own-name", text: "in‮voice  \u001b[2J" });
+    expect(labels(host)).toContain("Name: invoice [2J");
+    // The draft itself still holds them, so it can't be offered.
+    expect(labels(host)).toContain("The name can be at most 60 characters, on one line.");
+    await host.emit("panel.input", { row: "own-command", text: "a".repeat(10000) });
+    const command = host.panel.content.rows.find((r) => r.id === "own-command-now");
+    expect(command.label.length).toBeLessThanOrEqual(256);
+    for (const bad of [
+      { row: "own-name", text: 42 },
+      { row: "own-name" },
+      { row: 7, text: "x" },
+      null,
+    ]) {
+      await host.emit("panel.input", bad ?? {});
+    }
+    expect(labels(host)).toContain("Name: invoice [2J");
+    for (const bad of [{ row: 5 }, {}, { row: "own-add\u0000" }])
+      await host.emit("panel.click", bad);
+    expect(host.defines).toEqual([]);
+  });
+
+  it("sends one offer at a time", async () => {
+    let answer;
+    const host = await startTile(DIR, {
+      define: () => new Promise((resolve) => (answer = resolve)),
+      panel: true,
+    });
+    await host.command("add-own");
+    await host.emit("panel.input", { row: "own-name", text: "Mine" });
+    await host.emit("panel.input", { row: "own-command", text: "mine" });
+    const first = host.emit("panel.click", { row: "own-add", action: "activate" });
+    await host.emit("panel.click", { row: "own-add", action: "activate" });
+    await host.emit("panel.click", { row: "preset:grok", action: "activate" });
+    answer({ added: true, id: "mine" });
+    await first;
+    expect(host.defines).toHaveLength(1);
   });
 });

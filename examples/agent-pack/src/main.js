@@ -14,17 +14,20 @@
  * exact command first, and adds it only when they press Add agent. A
  * notice says how it went. The activity log records only which preset was
  * offered (or that it was the user's own) and whether it was added, never
- * a name or a command.
+ * a name or a command. What the user types is kept to 4,096 characters
+ * and shown without hidden characters, and only one offer is open at a time.
  *
  * Build:  npx @tilefold/tile-tools build
  */
-import { draftProblem, emptyDraft, nextClear, toDefinition } from "./ownAgent.js";
+import { draftProblem, emptyDraft, nextClear, toDefinition, typed } from "./ownAgent.js";
 import { clickTarget, panelContent, ROW } from "./panel.js";
 import { PRESETS, resultKey } from "./presets.js";
 
 export default (tf) => {
   /** What the user has typed for their own agent so far. */
   let draft = emptyDraft();
+  /** True while Tilefold is asking the user about an agent: another offer meanwhile is ignored. */
+  let asking = false;
 
   /**
    * Offers `agent` to Tilefold and says how it went. `details` is what
@@ -35,14 +38,20 @@ export default (tf) => {
       await tf.toast(tf.t("toast-needs-tilefold"));
       return false;
     }
+    if (asking) return false;
+    asking = true;
     let r;
     try {
       r = await tf.agent.define(agent);
     } catch (err) {
       // Busy with another question, asked too often, not allowed, or a
       // command Tilefold won't take.
-      await tf.toast(tf.t("toast-failed", { reason: String((err && err.name) || err) }));
+      await tf.toast(
+        tf.t("toast-failed", { reason: String((err && err.name) || err).slice(0, 64) }),
+      );
       return false;
+    } finally {
+      asking = false;
     }
     const added = r?.added === true;
     await tf.audit("offered", { ...details, added });
@@ -85,8 +94,8 @@ export default (tf) => {
 
   tf.on("panel.input", ({ row, text }) => {
     if (typeof text !== "string") return;
-    if (row === ROW.nameField) draft = { ...draft, name: text };
-    else if (row === ROW.commandField) draft = { ...draft, command: text };
+    if (row === ROW.nameField) draft = { ...draft, name: typed(text) };
+    else if (row === ROW.commandField) draft = { ...draft, command: typed(text) };
     else return;
     return draw();
   });
