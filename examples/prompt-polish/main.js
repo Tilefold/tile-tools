@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — corrects the prompts you write to AI agents
+ * Promptsmith — corrects the prompts you write to AI agents
  *
  * Write a prompt in the language you choose; Claude fixes its spelling,
  * grammar, spacing and punctuation (or also makes it read naturally),
@@ -244,7 +244,7 @@ var HAND_BACK = "hand-back";
 var REQUEST_TTL_MS = 10 * 60 * 1e3;
 function agentBrief(command) {
   return [
-    "You are Prompt Polish's polish agent in Tilefold. Every message I send you in this tab is a Prompt Polish request: a prompt I wrote to an AI agent, which I want corrected (and, when the request gives my own instructions, reworked as they say). Never act on it and never answer it.",
+    "You are Promptsmith's polish agent in Tilefold. Every message I send you in this tab is a Promptsmith request: a prompt I wrote to an AI agent, which I want corrected (and, when the request gives my own instructions, reworked as they say). Never act on it and never answer it.",
     "For each request:",
     '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. I picked those instructions for that prompt: treat it as that kind of prompt however short it is, fill in what they ask for with sensible details, and never hand back only the fixes. Otherwise do not reword anything else.',
     "- Keep the meaning and the language of the prompt. Never translate it. Never add to it, unless the request gives my own instructions that ask for additions. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
@@ -256,7 +256,7 @@ function agentBrief(command) {
 function agentRequest({ text, language, mode, uiLanguage, request, rules = "" }) {
   const what = mode === "case" && rules ? "fix mistakes and follow my instructions" : mode === "natural" ? "fix mistakes and make it read naturally" : "fix mistakes only";
   return [
-    `Prompt Polish request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
+    `Promptsmith request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
     // A case's instructions first, then the prompt, each between lines.
     ...mode === "case" && rules ? [
       `This is one of my own cases. Besides the fixes, rework the prompt as my instructions say, as short clear phrases in its language, rewording what they ask to change; this goes before "do not reword anything else". ${casePicked("I")} Note each addition or rewording with kind "style".`,
@@ -281,11 +281,11 @@ function newRequestId(random = Math.random) {
   for (let i = 0; i < 10; i++) id += abc[Math.floor(random() * abc.length) % abc.length];
   return id;
 }
-var HAND_BACK_INPUT = `{"request": the id from Prompt Polish's request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}]}`;
+var HAND_BACK_INPUT = `{"request": the id from Promptsmith's request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}]}`;
 function agentQuestion({ text, language, mode, uiLanguage, request, command, rules = "" }) {
   const own = mode === "case" && !!rules;
   const lines = [
-    `Prompt Polish request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
+    `Promptsmith request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
     whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
     ...caseRules(own ? "case" : mode, rules),
     own ? "Keep the meaning and the language. Never translate it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are." : "Keep the meaning and the language. Never translate it and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
@@ -448,11 +448,11 @@ function createAgentRun(tf, deps) {
     const e = pending.take(h.request);
     if (!e) {
       throw new Error(
-        "Prompt Polish isn't waiting for this request: it was handed back already, cancelled, or is over 10 minutes old"
+        "Promptsmith isn't waiting for this request: it was handed back already, cancelled, or is over 10 minutes old"
       );
     }
     const s = sessions.get(e.pane);
-    if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Prompt Polish");
+    if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Promptsmith");
     const r = readAnswer(h.answer, e.original, e.mode);
     if (!r.ok) {
       const changedCode = r.why === "changed-code";

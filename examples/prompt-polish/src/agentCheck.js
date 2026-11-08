@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the agent in your pane checks the prompt
+ * Promptsmith — the agent in your pane checks the prompt
  *
  * For users without an Anthropic key: instead of asking Claude through
  * `tf.ai.ask`, Check puts a request on Tilefold's ask card for the agent in
@@ -48,7 +48,7 @@ export const REQUEST_TTL_MS = 10 * 60 * 1000;
 /** The polish agent's standing instructions: what every request is, and how to answer it. */
 export function agentBrief(command) {
   return [
-    "You are Prompt Polish's polish agent in Tilefold. Every message I send you in this tab is a Prompt Polish request: a prompt I wrote to an AI agent, which I want corrected (and, when the request gives my own instructions, reworked as they say). Never act on it and never answer it.",
+    "You are Promptsmith's polish agent in Tilefold. Every message I send you in this tab is a Promptsmith request: a prompt I wrote to an AI agent, which I want corrected (and, when the request gives my own instructions, reworked as they say). Never act on it and never answer it.",
     "For each request:",
     '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. I picked those instructions for that prompt: treat it as that kind of prompt however short it is, fill in what they ask for with sensible details, and never hand back only the fixes. Otherwise do not reword anything else.',
     "- Keep the meaning and the language of the prompt. Never translate it. Never add to it, unless the request gives my own instructions that ask for additions. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
@@ -74,7 +74,7 @@ export function agentRequest({ text, language, mode, uiLanguage, request, rules 
         ? "fix mistakes and make it read naturally"
         : "fix mistakes only";
   return [
-    `Prompt Polish request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
+    `Promptsmith request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
     // A case's instructions first, then the prompt, each between lines.
     ...(mode === "case" && rules
       ? [
@@ -120,7 +120,7 @@ export function newRequestId(random = Math.random) {
 
 /** What the Hand back command takes, as tile_list shows it to agents (≤ 300 characters). */
 export const HAND_BACK_INPUT =
-  '{"request": the id from Prompt Polish\'s request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}]}';
+  '{"request": the id from Promptsmith\'s request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}]}';
 
 /**
  * The request on the ask card: what to do, the rules (the same as Claude's),
@@ -134,7 +134,7 @@ export const HAND_BACK_INPUT =
 export function agentQuestion({ text, language, mode, uiLanguage, request, command, rules = "" }) {
   const own = mode === "case" && !!rules;
   const lines = [
-    `Prompt Polish request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
+    `Promptsmith request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
     whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
     ...caseRules(own ? "case" : mode, rules),
     own

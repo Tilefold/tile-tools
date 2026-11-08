@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — Send to agent
+ * Promptsmith — Send to agent
  *
  * Puts a prompt (corrected, or as the user wrote it) on Tilefold's ask
  * card (`tf.agent.ask`), where the user presses Return to send it to the

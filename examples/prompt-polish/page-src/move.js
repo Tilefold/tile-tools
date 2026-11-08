@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish page — moving and filling the card
+ * Promptsmith page — moving and filling the card
  *
  * Over the pane, the header is a handle: dragging it moves the card, and a
  * double click folds the card to its header bar (or unfolds it). Only the tile moves the

@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — one prompt per pane
+ * Promptsmith — one prompt per pane
  *
  * Sessions are found and made by pane id, start empty and closed, reset
  * back to writing; past the limit the least recently used one goes, never

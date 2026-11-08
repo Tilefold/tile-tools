@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): Japanese strings.
+# Promptsmith (example tile): Japanese strings.
 
-tile-name = Prompt Polish（サンプル）
+tile-name = Promptsmith（サンプル）
 tile-description = AI エージェントに書くプロンプトを、選んだ言語で Claude とご自分の Anthropic キーを使って校正します。修正はすべて確認でき、好きな箇所は元の言葉のまま残し、結果は Tilefold の質問カードから送れます。 キーがない場合は、専用タブの校正エージェントが代わりに確認するので、作業中のエージェントは中断されません。Tilefold にエージェントへ書く専用のボックスがある場合は、そこにある ✦ 校正 ボタンが書いた内容を確認し、修正したプロンプトをボックスに戻します。送るのはあなたです。
 setting-language = プロンプトを書く言語
 setting-language-auto = Tilefold と同じ
 setting-mode = 直す範囲
 setting-mode-fix = 誤りだけ
 setting-mode-natural = 誤りと、不自然な言い回し
-setting-view = Prompt Polish の表示場所
+setting-view = Promptsmith の表示場所
 setting-view-bottom = エージェントのペインの上、入力欄のすぐ上
 setting-view-corner = ペインの入力欄そばの「校正」ボタン
 setting-view-side = ペイン横のドック
@@ -23,15 +23,15 @@ setting-checker = プロンプトを確認するのは
 setting-checker-claude = Claude（ご自分の Anthropic キー）、キーがなければ校正エージェント
 setting-checker-agent = 常に校正エージェント（キー不要）
 setting-helper-agent = 校正エージェント（専用タブで実行）
-cmd-open = Prompt Polish: プロンプトを書く
-cmd-close = Prompt Polish: 閉じる
-cmd-hand-back = Prompt Polish: 直したプロンプトを返す (エージェント用)
+cmd-open = Promptsmith: プロンプトを書く
+cmd-close = Promptsmith: 閉じる
+cmd-hand-back = Promptsmith: 直したプロンプトを返す (エージェント用)
 page-lang = ja
 page-dir = ltr
 ai-language = 日本語
-ask-about = Prompt Polish: ユーザーが { $language } で書き、誤りを確認したプロンプト
-agent-check-about = Prompt Polish: このプロンプトを直して返してください。内容は実行しないでください
-button-label = Prompt Polish
+ask-about = Promptsmith: ユーザーが { $language } で書き、誤りを確認したプロンプト
+agent-check-about = Promptsmith: このプロンプトを直して返してください。内容は実行しないでください
+button-label = Promptsmith
 pill-label = 校正
 action-label = ✦ 校正
 label-over-pane = ペインの上
@@ -82,10 +82,10 @@ kind-grammar = 文法
 kind-spacing = スペース
 kind-punctuation = 句読点
 kind-style = 表現
-error-no-ai = この Tilefold では、まだタイルが Claude に質問できません。Prompt Polish を使うには Tilefold を更新してください。
+error-no-ai = この Tilefold では、まだタイルが Claude に質問できません。Promptsmith を使うには Tilefold を更新してください。
 error-no-key = プロンプトを確認するには、設定 → AI で Anthropic API キーを追加してください。
-error-denied = Prompt Polish は Claude に質問できません。設定 → タイルで許可してください。
-error-budget = Prompt Polish は今日の AI 利用枠を使い切りました。明日もう一度お試しください。
+error-denied = Promptsmith は Claude に質問できません。設定 → タイルで許可してください。
+error-budget = Promptsmith は今日の AI 利用枠を使い切りました。明日もう一度お試しください。
 error-refused = Claude はこのプロンプトを確認しませんでした。もう一度お試しください。
 error-failed = Claude に接続できませんでした。後でもう一度お試しください。
 error-unreadable = Claude の回答を読み取れませんでした。もう一度お試しください。
@@ -96,7 +96,7 @@ error-no-agent-ask = この Tilefold では、まだプロンプトをエージ�
 error-ask-busy = Tilefold の質問カードがすでに開いています。送るか破棄してから、もう一度お試しください。
 error-helper-busy = 校正エージェントは作業中です。少ししてからもう一度お試しください。
 error-helper-typing = 校正エージェントのタブで入力中です。入力が終わってからもう一度お試しください。
-error-helper-not-started = 校正エージェントが起動しませんでした。インストールされているか確認するか、設定 → タイル → Prompt Polish で別のものを選んでください。
+error-helper-not-started = 校正エージェントが起動しませんでした。インストールされているか確認するか、設定 → タイル → Promptsmith で別のものを選んでください。
 error-helper-failed = 校正エージェントに接続できませんでした。もう一度お試しください。
 error-ask-no-pane = 送り先のエージェントがいるペインがありません。
 error-input-changed = その間にボックスの文が変わったため、置き換えませんでした。もう一度 ✦ 校正 をクリックして、今の文を確認してください。
@@ -104,8 +104,8 @@ error-input-expired = 10 分以上かかったため、ボックスは変更し�
 error-input-gone = 書いていたボックスがなくなったため（ペインが閉じられたか、ボックスがオフになりました）、何も変更していません。
 error-input-refused = Tilefold がこのテキストを入力ボックスに受け付けなかったため（長すぎる可能性があります）、何も変更されていません。
 error-ask-failed = 質問カードにプロンプトを載せられませんでした。もう一度お試しください。
-toast-too-small = ペインが小さすぎるため、Prompt Polish をペインの横に開きました。
-toast-needs-tilefold = Prompt Polish の画面を表示するには、新しい Tilefold が必要です。
+toast-too-small = ペインが小さすぎるため、Promptsmith をペインの横に開きました。
+toast-needs-tilefold = Promptsmith の画面を表示するには、新しい Tilefold が必要です。
 
 # Your own cases (what to fix)
 setting-cases = 自分のケース：1 行目に名前、その下にすること、ケースの間は空行
@@ -116,7 +116,7 @@ label-add-case = 自分のケースを追加…
 label-edit-case = 「{ $name }」を編集…
 label-edit-cases = 編集…
 label-edit-which = どのケースを編集しますか？
-label-cases-in-settings = 自分のケースは 設定 → タイル → Prompt Polish で追加します
+label-cases-in-settings = 自分のケースは 設定 → タイル → Promptsmith で追加します
 label-case-new = 自分のケース
 label-case-edit = ケースを編集
 label-case-name = 名前

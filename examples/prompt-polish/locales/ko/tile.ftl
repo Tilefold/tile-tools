@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): Korean strings.
+# Promptsmith (example tile): Korean strings.
 
-tile-name = Prompt Polish (예제)
+tile-name = Promptsmith (예제)
 tile-description = AI 에이전트에게 쓰는 프롬프트를 원하는 언어로 Claude와 내 Anthropic 키를 써서 교정합니다. 고친 곳을 모두 보고, 원하는 곳은 내 표현을 그대로 두고, Tilefold의 질문 카드에서 결과를 보냅니다. 키가 없나요? 전용 탭에서 다듬기 에이전트가 대신 확인하므로, 함께 일하는 에이전트는 방해받지 않습니다. Tilefold에 에이전트에게 쓰는 자체 입력 상자가 있으면, 거기 있는 ✦ 다듬기 버튼이 쓴 글을 확인하고 고친 프롬프트를 다시 넣어 줍니다. 보내기는 직접 합니다.
 setting-language = 프롬프트를 쓰는 언어
 setting-language-auto = Tilefold와 같은 언어
 setting-mode = 고칠 범위
 setting-mode-fix = 틀린 곳만
 setting-mode-natural = 틀린 곳과 어색한 표현까지
-setting-view = Prompt Polish가 나타나는 곳
+setting-view = Promptsmith가 나타나는 곳
 setting-view-bottom = 에이전트 창 위, 입력줄 바로 위
 setting-view-corner = 창 입력줄 옆 다듬기 버튼
 setting-view-side = 창 옆 도크
@@ -23,15 +23,15 @@ setting-checker = 프롬프트를 확인하는 쪽
 setting-checker-claude = Claude (내 Anthropic 키 사용), 키가 없으면 다듬기 에이전트
 setting-checker-agent = 항상 다듬기 에이전트 (키 필요 없음)
 setting-helper-agent = 다듬기 에이전트 (전용 탭에서 실행)
-cmd-open = Prompt Polish: 프롬프트 쓰기
-cmd-close = Prompt Polish: 닫기
-cmd-hand-back = Prompt Polish: 고친 프롬프트 돌려주기 (에이전트용)
+cmd-open = Promptsmith: 프롬프트 쓰기
+cmd-close = Promptsmith: 닫기
+cmd-hand-back = Promptsmith: 고친 프롬프트 돌려주기 (에이전트용)
 page-lang = ko
 page-dir = ltr
 ai-language = 한국어
-ask-about = Prompt Polish: 사용자가 { $language }(으)로 쓰고 맞춤법을 확인한 프롬프트
-agent-check-about = Prompt Polish: 이 프롬프트를 고쳐서 돌려주세요. 프롬프트대로 실행하지 마세요
-button-label = Prompt Polish
+ask-about = Promptsmith: 사용자가 { $language }(으)로 쓰고 맞춤법을 확인한 프롬프트
+agent-check-about = Promptsmith: 이 프롬프트를 고쳐서 돌려주세요. 프롬프트대로 실행하지 마세요
+button-label = Promptsmith
 pill-label = 다듬기
 action-label = ✦ 다듬기
 label-over-pane = 창 위
@@ -82,10 +82,10 @@ kind-grammar = 문법
 kind-spacing = 띄어쓰기
 kind-punctuation = 문장 부호
 kind-style = 표현
-error-no-ai = 이 Tilefold에서는 아직 타일이 Claude에게 물어볼 수 없어요. Prompt Polish를 쓰려면 Tilefold를 업데이트하세요.
+error-no-ai = 이 Tilefold에서는 아직 타일이 Claude에게 물어볼 수 없어요. Promptsmith를 쓰려면 Tilefold를 업데이트하세요.
 error-no-key = 프롬프트를 확인하려면 설정 → AI에서 Anthropic API 키를 추가하세요.
-error-denied = Prompt Polish가 Claude에게 물어볼 수 없어요. 설정 → 타일에서 허용하세요.
-error-budget = Prompt Polish가 오늘의 AI 사용량을 다 썼어요. 내일 다시 해 보세요.
+error-denied = Promptsmith가 Claude에게 물어볼 수 없어요. 설정 → 타일에서 허용하세요.
+error-budget = Promptsmith가 오늘의 AI 사용량을 다 썼어요. 내일 다시 해 보세요.
 error-refused = Claude가 이 프롬프트를 확인하지 않았어요. 다시 해 보세요.
 error-failed = Claude에 연결할 수 없어요. 나중에 다시 해 보세요.
 error-unreadable = Claude의 답을 읽을 수 없어요. 다시 해 보세요.
@@ -96,7 +96,7 @@ error-no-agent-ask = 이 Tilefold에서는 아직 프롬프트를 에이전트�
 error-ask-busy = Tilefold의 질문 카드가 이미 열려 있어요. 보내거나 버린 뒤 다시 해 보세요.
 error-helper-busy = 다듬기 에이전트가 작업 중이에요. 잠시 후 다시 해 보세요.
 error-helper-typing = 다듬기 에이전트 탭에서 입력 중이에요. 다 쓴 뒤 다시 해 보세요.
-error-helper-not-started = 다듬기 에이전트가 시작되지 않았어요. 설치되어 있는지 확인하거나, 설정 → 타일 → Prompt Polish에서 다른 에이전트를 고르세요.
+error-helper-not-started = 다듬기 에이전트가 시작되지 않았어요. 설치되어 있는지 확인하거나, 설정 → 타일 → Promptsmith에서 다른 에이전트를 고르세요.
 error-helper-failed = 다듬기 에이전트에 연결하지 못했어요. 다시 해 보세요.
 error-ask-no-pane = 보낼 에이전트가 있는 창이 없어요.
 error-input-changed = 그사이 입력 상자의 글이 바뀌어서 바꾸지 않았습니다. ✦ 다듬기를 다시 눌러 지금 글을 확인하세요.
@@ -104,8 +104,8 @@ error-input-expired = 10분이 넘게 걸려서 입력 상자를 바꾸지 않�
 error-input-gone = 쓰던 입력 상자가 없어져서(패널이 닫혔거나 입력 상자가 꺼짐) 아무것도 바꾸지 않았습니다.
 error-input-refused = Tilefold가 이 텍스트를 입력 상자에 받지 않아(너무 길 수 있습니다) 아무것도 바뀌지 않았습니다.
 error-ask-failed = 프롬프트를 질문 카드에 올리지 못했어요. 다시 해 보세요.
-toast-too-small = 창이 너무 작아서 Prompt Polish를 창 옆에 열었어요.
-toast-needs-tilefold = Prompt Polish 화면을 보려면 더 새로운 Tilefold가 필요해요.
+toast-too-small = 창이 너무 작아서 Promptsmith를 창 옆에 열었어요.
+toast-needs-tilefold = Promptsmith 화면을 보려면 더 새로운 Tilefold가 필요해요.
 
 # Your own cases (what to fix)
 setting-cases = 나만의 경우: 첫 줄에 이름, 그 아래에 할 일, 경우 사이에는 빈 줄
@@ -116,7 +116,7 @@ label-add-case = 직접 추가…
 label-edit-case = “{ $name }” 편집…
 label-edit-cases = 편집…
 label-edit-which = 어떤 케이스를 편집할까요?
-label-cases-in-settings = 나만의 경우는 설정 → 타일 → Prompt Polish에서 추가합니다
+label-cases-in-settings = 나만의 경우는 설정 → 타일 → Promptsmith에서 추가합니다
 label-case-new = 나만의 경우
 label-case-edit = 경우 편집
 label-case-name = 이름

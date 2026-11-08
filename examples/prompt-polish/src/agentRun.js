@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — running a check by the agent in the pane
+ * Promptsmith — running a check by the agent in the pane
  *
  * Ties agentCheck.js to the tile: `check` puts the request on Tilefold's
  * ask card and shows "waiting for the agent" on the pane's card;
@@ -182,11 +182,11 @@ export function createAgentRun(tf, deps) {
     const e = pending.take(h.request);
     if (!e) {
       throw new Error(
-        "Prompt Polish isn't waiting for this request: it was handed back already, cancelled, or is over 10 minutes old",
+        "Promptsmith isn't waiting for this request: it was handed back already, cancelled, or is over 10 minutes old",
       );
     }
     const s = sessions.get(e.pane);
-    if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Prompt Polish");
+    if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Promptsmith");
     const r = readAnswer(h.answer, e.original, e.mode);
     if (!r.ok) {
       const changedCode = r.why === "changed-code";

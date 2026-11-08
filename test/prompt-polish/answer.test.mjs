@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — asking Claude and reading the answer
+ * Promptsmith — asking Claude and reading the answer
  *
  * The system prompt names the language, the mode and the language of the
  * reasons, keeps code exact and asks for JSON; the question is bounded and

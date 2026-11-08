@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish page
+ * Promptsmith page
  *
  * Draws the step the tile sends for the pane the user works in (each pane
  * has its own prompt, and every message names whose it is): writing the

@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — picking what to fix on the card, and the user's own cases
+ * Promptsmith — picking what to fix on the card, and the user's own cases
  *
  * The card offers the two built-in modes and the cases from the setting.
  * Picking a case shows the prompt again with a button that applies it by

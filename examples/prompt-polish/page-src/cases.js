@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish page — what to fix, and the user's own cases
+ * Promptsmith page — what to fix, and the user's own cases
  *
  * The header's chip opens the menu of what to fix, drawn in the card's
  * body (so the card grows to fit it, never cut off): the two built-in

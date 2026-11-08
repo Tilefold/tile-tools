@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish page — what to fix, and the user's own cases
+ * Promptsmith page — what to fix, and the user's own cases
  *
  * The chip names what to fix and opens its menu in the card's body: the
  * built-in modes and the user's cases, the one in use checked; a pick is
@@ -151,7 +151,7 @@ describe("the menu of what to fix", () => {
     ready(old, { cases: [], canEditCases: false });
     old.click(old.$("chip"));
     expect(items(old)).toHaveLength(2);
-    expect(old.$("body").textContent).toContain("Settings → Tiles → Prompt Polish");
+    expect(old.$("body").textContent).toContain("Settings → Tiles → Promptsmith");
   });
 });
 

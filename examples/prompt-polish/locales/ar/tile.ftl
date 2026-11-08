@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): Arabic strings.
+# Promptsmith (example tile): Arabic strings.
 
-tile-name = Prompt Polish (مثال)
+tile-name = Promptsmith (مثال)
 tile-description = يصحّح الطلبات التي تكتبها لوكلاء الذكاء الاصطناعي باللغة التي تختارها، باستخدام Claude ومفتاح Anthropic الخاص بك. ترى كل تصحيح، وتُبقي كلماتك حيث تشاء، وترسل النتيجة من بطاقة السؤال في Tilefold. لا مفتاح لديك؟ يتحقق منها وكيل التحسين الخاص بك في علامة تبويب مستقلة، فلا يُقاطَع الوكيل الذي تعمل معه. حيث يكون لدى Tilefold مربعه الخاص للكتابة إلى الوكلاء، يفحص زر ✦ تحسين هناك ما كتبته ويعيد الموجّه المصحح إليه لترسله أنت.
 setting-language = اللغة التي تكتب بها الطلبات
 setting-language-auto = مثل Tilefold
 setting-mode = ما الذي يُصحَّح
 setting-mode-fix = الأخطاء فقط
 setting-mode-natural = الأخطاء، مع جعل الصياغة طبيعية
-setting-view = أين يظهر Prompt Polish
+setting-view = أين يظهر Promptsmith
 setting-view-bottom = فوق جزء الوكيل، أعلى سطر الإدخال مباشرة
 setting-view-corner = زر تحسين بجانب إدخال الجزء
 setting-view-side = في الشريط بجانب الأجزاء
@@ -23,15 +23,15 @@ setting-checker = من يتحقق من مطالباتك
 setting-checker-claude = Claude بمفتاح Anthropic الخاص بك، ومن دونه وكيل التحسين
 setting-checker-agent = وكيل التحسين دائمًا (لا حاجة إلى مفتاح)
 setting-helper-agent = وكيل التحسين (في علامة تبويب مستقلة)
-cmd-open = Prompt Polish: كتابة طلب
-cmd-close = Prompt Polish: إغلاق
-cmd-hand-back = Prompt Polish: إعادة مطالبة مصحّحة (للوكلاء)
+cmd-open = Promptsmith: كتابة طلب
+cmd-close = Promptsmith: إغلاق
+cmd-hand-back = Promptsmith: إعادة مطالبة مصحّحة (للوكلاء)
 page-lang = ar
 page-dir = rtl
 ai-language = العربية
-ask-about = Prompt Polish: طلب كتبه المستخدم بـ{ $language } وفحصه من الأخطاء
-agent-check-about = Prompt Polish: صحّح هذه المطالبة وأعدها؛ لا تنفّذها
-button-label = Prompt Polish
+ask-about = Promptsmith: طلب كتبه المستخدم بـ{ $language } وفحصه من الأخطاء
+agent-check-about = Promptsmith: صحّح هذه المطالبة وأعدها؛ لا تنفّذها
+button-label = Promptsmith
 pill-label = تحسين
 action-label = ✦ تحسين
 label-over-pane = فوق الجزء
@@ -82,10 +82,10 @@ kind-grammar = النحو
 kind-spacing = المسافات
 kind-punctuation = الترقيم
 kind-style = الأسلوب
-error-no-ai = لا يسمح Tilefold هذا للبلاطات بسؤال Claude بعد. حدّث Tilefold لاستخدام Prompt Polish.
+error-no-ai = لا يسمح Tilefold هذا للبلاطات بسؤال Claude بعد. حدّث Tilefold لاستخدام Promptsmith.
 error-no-key = أضف مفتاح Anthropic API في الإعدادات ← الذكاء الاصطناعي لفحص الطلبات.
-error-denied = لا يمكن لـ Prompt Polish سؤال Claude. اسمح بذلك في الإعدادات ← البلاطات.
-error-budget = استهلك Prompt Polish حصة الذكاء الاصطناعي لليوم. حاول مجددًا غدًا.
+error-denied = لا يمكن لـ Promptsmith سؤال Claude. اسمح بذلك في الإعدادات ← البلاطات.
+error-budget = استهلك Promptsmith حصة الذكاء الاصطناعي لليوم. حاول مجددًا غدًا.
 error-refused = لم يفحص Claude هذا الطلب. حاول مجددًا.
 error-failed = تعذّر الوصول إلى Claude. حاول لاحقًا.
 error-unreadable = تعذّرت قراءة إجابة Claude. حاول مجددًا.
@@ -96,7 +96,7 @@ error-no-agent-ask = لا يستطيع Tilefold هذا تسليم الطلبات
 error-ask-busy = بطاقة السؤال في Tilefold مفتوحة بالفعل. أرسلها أو تجاهلها ثم حاول مجددًا.
 error-helper-busy = وكيل التحسين مشغول. حاول مرة أخرى بعد لحظة.
 error-helper-typing = أنت تكتب في علامة تبويب وكيل التحسين. حاول مرة أخرى عندما تنتهي.
-error-helper-not-started = لم يبدأ وكيل التحسين. تأكد من أنه مثبّت، أو اختر غيره في الإعدادات ← البلاطات ← Prompt Polish.
+error-helper-not-started = لم يبدأ وكيل التحسين. تأكد من أنه مثبّت، أو اختر غيره في الإعدادات ← البلاطات ← Promptsmith.
 error-helper-failed = تعذّر الوصول إلى وكيل التحسين. حاول مرة أخرى.
 error-ask-no-pane = لا يوجد جزء فيه وكيل لإرسال هذا إليه.
 error-input-changed = غيّرت النص في المربع في هذه الأثناء، لذا لم يُستبدل. انقر ✦ تحسين مرة أخرى لفحص النص الحالي.
@@ -104,8 +104,8 @@ error-input-expired = استغرق ذلك أكثر من 10 دقائق، لذا �
 error-input-gone = المربع الذي كنت تكتب فيه لم يعد موجودًا (أُغلق الجزء أو أُوقف المربع)، لذا لم يتغير شيء.
 error-input-refused = لم يقبل Tilefold هذا النص لمربعك (قد يكون طويلًا جدًا)، لذا لم يتغير شيء.
 error-ask-failed = تعذّر وضع الطلب على بطاقة السؤال. حاول مجددًا.
-toast-too-small = الجزء صغير جدًا على Prompt Polish، لذا فُتح بجانب الأجزاء.
-toast-needs-tilefold = يحتاج Prompt Polish إلى إصدار أحدث من Tilefold لعرض صفحته.
+toast-too-small = الجزء صغير جدًا على Promptsmith، لذا فُتح بجانب الأجزاء.
+toast-needs-tilefold = يحتاج Promptsmith إلى إصدار أحدث من Tilefold لعرض صفحته.
 
 # Your own cases (what to fix)
 setting-cases = حالاتك الخاصة: الاسم في السطر الأول، وتحته ما يجب فعله، وسطر فارغ بين الحالات
@@ -116,7 +116,7 @@ label-add-case = أضف حالتك…
 label-edit-case = تعديل «{ $name }»…
 label-edit-cases = تعديل…
 label-edit-which = أي حالة تريد تعديلها؟
-label-cases-in-settings = أضف حالاتك في الإعدادات ← البلاطات ← Prompt Polish
+label-cases-in-settings = أضف حالاتك في الإعدادات ← البلاطات ← Promptsmith
 label-case-new = حالتك الخاصة
 label-case-edit = تعديل حالتك
 label-case-name = الاسم

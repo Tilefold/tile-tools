@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the user's own cases
+ * Promptsmith — the user's own cases
  *
  * The cases setting is read as blocks (a name, then its instructions, a
  * blank line between): names are cleaned to one line without a trailing

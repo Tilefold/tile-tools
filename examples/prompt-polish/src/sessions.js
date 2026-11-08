@@ -3,9 +3,9 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — one prompt per pane
+ * Promptsmith — one prompt per pane
  *
- * Each pane gets its own Prompt Polish: its own draft, its own fixes and
+ * Each pane gets its own Promptsmith: its own draft, its own fixes and
  * whether its card is open. The tile has one page, so it shows only the
  * session of the pane the user works in (the focused one): Send to agent
  * then always reaches that pane's agent, which Tilefold's ask card offers

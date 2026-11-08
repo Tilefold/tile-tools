@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the user's own cases
+ * Promptsmith — the user's own cases
  *
  * Besides its two built-in ways to check a prompt (mistakes only, or also
  * making it read naturally), the user can keep cases of their own, such as

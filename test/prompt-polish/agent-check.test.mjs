@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the agent in the pane checks the prompt
+ * Promptsmith — the agent in the pane checks the prompt
  *
  * The pieces (agentCheck.js): request ids, the question on the ask card
  * (the rules, the hand-back with its id, the prompt fenced off last,
@@ -192,7 +192,7 @@ describe("the polish agent's brief and requests", () => {
       request: "abcdefghij",
     };
     expect(agentRequest({ ...base, mode: "fix" })).toBe(
-      "Prompt Polish request abcdefghij: Korean, fix mistakes only. Notes in Korean.\n-----\n로그인 하면\n-----",
+      "Promptsmith request abcdefghij: Korean, fix mistakes only. Notes in Korean.\n-----\n로그인 하면\n-----",
     );
     expect(agentRequest({ ...base, mode: "natural" })).toContain("and make it read naturally");
     expect(agentRequest({ ...base, mode: "fix", text: "x".repeat(9000) }).length).toBe(
@@ -208,7 +208,7 @@ describe("checking by the agent in the pane", () => {
     expect(host.asks).toHaveLength(1);
     expect(host.asks[0].question).toContain(PROMPT);
     expect(host.asks[0].about).toBe(
-      "Prompt Polish: correct this prompt and hand it back; don't act on it",
+      "Promptsmith: correct this prompt and hand it back; don't act on it",
     );
     expect(lastView(host)).toMatchObject({
       step: "agent",

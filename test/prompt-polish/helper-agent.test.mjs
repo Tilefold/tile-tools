@@ -4,10 +4,10 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the polish agent
+ * Promptsmith — the polish agent
  *
  * Where Tilefold has helper agents, a prompt checked without an Anthropic
- * key (or always, with "Always your polish agent") goes to Prompt Polish's
+ * key (or always, with "Always your polish agent") goes to Promptsmith's
  * own agent, in a tab Tilefold opens for it: never on the ask card, and the
  * agent the user works with isn't asked. The setting picks which agent. The
  * card says the agent is checking, names it (as the user renamed its pane,
@@ -32,7 +32,7 @@ const LAYOUT = {
 };
 
 const hosts = [];
-/** Prompt Polish with no key, a helper agent, the agent input box and the ask card. */
+/** Promptsmith with no key, a helper agent, the agent input box and the ask card. */
 const start = async (opts = {}) => {
   const host = await startTile(DIR, {
     page: "dock",
@@ -71,13 +71,13 @@ describe("checking with the polish agent", () => {
     expect(host.helperAsks).toHaveLength(1);
     expect(host.helperAsks[0]).toMatchObject({
       agent: "claude",
-      about: "Prompt Polish: correct this prompt and hand it back; don't act on it",
+      about: "Promptsmith: correct this prompt and hand it back; don't act on it",
     });
     // The rules are the brief (Tilefold sends it once); the request is short.
-    expect(host.helperAsks[0].brief).toMatch(/^You are Prompt Polish's polish agent/);
+    expect(host.helperAsks[0].brief).toMatch(/^You are Promptsmith's polish agent/);
     expect(host.helperAsks[0].brief).toContain('command "example.prompt-polish.hand-back"');
     expect(host.helperAsks[0].question).toMatch(
-      /^Prompt Polish request [a-z0-9]{10}: English, fix mistakes only\. Notes in English\.\n-----\n/,
+      /^Promptsmith request [a-z0-9]{10}: English, fix mistakes only\. Notes in English\.\n-----\n/,
     );
     expect(host.helperAsks[0].question).toContain(PROMPT);
     expect(host.helperAsks[0].question).not.toMatch(/Never act/);

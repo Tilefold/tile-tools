@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): English strings.
+# Promptsmith (example tile): English strings.
 
-tile-name = Prompt Polish (example)
+tile-name = Promptsmith (example)
 tile-description = Corrects the prompts you write to AI agents in the language you choose, with Claude and your own Anthropic key. You see every fix, keep your own words where you like, and send the result from Tilefold's ask card. No key? Your own polish agent checks it instead, in a tab of its own, so the agent you work with isn't interrupted. Where Tilefold has its own box for writing to agents, a ✦ Polish button there checks what you wrote and puts the corrected prompt back, for you to send.
 setting-language = Language you write prompts in
 setting-language-auto = Same as Tilefold
 setting-mode = What to fix
 setting-mode-fix = Mistakes only
 setting-mode-natural = Mistakes, and make it read naturally
-setting-view = Where Prompt Polish shows
+setting-view = Where Promptsmith shows
 setting-view-bottom = Over the agent's pane, above its input
 setting-view-corner = A Polish button by the pane's input
 setting-view-side = In the dock beside the panes
@@ -23,15 +23,15 @@ setting-checker = Who checks your prompts
 setting-checker-claude = Claude with your Anthropic key; without one, your polish agent
 setting-checker-agent = Always your polish agent (no key needed)
 setting-helper-agent = Your polish agent (in a tab of its own)
-cmd-open = Prompt Polish: Write a prompt
-cmd-close = Prompt Polish: Close
-cmd-hand-back = Prompt Polish: Hand back a corrected prompt (for agents)
+cmd-open = Promptsmith: Write a prompt
+cmd-close = Promptsmith: Close
+cmd-hand-back = Promptsmith: Hand back a corrected prompt (for agents)
 page-lang = en
 page-dir = ltr
 ai-language = English
-ask-about = Prompt Polish: a prompt the user wrote in { $language } and checked for mistakes
-agent-check-about = Prompt Polish: correct this prompt and hand it back; don't act on it
-button-label = Prompt Polish
+ask-about = Promptsmith: a prompt the user wrote in { $language } and checked for mistakes
+agent-check-about = Promptsmith: correct this prompt and hand it back; don't act on it
+button-label = Promptsmith
 pill-label = Polish
 action-label = ✦ Polish
 label-over-pane = over the pane
@@ -82,10 +82,10 @@ kind-grammar = grammar
 kind-spacing = spacing
 kind-punctuation = punctuation
 kind-style = style
-error-no-ai = This Tilefold can't let tiles ask Claude yet. Update Tilefold to use Prompt Polish.
+error-no-ai = This Tilefold can't let tiles ask Claude yet. Update Tilefold to use Promptsmith.
 error-no-key = Add your Anthropic API key in Settings → AI to check prompts.
-error-denied = Prompt Polish may not ask Claude. Allow it in Settings → Tiles.
-error-budget = Prompt Polish has used today's AI allowance. Try again tomorrow.
+error-denied = Promptsmith may not ask Claude. Allow it in Settings → Tiles.
+error-budget = Promptsmith has used today's AI allowance. Try again tomorrow.
 error-refused = Claude didn't check this prompt. Try again.
 error-failed = Couldn't reach Claude. Try again later.
 error-unreadable = Claude's answer couldn't be read. Try again.
@@ -96,7 +96,7 @@ error-no-agent-ask = This Tilefold can't hand prompts to agents yet. Update Tile
 error-ask-busy = Tilefold's ask card is already open. Send or drop it, then try again.
 error-helper-busy = Your polish agent is busy. Try again in a moment.
 error-helper-typing = You're typing in your polish agent's tab. Try again when you're done.
-error-helper-not-started = Your polish agent didn't start. Check that it's installed, or choose another in Settings → Tiles → Prompt Polish.
+error-helper-not-started = Your polish agent didn't start. Check that it's installed, or choose another in Settings → Tiles → Promptsmith.
 error-helper-failed = Couldn't reach your polish agent. Try again.
 error-ask-no-pane = There's no pane with an agent to send this to.
 error-input-changed = You changed the text in the box meanwhile, so it wasn't replaced. Click ✦ Polish again to check what's there now.
@@ -104,8 +104,8 @@ error-input-expired = This took over 10 minutes, so the box wasn't changed. Clic
 error-input-gone = The box you wrote in is gone (the pane closed or the box was turned off), so nothing was changed.
 error-input-refused = Tilefold didn't take this text for your box (it may be too long), so nothing was changed.
 error-ask-failed = Couldn't put the prompt on the ask card. Try again.
-toast-too-small = The pane is too small for Prompt Polish, so it opened beside the panes.
-toast-needs-tilefold = Prompt Polish needs a newer Tilefold to show its page.
+toast-too-small = The pane is too small for Promptsmith, so it opened beside the panes.
+toast-needs-tilefold = Promptsmith needs a newer Tilefold to show its page.
 
 # Your own cases (what to fix)
 setting-cases = Your own cases: a name on the first line, what to do under it, a blank line between cases
@@ -116,7 +116,7 @@ label-add-case = Add your own…
 label-edit-case = Edit “{ $name }”…
 label-edit-cases = Edit…
 label-edit-which = Which case do you want to edit?
-label-cases-in-settings = Add your own in Settings → Tiles → Prompt Polish
+label-cases-in-settings = Add your own in Settings → Tiles → Promptsmith
 label-case-new = Your own case
 label-case-edit = Edit your case
 label-case-name = Name

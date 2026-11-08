@@ -3,10 +3,10 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the ✦ Polish button in Tilefold's agent input box
+ * Promptsmith — the ✦ Polish button in Tilefold's agent input box
  *
  * Where Tilefold has input actions (`tf.input`, Tilefold 0.1.27, permission
- * `input.actions`), Prompt Polish adds a ✦ Polish button to the box where
+ * `input.actions`), Promptsmith adds a ✦ Polish button to the box where
  * the user writes to their agent. A click hands the tile what the box
  * holds: the card opens for that pane with the text in it and the check
  * already running. On the result, Use puts the corrected prompt back in

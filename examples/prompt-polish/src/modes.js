@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — what to fix, picked on the card
+ * Promptsmith — what to fix, picked on the card
  *
  * The card's chip ("English · Mistakes only") is a menu of what to fix:
  * the two built-in modes and the user's own cases (cases.js, from the

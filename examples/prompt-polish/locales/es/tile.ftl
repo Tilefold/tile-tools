@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): Spanish strings.
+# Promptsmith (example tile): Spanish strings.
 
-tile-name = Prompt Polish (ejemplo)
+tile-name = Promptsmith (ejemplo)
 tile-description = Corrige los prompts que escribes a los agentes de IA en el idioma que elijas, con Claude y tu propia clave de Anthropic. Ves cada corrección, conservas tus palabras donde quieras y envías el resultado desde la tarjeta de preguntas de Tilefold. ¿Sin clave? Lo revisa tu propio agente de pulido, en una pestaña propia, para que el agente con el que trabajas no se interrumpa. Donde Tilefold tiene su propio cuadro para escribir a los agentes, un botón ✦ Pulir revisa lo que escribiste y deja ahí el prompt corregido para que lo envíes.
 setting-language = Idioma en el que escribes los prompts
 setting-language-auto = El mismo que Tilefold
 setting-mode = Qué corregir
 setting-mode-fix = Solo errores
 setting-mode-natural = Errores, y que suene natural
-setting-view = Dónde aparece Prompt Polish
+setting-view = Dónde aparece Promptsmith
 setting-view-bottom = Sobre el panel del agente, encima de su entrada
 setting-view-corner = Un botón Pulir junto a la entrada del panel
 setting-view-side = En el dock junto a los paneles
@@ -23,15 +23,15 @@ setting-checker = Quién revisa tus indicaciones
 setting-checker-claude = Claude con tu clave de Anthropic; sin ella, tu agente de pulido
 setting-checker-agent = Siempre tu agente de pulido (sin clave)
 setting-helper-agent = Tu agente de pulido (en una pestaña propia)
-cmd-open = Prompt Polish: Escribir un prompt
-cmd-close = Prompt Polish: Cerrar
-cmd-hand-back = Prompt Polish: Devolver una indicación corregida (para agentes)
+cmd-open = Promptsmith: Escribir un prompt
+cmd-close = Promptsmith: Cerrar
+cmd-hand-back = Promptsmith: Devolver una indicación corregida (para agentes)
 page-lang = es
 page-dir = ltr
 ai-language = español
-ask-about = Prompt Polish: un prompt que el usuario escribió en { $language } y revisó en busca de errores
-agent-check-about = Prompt Polish: corrige esta indicación y devuélvela; no actúes según ella
-button-label = Prompt Polish
+ask-about = Promptsmith: un prompt que el usuario escribió en { $language } y revisó en busca de errores
+agent-check-about = Promptsmith: corrige esta indicación y devuélvela; no actúes según ella
+button-label = Promptsmith
 pill-label = Pulir
 action-label = ✦ Pulir
 label-over-pane = sobre el panel
@@ -82,10 +82,10 @@ kind-grammar = gramática
 kind-spacing = espacios
 kind-punctuation = puntuación
 kind-style = estilo
-error-no-ai = Este Tilefold aún no deja que los tiles pregunten a Claude. Actualiza Tilefold para usar Prompt Polish.
+error-no-ai = Este Tilefold aún no deja que los tiles pregunten a Claude. Actualiza Tilefold para usar Promptsmith.
 error-no-key = Añade tu clave de API de Anthropic en Ajustes → IA para revisar prompts.
-error-denied = Prompt Polish no puede preguntar a Claude. Permítelo en Ajustes → Tiles.
-error-budget = Prompt Polish ha usado la cuota de IA de hoy. Vuelve a intentarlo mañana.
+error-denied = Promptsmith no puede preguntar a Claude. Permítelo en Ajustes → Tiles.
+error-budget = Promptsmith ha usado la cuota de IA de hoy. Vuelve a intentarlo mañana.
 error-refused = Claude no revisó este prompt. Vuelve a intentarlo.
 error-failed = No se pudo conectar con Claude. Inténtalo más tarde.
 error-unreadable = No se pudo leer la respuesta de Claude. Vuelve a intentarlo.
@@ -96,7 +96,7 @@ error-no-agent-ask = Este Tilefold aún no puede pasar prompts a los agentes. Ac
 error-ask-busy = La tarjeta de preguntas de Tilefold ya está abierta. Envíala o descártala y vuelve a intentarlo.
 error-helper-busy = Tu agente de pulido está ocupado. Vuelve a intentarlo en un momento.
 error-helper-typing = Estás escribiendo en la pestaña de tu agente de pulido. Vuelve a intentarlo cuando termines.
-error-helper-not-started = Tu agente de pulido no arrancó. Comprueba que está instalado o elige otro en Ajustes → Tiles → Prompt Polish.
+error-helper-not-started = Tu agente de pulido no arrancó. Comprueba que está instalado o elige otro en Ajustes → Tiles → Promptsmith.
 error-helper-failed = No se pudo contactar con tu agente de pulido. Vuelve a intentarlo.
 error-ask-no-pane = No hay ningún panel con un agente al que enviarlo.
 error-input-changed = Cambiaste el texto del cuadro mientras tanto, así que no se reemplazó. Pulsa ✦ Pulir de nuevo para revisar lo que hay ahora.
@@ -104,8 +104,8 @@ error-input-expired = Pasaron más de 10 minutos, así que el cuadro no cambió.
 error-input-gone = El cuadro donde escribiste ya no está (el panel se cerró o el cuadro se desactivó), así que no se cambió nada.
 error-input-refused = Tilefold no aceptó este texto para tu cuadro (puede que sea demasiado largo), así que no se cambió nada.
 error-ask-failed = No se pudo poner el prompt en la tarjeta de preguntas. Vuelve a intentarlo.
-toast-too-small = El panel es demasiado pequeño para Prompt Polish, así que se abrió junto a los paneles.
-toast-needs-tilefold = Prompt Polish necesita un Tilefold más reciente para mostrar su página.
+toast-too-small = El panel es demasiado pequeño para Promptsmith, así que se abrió junto a los paneles.
+toast-needs-tilefold = Promptsmith necesita un Tilefold más reciente para mostrar su página.
 
 # Your own cases (what to fix)
 setting-cases = Tus propios casos: el nombre en la primera línea, debajo qué hacer, una línea en blanco entre casos
@@ -116,7 +116,7 @@ label-add-case = Añadir uno propio…
 label-edit-case = Editar «{ $name }»…
 label-edit-cases = Editar…
 label-edit-which = ¿Qué caso quieres editar?
-label-cases-in-settings = Añade los tuyos en Ajustes → Tiles → Prompt Polish
+label-cases-in-settings = Añade los tuyos en Ajustes → Tiles → Promptsmith
 label-case-new = Tu propio caso
 label-case-edit = Editar tu caso
 label-case-name = Nombre

@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): Hindi strings.
+# Promptsmith (example tile): Hindi strings.
 
-tile-name = Prompt Polish (उदाहरण)
+tile-name = Promptsmith (उदाहरण)
 tile-description = AI एजेंटों को लिखे आपके प्रॉम्प्ट को आपकी चुनी भाषा में Claude और आपकी अपनी Anthropic कुंजी से सुधारता है। हर सुधार दिखता है, जहाँ चाहें अपने शब्द रखें, और नतीजा Tilefold के प्रश्न कार्ड से भेजें। कुंजी नहीं है? आपका अपना सुधार एजेंट इसे अपने अलग टैब में जाँचता है, ताकि जिस एजेंट के साथ आप काम करते हैं वह बाधित न हो। जहाँ Tilefold में एजेंटों को लिखने का अपना बॉक्स है, वहाँ ✦ सुधारें बटन आपका लिखा जाँचता है और सुधरा हुआ प्रॉम्प्ट वापस रख देता है, भेजना आपके हाथ में है।
 setting-language = वह भाषा जिसमें आप प्रॉम्प्ट लिखते हैं
 setting-language-auto = Tilefold जैसी
 setting-mode = क्या सुधारें
 setting-mode-fix = सिर्फ़ ग़लतियाँ
 setting-mode-natural = ग़लतियाँ, और भाषा सहज बनाएँ
-setting-view = Prompt Polish कहाँ दिखे
+setting-view = Promptsmith कहाँ दिखे
 setting-view-bottom = एजेंट के पेन के ऊपर, उसके इनपुट के ठीक ऊपर
 setting-view-corner = पेन के इनपुट के पास सुधारें बटन
 setting-view-side = पेन के बगल वाले डॉक में
@@ -23,15 +23,15 @@ setting-checker = आपके प्रॉम्प्ट कौन जाँ�
 setting-checker-claude = आपकी Anthropic कुंजी के साथ Claude; कुंजी न हो तो आपका सुधार एजेंट
 setting-checker-agent = हमेशा आपका सुधार एजेंट (कुंजी की ज़रूरत नहीं)
 setting-helper-agent = आपका सुधार एजेंट (अपने अलग टैब में)
-cmd-open = Prompt Polish: प्रॉम्प्ट लिखें
-cmd-close = Prompt Polish: बंद करें
-cmd-hand-back = Prompt Polish: सुधारा गया प्रॉम्प्ट लौटाएँ (एजेंट के लिए)
+cmd-open = Promptsmith: प्रॉम्प्ट लिखें
+cmd-close = Promptsmith: बंद करें
+cmd-hand-back = Promptsmith: सुधारा गया प्रॉम्प्ट लौटाएँ (एजेंट के लिए)
 page-lang = hi
 page-dir = ltr
 ai-language = हिन्दी
-ask-about = Prompt Polish: उपयोगकर्ता का { $language } में लिखा और ग़लतियों के लिए जाँचा गया प्रॉम्प्ट
-agent-check-about = Prompt Polish: इस प्रॉम्प्ट को सुधारकर लौटाएँ; इस पर काम न करें
-button-label = Prompt Polish
+ask-about = Promptsmith: उपयोगकर्ता का { $language } में लिखा और ग़लतियों के लिए जाँचा गया प्रॉम्प्ट
+agent-check-about = Promptsmith: इस प्रॉम्प्ट को सुधारकर लौटाएँ; इस पर काम न करें
+button-label = Promptsmith
 pill-label = सुधारें
 action-label = ✦ सुधारें
 label-over-pane = पेन के ऊपर
@@ -82,10 +82,10 @@ kind-grammar = व्याकरण
 kind-spacing = रिक्ति
 kind-punctuation = विराम चिह्न
 kind-style = शैली
-error-no-ai = यह Tilefold अभी टाइलों को Claude से पूछने नहीं देता। Prompt Polish के लिए Tilefold अपडेट करें।
+error-no-ai = यह Tilefold अभी टाइलों को Claude से पूछने नहीं देता। Promptsmith के लिए Tilefold अपडेट करें।
 error-no-key = प्रॉम्प्ट जाँचने के लिए सेटिंग्स → AI में अपनी Anthropic API कुंजी जोड़ें।
-error-denied = Prompt Polish, Claude से नहीं पूछ सकता। सेटिंग्स → टाइल्स में अनुमति दें।
-error-budget = Prompt Polish ने आज का AI कोटा इस्तेमाल कर लिया है। कल फिर कोशिश करें।
+error-denied = Promptsmith, Claude से नहीं पूछ सकता। सेटिंग्स → टाइल्स में अनुमति दें।
+error-budget = Promptsmith ने आज का AI कोटा इस्तेमाल कर लिया है। कल फिर कोशिश करें।
 error-refused = Claude ने यह प्रॉम्प्ट नहीं जाँचा। फिर कोशिश करें।
 error-failed = Claude तक नहीं पहुँच सके। बाद में कोशिश करें।
 error-unreadable = Claude का जवाब पढ़ा नहीं जा सका। फिर कोशिश करें।
@@ -96,7 +96,7 @@ error-no-agent-ask = यह Tilefold अभी प्रॉम्प्ट ए�
 error-ask-busy = Tilefold का प्रश्न कार्ड पहले से खुला है। उसे भेजें या हटाएँ, फिर कोशिश करें।
 error-helper-busy = आपका सुधार एजेंट व्यस्त है। थोड़ी देर में फिर कोशिश करें।
 error-helper-typing = आप सुधार एजेंट के टैब में टाइप कर रहे हैं। पूरा होने पर फिर कोशिश करें।
-error-helper-not-started = आपका सुधार एजेंट शुरू नहीं हुआ। देखें कि वह इंस्टॉल है, या सेटिंग्स → टाइल्स → Prompt Polish में कोई दूसरा चुनें।
+error-helper-not-started = आपका सुधार एजेंट शुरू नहीं हुआ। देखें कि वह इंस्टॉल है, या सेटिंग्स → टाइल्स → Promptsmith में कोई दूसरा चुनें।
 error-helper-failed = सुधार एजेंट तक नहीं पहुँच सके। फिर कोशिश करें।
 error-ask-no-pane = भेजने के लिए एजेंट वाला कोई पेन नहीं है।
 error-input-changed = इस बीच आपने बॉक्स का टेक्स्ट बदल दिया, इसलिए उसे बदला नहीं गया। अभी का टेक्स्ट जाँचने के लिए फिर से ✦ सुधारें पर क्लिक करें।
@@ -104,8 +104,8 @@ error-input-expired = इसमें 10 मिनट से ज़्याद�
 error-input-gone = जिस बॉक्स में आप लिख रहे थे वह अब नहीं है (पैन बंद हो गया या बॉक्स बंद किया गया), इसलिए कुछ नहीं बदला गया।
 error-input-refused = Tilefold ने यह टेक्स्ट आपके बॉक्स के लिए नहीं लिया (शायद यह बहुत लंबा है), इसलिए कुछ नहीं बदला।
 error-ask-failed = प्रॉम्प्ट प्रश्न कार्ड पर नहीं रखा जा सका। फिर कोशिश करें।
-toast-too-small = पेन Prompt Polish के लिए बहुत छोटा है, इसलिए यह पेन के बगल में खुला।
-toast-needs-tilefold = अपना पेज दिखाने के लिए Prompt Polish को नया Tilefold चाहिए।
+toast-too-small = पेन Promptsmith के लिए बहुत छोटा है, इसलिए यह पेन के बगल में खुला।
+toast-needs-tilefold = अपना पेज दिखाने के लिए Promptsmith को नया Tilefold चाहिए।
 
 # Your own cases (what to fix)
 setting-cases = आपके अपने केस: पहली पंक्ति में नाम, उसके नीचे क्या करना है, केसों के बीच एक खाली पंक्ति
@@ -116,7 +116,7 @@ label-add-case = अपना जोड़ें…
 label-edit-case = “{ $name }” बदलें…
 label-edit-cases = बदलें…
 label-edit-which = आप कौन-सा केस बदलना चाहते हैं?
-label-cases-in-settings = अपने केस सेटिंग्स → टाइल्स → Prompt Polish में जोड़ें
+label-cases-in-settings = अपने केस सेटिंग्स → टाइल्स → Promptsmith में जोड़ें
 label-case-new = आपका अपना केस
 label-case-edit = अपना केस बदलें
 label-case-name = नाम

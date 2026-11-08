@@ -150,7 +150,7 @@ The **Watchpane** example docks YouTube's player this way, with its controls dra
 
 A docked page doesn't need `origin: "https"`: a page of the tile's own, with no website in it, docks just the same. The **Quiz** example (`examples/quiz`) is one: a borderless card floating over the panes, with a grip drawn as overlay items above it to drag it by.
 
-From **Tilefold 0.1.27**, a docked page can be **see-through**: open it with `seeThrough: true` and its window is transparent, so whatever the page leaves without a background shows the panes under it. Give `html` and `body` a transparent background and the card a background with some transparency, so the text stays solid. Only a page docked at a spot can be see-through, and only when it opens. Prompt Polish does this, with a setting for how solid its card is:
+From **Tilefold 0.1.27**, a docked page can be **see-through**: open it with `seeThrough: true` and its window is transparent, so whatever the page leaves without a background shows the panes under it. Give `html` and `body` a transparent background and the card a background with some transparency, so the text stays solid. Only a page docked at a spot can be see-through, and only when it opens. Promptsmith does this, with a setting for how solid its card is:
 
 ```js
 await tf.page.open({ dock: spot, seeThrough: true });

@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the tile
+ * Promptsmith — the tile
  *
  * The user writes a prompt on the tile's page, in the language they chose.
  * Check asks Claude to correct it (`tf.ai.ask`, with the user's own key;
@@ -13,7 +13,7 @@
  * card (`tf.agent.ask`), where the user presses Return to send it to the
  * agent in the pane they work in: the tile never types into a pane.
  *
- * One Prompt Polish per pane (sessions.js): each pane has its own draft
+ * One Promptsmith per pane (sessions.js): each pane has its own draft
  * and fixes, and the page shows the one of the pane the user works in. So
  * switching panes or tabs switches prompts, a pane where it isn't open
  * shows nothing over it, and Send to agent always goes to that pane's
@@ -27,7 +27,7 @@
  * over the pane, above its input, or the page sits in the dock beside the
  * panes (`tf.page.open({ side: true })`, Tilefold 0.1.20). The page's
  * header switches between them, and the choice is kept until the setting
- * changes. Prompt Polish: Close hides the pill until Write a prompt.
+ * changes. Promptsmith: Close hides the pill until Write a prompt.
  *
  * The prompts live only in the tile's memory and go only to Claude (after
  * the user's yes) and to the ask card. They are never stored and never
@@ -105,7 +105,7 @@ export function runPolish(tf) {
     render: () => render(),
   };
   const modes = createModes(tf, { ...later, sessions, audit, warn });
-  /** Whether Prompt Polish is on at all (the pill and the side dock show while it is). */
+  /** Whether Promptsmith is on at all (the pill and the side dock show while it is). */
   let active = false;
   /** The user closed it from the palette: the pill stays away until Write a prompt. */
   let dismissed = false;
@@ -158,7 +158,7 @@ export function runPolish(tf) {
   };
 
   /**
-   * Shows the focused pane's Prompt Polish where it belongs, and nothing
+   * Shows the focused pane's Promptsmith where it belongs, and nothing
    * for a pane where it isn't open. Called on open, on every layout change
    * (focus, tabs, panes moving) and whenever what shows changes.
    */
@@ -184,7 +184,7 @@ export function runPolish(tf) {
     }
   };
 
-  /** Opens Prompt Polish for the pane the user works in. */
+  /** Opens Promptsmith for the pane the user works in. */
   const open = async () => {
     await load();
     if (!tf.page) {
@@ -378,7 +378,7 @@ export function runPolish(tf) {
   /**
    * Shows the Polish pill without being asked, when that is the view: as
    * soon as the tile runs, and whenever the panes change, unless the user
-   * closed Prompt Polish from the palette.
+   * closed Promptsmith from the palette.
    */
   const wake = async () => {
     await load();

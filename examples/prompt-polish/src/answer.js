@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — asking Claude, and reading the answer
+ * Promptsmith — asking Claude, and reading the answer
  *
  * The question: a system prompt naming the language and what to fix, and
  * the prompt itself as the one user message. Claude answers with JSON:

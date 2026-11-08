@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — where the page shows
+ * Promptsmith — where the page shows
  *
  * Three views, chosen in Settings or from the page's header:
  *

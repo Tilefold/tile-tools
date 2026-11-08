@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish page — small pieces
+ * Promptsmith page — small pieces
  *
  * The prompt's size as the page shows it, how a change of spaces only is
  * drawn, and the view switch's icons (built as SVG elements, never parsed

@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the tile in a fake Tilefold
+ * Promptsmith — the tile in a fake Tilefold
  *
  * The built tile, driven as Tilefold would drive it: by default a Polish
  * pill shows by the input as soon as the tile runs and opens the card on a
@@ -356,7 +356,7 @@ describe("checking a prompt", () => {
     expect(host.asks).toEqual([
       {
         question: "로그인하면 토큰이 갱신이 안돼요. `src/auth/session.ts` 를 고쳐 주세요.",
-        about: "Prompt Polish: a prompt the user wrote in 한국어 and checked for mistakes",
+        about: "Promptsmith: a prompt the user wrote in 한국어 and checked for mistakes",
       },
     ]);
     expect(lastView(host).step).toBe("sent");
@@ -434,7 +434,7 @@ describe("the corner button", () => {
       ...spots.button,
       hit: true,
       cursor: "pointer",
-      label: "Prompt Polish",
+      label: "Promptsmith",
     });
     expect(host.page.dock).toEqual(spots.card);
     expect(host.store.get("view")).toBe("corner");
@@ -471,7 +471,7 @@ describe("the Polish pill (the default)", () => {
     expect(host.item("polish-button")).toMatchObject({
       ...spots.button,
       hit: true,
-      label: "Prompt Polish",
+      label: "Promptsmith",
     });
     expect(host.page.open).toBe(false);
   });
@@ -557,7 +557,7 @@ describe("other places and Tilefolds", () => {
     await host.command("open");
     expect(host.page.side).toBe(true);
     expect(host.toasts).toEqual([
-      "The pane is too small for Prompt Polish, so it opened beside the panes.",
+      "The pane is too small for Promptsmith, so it opened beside the panes.",
     ]);
   });
 
@@ -571,7 +571,7 @@ describe("other places and Tilefolds", () => {
   it("says it needs a newer Tilefold without pages", async () => {
     const host = await start({ page: undefined });
     await host.command("open");
-    expect(host.toasts).toEqual(["Prompt Polish needs a newer Tilefold to show its page."]);
+    expect(host.toasts).toEqual(["Promptsmith needs a newer Tilefold to show its page."]);
   });
 
   it("a change of the view setting wins over the page's last choice", async () => {

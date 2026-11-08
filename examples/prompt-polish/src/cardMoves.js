@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — moving and filling the card
+ * Promptsmith — moving and filling the card
  *
  * Over the pane the user can drag the card by its header, make it fill the
  * pane (its ▢ button), and fold it to its header bar and back (a double

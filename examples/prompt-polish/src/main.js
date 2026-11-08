@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — corrects the prompts you write to AI agents
+ * Promptsmith — corrects the prompts you write to AI agents
  *
  * Write a prompt in the language you choose; Claude fixes its spelling,
  * grammar, spacing and punctuation (or also makes it read naturally),

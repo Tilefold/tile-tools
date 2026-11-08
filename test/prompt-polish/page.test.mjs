@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the built page
+ * Promptsmith — the built page
  *
  * page/index.html with the built page/main.js in a jsdom window and a fake
  * Tilefold bridge, sent the setup and views the tile builds: it says hello,
@@ -106,7 +106,7 @@ describe("the page", () => {
     const p = page();
     expect(p.posted[0]).toEqual({ pane: null, type: "hello" });
     ready(p, { draft: "로그인 하면 안돼요" });
-    expect(p.$("name").textContent).toBe("Prompt Polish");
+    expect(p.$("name").textContent).toBe("Promptsmith");
     expect(p.$("where").textContent).toBe("over the pane");
     expect(p.$("chip").textContent).toBe("Mistakes only · 한국어");
     expect(p.$("draft").value).toBe("로그인 하면 안돼요");

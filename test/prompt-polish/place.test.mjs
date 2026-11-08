@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — where the page shows
+ * Promptsmith — where the page shows
  *
  * The bottom card spans the focused pane right above its input row and
  * follows focus; it shrinks to a short pane and gives up under Tilefold's

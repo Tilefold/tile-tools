@@ -19,7 +19,7 @@
  *   name never translated.
  * Modified 2026-10-30 (Whiteboard example): Whiteboard ships all twelve
  *   languages, its name never translated.
- * Modified 2026-11-06 (Prompt Polish example): Prompt Polish ships all twelve
+ * Modified 2026-11-06 (Promptsmith example): Promptsmith ships all twelve
  *   languages, its name never translated.
  *
  * Last updated by: Tilefold
@@ -70,7 +70,7 @@ const KEPT = [
   "Folder Tree",
   "TileGo",
   "Whiteboard",
-  "Prompt Polish",
+  "Promptsmith",
 ];
 
 /** The messages of one locale, checking every line on the way. */

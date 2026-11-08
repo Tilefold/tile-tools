@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — running a check by Claude, with the user's key
+ * Promptsmith — running a check by Claude, with the user's key
  *
  * `check` asks Claude to correct one pane's prompt (`tf.ai.ask`; Tilefold
  * shows the user the question first), reads the answer (answer.js) and

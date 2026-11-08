@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the text: what is never changed, and what changed
+ * Promptsmith — the text: what is never changed, and what changed
  *
  * - Protected spans: code in backticks (and fenced blocks), links and file
  *   paths. An agent needs them exactly as written, so the tile tells

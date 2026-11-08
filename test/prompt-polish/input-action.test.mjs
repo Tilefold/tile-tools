@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the ✦ Polish button in Tilefold's agent input box
+ * Promptsmith — the ✦ Polish button in Tilefold's agent input box
  *
  * Where Tilefold has input actions, the tile adds ✦ Polish in the user's
  * language. A click opens the card for the pane the box is in, with the

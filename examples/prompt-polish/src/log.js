@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — warnings and the audit trail
+ * Promptsmith — warnings and the audit trail
  *
  * `warn` writes to Tilefold's log, `audit` adds an event to the tile's
  * audit trail (counts and choices only, never what the user wrote). Neither

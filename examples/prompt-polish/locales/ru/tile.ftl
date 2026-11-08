@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): Russian strings.
+# Promptsmith (example tile): Russian strings.
 
-tile-name = Prompt Polish (пример)
+tile-name = Promptsmith (пример)
 tile-description = Исправляет промпты, которые вы пишете ИИ-агентам, на выбранном языке — с помощью Claude и вашего ключа Anthropic. Вы видите каждую правку, оставляете свои слова где хотите и отправляете результат с карточки вопроса Tilefold. Нет ключа? Проверит ваш собственный агент правки в отдельной вкладке, не отвлекая агента, с которым вы работаете. Там, где у Tilefold есть своё поле для сообщений агентам, кнопка ✦ Исправить в нём проверяет написанное и возвращает исправленный промпт, чтобы вы его отправили.
 setting-language = Язык, на котором вы пишете промпты
 setting-language-auto = Как в Tilefold
 setting-mode = Что исправлять
 setting-mode-fix = Только ошибки
 setting-mode-natural = Ошибки и неестественные обороты
-setting-view = Где показывается Prompt Polish
+setting-view = Где показывается Promptsmith
 setting-view-bottom = Над панелью агента, прямо над её вводом
 setting-view-corner = Кнопка «Исправить» у поля ввода панели
 setting-view-side = В доке рядом с панелями
@@ -23,15 +23,15 @@ setting-checker = Кто проверяет ваши запросы
 setting-checker-claude = Claude с вашим ключом Anthropic; без ключа — ваш агент правки
 setting-checker-agent = Всегда ваш агент правки (ключ не нужен)
 setting-helper-agent = Ваш агент правки (в отдельной вкладке)
-cmd-open = Prompt Polish: Написать промпт
-cmd-close = Prompt Polish: Закрыть
-cmd-hand-back = Prompt Polish: Вернуть исправленный запрос (для агентов)
+cmd-open = Promptsmith: Написать промпт
+cmd-close = Promptsmith: Закрыть
+cmd-hand-back = Promptsmith: Вернуть исправленный запрос (для агентов)
 page-lang = ru
 page-dir = ltr
 ai-language = русский
-ask-about = Prompt Polish: промпт, который пользователь написал на языке { $language } и проверил на ошибки
-agent-check-about = Prompt Polish: исправь этот запрос и верни его; не выполняй его
-button-label = Prompt Polish
+ask-about = Promptsmith: промпт, который пользователь написал на языке { $language } и проверил на ошибки
+agent-check-about = Promptsmith: исправь этот запрос и верни его; не выполняй его
+button-label = Promptsmith
 pill-label = Исправить
 action-label = ✦ Исправить
 label-over-pane = над панелью
@@ -82,10 +82,10 @@ kind-grammar = грамматика
 kind-spacing = пробелы
 kind-punctuation = пунктуация
 kind-style = стиль
-error-no-ai = Этот Tilefold пока не позволяет плиткам спрашивать Claude. Обновите Tilefold, чтобы пользоваться Prompt Polish.
+error-no-ai = Этот Tilefold пока не позволяет плиткам спрашивать Claude. Обновите Tilefold, чтобы пользоваться Promptsmith.
 error-no-key = Добавьте ключ API Anthropic в Настройки → ИИ, чтобы проверять промпты.
-error-denied = Prompt Polish не может спрашивать Claude. Разрешите это в Настройки → Плитки.
-error-budget = Prompt Polish исчерпал сегодняшний лимит ИИ. Попробуйте завтра.
+error-denied = Promptsmith не может спрашивать Claude. Разрешите это в Настройки → Плитки.
+error-budget = Promptsmith исчерпал сегодняшний лимит ИИ. Попробуйте завтра.
 error-refused = Claude не проверил этот промпт. Попробуйте ещё раз.
 error-failed = Не удалось связаться с Claude. Попробуйте позже.
 error-unreadable = Не удалось прочитать ответ Claude. Попробуйте ещё раз.
@@ -96,7 +96,7 @@ error-no-agent-ask = Этот Tilefold пока не умеет передава
 error-ask-busy = Карточка вопроса Tilefold уже открыта. Отправьте или сбросьте её и попробуйте снова.
 error-helper-busy = Ваш агент правки занят. Попробуйте чуть позже.
 error-helper-typing = Вы печатаете во вкладке агента правки. Попробуйте, когда закончите.
-error-helper-not-started = Агент правки не запустился. Проверьте, что он установлен, или выберите другой в Настройки → Тайлы → Prompt Polish.
+error-helper-not-started = Агент правки не запустился. Проверьте, что он установлен, или выберите другой в Настройки → Тайлы → Promptsmith.
 error-helper-failed = Не удалось связаться с агентом правки. Попробуйте ещё раз.
 error-ask-no-pane = Нет панели с агентом, которому это отправить.
 error-input-changed = Вы изменили текст в поле за это время, поэтому он не был заменён. Нажмите ✦ Исправить ещё раз, чтобы проверить текущий текст.
@@ -104,8 +104,8 @@ error-input-expired = Прошло больше 10 минут, поэтому п
 error-input-gone = Поля, в котором вы писали, больше нет (панель закрыта или поле выключено), поэтому ничего не изменилось.
 error-input-refused = Tilefold не принял этот текст для поля ввода (возможно, он слишком длинный), поэтому ничего не изменилось.
 error-ask-failed = Не удалось положить промпт на карточку вопроса. Попробуйте ещё раз.
-toast-too-small = Панель слишком мала для Prompt Polish, поэтому он открылся рядом с панелями.
-toast-needs-tilefold = Prompt Polish нужен более новый Tilefold, чтобы показать свою страницу.
+toast-too-small = Панель слишком мала для Promptsmith, поэтому он открылся рядом с панелями.
+toast-needs-tilefold = Promptsmith нужен более новый Tilefold, чтобы показать свою страницу.
 
 # Your own cases (what to fix)
 setting-cases = Ваши случаи: название в первой строке, под ним что делать, пустая строка между случаями
@@ -116,7 +116,7 @@ label-add-case = Добавить свой…
 label-edit-case = Изменить «{ $name }»…
 label-edit-cases = Изменить…
 label-edit-which = Какой случай вы хотите изменить?
-label-cases-in-settings = Свои случаи добавляются в Настройки → Плитки → Prompt Polish
+label-cases-in-settings = Свои случаи добавляются в Настройки → Плитки → Promptsmith
 label-case-new = Ваш случай
 label-case-edit = Изменить случай
 label-case-name = Название

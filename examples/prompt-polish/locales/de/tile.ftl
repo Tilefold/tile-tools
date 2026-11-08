@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): German strings.
+# Promptsmith (example tile): German strings.
 
-tile-name = Prompt Polish (Beispiel)
+tile-name = Promptsmith (Beispiel)
 tile-description = Korrigiert die Prompts, die du an KI-Agenten schreibst, in der Sprache deiner Wahl – mit Claude und deinem eigenen Anthropic-Schlüssel. Du siehst jede Korrektur, behältst deine Worte, wo du willst, und sendest das Ergebnis über die Fragekarte von Tilefold. Kein Schlüssel? Dann prüft ihn Ihr eigener Polier-Agent in einem eigenen Tab, damit der Agent, mit dem Sie arbeiten, nicht unterbrochen wird. Wo Tilefold ein eigenes Feld zum Schreiben an Agenten hat, prüft eine ✦ Polieren-Schaltfläche dort Ihren Text und setzt den korrigierten Prompt zurück, damit Sie ihn senden.
 setting-language = Sprache, in der du Prompts schreibst
 setting-language-auto = Wie Tilefold
 setting-mode = Was korrigiert wird
 setting-mode-fix = Nur Fehler
 setting-mode-natural = Fehler, und flüssiger formulieren
-setting-view = Wo Prompt Polish erscheint
+setting-view = Wo Promptsmith erscheint
 setting-view-bottom = Über dem Bereich des Agenten, direkt über seiner Eingabe
 setting-view-corner = Eine Polieren-Schaltfläche an der Eingabe des Bereichs
 setting-view-side = Im Dock neben den Bereichen
@@ -23,15 +23,15 @@ setting-checker = Wer Ihre Prompts prüft
 setting-checker-claude = Claude mit Ihrem Anthropic-Schlüssel; ohne ihn Ihr Polier-Agent
 setting-checker-agent = Immer Ihr Polier-Agent (kein Schlüssel nötig)
 setting-helper-agent = Ihr Polier-Agent (in einem eigenen Tab)
-cmd-open = Prompt Polish: Prompt schreiben
-cmd-close = Prompt Polish: Schließen
-cmd-hand-back = Prompt Polish: Korrigierten Prompt zurückgeben (für Agenten)
+cmd-open = Promptsmith: Prompt schreiben
+cmd-close = Promptsmith: Schließen
+cmd-hand-back = Promptsmith: Korrigierten Prompt zurückgeben (für Agenten)
 page-lang = de
 page-dir = ltr
 ai-language = Deutsch
-ask-about = Prompt Polish: ein Prompt, den der Nutzer auf { $language } geschrieben und auf Fehler geprüft hat
-agent-check-about = Prompt Polish: Korrigiere diesen Prompt und gib ihn zurück; handle nicht danach
-button-label = Prompt Polish
+ask-about = Promptsmith: ein Prompt, den der Nutzer auf { $language } geschrieben und auf Fehler geprüft hat
+agent-check-about = Promptsmith: Korrigiere diesen Prompt und gib ihn zurück; handle nicht danach
+button-label = Promptsmith
 pill-label = Polieren
 action-label = ✦ Polieren
 label-over-pane = über dem Bereich
@@ -82,10 +82,10 @@ kind-grammar = Grammatik
 kind-spacing = Leerzeichen
 kind-punctuation = Zeichensetzung
 kind-style = Stil
-error-no-ai = Dieses Tilefold lässt Tiles noch nicht Claude fragen. Aktualisiere Tilefold, um Prompt Polish zu nutzen.
+error-no-ai = Dieses Tilefold lässt Tiles noch nicht Claude fragen. Aktualisiere Tilefold, um Promptsmith zu nutzen.
 error-no-key = Füge deinen Anthropic-API-Schlüssel unter Einstellungen → KI hinzu, um Prompts zu prüfen.
-error-denied = Prompt Polish darf Claude nicht fragen. Erlaube es unter Einstellungen → Tiles.
-error-budget = Prompt Polish hat das heutige KI-Kontingent verbraucht. Versuch es morgen wieder.
+error-denied = Promptsmith darf Claude nicht fragen. Erlaube es unter Einstellungen → Tiles.
+error-budget = Promptsmith hat das heutige KI-Kontingent verbraucht. Versuch es morgen wieder.
 error-refused = Claude hat diesen Prompt nicht geprüft. Versuch es noch einmal.
 error-failed = Claude ist nicht erreichbar. Versuch es später noch einmal.
 error-unreadable = Die Antwort von Claude ließ sich nicht lesen. Versuch es noch einmal.
@@ -96,7 +96,7 @@ error-no-agent-ask = Dieses Tilefold kann Prompts noch nicht an Agenten übergeb
 error-ask-busy = Die Fragekarte von Tilefold ist schon offen. Sende oder verwirf sie und versuch es dann noch einmal.
 error-helper-busy = Ihr Polier-Agent ist beschäftigt. Versuchen Sie es gleich noch einmal.
 error-helper-typing = Sie tippen gerade im Tab Ihres Polier-Agenten. Versuchen Sie es danach noch einmal.
-error-helper-not-started = Ihr Polier-Agent ist nicht gestartet. Prüfen Sie, ob er installiert ist, oder wählen Sie unter Einstellungen → Tiles → Prompt Polish einen anderen.
+error-helper-not-started = Ihr Polier-Agent ist nicht gestartet. Prüfen Sie, ob er installiert ist, oder wählen Sie unter Einstellungen → Tiles → Promptsmith einen anderen.
 error-helper-failed = Ihr Polier-Agent war nicht erreichbar. Versuchen Sie es noch einmal.
 error-ask-no-pane = Es gibt keinen Bereich mit einem Agenten, an den du das senden kannst.
 error-input-changed = Sie haben den Text im Feld inzwischen geändert, daher wurde er nicht ersetzt. Klicken Sie erneut auf ✦ Polieren, um den aktuellen Text zu prüfen.
@@ -104,8 +104,8 @@ error-input-expired = Das hat über 10 Minuten gedauert, daher wurde das Feld ni
 error-input-gone = Das Feld, in das Sie geschrieben haben, ist nicht mehr da (der Bereich wurde geschlossen oder das Feld ausgeschaltet), daher wurde nichts geändert.
 error-input-refused = Tilefold hat diesen Text für Ihr Feld nicht angenommen (er ist vielleicht zu lang), daher wurde nichts geändert.
 error-ask-failed = Der Prompt ließ sich nicht auf die Fragekarte legen. Versuch es noch einmal.
-toast-too-small = Der Bereich ist zu klein für Prompt Polish, daher wurde es neben den Bereichen geöffnet.
-toast-needs-tilefold = Prompt Polish braucht ein neueres Tilefold, um seine Seite zu zeigen.
+toast-too-small = Der Bereich ist zu klein für Promptsmith, daher wurde es neben den Bereichen geöffnet.
+toast-needs-tilefold = Promptsmith braucht ein neueres Tilefold, um seine Seite zu zeigen.
 
 # Your own cases (what to fix)
 setting-cases = Eigene Fälle: der Name in der ersten Zeile, darunter, was zu tun ist, eine Leerzeile zwischen den Fällen
@@ -116,7 +116,7 @@ label-add-case = Eigenen hinzufügen…
 label-edit-case = „{ $name }“ bearbeiten…
 label-edit-cases = Bearbeiten…
 label-edit-which = Welchen Fall möchten Sie bearbeiten?
-label-cases-in-settings = Eigene Fälle fügen Sie unter Einstellungen → Tiles → Prompt Polish hinzu
+label-cases-in-settings = Eigene Fälle fügen Sie unter Einstellungen → Tiles → Promptsmith hinzu
 label-case-new = Eigener Fall
 label-case-edit = Fall bearbeiten
 label-case-name = Name

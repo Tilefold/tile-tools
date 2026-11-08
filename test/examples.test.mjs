@@ -19,7 +19,7 @@
  * Modified 2026-10-28 (Gomoku example): Gomoku is listed.
  * Modified 2026-10-28 (TileGo example): TileGo is listed.
  * Modified 2026-10-30 (Whiteboard example): Whiteboard is listed.
- * Modified 2026-11-06 (Prompt Polish example): Prompt Polish is listed.
+ * Modified 2026-11-06 (Promptsmith example): Promptsmith is listed.
  *
  * Last updated by: Tilefold
  */

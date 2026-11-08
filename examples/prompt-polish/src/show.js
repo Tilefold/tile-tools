@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — putting the page and the button where they belong
+ * Promptsmith — putting the page and the button where they belong
  *
  * Owns the page's place and the corner button: opens, moves and closes
  * the page (`tf.page.open` with a dock spot or beside the panes,
@@ -89,7 +89,7 @@ export function createStage(tf, o) {
     await tf.overlay.show({ items: [] }).catch(o.warn);
   };
 
-  /** Takes the overlay away altogether (Prompt Polish closed). */
+  /** Takes the overlay away altogether (Promptsmith closed). */
   const dropOverlay = async () => {
     if (!sceneShown) return;
     buttonShown = false;
@@ -97,7 +97,7 @@ export function createStage(tf, o) {
     await tf.overlay.hide().catch(o.warn);
   };
 
-  /** Keeps an empty overlay while Prompt Polish shows, to hear the layout. */
+  /** Keeps an empty overlay while Promptsmith shows, to hear the layout. */
   const keepOverlay = async () => {
     if (sceneShown || !tf.overlay) return;
     sceneShown = true;

@@ -2,7 +2,7 @@
 
 From Tilefold 0.1.27, users can write to the AI agent in a pane (Claude Code, Codex, Gemini and the rest) in Tilefold's own input box under the terminal. A tile with the `input.actions` permission can add a button to that box. When the user clicks it, and only then, the tile gets what the box holds and can offer new text back. Tilefold puts the new text in the box with every change highlighted and an Undo. It never sends anything: the user still presses Enter.
 
-The **Prompt Polish** example (`examples/prompt-polish`) uses it: its **✦ Polish** button opens the tile's card with the prompt in it and the check already running, and **Use** puts the corrected prompt back in the box.
+The **Promptsmith** example (`examples/prompt-polish`) uses it: its **✦ Polish** button opens the tile's card with the prompt in it and the check already running, and **Use** puts the corrected prompt back in the box.
 
 ## 1. Ask for the permission
 
@@ -85,7 +85,7 @@ await tf.input.release(e.request);
 
 ## 5. Keeping out of the way
 
-A tile that also draws over the panes (`window.overlay`) and holds `input.actions` sees `agentInput: true` on a pane in `tf.overlay.layout()` and the `overlay.layout` event when that pane's row is the agent input box. Prompt Polish uses it to hide its own pill there, since its button is in the box. Other tiles don't see it.
+A tile that also draws over the panes (`window.overlay`) and holds `input.actions` sees `agentInput: true` on a pane in `tf.overlay.layout()` and the `overlay.layout` event when that pane's row is the agent input box. Promptsmith uses it to hide its own pill there, since its button is in the box. Other tiles don't see it.
 
 ## Testing
 

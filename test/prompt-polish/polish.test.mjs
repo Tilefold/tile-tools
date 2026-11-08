@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the text
+ * Promptsmith — the text
  *
  * Code, links and paths are found and must survive a correction; the diff
  * keeps Latin words whole and splits other scripts by letter (so a Korean

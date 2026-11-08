@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — what the page is sent
+ * Promptsmith — what the page is sent
  *
  * The page draws what the tile sends and says what the user did; it keeps
  * nothing of its own. `setupOf` is sent once when the page says hello: its

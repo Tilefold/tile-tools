@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Tilefold
 # Released under the MIT License.
 #
-# Prompt Polish (example tile): Simplified Chinese strings.
+# Promptsmith (example tile): Simplified Chinese strings.
 
-tile-name = Prompt Polish（示例）
+tile-name = Promptsmith（示例）
 tile-description = 用你选择的语言，借助 Claude 和你自己的 Anthropic 密钥校正写给 AI 智能体的提示词。每处修改都看得到，想保留的地方可留下原话，再从 Tilefold 的提问卡片发送结果。没有密钥？由你专属的润色智能体在单独的标签页中代为检查，不会打断你正在使用的智能体。在 Tilefold 有自己的智能体输入框时，那里的 ✦ 润色 按钮会检查你写的内容，并把改好的提示词放回去，由你发送。
 setting-language = 你写提示词所用的语言
 setting-language-auto = 与 Tilefold 相同
 setting-mode = 修改范围
 setting-mode-fix = 只改错误
 setting-mode-natural = 改正错误，并让表达更自然
-setting-view = Prompt Polish 的显示位置
+setting-view = Promptsmith 的显示位置
 setting-view-bottom = 智能体窗格上方，输入行之上
 setting-view-corner = 窗格输入行旁的“润色”按钮
 setting-view-side = 窗格旁的停靠栏
@@ -23,15 +23,15 @@ setting-checker = 由谁检查你的提示词
 setting-checker-claude = 使用你的 Anthropic 密钥的 Claude；没有密钥时用润色智能体
 setting-checker-agent = 始终使用润色智能体（无需密钥）
 setting-helper-agent = 润色智能体（在单独的标签页中运行）
-cmd-open = Prompt Polish：写提示词
-cmd-close = Prompt Polish：关闭
-cmd-hand-back = Prompt Polish：交回修改后的提示词（供智能体使用）
+cmd-open = Promptsmith：写提示词
+cmd-close = Promptsmith：关闭
+cmd-hand-back = Promptsmith：交回修改后的提示词（供智能体使用）
 page-lang = zh-CN
 page-dir = ltr
 ai-language = 简体中文
-ask-about = Prompt Polish：用户用 { $language } 写并检查过错误的提示词
-agent-check-about = Prompt Polish：请修改这段提示词并交回，不要执行它
-button-label = Prompt Polish
+ask-about = Promptsmith：用户用 { $language } 写并检查过错误的提示词
+agent-check-about = Promptsmith：请修改这段提示词并交回，不要执行它
+button-label = Promptsmith
 pill-label = 润色
 action-label = ✦ 润色
 label-over-pane = 在窗格上
@@ -82,10 +82,10 @@ kind-grammar = 语法
 kind-spacing = 空格
 kind-punctuation = 标点
 kind-style = 表达
-error-no-ai = 此版本的 Tilefold 还不能让 Tile 向 Claude 提问。请更新 Tilefold 以使用 Prompt Polish。
+error-no-ai = 此版本的 Tilefold 还不能让 Tile 向 Claude 提问。请更新 Tilefold 以使用 Promptsmith。
 error-no-key = 请在 设置 → AI 中添加你的 Anthropic API 密钥以检查提示词。
-error-denied = Prompt Polish 不能向 Claude 提问。请在 设置 → Tiles 中允许。
-error-budget = Prompt Polish 已用完今天的 AI 额度。请明天再试。
+error-denied = Promptsmith 不能向 Claude 提问。请在 设置 → Tiles 中允许。
+error-budget = Promptsmith 已用完今天的 AI 额度。请明天再试。
 error-refused = Claude 没有检查这条提示词。请再试一次。
 error-failed = 无法连接 Claude。请稍后再试。
 error-unreadable = 无法读取 Claude 的回答。请再试一次。
@@ -96,7 +96,7 @@ error-no-agent-ask = 此版本的 Tilefold 还不能把提示词交给智能体�
 error-ask-busy = Tilefold 的提问卡片已经打开。请先发送或丢弃，再试一次。
 error-helper-busy = 润色智能体正忙。请稍后再试。
 error-helper-typing = 你正在润色智能体的标签页中输入。输入完再试。
-error-helper-not-started = 润色智能体没有启动。请确认它已安装，或在 设置 → Tiles → Prompt Polish 中选择其他智能体。
+error-helper-not-started = 润色智能体没有启动。请确认它已安装，或在 设置 → Tiles → Promptsmith 中选择其他智能体。
 error-helper-failed = 无法连接润色智能体。请再试一次。
 error-ask-no-pane = 没有可发送的智能体窗格。
 error-input-changed = 这期间你改了输入框里的文字，所以没有替换。再点一次 ✦ 润色 检查现在的内容。
@@ -104,8 +104,8 @@ error-input-expired = 已超过 10 分钟，所以输入框没有改动。请再
 error-input-gone = 你写字的输入框已经不在了（窗格已关闭或输入框已关闭），所以没有改动。
 error-input-refused = Tilefold 未接受此文本放入输入框（可能太长），因此没有任何更改。
 error-ask-failed = 无法把提示词放到提问卡片上。请再试一次。
-toast-too-small = 窗格太小，Prompt Polish 已在窗格旁打开。
-toast-needs-tilefold = Prompt Polish 需要更新的 Tilefold 才能显示页面。
+toast-too-small = 窗格太小，Promptsmith 已在窗格旁打开。
+toast-needs-tilefold = Promptsmith 需要更新的 Tilefold 才能显示页面。
 
 # Your own cases (what to fix)
 setting-cases = 你自己的情形：第一行写名称，下面写要做什么，情形之间空一行
@@ -116,7 +116,7 @@ label-add-case = 添加自己的…
 label-edit-case = 编辑“{ $name }”…
 label-edit-cases = 编辑…
 label-edit-which = 要编辑哪个情形？
-label-cases-in-settings = 在 设置 → Tiles → Prompt Polish 中添加你自己的情形
+label-cases-in-settings = 在 设置 → Tiles → Promptsmith 中添加你自己的情形
 label-case-new = 你自己的情形
 label-case-edit = 编辑情形
 label-case-name = 名称

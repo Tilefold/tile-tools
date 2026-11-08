@@ -4,7 +4,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — moving, filling and folding the card
+ * Promptsmith — moving, filling and folding the card
  *
  * Over the pane the user drags the card by its header: it moves as far as
  * the pointer went, never out of its pane or over the input row, and the

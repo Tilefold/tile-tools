@@ -3,9 +3,9 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — settings and commands
+ * Promptsmith — settings and commands
  *
- * What the user chooses in Settings → Tiles → Prompt Polish: the language
+ * What the user chooses in Settings → Tiles → Promptsmith: the language
  * they write prompts in, whether to fix mistakes only or also make the
  * prompt read naturally, where the page shows, and whether to use the
  * faster, cheaper model, and who checks: Claude with their own key, or the

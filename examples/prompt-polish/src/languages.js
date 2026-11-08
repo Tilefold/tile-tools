@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the languages
+ * Promptsmith — the languages
  *
  * The languages a user can write prompts in: Tilefold's twelve. Each has
  * its English name (for the question to Claude) and its own name (for the

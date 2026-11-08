@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Prompt Polish — the Polish pill's picture
+ * Promptsmith — the Polish pill's picture
  *
  * A small pill with a sparkle and the word "Polish" in the user's
  * language, drawn as an SVG picture for an overlay item, in Tilefold's
