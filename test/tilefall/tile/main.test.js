@@ -71,7 +71,7 @@ describe("built main.js", () => {
     expect(host.regs.filter((r) => r.kind === "command").map((r) => r.id)).toEqual(
       COMMANDS.map((c) => c.id),
     );
-    expect(host.regs.filter((r) => r.kind === "hook")).toHaveLength(7);
+    expect(host.regs.filter((r) => r.kind === "hook")).toHaveLength(8);
   });
 
   it("plays with every command and stays within the overlay limits", async () => {

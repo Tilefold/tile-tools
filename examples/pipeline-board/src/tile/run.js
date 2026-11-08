@@ -22,6 +22,10 @@
  *
  * The tile never sees a token: requests name the `gitlab` sign-in and
  * Tilefold adds it. Registration comes first, with no `await` before it.
+ *
+ * Modified 2026-11-08 (one tab or every tab): with "Show on" the tab where
+ *   it was opened, it keeps to that tab (perTab), and Show brings it to the
+ *   tab in front.
  */
 import { SIGN_IN, failureOf, parsePipelines, pipelinesUrl } from "../gitlab/api.js";
 import { finishedSince, isActive } from "../gitlab/status.js";
@@ -61,6 +65,8 @@ const NOTICE = {
 export function runPipelineBoard(tf) {
   let visible = false;
   let shown = null;
+  /** Shown on its own tab, and the user is on another. */
+  let away = false;
   let layout = null;
   let status = "no-project";
   /** @type {ReturnType<typeof parsePipelines>} */
@@ -99,7 +105,7 @@ export function runPipelineBoard(tf) {
       t: (key, args) => tf.t(key, args),
     });
     if (!shown) {
-      const ok = await tf.overlay.show({ items: [item] });
+      const ok = await tf.overlay.show({ items: [item], perTab: settings().showOn === "tab" });
       shown = ok === false ? null : item;
       return;
     }
@@ -182,6 +188,9 @@ export function runPipelineBoard(tf) {
 
   // ------------------------------------------------------------ showing
   const show = async () => {
+    // Away on another tab: it comes to the tab in front.
+    if (away) await tf.overlay.hide();
+    away = false;
     visible = true;
     shown = null;
     try {
@@ -213,7 +222,7 @@ export function runPipelineBoard(tf) {
   for (const c of COMMANDS) {
     const run =
       c.id === "toggle"
-        ? background(() => (visible ? hide() : show()))
+        ? background(() => (visible && !away ? hide() : show()))
         : background(() => (visible ? refresh() : show()));
     tf.command(tf.t(c.title), run, c.key ? { id: c.id, key: c.key } : { id: c.id });
   }
@@ -238,13 +247,26 @@ export function runPipelineBoard(tf) {
   );
   tf.on(
     "overlay.hidden",
-    background(async () => {
+    background(async (e) => {
+      away = false;
+      // Its tab closed: it goes with it.
+      if (e && e.by === "tab") return hide();
       shown = null;
     }),
   );
+  // "Show on" the tab where it was opened: the user left that tab, or came back.
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    }),
+  );
+
   tf.on(
     "setting.changed",
     background(async (e) => {
+      // One tab or every tab: shown whole again, with the new choice.
+      if (e && e.key === "showOn") shown = null;
       if (FETCH_KEYS.includes(e && e.key)) {
         pipelines = [];
         status = "loading";

@@ -18,6 +18,10 @@
  *
  * If Tilefold restarts the tile's worker, the first event or command loads
  * the saved game back (paused) instead of starting from nothing.
+ *
+ * Modified 2026-11-08 (one tab or every tab): with "Show on" the tab where
+ *   it was opened, it keeps to that tab (perTab), and Show brings it to the
+ *   tab in front.
  */
 import { registerCommands } from "./commands.js";
 import { createTrail } from "./audit.js";
@@ -56,6 +60,8 @@ export function runTilefall(tf, engine) {
   let layout = null;
   /** The scene last sent to the window, or null when it must be shown afresh. */
   let shown = null;
+  /** Shown on its own tab, and the user is on another. */
+  let away = false;
   /** The best score as last read or written. */
   let best = 0;
 
@@ -76,7 +82,7 @@ export function runTilefall(tf, engine) {
       format: numberFormat,
     });
     if (!shown) {
-      const ok = await tf.overlay.show({ items });
+      const ok = await tf.overlay.show({ items, perTab: settings().showOn === "tab" });
       // False means the user has overlays hidden: keep the game, pause it, try again later.
       if (ok === false) {
         shown = null;
@@ -196,6 +202,9 @@ export function runTilefall(tf, engine) {
   // ------------------------------------------------------------ showing
   /** Puts the game on screen. */
   const show = async () => {
+    // Away on another tab: it comes to the tab in front.
+    if (away) await tf.overlay.hide();
+    away = false;
     visible = true;
     shown = null;
     try {
@@ -227,7 +236,7 @@ export function runTilefall(tf, engine) {
    */
   const run = async (action) => {
     await ensureLoaded();
-    if (action === "toggle") return visible ? hide() : show();
+    if (action === "toggle") return visible && !away ? hide() : show();
     if (action === "newGame") {
       if (!visible) await show();
       await store.clearSnapshot();
@@ -290,7 +299,10 @@ export function runTilefall(tf, engine) {
 
   tf.on(
     "overlay.hidden",
-    background(async () => {
+    background(async (e) => {
+      away = false;
+      // Its tab closed: it goes with it.
+      if (e && e.by === "tab") return hide();
       pause("hidden");
       // Tilefold took the scene away; show it whole when the user brings overlays back.
       shown = null;
@@ -311,9 +323,20 @@ export function runTilefall(tf, engine) {
     }),
   );
 
+  // "Show on" the tab where it was opened: the user left that tab, or came back.
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+      if (away) pause("hidden");
+    }),
+  );
+
   tf.on(
     "setting.changed",
     background(async (e) => {
+      // One tab or every tab: shown whole again, with the new choice.
+      if (e && e.key === "showOn") shown = null;
       const key = e && e.key;
       if (!visible) return;
       if (LAYOUT_KEYS.includes(key)) {

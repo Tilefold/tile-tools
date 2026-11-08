@@ -50,3 +50,6 @@ button-play = Jugar
 button-left = Mover a la izquierda
 button-down = Bajar
 button-right = Mover a la derecha
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

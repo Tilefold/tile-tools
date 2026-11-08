@@ -193,6 +193,7 @@ describe("settings", () => {
       size: "medium",
       corner: "bottom-right",
       pauseOnBlur: false,
+      showOn: "all",
     });
   });
 

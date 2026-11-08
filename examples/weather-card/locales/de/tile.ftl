@@ -46,3 +46,6 @@ summary-no-key = Füge deinen Anthropic-Schlüssel unter Einstellungen → KI hi
 summary-denied = Erlaube der Wetterkarte in Einstellungen → Tiles, Claude zu fragen.
 summary-budget = Das heutige Kontingent für Zusammenfassungen ist aufgebraucht.
 summary-system = Schreib einen kurzen, freundlichen Satz von höchstens 70 Zeichen darüber, was das Wetter der nächsten Stunden für den Tag bedeutet, auf { $language }. Keine Emojis, keine Begrüßung, keine Anführungszeichen.
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

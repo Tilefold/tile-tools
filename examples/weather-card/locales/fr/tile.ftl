@@ -46,3 +46,6 @@ summary-no-key = Ajoutez votre clé Anthropic dans Réglages → IA pour avoir u
 summary-denied = Autorisez la Carte météo à interroger Claude dans Réglages → Tiles.
 summary-budget = Le quota de résumés du jour est épuisé.
 summary-system = Écris une phrase courte et aimable de 70 caractères au plus sur ce que la météo des prochaines heures signifie pour la journée, en { $language }. Pas d'emoji, pas de salutation, pas de guillemets.
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

@@ -50,3 +50,6 @@ button-play = Jouer
 button-left = Déplacer à gauche
 button-down = Descendre
 button-right = Déplacer à droite
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

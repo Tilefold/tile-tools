@@ -50,3 +50,6 @@ button-play = 开始
 button-left = 左移
 button-down = 下移
 button-right = 右移
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

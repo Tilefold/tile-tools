@@ -57,7 +57,7 @@ describe("registration", () => {
     runTilefall(tf, engine);
     // Synchronously, with nothing awaited yet:
     const kinds = host.regs.map((r) => r.kind);
-    expect(kinds.filter((k) => k === "setting")).toHaveLength(6);
+    expect(kinds.filter((k) => k === "setting")).toHaveLength(7);
     expect(host.regs.filter((r) => r.kind === "command").map((r) => r.id)).toEqual(
       COMMANDS.map((c) => c.id),
     );
@@ -72,6 +72,7 @@ describe("registration", () => {
         "overlay.hidden",
         "overlay.layout",
         "overlay.pointer",
+        "overlay.tab",
         "setting.changed",
         "user.idle",
         "window.blurred",

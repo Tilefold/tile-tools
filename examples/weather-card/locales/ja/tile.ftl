@@ -46,3 +46,6 @@ summary-no-key = まとめを表示するには、設定 → AI で Anthropic �
 summary-denied = 設定 → タイル で天気カードが Claude に質問することを許可してください。
 summary-budget = 今日のまとめの上限に達しました。
 summary-system = これからの数時間の天気がその日にとってどんな意味を持つかを、{ $language }で、70 文字以内の短く親しみやすい一文で書いてください。絵文字、あいさつ、引用符は使わないでください。
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

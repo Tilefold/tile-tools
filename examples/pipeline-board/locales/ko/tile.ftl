@@ -43,3 +43,6 @@ state-rate = GitLab이 속도를 줄여 달라고 했어요
 state-rate-hint = 5분 뒤에 다시 확인해요.
 state-error = GitLab이 응답하지 않았어요
 state-error-hint = 곧 다시 시도해요. 지금 시도하려면 보드를 클릭하세요.
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

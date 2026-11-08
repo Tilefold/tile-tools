@@ -8,6 +8,9 @@
  * Every setting the tile registers, and a reader that turns whatever is
  * stored into values the tile can trust. Registered at the top of the
  * tile's function, before any `await`, as Tilefold requires.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on", every tab (the
+ *   default) or the tab where it was opened.
  */
 import { cleanProject, cleanRef } from "../gitlab/api.js";
 
@@ -36,6 +39,15 @@ export const SETTINGS = [
     ],
   },
   { key: "notify", default: true, label: "setting-notify" },
+  {
+    key: "showOn",
+    default: "all",
+    label: "setting-show-on",
+    choices: [
+      { value: "all", label: "setting-show-on-all" },
+      { value: "tab", label: "setting-show-on-tab" },
+    ],
+  },
 ];
 
 /** Settings whose change means asking GitLab again, not just a redraw. */
@@ -77,5 +89,6 @@ export function readSettings(settings) {
     ref: cleanRef(get("ref")),
     corner: CORNERS.includes(corner) ? corner : "bottom-right",
     notify: get("notify") !== false,
+    showOn: get("showOn") === "tab" ? "tab" : "all",
   };
 }

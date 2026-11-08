@@ -46,3 +46,6 @@ summary-no-key = Aggiungi la tua chiave Anthropic in Impostazioni → IA per ave
 summary-denied = Consenti alla Scheda meteo di chiedere a Claude in Impostazioni → Tile.
 summary-budget = La quota di riassunti di oggi è esaurita.
 summary-system = Scrivi una frase breve e cordiale di al massimo 70 caratteri su cosa significa il meteo delle prossime ore per la giornata, in { $language }. Niente emoji, niente saluti, niente virgolette.
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede

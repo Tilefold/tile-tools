@@ -46,3 +46,6 @@ summary-no-key = Añade tu clave de Anthropic en Ajustes → IA para tener un re
 summary-denied = Permite que la Tarjeta del tiempo pregunte a Claude en Ajustes → Tiles.
 summary-budget = Se ha agotado la cuota de resúmenes de hoy.
 summary-system = Escribe una frase breve y amable de 70 caracteres como máximo sobre lo que el tiempo de las próximas horas significa para el día, en { $language }. Sin emojis, sin saludo, sin comillas.
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

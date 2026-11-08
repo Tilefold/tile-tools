@@ -914,7 +914,16 @@ var SETTINGS = [
     label: "setting-corner",
     choices: CORNERS.map((c) => ({ value: c, label: CORNER_LABELS[c] }))
   },
-  { key: "pauseOnBlur", default: true, label: "setting-pause-on-blur" }
+  { key: "pauseOnBlur", default: true, label: "setting-pause-on-blur" },
+  {
+    key: "showOn",
+    default: "all",
+    label: "setting-show-on",
+    choices: [
+      { value: "all", label: "setting-show-on-all" },
+      { value: "tab", label: "setting-show-on-tab" }
+    ]
+  }
 ];
 var LAYOUT_KEYS = ["size", "corner"];
 function registerSettings(tf) {
@@ -951,7 +960,8 @@ function readSettings(settings) {
       /** @type {string} */
       corner
     ) : "bottom-right",
-    pauseOnBlur: get("pauseOnBlur") !== false
+    pauseOnBlur: get("pauseOnBlur") !== false,
+    showOn: get("showOn") === "tab" ? "tab" : "all"
   };
 }
 
@@ -1580,6 +1590,7 @@ function runTilefall(tf, engine) {
   let visible = false;
   let layout = null;
   let shown = null;
+  let away = false;
   let best = 0;
   let drawing = null;
   let dirty = false;
@@ -1595,7 +1606,7 @@ function runTilefall(tf, engine) {
       format: numberFormat
     });
     if (!shown) {
-      const ok = await tf.overlay.show({ items });
+      const ok = await tf.overlay.show({ items, perTab: settings().showOn === "tab" });
       if (ok === false) {
         shown = null;
         pause("hidden");
@@ -1693,6 +1704,8 @@ function runTilefall(tf, engine) {
     return loading;
   };
   const show = async () => {
+    if (away) await tf.overlay.hide();
+    away = false;
     visible = true;
     shown = null;
     try {
@@ -1715,7 +1728,7 @@ function runTilefall(tf, engine) {
   };
   const run = async (action) => {
     await ensureLoaded();
-    if (action === "toggle") return visible ? hide() : show();
+    if (action === "toggle") return visible && !away ? hide() : show();
     if (action === "newGame") {
       if (!visible) await show();
       await store.clearSnapshot();
@@ -1766,7 +1779,9 @@ function runTilefall(tf, engine) {
   );
   tf.on(
     "overlay.hidden",
-    background(async () => {
+    background(async (e) => {
+      away = false;
+      if (e && e.by === "tab") return hide();
       pause("hidden");
       shown = null;
     })
@@ -1784,8 +1799,16 @@ function runTilefall(tf, engine) {
     })
   );
   tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+      if (away) pause("hidden");
+    })
+  );
+  tf.on(
     "setting.changed",
     background(async (e) => {
+      if (e && e.key === "showOn") shown = null;
       const key = e && e.key;
       if (!visible) return;
       if (LAYOUT_KEYS.includes(key)) {
