@@ -36,3 +36,6 @@ bubble-welcome = Bon retour !
 bubble-woof = Ouaf !
 bubble-zap = Bzzzt !
 bubble-roar = GRAOU !
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

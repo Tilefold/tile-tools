@@ -36,3 +36,6 @@ bubble-welcome = Bem-vindo de volta!
 bubble-woof = Au au!
 bubble-zap = Bzzzt!
 bubble-roar = ROAAAR!
+setting-show-on = Mostrar em
+setting-show-on-tab = A aba onde foi aberto
+setting-show-on-all = Todas as abas

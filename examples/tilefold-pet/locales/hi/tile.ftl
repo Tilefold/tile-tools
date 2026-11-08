@@ -36,3 +36,6 @@ bubble-welcome = फिर से स्वागत है!
 bubble-woof = भौं भौं!
 bubble-zap = ज़्ज़्ज़्ट!
 bubble-roar = दहाड़!
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

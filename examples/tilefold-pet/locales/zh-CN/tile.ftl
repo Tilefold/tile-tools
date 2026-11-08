@@ -36,3 +36,6 @@ bubble-welcome = 欢迎回来！
 bubble-woof = 汪汪！
 bubble-zap = 滋滋滋！
 bubble-roar = 嗷呜！
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

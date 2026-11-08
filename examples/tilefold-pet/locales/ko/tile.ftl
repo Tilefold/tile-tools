@@ -36,3 +36,6 @@ bubble-welcome = 다시 왔구나!
 bubble-woof = 멍멍!
 bubble-zap = 찌릿찌릿!
 bubble-roar = 크아앙!
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

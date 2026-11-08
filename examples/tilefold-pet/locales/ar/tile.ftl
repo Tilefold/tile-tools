@@ -36,3 +36,6 @@ bubble-welcome = أهلًا بعودتك!
 bubble-woof = هاو هاو!
 bubble-zap = بززززت!
 bubble-roar = غرررر!
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب
