@@ -17,6 +17,7 @@ setting-view-side = 窗格旁的停靠栏
 setting-solid = 窗格上方卡片的背景
 setting-solid-full = 不透明
 setting-solid-percent = { $percent }%（半透明）
+setting-solid-text-only = 仅文字
 setting-fast = 使用更快、更便宜的模型
 setting-checker = 由谁检查你的提示词
 setting-checker-claude = 使用你的 Anthropic 密钥的 Claude；没有密钥时用润色智能体

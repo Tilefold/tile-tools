@@ -17,6 +17,7 @@ setting-view-side = Dans le dock à côté des volets
 setting-solid = Fond de la carte au-dessus du panneau
 setting-solid-full = Opaque
 setting-solid-percent = { $percent } % (translucide)
+setting-solid-text-only = Texte seul
 setting-fast = Utiliser le modèle plus rapide et moins cher
 setting-checker = Qui vérifie vos requêtes
 setting-checker-claude = Claude avec votre clé Anthropic ; sans elle, votre agent de peaufinage

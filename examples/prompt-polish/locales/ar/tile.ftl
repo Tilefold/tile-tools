@@ -17,6 +17,7 @@ setting-view-side = في الشريط بجانب الأجزاء
 setting-solid = خلفية البطاقة فوق الجزء
 setting-solid-full = معتمة
 setting-solid-percent = { $percent }٪ (شفافة)
+setting-solid-text-only = النص فقط
 setting-fast = استخدام النموذج الأسرع والأرخص
 setting-checker = من يتحقق من مطالباتك
 setting-checker-claude = Claude بمفتاح Anthropic الخاص بك، ومن دونه وكيل التحسين

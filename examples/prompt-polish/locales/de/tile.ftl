@@ -17,6 +17,7 @@ setting-view-side = Im Dock neben den Bereichen
 setting-solid = Kartenhintergrund über dem Bereich
 setting-solid-full = Deckend
 setting-solid-percent = { $percent } % (durchscheinend)
+setting-solid-text-only = Nur Text
 setting-fast = Schnelleres, günstigeres Modell verwenden
 setting-checker = Wer Ihre Prompts prüft
 setting-checker-claude = Claude mit Ihrem Anthropic-Schlüssel; ohne ihn Ihr Polier-Agent

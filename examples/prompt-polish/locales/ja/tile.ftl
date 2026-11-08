@@ -17,6 +17,7 @@ setting-view-side = ペイン横のドック
 setting-solid = ペイン上のカードの背景
 setting-solid-full = 不透明
 setting-solid-percent = { $percent }%（半透明）
+setting-solid-text-only = 文字だけ
 setting-fast = より速く安いモデルを使う
 setting-checker = プロンプトを確認するのは
 setting-checker-claude = Claude（ご自分の Anthropic キー）、キーがなければ校正エージェント

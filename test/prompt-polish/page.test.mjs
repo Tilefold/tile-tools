@@ -225,9 +225,27 @@ describe("the page", () => {
     // Beside the panes the page isn't over anything: always solid.
     ready(p, { solid: 70, view: "side" });
     expect(root.classList.contains("see-through")).toBe(false);
-    // Never below 30%, whatever it is told.
-    ready(p, { solid: 5 });
-    expect(root.style.getPropertyValue("--solid")).toBe("30%");
+    // Kept within 0 and 100, whatever it is told.
+    ready(p, { solid: -20 });
+    expect(root.style.getPropertyValue("--solid")).toBe("0%");
+  });
+
+  it("fades the blocks below 60%, and shows only the text at 0", () => {
+    const p = page();
+    const root = p.w.document.documentElement;
+    const has = (c) => root.classList.contains(c);
+    ready(p, { solid: 60 });
+    expect([has("faded"), has("text-only")]).toEqual([false, false]);
+    ready(p, { solid: 30 });
+    expect([has("faded"), has("text-only")]).toEqual([true, false]);
+    ready(p, { solid: 0 });
+    expect([has("see-through"), has("faded"), has("text-only")]).toEqual([true, true, true]);
+    // Beside the panes it's solid at any level.
+    ready(p, { solid: 0, view: "side" });
+    expect([has("faded"), has("text-only")]).toEqual([false, false]);
+    const css = readFileSync(`${DIR}page/polish.css`, "utf8");
+    expect(css).toMatch(/html\.text-only \*,[\s\S]*?background: transparent !important/);
+    expect(css).toMatch(/html\.faded body \{\s*text-shadow/);
   });
 
   it("fills the pane from ▢, and folds to the header bar on a double click", () => {

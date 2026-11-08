@@ -17,6 +17,7 @@ setting-view-side = Nel dock accanto ai riquadri
 setting-solid = Sfondo della scheda sopra il pannello
 setting-solid-full = Pieno
 setting-solid-percent = { $percent }% (trasparente)
+setting-solid-text-only = Solo testo
 setting-fast = Usa il modello più veloce ed economico
 setting-checker = Chi controlla i tuoi prompt
 setting-checker-claude = Claude con la tua chiave Anthropic; senza, il tuo agente di rifinitura

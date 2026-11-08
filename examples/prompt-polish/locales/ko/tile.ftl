@@ -17,6 +17,7 @@ setting-view-side = 창 옆 도크
 setting-solid = 패널 위 카드 배경
 setting-solid-full = 불투명
 setting-solid-percent = { $percent }% (반투명)
+setting-solid-text-only = 글자만
 setting-fast = 더 빠르고 저렴한 모델 사용
 setting-checker = 프롬프트를 확인하는 쪽
 setting-checker-claude = Claude (내 Anthropic 키 사용), 키가 없으면 다듬기 에이전트

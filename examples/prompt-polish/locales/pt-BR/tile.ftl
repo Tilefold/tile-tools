@@ -17,6 +17,7 @@ setting-view-side = No dock ao lado dos painéis
 setting-solid = Fundo do cartão sobre o painel
 setting-solid-full = Sólido
 setting-solid-percent = { $percent }% (translúcido)
+setting-solid-text-only = Só o texto
 setting-fast = Usar o modelo mais rápido e barato
 setting-checker = Quem revisa seus prompts
 setting-checker-claude = Claude com sua chave da Anthropic; sem ela, seu agente de polimento

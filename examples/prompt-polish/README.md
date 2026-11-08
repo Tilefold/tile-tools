@@ -61,7 +61,7 @@ In **Settings → Tiles → Prompt Polish**:
 - **Where Prompt Polish shows**: as above.
 - **Who checks your prompts**: Claude with your Anthropic key, and without one your polish agent (the default), or always your polish agent (see below).
 - **Your polish agent**: which agent checks your prompts in a tab of its own: Claude Code (the default), Codex, Gemini CLI, Cursor Agent, Antigravity CLI or OpenCode. It must be installed.
-- **Card background over the pane**: solid, or see-through from 90% down to 60%, so you can see the pane under the card. The text stays solid. Only the card over the pane; beside the panes it's always solid (Tilefold 0.1.27).
+- **Card background over the pane**: solid, or see-through from 90% down to 10%, so you can see the pane under the card. Down to 60% the text keeps a solid surface; below that it fades too, with a soft halo around the letters, and **Text only** leaves nothing but the text over the pane. Only the card over the pane; beside the panes it's always solid (Tilefold 0.1.27).
 - **Use the faster, cheaper model**: on by default; turn it off for Claude's larger model. Only for checks by Claude.
 
 ## What it needs

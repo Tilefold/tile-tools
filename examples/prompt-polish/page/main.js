@@ -27,6 +27,8 @@
  *   taken and a moving bar.
  * Modified 2026-11-07 (send from the card): for a prompt from the agent
  *   input box, Send to agent beside Use.
+ * Modified 2026-11-07 (text only): below 60% the blocks fade with the card
+ *   (`faded`), and at 0 only the text shows (`text-only`).
  * Modified 2026-11-07 (own cases): the chip opens the menu of what to fix,
  *   and the form to add or edit one of the user's own cases (cases.js).
  * Modified 2026-11-07 (move and fill): over the pane, the header moves the
@@ -467,9 +469,11 @@
   }
   function seeThrough(v) {
     const card = v.view === "bottom" || v.view === "corner";
-    const solid = Number.isFinite(v.solid) ? Math.min(100, Math.max(30, v.solid)) : 100;
+    const solid = Number.isFinite(v.solid) ? Math.min(100, Math.max(0, v.solid)) : 100;
     const root = document.documentElement;
     root.classList.toggle("see-through", card && solid < 100);
+    root.classList.toggle("faded", card && solid < 60);
+    root.classList.toggle("text-only", card && solid === 0);
     root.style.setProperty("--solid", `${solid}%`);
   }
   function contentHeight(el2) {

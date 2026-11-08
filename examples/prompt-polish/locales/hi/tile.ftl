@@ -17,6 +17,7 @@ setting-view-side = पेन के बगल वाले डॉक में
 setting-solid = पेन के ऊपर कार्ड की पृष्ठभूमि
 setting-solid-full = ठोस
 setting-solid-percent = { $percent }% (पारदर्शी)
+setting-solid-text-only = सिर्फ़ टेक्स्ट
 setting-fast = तेज़ और सस्ता मॉडल इस्तेमाल करें
 setting-checker = आपके प्रॉम्प्ट कौन जाँचे
 setting-checker-claude = आपकी Anthropic कुंजी के साथ Claude; कुंजी न हो तो आपका सुधार एजेंट

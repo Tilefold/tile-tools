@@ -17,6 +17,8 @@
  *   is no key (or always, with `checker` "agent").
  * Modified 2026-11-07 (see-through card): the `solid` setting, how solid
  *   the card's background is over the pane (100: not see-through).
+ * Modified 2026-11-07 (text only): `solid` goes down to 10%, and to 0,
+ *   "Text only" (only the card's text shows over the pane).
  * Modified 2026-11-07 (own cases): the `cases` setting, the user's own
  *   cases (cases.js), a text of several lines (Tilefold 0.1.27).
  */
@@ -30,8 +32,8 @@ export const MODES = ["fix", "natural"];
 /** Who checks prompts: Claude with the user's key (else the polish agent), or always the agent. */
 export const CHECKERS = ["claude", "agent"];
 
-/** How solid the card's background can be over the pane, in percent. */
-export const SOLIDS = [100, 90, 80, 70, 60];
+/** How solid the card's background can be over the pane, in percent (0: text only). */
+export const SOLIDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
 
 /** A known solid level, else fully solid. */
 export const solidOf = (v) => (SOLIDS.includes(Number(v)) ? Number(v) : 100);
@@ -86,7 +88,12 @@ export function registerSettings(tf) {
   tf.setting("solid", "100", tf.t("setting-solid"), {
     choices: SOLIDS.map((v) => ({
       value: String(v),
-      label: v === 100 ? tf.t("setting-solid-full") : tf.t("setting-solid-percent", { percent: v }),
+      label:
+        v === 100
+          ? tf.t("setting-solid-full")
+          : v === 0
+            ? tf.t("setting-solid-text-only")
+            : tf.t("setting-solid-percent", { percent: v }),
     })),
   });
   tf.setting("fast", true, tf.t("setting-fast"));

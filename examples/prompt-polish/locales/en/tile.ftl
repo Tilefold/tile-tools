@@ -17,6 +17,7 @@ setting-view-side = In the dock beside the panes
 setting-solid = Card background over the pane
 setting-solid-full = Solid
 setting-solid-percent = { $percent }% (see-through)
+setting-solid-text-only = Text only
 setting-fast = Use the faster, cheaper model
 setting-checker = Who checks your prompts
 setting-checker-claude = Claude with your Anthropic key; without one, your polish agent

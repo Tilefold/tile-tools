@@ -1069,7 +1069,7 @@ var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && 
 // src/settings.js
 var MODES = ["fix", "natural"];
 var CHECKERS = ["claude", "agent"];
-var SOLIDS = [100, 90, 80, 70, 60];
+var SOLIDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
 var solidOf = (v) => SOLIDS.includes(Number(v)) ? Number(v) : 100;
 var HELPER_AGENTS = [
   { value: "claude", label: "Claude Code" },
@@ -1113,7 +1113,7 @@ function registerSettings(tf) {
   tf.setting("solid", "100", tf.t("setting-solid"), {
     choices: SOLIDS.map((v) => ({
       value: String(v),
-      label: v === 100 ? tf.t("setting-solid-full") : tf.t("setting-solid-percent", { percent: v })
+      label: v === 100 ? tf.t("setting-solid-full") : v === 0 ? tf.t("setting-solid-text-only") : tf.t("setting-solid-percent", { percent: v })
     }))
   });
   tf.setting("fast", true, tf.t("setting-fast"));

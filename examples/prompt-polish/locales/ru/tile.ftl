@@ -17,6 +17,7 @@ setting-view-side = В доке рядом с панелями
 setting-solid = Фон карточки над панелью
 setting-solid-full = Сплошной
 setting-solid-percent = { $percent } % (полупрозрачный)
+setting-solid-text-only = Только текст
 setting-fast = Использовать более быструю и дешёвую модель
 setting-checker = Кто проверяет ваши запросы
 setting-checker-claude = Claude с вашим ключом Anthropic; без ключа — ваш агент правки

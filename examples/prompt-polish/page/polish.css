@@ -7,8 +7,9 @@
  * (the --tf-* variables, Tilefold 0.1.20), else in its own light or dark
  * following the system. Removed text is struck, added text underlined, and
  * a change the user undid shows their own words again, dotted. Over the
- * pane the card may be see-through, but only between its blocks: text always
- * sits on a solid surface, so it stays readable over the pane's text. The
+ * pane the card may be see-through: down to 60% only between its blocks
+ * (text sits on a solid surface), below that the blocks fade too and the
+ * text gets a halo, and at "Text only" every surface is clear. The
  * chip opens a menu of what to fix, and a form adds the user's own case.
  */
 
@@ -79,6 +80,36 @@ html.see-through .card {
 :where(html.see-through .body > *),
 :where(html.see-through .notes li) {
   background: var(--bg);
+}
+/* Below 60%, the blocks fade with the card, and the text gets a soft halo
+   in the card's own color so it stays readable over the pane's text. */
+:where(html.faded) header,
+:where(html.faded) .foot,
+:where(html.faded .body > *),
+:where(html.faded .notes li) {
+  background: color-mix(in srgb, var(--bg) var(--solid, 100%), transparent);
+}
+html.faded .diff {
+  background: color-mix(in srgb, var(--sunken) var(--solid, 100%), transparent);
+}
+html.faded body {
+  text-shadow:
+    0 0 2px var(--bg),
+    0 0 4px var(--bg),
+    0 0 8px var(--bg);
+}
+/* Text only: every surface, border and button face is clear; only the text
+   (and the marks on changes: struck, underlined) shows over the pane. */
+html.text-only *,
+html.text-only *::before,
+html.text-only *::after {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html.text-only .btn.primary {
+  color: var(--accent);
+  font-weight: 700;
 }
 :where(html.see-through .body > p) {
   margin: 0;

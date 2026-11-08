@@ -87,6 +87,21 @@ describe("over the agent's pane", () => {
     const host = await start({ settings: { language: "ko", solid: "70" } });
     const solid = host.regs.find((r) => r.kind === "setting" && r.key === "solid");
     expect(solid).toBeTruthy();
+    // From solid down to text only, in steps of ten.
+    expect(solid.choices.map((c) => c.value)).toEqual([
+      "100",
+      "90",
+      "80",
+      "70",
+      "60",
+      "50",
+      "40",
+      "30",
+      "20",
+      "10",
+      "0",
+    ]);
+    expect(solid.choices.at(-1).label).toBe("Text only");
     await host.command("open");
     await say(host, { type: "hello" });
     expect(lastView(host)).toMatchObject({ solid: 70 });
