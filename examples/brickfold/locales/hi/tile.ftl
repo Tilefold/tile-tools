@@ -37,3 +37,6 @@ button-pause = रोकें या फिर शुरू करें
 button-left = बाएँ ले जाएँ
 button-right = दाएँ ले जाएँ
 button-launch = गेंद छोड़ें
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

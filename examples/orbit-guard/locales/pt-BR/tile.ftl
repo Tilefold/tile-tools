@@ -37,3 +37,6 @@ button-pause = Pausar ou continuar
 button-left = Mover para a esquerda
 button-right = Mover para a direita
 button-fire = Atirar
+setting-show-on = Mostrar em
+setting-show-on-tab = A aba onde foi aberto
+setting-show-on-all = Todas as abas

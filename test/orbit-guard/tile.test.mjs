@@ -57,6 +57,7 @@ describe("registration", () => {
       "size",
       "corner",
       "pauseOnBlur",
+      "showOn",
     ]);
   });
 });
@@ -186,5 +187,31 @@ describe("language", () => {
     const host = await shown({ locale: "ja" });
     expect(host.item("board").label).toBe("Orbit Guard の盤面。クリックして開始します。");
     expect(host.item("btn-fire").label).toBe("発射");
+  });
+});
+
+describe("one tab or every tab", () => {
+  it("shows on every tab unless asked, then keeps to its tab and comes to the tab in front", async () => {
+    const host = await shown();
+    expect(host.overlayPerTab).toBe(false);
+    await host.setSetting("showOn", "tab");
+    await host.advance(0);
+    expect(host.overlayPerTab).toBe(true);
+    // The user left its tab: Show brings it to the tab in front, not away.
+    await host.emit("overlay.tab", { shown: false });
+    await host.command("toggle");
+    await host.advance(0);
+    expect(host.overlay).not.toBeNull();
+    await host.command("toggle");
+    await host.advance(0);
+    expect(host.overlay).toBeNull();
+  });
+
+  it("goes when its tab closes", async () => {
+    const host = await shown({ settings: { showOn: "tab" } });
+    expect(host.overlayPerTab).toBe(true);
+    await host.emit("overlay.hidden", { by: "tab" });
+    await host.advance(0);
+    expect(host.overlay).toBeNull();
   });
 });

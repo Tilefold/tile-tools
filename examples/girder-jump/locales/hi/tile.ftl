@@ -42,3 +42,6 @@ button-up = ऊपर चढ़ें
 button-down = नीचे उतरें
 button-jump = कूदें
 hud-bonus = बोनस
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

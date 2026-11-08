@@ -37,3 +37,6 @@ button-pause = Pausa o riprendi
 button-left = Sposta a sinistra
 button-right = Sposta a destra
 button-launch = Lancia la palla
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede

@@ -42,3 +42,6 @@ button-up = 向上爬
 button-down = 向下爬
 button-jump = 跳跃
 hud-bonus = 奖励
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

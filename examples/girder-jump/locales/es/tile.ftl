@@ -42,3 +42,6 @@ button-up = Subir
 button-down = Bajar
 button-jump = Saltar
 hud-bonus = BONO
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

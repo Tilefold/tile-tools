@@ -37,3 +37,6 @@ button-pause = إيقاف مؤقت أو متابعة
 button-left = تحريك لليسار
 button-right = تحريك لليمين
 button-fire = إطلاق
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

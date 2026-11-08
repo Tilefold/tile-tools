@@ -27,6 +27,10 @@
  * mark the scene dirty and the next frame carries them all.
  *
  * This file is the same in every arcade example.
+ *
+ * Modified 2026-11-08 (one tab or every tab): with "Show on" the tab where
+ *   it was opened, the game keeps to that tab (perTab), pauses when the
+ *   user leaves it, and Show brings it to the tab in front.
  */
 import { computeLayout } from "./layout.js";
 import { LAYOUT_KEYS, readSettings, SIZES } from "./settings.js";
@@ -134,6 +138,8 @@ export function runArcade(tf, game) {
   let visible = false;
   let layout = null;
   let shown = null;
+  /** The game is shown on its own tab, and the user is on another. */
+  let away = false;
   let clock = null;
 
   /** Logs a failure to the tile's Log; never throws. */
@@ -198,7 +204,7 @@ export function runArcade(tf, game) {
     if (!visible) return;
     const next = items();
     if (!shown) {
-      const ok = await tf.overlay.show({ items: next });
+      const ok = await tf.overlay.show({ items: next, perTab: settings().showOn === "tab" });
       if (ok === false) {
         // The user has overlays hidden: keep the game, paused, and show it later.
         pause("hidden");
@@ -317,6 +323,9 @@ export function runArcade(tf, game) {
   };
 
   const show = async () => {
+    // Away on another tab: the game comes to the tab in front.
+    if (away) await tf.overlay.hide();
+    away = false;
     visible = true;
     shown = null;
     try {
@@ -346,7 +355,7 @@ export function runArcade(tf, game) {
    */
   const run = async (action) => {
     await ensureLoaded();
-    if (action === "toggle") return visible ? hide() : show();
+    if (action === "toggle") return visible && !away ? hide() : show();
     if (action === "newGame") {
       if (!visible) await show();
       newGame();
@@ -413,9 +422,21 @@ export function runArcade(tf, game) {
 
   tf.on(
     "overlay.hidden",
-    background(async () => {
+    background(async (e) => {
       pause("hidden");
       shown = null;
+      away = false;
+      // Its tab closed: the game goes with it.
+      if (e && e.by === "tab") await hide();
+    }),
+  );
+
+  // "Show on" the tab where it was opened: the user left that tab, or came back.
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+      if (away) pause("hidden");
     }),
   );
 
@@ -437,6 +458,8 @@ export function runArcade(tf, game) {
     "setting.changed",
     background(async (e) => {
       if (!visible) return;
+      // One tab or every tab: shown whole again, with the new choice.
+      if (e && e.key === "showOn") shown = null;
       if (e && LAYOUT_KEYS.includes(e.key)) {
         try {
           layout = await tf.overlay.layout();

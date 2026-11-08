@@ -42,3 +42,6 @@ button-up = 위로 오르기
 button-down = 아래로 내려가기
 button-jump = 점프
 hud-bonus = 보너스
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭
