@@ -1,6 +1,6 @@
 {
   "id": "example.tuneboard",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
