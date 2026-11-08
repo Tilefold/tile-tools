@@ -101,6 +101,7 @@ error-ask-no-pane = Non c'è un riquadro con un agente a cui inviarlo.
 error-input-changed = Hai cambiato il testo nella casella nel frattempo, quindi non è stato sostituito. Fai di nuovo clic su ✦ Rifinisci per controllare il testo attuale.
 error-input-expired = Sono passati più di 10 minuti, quindi la casella non è stata cambiata. Fai di nuovo clic su ✦ Rifinisci.
 error-input-gone = La casella in cui scrivevi non c'è più (il riquadro è stato chiuso o la casella disattivata), quindi non è cambiato nulla.
+error-input-refused = Tilefold non ha accettato questo testo per la tua casella (forse è troppo lungo), quindi non è cambiato nulla.
 error-ask-failed = Impossibile mettere il prompt sulla scheda delle domande. Riprova.
 toast-too-small = Il riquadro è troppo piccolo per Prompt Polish, quindi si è aperto accanto ai riquadri.
 toast-needs-tilefold = Prompt Polish ha bisogno di un Tilefold più recente per mostrare la sua pagina.

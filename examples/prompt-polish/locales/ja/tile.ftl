@@ -101,6 +101,7 @@ error-ask-no-pane = 送り先のエージェントがいるペインがありま
 error-input-changed = その間にボックスの文が変わったため、置き換えませんでした。もう一度 ✦ 校正 をクリックして、今の文を確認してください。
 error-input-expired = 10 分以上かかったため、ボックスは変更していません。もう一度 ✦ 校正 をクリックしてください。
 error-input-gone = 書いていたボックスがなくなったため（ペインが閉じられたか、ボックスがオフになりました）、何も変更していません。
+error-input-refused = Tilefold がこのテキストを入力ボックスに受け付けなかったため（長すぎる可能性があります）、何も変更されていません。
 error-ask-failed = 質問カードにプロンプトを載せられませんでした。もう一度お試しください。
 toast-too-small = ペインが小さすぎるため、Prompt Polish をペインの横に開きました。
 toast-needs-tilefold = Prompt Polish の画面を表示するには、新しい Tilefold が必要です。

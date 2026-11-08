@@ -101,6 +101,7 @@ error-ask-no-pane = Não há painel com um agente para enviar isto.
 error-input-changed = Você mudou o texto da caixa enquanto isso, então ele não foi substituído. Clique em ✦ Polir de novo para verificar o que está lá agora.
 error-input-expired = Passaram mais de 10 minutos, então a caixa não foi alterada. Clique em ✦ Polir de novo.
 error-input-gone = A caixa em que você escrevia não existe mais (o painel foi fechado ou a caixa desligada), então nada foi alterado.
+error-input-refused = O Tilefold não aceitou este texto para a sua caixa (talvez seja longo demais), então nada foi alterado.
 error-ask-failed = Não foi possível colocar o prompt no cartão de pergunta. Tente de novo.
 toast-too-small = O painel é pequeno demais para o Prompt Polish, então ele abriu ao lado dos painéis.
 toast-needs-tilefold = O Prompt Polish precisa de um Tilefold mais novo para mostrar sua página.

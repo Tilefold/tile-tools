@@ -101,6 +101,7 @@ error-ask-no-pane = Aucun volet avec un agent auquel l'envoyer.
 error-input-changed = Vous avez modifié le texte de la zone entre-temps, il n'a donc pas été remplacé. Cliquez à nouveau sur ✦ Peaufiner pour vérifier le texte actuel.
 error-input-expired = Cela a pris plus de 10 minutes, la zone n'a donc pas été modifiée. Cliquez à nouveau sur ✦ Peaufiner.
 error-input-gone = La zone où vous écriviez n'est plus là (le volet a été fermé ou la zone désactivée), rien n'a donc été modifié.
+error-input-refused = Tilefold n’a pas accepté ce texte pour votre zone (il est peut-être trop long) : rien n’a été modifié.
 error-ask-failed = Impossible de placer le prompt sur la carte de question. Réessayez.
 toast-too-small = Le volet est trop petit pour Prompt Polish : il s'est ouvert à côté des volets.
 toast-needs-tilefold = Prompt Polish a besoin d'un Tilefold plus récent pour afficher sa page.

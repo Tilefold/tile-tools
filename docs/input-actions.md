@@ -69,7 +69,7 @@ const r = await tf.input.replace(e.request, { text: better });
 | `gone` | The pane closed, or the box was switched off | Nothing to do |
 | `stopped` | The user clicked × to stop waiting (you also got `input.cancelled`) | Nothing to do |
 
-Each request is answered once. Text longer than twice the clicked text plus 200 characters, or another request's id, throws a `TypeError`. Tilefold strips control characters, escape sequences and characters that change reading direction from what you send.
+Each request is answered once. Text longer than four times the clicked text plus 3,000 characters (8,000 at most), or another request's id, throws a `TypeError`. Tilefold strips control characters, escape sequences and characters that change reading direction from what you send.
 
 When the user pressed your own **Send** (not Use), pass `send: true`: Tilefold puts the text in the box as above and then sends it, exactly as Enter would. If the agent is busy, it waits in the box. Use it only for that button.
 

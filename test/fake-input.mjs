@@ -23,10 +23,14 @@
  * click, "expired" after `host.expireInput()`, "gone" after
  * `host.closeBox()`, "stopped" after `host.stopAction()` (the user's ×
  * beside the spinning button, which first fires `input.cancelled` with
- * `{ request }` for each open request). A request is answered once; a replacement longer than
- * twice the clicked text plus 200 characters, or another request's id, is
- * refused with a TypeError. `tf.input.release(request)` ends a request
+ * `{ request }` for each open request). A request is answered once; a
+ * replacement longer than four times the clicked text plus 3,000
+ * characters (at most 8,000), or `opts.maxReplace` when a test sets it,
+ * or another request's id, is refused with a TypeError. `tf.input.release(request)` ends a request
  * (kept in `host.box.released`). See fake-host.mjs for how tests use it.
+ *
+ * Modified 2026-11-07 (reworked prompts): Tilefold's longer replacement
+ *   limit, and `maxReplace`.
  */
 
 const ACTION_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
@@ -42,7 +46,7 @@ const SECRET = /\b(?:sk-|ghp_|AKIA)[\w-]{12,}/g;
  * @param {any} tf
  * @param {any} host
  * @param {(name: string, message: string) => Error} named
- * @param {{ text?: string, language?: string }} [opts]
+ * @param {{ text?: string, language?: string, maxReplace?: number }} [opts]
  */
 export function addInput(tf, host, named, opts = {}) {
   host.actions = [];
@@ -116,7 +120,8 @@ export function addInput(tf, host, named, opts = {}) {
         throw named("TypeError", "tf.input.replace needs { text }");
       if (proposal.send !== undefined && typeof proposal.send !== "boolean")
         throw named("TypeError", "send: true or false");
-      if (proposal.text.length > r.text.length * 2 + 200) {
+      const most = opts.maxReplace ?? Math.min(8000, r.text.length * 4 + 3000);
+      if (proposal.text.length > most) {
         throw named("TypeError", "the replacement is too long");
       }
       requests.delete(request);

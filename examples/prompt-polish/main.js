@@ -919,7 +919,9 @@ var ACTION_ID = "polish";
 var WHY_KEYS = {
   changed: "error-input-changed",
   expired: "error-input-expired",
-  gone: "error-input-gone"
+  gone: "error-input-gone",
+  // Tilefold refused the text itself (such as too long for the box).
+  refused: "error-input-refused"
 };
 function paneAt(layout, spot) {
   const panes = Array.isArray(layout?.panes) ? layout.panes : [];
@@ -985,7 +987,8 @@ function createInputAction(tf, deps) {
       r = await tf.input.replace(request, { text: build(s.parts, s.rejected), send });
     } catch (err) {
       warn(err);
-      r = { done: false, why: "gone" };
+      await tf.input.release(request).catch(warn);
+      r = { done: false, why: "refused" };
     }
     if (r?.why === "stopped") return;
     if (r?.done) {

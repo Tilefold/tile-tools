@@ -101,6 +101,7 @@ error-ask-no-pane = 没有可发送的智能体窗格。
 error-input-changed = 这期间你改了输入框里的文字，所以没有替换。再点一次 ✦ 润色 检查现在的内容。
 error-input-expired = 已超过 10 分钟，所以输入框没有改动。请再点一次 ✦ 润色。
 error-input-gone = 你写字的输入框已经不在了（窗格已关闭或输入框已关闭），所以没有改动。
+error-input-refused = Tilefold 未接受此文本放入输入框（可能太长），因此没有任何更改。
 error-ask-failed = 无法把提示词放到提问卡片上。请再试一次。
 toast-too-small = 窗格太小，Prompt Polish 已在窗格旁打开。
 toast-needs-tilefold = Prompt Polish 需要更新的 Tilefold 才能显示页面。

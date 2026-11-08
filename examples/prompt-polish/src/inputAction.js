@@ -28,6 +28,8 @@
  * Modified 2026-11-07 (pick before checking): where the user has their own
  *   cases (`choose`), the card opens on the menu of what to fix, and the
  *   check starts once they pick.
+ * Modified 2026-11-07 (reworked prompts): a text Tilefold refuses ends the
+ *   request and says so (`refused`), rather than that the box went.
  */
 import { build, changeCount } from "./polish.js";
 import { resetSession } from "./sessions.js";
@@ -40,6 +42,8 @@ const WHY_KEYS = {
   changed: "error-input-changed",
   expired: "error-input-expired",
   gone: "error-input-gone",
+  // Tilefold refused the text itself (such as too long for the box).
+  refused: "error-input-refused",
 };
 
 /**
@@ -132,8 +136,10 @@ export function createInputAction(tf, deps) {
     try {
       r = await tf.input.replace(request, { text: build(s.parts, s.rejected), send });
     } catch (err) {
+      // Refused, so the request is still open: it ends here, and the card says why.
       warn(err);
-      r = { done: false, why: "gone" };
+      await tf.input.release(request).catch(warn);
+      r = { done: false, why: "refused" };
     }
     // Stopped from Tilefold's button: the card was closed already.
     if (r?.why === "stopped") return;

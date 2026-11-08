@@ -11,6 +11,8 @@
  * keys back, and answers "changed", "expired" or "gone" when it can't; one
  * too long or for an unknown request is refused; release ends a request;
  * the user's × fires `input.cancelled` and a later answer hears "stopped".
+ *
+ * Modified 2026-11-07 (reworked prompts): "too long" at Tilefold's new limit.
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -107,7 +109,7 @@ describe("fake tf.input", () => {
   });
 
   it("refuses a replacement too long or for no request, and releases", async () => {
-    const host = await startTile(answering(`"x".repeat(207)`), { input: { text: "abc" } });
+    const host = await startTile(answering(`"x".repeat(3013)`), { input: { text: "abc" } });
     await host.clickAction("fix");
     expect(audit(host, "refused")).toEqual([{ name: "TypeError" }]);
     const release = tileWith(`

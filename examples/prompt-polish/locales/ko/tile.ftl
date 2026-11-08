@@ -101,6 +101,7 @@ error-ask-no-pane = 보낼 에이전트가 있는 창이 없어요.
 error-input-changed = 그사이 입력 상자의 글이 바뀌어서 바꾸지 않았습니다. ✦ 다듬기를 다시 눌러 지금 글을 확인하세요.
 error-input-expired = 10분이 넘게 걸려서 입력 상자를 바꾸지 않았습니다. ✦ 다듬기를 다시 누르세요.
 error-input-gone = 쓰던 입력 상자가 없어져서(패널이 닫혔거나 입력 상자가 꺼짐) 아무것도 바꾸지 않았습니다.
+error-input-refused = Tilefold가 이 텍스트를 입력 상자에 받지 않아(너무 길 수 있습니다) 아무것도 바뀌지 않았습니다.
 error-ask-failed = 프롬프트를 질문 카드에 올리지 못했어요. 다시 해 보세요.
 toast-too-small = 창이 너무 작아서 Prompt Polish를 창 옆에 열었어요.
 toast-needs-tilefold = Prompt Polish 화면을 보려면 더 새로운 Tilefold가 필요해요.

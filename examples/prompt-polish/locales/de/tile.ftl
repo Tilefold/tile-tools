@@ -101,6 +101,7 @@ error-ask-no-pane = Es gibt keinen Bereich mit einem Agenten, an den du das send
 error-input-changed = Sie haben den Text im Feld inzwischen geändert, daher wurde er nicht ersetzt. Klicken Sie erneut auf ✦ Polieren, um den aktuellen Text zu prüfen.
 error-input-expired = Das hat über 10 Minuten gedauert, daher wurde das Feld nicht geändert. Klicken Sie erneut auf ✦ Polieren.
 error-input-gone = Das Feld, in das Sie geschrieben haben, ist nicht mehr da (der Bereich wurde geschlossen oder das Feld ausgeschaltet), daher wurde nichts geändert.
+error-input-refused = Tilefold hat diesen Text für Ihr Feld nicht angenommen (er ist vielleicht zu lang), daher wurde nichts geändert.
 error-ask-failed = Der Prompt ließ sich nicht auf die Fragekarte legen. Versuch es noch einmal.
 toast-too-small = Der Bereich ist zu klein für Prompt Polish, daher wurde es neben den Bereichen geöffnet.
 toast-needs-tilefold = Prompt Polish braucht ein neueres Tilefold, um seine Seite zu zeigen.

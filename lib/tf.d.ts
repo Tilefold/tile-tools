@@ -638,8 +638,8 @@ export interface Tf {
     action(options: { id: string; label: string }): void;
     /**
      * Puts `text` in the box in place of what was clicked: once per
-     * request, within 10 minutes, at most twice the clicked text plus 200
-     * characters. Tilefold highlights the changes, offers Undo and never
+     * request, within 10 minutes, at most four times the clicked text
+     * plus 3,000 characters (8,000 at most). Tilefold highlights the changes, offers Undo and never
      * sends it; masks kept in place get the user's own words back. `why`:
      * the user edited the box since (`changed`), too late (`expired`), the
      * box went (`gone`), the user stopped waiting (`stopped`). Another

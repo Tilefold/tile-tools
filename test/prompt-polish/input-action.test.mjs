@@ -17,6 +17,9 @@
  * in the palette. The × beside Tilefold's spinning button closes the card.
  * The pill isn't drawn over a pane whose row is the agent input box.
  * Nothing the user wrote is recorded or stored.
+ *
+ * Modified 2026-11-07 (reworked prompts): a text Tilefold refuses ends the
+ *   request and says so.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -174,6 +177,18 @@ describe("the ✦ Polish button in the agent input box", () => {
       expect(lastView(host)).toMatchObject({ step: "problem" });
       expect(lastView(host).text).toMatch(text);
     }
+  });
+
+  it("says Tilefold refused the text, and ends the request, rather than that the box went", async () => {
+    // A Tilefold that takes no replacement this long.
+    const host = await start({ input: { text: PROMPT, language: "ko", maxReplace: 3 } });
+    const request = await clicked(host);
+    await say(host, { type: "send", pane: "p1" });
+    expect(host.box.replaced).toEqual([]);
+    expect(host.box.released).toEqual([request]);
+    expect(lastView(host)).toMatchObject({ step: "problem" });
+    expect(lastView(host).text).toMatch(/didn't take this text/);
+    expect(lastView(host).text).not.toMatch(/is gone/);
   });
 
   it("releases the request when the card is closed", async () => {

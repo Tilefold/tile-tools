@@ -101,6 +101,7 @@ error-ask-no-pane = There's no pane with an agent to send this to.
 error-input-changed = You changed the text in the box meanwhile, so it wasn't replaced. Click ✦ Polish again to check what's there now.
 error-input-expired = This took over 10 minutes, so the box wasn't changed. Click ✦ Polish again.
 error-input-gone = The box you wrote in is gone (the pane closed or the box was turned off), so nothing was changed.
+error-input-refused = Tilefold didn't take this text for your box (it may be too long), so nothing was changed.
 error-ask-failed = Couldn't put the prompt on the ask card. Try again.
 toast-too-small = The pane is too small for Prompt Polish, so it opened beside the panes.
 toast-needs-tilefold = Prompt Polish needs a newer Tilefold to show its page.
