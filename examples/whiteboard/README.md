@@ -55,7 +55,7 @@ With **Point on screen**, the agent marks the real thing: the error in your buil
 
 ## Settings and data
 
-Whiteboard has no settings. It keeps the board (the content, the drawings, the steps and your last question) in the tile's own storage on your computer, so closing it or quitting Tilefold loses nothing. **Clear the board** removes it. **Clear the board** also takes away the marks on your panes. The activity log records only one-word actions: `opened`, `closed`, `shown`, `drew`, `erased`, `cleared`, `asked`, `moved`, `resized`, `hid`, `reopened`, `pointed` and `unpointed`. It never records the content, the drawings, the marks, where you moved a scene or how big you made it, or your questions.
+Whiteboard has one setting, **Show on**: beside the panes, its page is on the tab where you opened it (the default) or on every tab (Tilefold 0.1.27). It keeps the board (the content, the drawings, the steps and your last question) in the tile's own storage on your computer, so closing it or quitting Tilefold loses nothing. **Clear the board** removes it. **Clear the board** also takes away the marks on your panes. The activity log records only one-word actions: `opened`, `closed`, `shown`, `drew`, `erased`, `cleared`, `asked`, `moved`, `resized`, `hid`, `reopened`, `pointed` and `unpointed`. It never records the content, the drawings, the marks, where you moved a scene or how big you made it, or your questions.
 
 ## Files
 

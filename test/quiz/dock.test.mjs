@@ -170,3 +170,13 @@ describe("one tab or every tab", () => {
     expect(host.overlayPerTab).toBe(false);
   });
 });
+
+describe("the panel, one tab or every tab", () => {
+  it("keeps the panel to its tab with Show on", async () => {
+    const host = await start({ settings: { showAs: "panel", showOn: "tab" } });
+    await host.command("open");
+    expect(host.panel.content.perTab).toBe(true);
+    await host.setSetting("showOn", "all");
+    expect(host.panel.content.perTab).toBe(false);
+  });
+});

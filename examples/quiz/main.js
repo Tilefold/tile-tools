@@ -1037,7 +1037,7 @@ function runQuiz(tf) {
   const render = async () => {
     if (where === "panel") {
       const content = quiz ? panelView(state, quiz, tf.t) : listPanelView(visible(index), tf.t);
-      await tf.panel.show(content);
+      await tf.panel.show({ ...content, perTab: showOnSetting(tf.settings) === "tab" });
     } else if (where) {
       const view = quiz ? cardView(state, quiz, tf.t) : listCardView(visible(index), tf.t);
       await post({ do: "show", view });
@@ -1326,6 +1326,7 @@ function runQuiz(tf) {
       if (showOnSetting(tf.settings) !== showOn) {
         showOn = showOnSetting(tf.settings);
         if (where === "card") await close(false).then(open);
+        if (where === "panel") await tf.panel.hide().then(render);
       }
       if (await look.settingChanged()) await applyLook();
       if (now.corner !== corner) {

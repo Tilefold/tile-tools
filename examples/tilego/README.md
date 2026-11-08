@@ -63,7 +63,7 @@ Give the tile your own `id` too (`you.tilego`), so it doesn't clash with this ex
 
 ## Settings and data
 
-TileGo has no settings. It keeps your player id (random, so the other board recognizes you when you come back), your name, and the game in progress in the tile's own storage on your Mac.
+TileGo has one setting, **Show on**: beside the panes, its page is on the tab where you opened it (the default) or on every tab (Tilefold 0.1.27). It keeps your player id (random, so the other board recognizes you when you come back), your name, and the game in progress in the tile's own storage on your Mac.
 
 ## Files
 

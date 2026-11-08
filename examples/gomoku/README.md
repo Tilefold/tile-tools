@@ -56,7 +56,7 @@ Any server that speaks the room protocol works, such as the open relay in this r
 
 ## Settings and data
 
-Gomoku has no settings. It keeps your player id (random, so the other board recognizes you when you come back), your name, and the game in progress in the tile's own storage on your Mac.
+Gomoku has one setting, **Show on**: beside the panes, its page is on the tab where you opened it (the default) or on every tab (Tilefold 0.1.27). It keeps your player id (random, so the other board recognizes you when you come back), your name, and the game in progress in the tile's own storage on your Mac.
 
 ## Files
 

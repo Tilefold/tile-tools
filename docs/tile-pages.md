@@ -176,6 +176,8 @@ await tf.page.open({ dock: spot });                          // back out, floati
 tf.on("page.undocked", () => void tf.page.open({ dock: spot })); // the user pressed Undock
 ```
 
+It lands on the tab in front. From **Tilefold 0.1.27**, `tf.page.open({ side: true, perTab: false })` puts it on every tab, and `perTab: true` brings it to the tab in front, so you can offer a **Show on** setting (the tab where it was opened, or every tab). Older Tilefolds ignore `perTab`.
+
 Opened without `side`, a page in the dock moves back out: to the `dock` spot you give, or a window of its own. When the user presses **Undock**, the docked page closes and the tile hears `page.undocked`: show it again where it should go. Moving a page between the dock and a window **loads it again**, so keep the page's state (where the user is, what they chose) in the tile, and send it again when the page says hello. A page with a web address (`origin: "https"`) can't dock there yet, and `side` can't be given with a `dock` spot. Docking and undocking are recorded as `tile.page.dock` and `tile.page.undock`.
 
 `side` is new in 0.1.20 and an older Tilefold ignores it, opening the page in a window instead. Check for `tf.theme`, which came with it:

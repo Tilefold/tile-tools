@@ -137,7 +137,8 @@ export function runQuiz(tf) {
   const render = async () => {
     if (where === "panel") {
       const content = quiz ? panelView(state, quiz, tf.t) : listPanelView(visible(index), tf.t);
-      await tf.panel.show(content);
+      // "Show on" the tab where it was opened: the panel keeps to that tab too.
+      await tf.panel.show({ ...content, perTab: showOnSetting(tf.settings) === "tab" });
     } else if (where) {
       const view = quiz ? cardView(state, quiz, tf.t) : listCardView(visible(index), tf.t);
       await post({ do: "show", view });
@@ -475,6 +476,8 @@ export function runQuiz(tf) {
         // One tab or every tab: the card is shown again with the new choice.
         showOn = showOnSetting(tf.settings);
         if (where === "card") await close(false).then(open);
+        // A panel is shown again with it (every tab: shown afresh, without its tab).
+        if (where === "panel") await tf.panel.hide().then(render);
       }
       if (await look.settingChanged()) await applyLook();
       if (now.corner !== corner) {

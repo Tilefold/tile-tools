@@ -77,6 +77,7 @@ The **Folder Tree: Set up agent activity** command shows the same steps in the w
 | Minutes a file stays marked in the tree after an agent used it | 30 |
 | Show hidden files and folders | Off |
 | Folders to leave out | `node_modules` |
+| Show on: the tab where it was opened, or every tab | The tab where it was opened |
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.

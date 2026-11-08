@@ -705,6 +705,12 @@ export interface Tf {
       origin?: "https";
       dock?: Rect;
       side?: boolean;
+      /**
+       * With `side` (Tilefold 0.1.27): `true` brings the page to the tab in
+       * front, `false` puts it on every tab. Left out: it lands on the tab
+       * in front.
+       */
+      perTab?: boolean;
       /** A docked page's window is transparent (Tilefold 0.1.27; needs `dock`). */
       seeThrough?: boolean;
     }): Promise<null>;
