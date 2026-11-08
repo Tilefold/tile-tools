@@ -75,3 +75,6 @@ card-volume = { $volume }%
 card-muted = Muto
 button-volume = Volume: abbassa, disattiva o alza
 cmd-reset-position = Tuneboard: Riporta la scheda nel riquadro
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede

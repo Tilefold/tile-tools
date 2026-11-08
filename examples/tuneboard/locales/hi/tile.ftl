@@ -75,3 +75,6 @@ card-volume = { $volume }%
 card-muted = म्यूट
 button-volume = आवाज़: कम करें, म्यूट करें या बढ़ाएँ
 cmd-reset-position = Tuneboard: कार्ड को वापस पेन में रखें
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

@@ -79,6 +79,25 @@ Listen to `overlay.layout` to follow panes as they open, close, move and change 
 
 Items with `hit: true` send `overlay.pointer` with `{ item, type, x, y }`, where `type` is `click`, `dblclick`, `dragstart`, `drag` or `drop`, and `x`, `y` are in the content area. Clicks never reach an item over the Composer, the tab bar or the title bar, or for two seconds after the user pressed a key, so an overlay can't get in the way of typing.
 
+### One tab or every tab
+
+A scene shows on every tab unless you ask otherwise. From **Tilefold 0.1.27**, `tf.overlay.show({ items, perTab: true })` keeps it on the tab in front when you first show it, which suits a tile the user opens for the work on one tab, such as a music player or a card about a pane:
+
+- On other tabs the scene isn't drawn, `show` and `update` resolve `false`, and a page you docked at a spot (`tf.page.open({ dock })`) steps aside with it.
+- Your tile hears `overlay.tab` with `{ shown }` as the user moves to and from that tab. You can keep updating the scene meanwhile; it's drawn again when they come back.
+- Showing it again keeps its tab. To bring it to the tab in front (for example when the user runs your Open command there), call `tf.overlay.hide()` and then `show` again.
+- `perTab: false` gives it every tab back.
+- When its tab closes, the scene goes and you hear `overlay.hidden` with `{ by: "tab" }`.
+
+Let the user choose: the example tiles have a **Show on** setting (every tab, or the tab where it was opened).
+
+```js
+const perTab = () => tf.settings.get("showOn") === "tab";
+await tf.overlay.show({ items, perTab: perTab() });
+```
+
+Older Tilefolds ignore `perTab` and show the scene on every tab.
+
 ### The user is in charge
 
 - **Hide or show tile overlays**, in the View menu and the palette (⌥⌘O; Ctrl+Alt+O on Windows and Linux), hides every tile's overlay, and right-clicking an item lets the user hide just that tile's. The tile gets `overlay.hidden` with `{ by: "user" }`, its scene is kept, and `show` and `update` resolve `false` until the user shows overlays again.

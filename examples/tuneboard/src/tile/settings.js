@@ -12,8 +12,12 @@
  * `registerSettings` hands them to Tilefold (it must run at the top of the
  * tile, before any await); `readSettings` reads them back as clean values,
  * so the rest of the tile never has to guard against a hand-edited setting.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on", the tab where the
+ *   card was opened (the default) or every tab.
  */
 import { CORNERS } from "./scene.js";
+import { SHOW_ON } from "./tabs.js";
 
 /** Message for each corner choice, spelled out so the keys can be found. */
 const CORNER_LABELS = {
@@ -46,6 +50,15 @@ export const SETTINGS = [
     choices: CORNERS.map((c) => ({ value: c, label: CORNER_LABELS[c] })),
   },
   { key: "poll", default: true, label: "setting-poll" },
+  {
+    key: "showOn",
+    default: "tab",
+    label: "setting-show-on",
+    choices: [
+      { value: "tab", label: "setting-show-on-tab" },
+      { value: "all", label: "setting-show-on-all" },
+    ],
+  },
 ];
 
 /** The keys whose change means the scene must be laid out again. */
@@ -70,7 +83,7 @@ export function registerSettings(tf) {
  * The current settings, cleaned up.
  *
  * @param {{ get: (key: string) => unknown }} settings `tf.settings`.
- * @returns {{ size: string, corner: string, poll: boolean }}
+ * @returns {{ size: string, corner: string, poll: boolean, showOn: string }}
  */
 export function readSettings(settings) {
   const get = (key) => {
@@ -87,5 +100,6 @@ export function readSettings(settings) {
       ? /** @type {string} */ (corner)
       : "bottom-right",
     poll: get("poll") !== false,
+    showOn: SHOW_ON.includes(/** @type {string} */ (get("showOn"))) ? get("showOn") : "tab",
   };
 }

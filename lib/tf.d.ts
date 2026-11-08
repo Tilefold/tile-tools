@@ -60,6 +60,7 @@ export type TileEvent =
   | "overlay.pointer"
   | "overlay.layout"
   | "overlay.hidden"
+  | "overlay.tab"
   | "annotate.cleared"
   | "page.closed"
   | "page.message"
@@ -146,7 +147,10 @@ export interface TileEventPayloads {
     y: number;
   };
   "overlay.layout": OverlayLayout;
-  "overlay.hidden": { by: "user" };
+  /** `by: "tab"`: the tab a `perTab` scene was on closed, and the scene went with it. */
+  "overlay.hidden": { by: "user" | "tab" };
+  /** The user moved to (`shown: true`) or from the tab a `perTab` scene is on (Tilefold 0.1.27). */
+  "overlay.tab": { shown: boolean };
   /** The user cleared every tile's marks (Clear annotations; Tilefold 0.1.23). */
   "annotate.cleared": { by: "user" };
   "page.closed": Record<string, never>;
@@ -563,7 +567,12 @@ export interface Tf {
   readonly window: { protect(on: boolean): Promise<null> };
   /** Needs window.overlay. `show` and `update` resolve false while the user hides overlays. */
   readonly overlay: {
-    show(scene: { items: OverlayItem[] }): Promise<boolean>;
+    /**
+     * `perTab: true` (Tilefold 0.1.27): the scene stays on the tab in front
+     * when first shown (and a page docked at a spot with it); `false` gives
+     * it every tab. Older Tilefolds show it on every tab.
+     */
+    show(scene: { items: OverlayItem[]; perTab?: boolean }): Promise<boolean>;
     update(changes: OverlayUpdate): Promise<boolean>;
     hide(): Promise<null>;
     layout(): Promise<OverlayLayout>;

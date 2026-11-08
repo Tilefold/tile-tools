@@ -36,6 +36,7 @@
  *
  * Modified 2026-10-14 (the card can be dragged anywhere in the window and
  * stays there instead of following the focused pane).
+ * Modified 2026-11-08 (one tab or every tab): "Show on" (tabs.js).
  *
  * Last updated by: Tilefold
  */
@@ -44,6 +45,7 @@ import { registerCommands } from "./commands.js";
 import { createPagePlayer } from "./player.js";
 import { createPoller } from "./poller.js";
 import { LAYOUT_KEYS, readSettings } from "./settings.js";
+import { watchTab } from "./tabs.js";
 import { createSession } from "./session.js";
 import { createStore } from "./store.js";
 import { findTransport } from "./transport.js";
@@ -138,7 +140,7 @@ export function runTuneboard(tf, deps = {}) {
       position: mover.position(),
     });
     if (!shown) {
-      const ok = await tf.overlay.show({ items });
+      const ok = await tf.overlay.show({ items, perTab: settings().showOn === "tab" });
       // False means the user has overlays hidden: the next poll tries again.
       shown = ok === false ? null : items;
       return;
@@ -294,6 +296,9 @@ export function runTuneboard(tf, deps = {}) {
   // ------------------------------------------------------------ showing
   /** Puts the card on screen. */
   const show = async () => {
+    // Away on another tab: it comes to the tab in front.
+    if (tab.away()) await tf.overlay.hide();
+    tab.here();
     visible = true;
     shown = null;
     await mover.load();
@@ -356,7 +361,7 @@ export function runTuneboard(tf, deps = {}) {
    */
   const run = async (action) => {
     await ensureConnected();
-    if (action === "toggle") return visible ? hide() : show();
+    if (action === "toggle") return visible && !tab.away() ? hide() : show();
     if (action === "refresh") {
       trail.record("control.refresh", {});
       // The user may have signed in or out since; a refresh also checks again.
@@ -447,14 +452,13 @@ export function runTuneboard(tf, deps = {}) {
     }),
   );
 
-  tf.on(
-    "overlay.hidden",
-    background(async () => {
-      // Tilefold took the scene away; the next poll or command shows it whole again.
-      shown = null;
-      updateTimers();
-    }),
-  );
+  // Tilefold took the scene away: its tab closed (the card goes), or the
+  // user hid overlays (the next poll or command shows it whole again).
+  const tab = watchTab(tf, background, async (by) => {
+    if (by === "tab") return hide();
+    shown = null;
+    updateTimers();
+  });
 
   /**
    * The user left or came back: stop or resume polling. Resuming starts the
@@ -476,6 +480,8 @@ export function runTuneboard(tf, deps = {}) {
       const key = e && e.key;
       // Choosing a corner means "in the pane's corner" again, not where it was dragged.
       if (key === "corner") await mover.reset("corner");
+      // One tab or every tab: shown whole again, with the new choice.
+      if (key === "showOn") shown = null;
       if (LAYOUT_KEYS.includes(key) && visible) {
         try {
           layout = await tf.overlay.layout();

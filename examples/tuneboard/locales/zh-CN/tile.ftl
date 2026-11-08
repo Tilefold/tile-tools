@@ -75,3 +75,6 @@ card-volume = { $volume }%
 card-muted = 已静音
 button-volume = 音量：调低、静音或调高
 cmd-reset-position = Tuneboard：将卡片放回窗格
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

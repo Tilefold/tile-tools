@@ -10,7 +10,7 @@
  * fall back to their registered defaults and can be changed (firing
  * `setting.changed`), messages come from the tile's own locales/<lang>/
  * tile.ftl with `{ $var }` placeholders filled in, overlay updates merge
- * into the scene item by item, and notices, sounds, audit records, store
+ * into the scene item by item (`overlayPerTab` is the last show's `perTab`), and notices, sounds, audit records, store
  * writes and logged errors are all recorded for assertions. Commands and events are
  * run by id and name, the way Tilefold invokes them.
  *
@@ -341,6 +341,8 @@ export async function startTile(dir, opts = {}) {
       },
       async show(scene) {
         host.overlay = { items: (scene.items ?? []).map((i) => ({ bubble: null, ...i })) };
+        // perTab as the tile last asked (undefined: left out, every tab).
+        host.overlayPerTab = scene.perTab;
         return true;
       },
       async update(patch) {

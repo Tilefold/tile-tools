@@ -71,7 +71,7 @@ describe("registration", () => {
     registerSettings(tf);
     runTuneboard(tf, {});
     const kinds = host.regs.map((r) => r.kind);
-    expect(kinds.filter((k) => k === "setting")).toHaveLength(3);
+    expect(kinds.filter((k) => k === "setting")).toHaveLength(4);
     expect(kinds.filter((k) => k === "command")).toHaveLength(COMMANDS.length);
     expect(
       host.regs
@@ -84,6 +84,7 @@ describe("registration", () => {
         "overlay.hidden",
         "overlay.layout",
         "overlay.pointer",
+        "overlay.tab",
         "setting.changed",
         "user.active",
         "user.idle",
@@ -411,5 +412,38 @@ describe("showing and the window", () => {
     const shows = host.shows;
     await host.command("volume-down");
     expect(host.shows).toBe(shows + 1);
+  });
+});
+
+describe("one tab or every tab", () => {
+  it("keeps the card to its tab by default, and every tab when asked", async () => {
+    const { host } = await start({ signedIn: true });
+    await host.command("toggle");
+    expect(host.perTab).toBe(true);
+    await host.setSetting("showOn", "all");
+    await drain();
+    expect(host.perTab).toBe(false);
+  });
+
+  it("brings the card to the tab in front instead of hiding it when it is away", async () => {
+    const { host } = await start({ signedIn: true });
+    await host.command("toggle");
+    const shows = host.shows;
+    await host.emit("overlay.tab", { shown: false });
+    await host.command("toggle");
+    expect(host.overlay).not.toBeNull();
+    expect(host.shows).toBe(shows + 1);
+    // Back on its tab, Show hides it as before.
+    await host.command("toggle");
+    expect(host.overlay).toBeNull();
+  });
+
+  it("goes when its tab closes", async () => {
+    const { host } = await start({ signedIn: true });
+    await host.command("toggle");
+    await host.emit("overlay.hidden", { by: "tab" });
+    await drain();
+    expect(host.overlay).toBeNull();
+    expect(host.store.get("visible")).toBe(false);
   });
 });

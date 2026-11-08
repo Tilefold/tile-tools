@@ -75,3 +75,6 @@ card-volume = { $volume }%
 card-muted = Muted
 button-volume = Volume: lower, mute or raise
 cmd-reset-position = Tuneboard: Put the card back in the pane
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

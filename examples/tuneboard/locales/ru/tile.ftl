@@ -75,3 +75,6 @@ card-volume = { $volume }%
 card-muted = Без звука
 button-volume = Громкость: тише, без звука или громче
 cmd-reset-position = Tuneboard: Вернуть карточку в панель
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

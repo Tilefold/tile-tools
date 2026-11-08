@@ -18,7 +18,8 @@
  * `tf.auth` out, as an older Tilefold would). `page: true` adds `tf.page`
  * (open, close and post are recorded; `host.fromPage(message)` delivers a
  * page message and `host.closePage()` closes it as the user would), and
- * notices shown with `tf.toast` are kept in `host.toasts`.
+ * notices shown with `tf.toast` are kept in `host.toasts`. `host.perTab` is
+ * the last show's `perTab`.
  *
  * Use with Vitest fake timers: `advance(ms)` moves time on and lets the
  * tile's background work finish.
@@ -190,6 +191,8 @@ export function createHost(opts = {}) {
         if (host.overlaysOff) return false;
         host.shows += 1;
         host.overlay = { items: (scene.items ?? []).map((i) => ({ ...i })) };
+        // perTab as the tile last asked (one tab or every tab).
+        host.perTab = scene.perTab;
         return true;
       },
       async update(patch) {
