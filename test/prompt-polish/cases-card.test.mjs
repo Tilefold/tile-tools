@@ -178,7 +178,9 @@ describe("the user's own cases on the card", () => {
     });
     expect(host.settingSets).toEqual([]);
     await say(host, { type: "case-save", name: "Video", rules: "Say it." });
-    expect(host.settingSets.at(-1).value).toEqual([{ name: "Video", rules: "Say it.", translate: "" }]);
+    expect(host.settingSets.at(-1).value).toEqual([
+      { name: "Video", rules: "Say it.", translate: "" },
+    ]);
     await say(host, { type: "case-edit", was: null });
     await say(host, { type: "case-cancel" });
     expect(lastView(host)).toMatchObject({ step: "write", apply: "Video" });

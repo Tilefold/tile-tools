@@ -60,7 +60,10 @@ describe("reading the cases setting", () => {
   it("reads blocks of a name and its instructions", () => {
     const text =
       "Video editing:\nSay the clip's length.\nSay its style.\n\n  \nEmail\nKeep it short.";
-    expect(parseCases(text)).toEqual([VIDEO, { name: "Email", rules: "Keep it short.", translate: [] }]);
+    expect(parseCases(text)).toEqual([
+      VIDEO,
+      { name: "Email", rules: "Keep it short.", translate: [] },
+    ]);
     expect(parseCases(formatCases(parseCases(text)))).toEqual(parseCases(text));
   });
 
