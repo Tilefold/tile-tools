@@ -11,8 +11,9 @@
  * and for the polish agent) and is kept. Adding a case on the card saves
  * it to the setting through Tilefold and picks it; a case that can't be
  * saved keeps the form, saying why; removing one drops it and its pick. A
- * change of the mode setting wins over the card's pick. On a Tilefold that
- * can't save settings, cases come only from Settings. Audits never carry a
+ * change of the mode setting wins over the card's pick. Where Tilefold has
+ * list settings, the cases are a list saved one case at a time; on a
+ * Tilefold that can't save settings, they are one text, from Settings only. Audits never carry a
  * case's name or words.
  */
 import { fileURLToPath } from "node:url";
@@ -24,7 +25,9 @@ import { PICK_KEY } from "../../examples/prompt-polish/src/modes.js";
 const DIR = fileURLToPath(new URL("../../examples/prompt-polish/", import.meta.url));
 const PROMPT = "make a video of my cat";
 const ANSWER = JSON.stringify({ corrected: "Make a video of my cat.", notes: [] });
-const CASES = "Video editing\nSay the clip's length.";
+const VIDEO = { name: "Video editing", rules: "Say the clip's length." };
+/** As Tilefold 0.1.27 keeps it: a list, one case at a time. */
+const CASES = [VIDEO];
 
 const hosts = [];
 const start = async (opts = {}) => {
@@ -122,7 +125,7 @@ describe("the user's own cases on the card", () => {
     await say(host, { type: "case-save", name: "Email:", rules: "Keep it short." });
     expect(host.settingSets.at(-1)).toEqual({
       key: "cases",
-      value: `${CASES}\n\nEmail\nKeep it short.`,
+      value: [VIDEO, { name: "Email", rules: "Keep it short." }],
     });
     expect(lastView(host)).toMatchObject({ step: "result", modeId: "case:Email" });
     expect(lastSystem(host)).toContain("Keep it short.");
@@ -145,7 +148,7 @@ describe("the user's own cases on the card", () => {
     });
     expect(host.settingSets).toEqual([]);
     await say(host, { type: "case-save", name: "Video", rules: "Say it." });
-    expect(host.settingSets.at(-1).value).toBe("Video\nSay it.");
+    expect(host.settingSets.at(-1).value).toEqual([{ name: "Video", rules: "Say it." }]);
     await say(host, { type: "case-edit", was: null });
     await say(host, { type: "case-cancel" });
     expect(lastView(host).step).toBe("result");
@@ -155,14 +158,37 @@ describe("the user's own cases on the card", () => {
     const host = await checked();
     await say(host, { type: "mode", to: "case:Video editing" });
     await say(host, { type: "case-remove", name: "Video editing" });
-    expect(host.settingSets.at(-1)).toEqual({ key: "cases", value: "" });
+    expect(host.settingSets.at(-1)).toEqual({ key: "cases", value: [] });
     expect(lastView(host)).toMatchObject({ modeId: "fix" });
     expect(lastView(host).modes).toHaveLength(2);
     expect(host.audits).toContainEqual({ action: "case-removed" });
   });
 
+  it("is a list of cases where Tilefold has them, else one text", async () => {
+    const host = await start();
+    const reg = host.regs.find((r) => r.kind === "setting" && r.key === "cases");
+    expect(reg).toMatchObject({
+      default: [],
+      list: {
+        max: 20,
+        title: "name",
+        fields: [
+          { key: "name", label: "Name", max: 60 },
+          { key: "rules", label: "What to do for this kind of prompt", multiline: true, max: 2000 },
+        ],
+      },
+    });
+    const old = await start({ settingsSet: false, settings: { cases: "Video editing\nSay it." } });
+    const text = old.regs.find((r) => r.kind === "setting" && r.key === "cases");
+    expect(text).toMatchObject({ default: "", multiline: true });
+    expect(text.list).toBeUndefined();
+  });
+
   it("comes only from Settings on a Tilefold that can't save settings", async () => {
-    const host = await checked({ settingsSet: false });
+    const host = await checked({
+      settingsSet: false,
+      settings: { cases: "Video editing\nSay it." },
+    });
     expect(lastView(host).canEditCases).toBe(false);
     await say(host, { type: "case-edit", was: null });
     expect(lastView(host).step).toBe("result");

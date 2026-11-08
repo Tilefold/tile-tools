@@ -101,6 +101,7 @@ toast-needs-tilefold = Prompt Polish ha bisogno di un Tilefold più recente per 
 
 # Your own cases (what to fix)
 setting-cases = I tuoi casi: il nome sulla prima riga, sotto cosa fare, una riga vuota tra un caso e l’altro
+setting-case-list = I tuoi casi di cosa correggere
 label-mode-menu = Cosa correggere
 label-add-case = Aggiungi il tuo…
 label-edit-case = Modifica «{ $name }»…

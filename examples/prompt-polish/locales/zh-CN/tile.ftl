@@ -101,6 +101,7 @@ toast-needs-tilefold = Prompt Polish 需要更新的 Tilefold 才能显示页面
 
 # Your own cases (what to fix)
 setting-cases = 你自己的情形：第一行写名称，下面写要做什么，情形之间空一行
+setting-case-list = 你自己的“要改什么”情形
 label-mode-menu = 要改什么
 label-add-case = 添加自己的…
 label-edit-case = 编辑“{ $name }”…

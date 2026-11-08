@@ -101,6 +101,7 @@ toast-needs-tilefold = Prompt Polish 화면을 보려면 더 새로운 Tilefold�
 
 # Your own cases (what to fix)
 setting-cases = 나만의 경우: 첫 줄에 이름, 그 아래에 할 일, 경우 사이에는 빈 줄
+setting-case-list = 고칠 내용의 나만의 경우
 label-mode-menu = 고칠 내용
 label-add-case = 직접 추가…
 label-edit-case = “{ $name }” 편집…

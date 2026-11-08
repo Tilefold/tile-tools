@@ -23,6 +23,10 @@
  * same text back when the user adds, edits or removes a case there, so a
  * blank line inside instructions becomes a single line break.
  *
+ * Where Tilefold has list settings (0.1.27), the setting is instead a
+ * list of { name, rules }, one case at a time (`CASE_FIELDS`); `casesOf`
+ * reads either.
+ *
  * Pure: no Tilefold calls.
  */
 
@@ -86,15 +90,36 @@ export function parseCases(text) {
   return out;
 }
 
+/** The fields of each case where the setting is a list (labels are message keys). */
+export const CASE_FIELDS = [
+  { key: "name", label: "label-case-name", max: MAX_NAME },
+  { key: "rules", label: "label-case-rules", multiline: true, max: MAX_RULES },
+];
+
+/** The cases in the setting, a list of { name, rules } or the text of several lines. */
+export function casesOf(value) {
+  if (!Array.isArray(value)) return parseCases(value);
+  const out = [];
+  for (const e of value) {
+    const name = nameOf(e?.name);
+    const rules = rulesOf(e?.rules);
+    if (!name || !rules || out.some((c) => c.name === name)) continue;
+    out.push({ name, rules });
+    if (out.length === MAX_CASES) break;
+  }
+  return out;
+}
+
 /** The setting's text for `cases`. */
 export const formatCases = (cases) => cases.map((c) => `${c.name}\n${c.rules}`).join("\n\n");
 
 /**
  * `cases` with case `was` (a name, or null for a new one) saved as
- * `{ name, rules }`; or why not: "case-needs-name", "case-needs-rules",
+ * `{ name, rules }` (the whole within `maxText` when the setting is one
+ * text); or why not: "case-needs-name", "case-needs-rules",
  * "case-name-taken", "case-too-many" or "case-too-long".
  */
-export function saveCase(cases, was, input) {
+export function saveCase(cases, was, input, maxText = MAX_TEXT) {
   const name = nameOf(input?.name);
   const rules = rulesOf(input?.rules);
   if (!name) return { why: "case-needs-name" };
@@ -104,7 +129,7 @@ export function saveCase(cases, was, input) {
   if (at < 0 && cases.length >= MAX_CASES) return { why: "case-too-many" };
   const next =
     at < 0 ? [...cases, { name, rules }] : cases.map((c, i) => (i === at ? { name, rules } : c));
-  if (formatCases(next).length > MAX_TEXT) return { why: "case-too-long" };
+  if (formatCases(next).length > maxText) return { why: "case-too-long" };
   return { cases: next, name };
 }
 

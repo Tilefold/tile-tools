@@ -15,8 +15,9 @@
  * From the menu the user also adds a case or edits the one picked: the
  * card shows a small form (the session's `editing`: the case it was, the
  * name, the instructions, and why the last save didn't go), and Save
- * writes the whole list back to the setting with `tf.settings.set`
- * (Tilefold 0.1.27; on an older one, cases are added in Settings only).
+ * writes the list back to the setting with `tf.settings.set` (Tilefold
+ * 0.1.27, where the setting is a list of cases; on an older one, cases are
+ * added in Settings only).
  * A pick, a save or a removal checks the shown prompt again if it was
  * already checked. Messages from the page: `mode` ({ to }), `case-edit`
  * ({ was }), `case-save` ({ was, name, rules }), `case-cancel`,
@@ -25,7 +26,7 @@
  * Audited: `mode-picked` ({ mode }: "fix", "natural" or "case"),
  * `case-saved` ({ added }), `case-removed`; never a case's name or words.
  */
-import { formatCases, nameOf, removeCase, saveCase } from "./cases.js";
+import { nameOf, removeCase, saveCase } from "./cases.js";
 
 /** The store key of the card's pick. */
 export const PICK_KEY = "mode-pick";
@@ -81,7 +82,10 @@ export function createModes(tf, o) {
   /** Writes `list` to the setting; false when Tilefold refused it. */
   const write = async (list) => {
     try {
-      await tf.settings.set("cases", formatCases(list));
+      await tf.settings.set(
+        "cases",
+        list.map((c) => ({ name: c.name, rules: c.rules })),
+      );
       return true;
     } catch (err) {
       o.warn(err);
@@ -142,7 +146,8 @@ export function createModes(tf, o) {
       if (m.type === "case-save") {
         if (!s.editing || !canEdit()) return true;
         const was = s.editing.was;
-        const r = saveCase(cases(), was, { name: m.name, rules: m.rules });
+        // A list holds each case on its own: no limit on the whole.
+        const r = saveCase(cases(), was, { name: m.name, rules: m.rules }, Infinity);
         const draft = { was, name: String(m.name ?? ""), rules: String(m.rules ?? "") };
         if (r.why) {
           s.editing = { ...draft, why: r.why };

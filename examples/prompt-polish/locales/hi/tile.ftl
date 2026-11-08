@@ -101,6 +101,7 @@ toast-needs-tilefold = अपना पेज दिखाने के लि�
 
 # Your own cases (what to fix)
 setting-cases = आपके अपने केस: पहली पंक्ति में नाम, उसके नीचे क्या करना है, केसों के बीच एक खाली पंक्ति
+setting-case-list = क्या ठीक करना है, इसके आपके अपने केस
 label-mode-menu = क्या ठीक करना है
 label-add-case = अपना जोड़ें…
 label-edit-case = “{ $name }” बदलें…

@@ -564,9 +564,25 @@ function parseCases(text) {
   }
   return out;
 }
+var CASE_FIELDS = [
+  { key: "name", label: "label-case-name", max: MAX_NAME2 },
+  { key: "rules", label: "label-case-rules", multiline: true, max: MAX_RULES }
+];
+function casesOf(value) {
+  if (!Array.isArray(value)) return parseCases(value);
+  const out = [];
+  for (const e of value) {
+    const name = nameOf(e?.name);
+    const rules = rulesOf(e?.rules);
+    if (!name || !rules || out.some((c) => c.name === name)) continue;
+    out.push({ name, rules });
+    if (out.length === MAX_CASES) break;
+  }
+  return out;
+}
 var formatCases = (cases) => cases.map((c) => `${c.name}
 ${c.rules}`).join("\n\n");
-function saveCase(cases, was, input) {
+function saveCase(cases, was, input, maxText = MAX_TEXT) {
   const name = nameOf(input?.name);
   const rules = rulesOf(input?.rules);
   if (!name) return { why: "case-needs-name" };
@@ -575,7 +591,7 @@ function saveCase(cases, was, input) {
   const at = was === null ? -1 : cases.findIndex((c) => c.name === was);
   if (at < 0 && cases.length >= MAX_CASES) return { why: "case-too-many" };
   const next = at < 0 ? [...cases, { name, rules }] : cases.map((c, i) => i === at ? { name, rules } : c);
-  if (formatCases(next).length > MAX_TEXT) return { why: "case-too-long" };
+  if (formatCases(next).length > maxText) return { why: "case-too-long" };
   return { cases: next, name };
 }
 var removeCase = (cases, name) => cases.filter((c) => c.name !== name);
@@ -613,7 +629,10 @@ function createModes(tf, o) {
   };
   const write = async (list) => {
     try {
-      await tf.settings.set("cases", formatCases(list));
+      await tf.settings.set(
+        "cases",
+        list.map((c) => ({ name: c.name, rules: c.rules }))
+      );
       return true;
     } catch (err) {
       o.warn(err);
@@ -670,7 +689,7 @@ function createModes(tf, o) {
       if (m.type === "case-save") {
         if (!s.editing || !canEdit()) return true;
         const was = s.editing.was;
-        const r = saveCase(cases(), was, { name: m.name, rules: m.rules });
+        const r = saveCase(cases(), was, { name: m.name, rules: m.rules }, Infinity);
         const draft = { was, name: String(m.name ?? ""), rules: String(m.rules ?? "") };
         if (r.why) {
           s.editing = { ...draft, why: r.why };
@@ -1103,6 +1122,7 @@ var COMMANDS = [
   { id: "open", title: "cmd-open" },
   { id: "close", title: "cmd-close" }
 ];
+var hasCaseList = (tf) => typeof tf.settings?.set === "function";
 function registerSettings(tf) {
   tf.setting("language", "auto", tf.t("setting-language"), {
     choices: [
@@ -1113,7 +1133,17 @@ function registerSettings(tf) {
   tf.setting("mode", "fix", tf.t("setting-mode"), {
     choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) }))
   });
-  tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+  if (hasCaseList(tf)) {
+    tf.setting("cases", [], tf.t("setting-case-list"), {
+      list: {
+        fields: CASE_FIELDS.map((f) => ({ ...f, label: tf.t(f.label) })),
+        max: MAX_CASES,
+        title: "name"
+      }
+    });
+  } else {
+    tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+  }
   tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) }))
   });
@@ -1143,7 +1173,7 @@ function settingsOf(settings) {
   return {
     language: read(settings, "language"),
     mode: mode === "natural" ? "natural" : "fix",
-    cases: parseCases(read(settings, "cases")),
+    cases: casesOf(read(settings, "cases")),
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
     checker: read(settings, "checker") === "agent" ? "agent" : "claude",

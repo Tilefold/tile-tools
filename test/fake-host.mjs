@@ -99,7 +99,7 @@
  *   to 2,000 px tall.
  * Modified 2026-11-07 (Tilefold 0.1.27): `tf.settings.set` changes the
  *   tile's own setting, checked as Tilefold does (`multiline` text up to
- *   8,000 characters), kept in `host.settingSets`.
+ *   8,000 characters, a `list` by its fields), kept in `host.settingSets`.
  *
  * Last updated by: Tilefold
  */
@@ -279,11 +279,27 @@ export async function startTile(dir, opts = {}) {
         const def = defaults.get(key);
         const reg = host.regs.find((r) => r.kind === "setting" && r.key === key);
         const max = reg?.multiline ? 8000 : 1000;
+        // A list setting: exactly its fields, as text within each one's length.
+        const listFits = (list) =>
+          Array.isArray(value) &&
+          value.length <= (list.max ?? 20) &&
+          value.every(
+            (e) =>
+              e &&
+              typeof e === "object" &&
+              Object.keys(e).every((k) => list.fields.some((f) => f.key === k)) &&
+              list.fields.every(
+                (f) =>
+                  typeof (e[f.key] ?? "") === "string" && (e[f.key] ?? "").length <= (f.max ?? 200),
+              ),
+          );
         const fits =
           reg &&
-          typeof value === typeof def &&
-          (typeof value !== "string" || value.length <= max) &&
-          (!reg.choices || reg.choices.some((c) => (c?.value ?? c) === value));
+          (reg.list
+            ? listFits(reg.list)
+            : typeof value === typeof def &&
+              (typeof value !== "string" || value.length <= max) &&
+              (!reg.choices || reg.choices.some((c) => (c?.value ?? c) === value)));
         if (!fits)
           throw named("TypeError", "not one of this tile's settings, or a value it can't take");
         values.set(key, value);

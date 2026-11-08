@@ -82,6 +82,7 @@ Adds a setting under the tile's card in Settings → Tiles.
 | `key` | A letter, then letters, digits, `_`, `.` or `-`, at most 64 characters, unique within the tile |
 | `default` | `true` / `false` gives a switch, a number gives a number box, text (at most 1,000 characters) gives a text box |
 | `options.multiline` | `true` on a text setting without choices: a box of several lines in Settings, holding up to 8,000 characters (Tilefold 0.1.27) |
+| `options.list` | A list of entries the user adds, edits and removes one at a time in Settings (Tilefold 0.1.27): `{ fields, max, title }`, where `fields` is 1 to 4 `{ key, label, multiline?, max? }` (`key` a lowercase letter, then letters or digits; `max` 1 to 4,000 characters, 200 when left out), `max` is the most entries (1 to 50, 20 when left out) and `title` the field each entry is shown by (the first when left out). The default is a list, usually `[]`, and the value a list of objects with exactly those fields as text. Older Tilefolds refuse a tile with an `options.list` setting, so register one only where `tf.settings.set` exists |
 | `description` | The label, at most 200 characters. Translate it with `tf.t` |
 | `options.choices` | A drop-down instead: 2 to 24 entries, each a string or `{ value, label }` (values at most 64 characters, labels at most 80). The default must be one of the values |
 

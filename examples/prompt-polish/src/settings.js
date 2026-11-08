@@ -20,9 +20,11 @@
  * Modified 2026-11-07 (text only): `solid` goes down to 10%, and to 0,
  *   "Text only" (only the card's text shows over the pane).
  * Modified 2026-11-07 (own cases): the `cases` setting, the user's own
- *   cases (cases.js), a text of several lines (Tilefold 0.1.27).
+ *   cases (cases.js): where Tilefold has list settings (it has
+ *   `tf.settings.set` too), a list of { name, rules } edited one case at a
+ *   time; else a text of several lines.
  */
-import { parseCases } from "./cases.js";
+import { CASE_FIELDS, MAX_CASES, casesOf } from "./cases.js";
 import { LANGUAGES } from "./languages.js";
 import { VIEWS, viewOf } from "./place.js";
 
@@ -63,6 +65,9 @@ export const COMMANDS = [
   { id: "close", title: "cmd-close" },
 ];
 
+/** Whether this Tilefold keeps the cases as a list (it can also save settings). */
+export const hasCaseList = (tf) => typeof tf.settings?.set === "function";
+
 /** Registers the settings, up front as Tilefold expects. */
 export function registerSettings(tf) {
   tf.setting("language", "auto", tf.t("setting-language"), {
@@ -74,8 +79,19 @@ export function registerSettings(tf) {
   tf.setting("mode", "fix", tf.t("setting-mode"), {
     choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) })),
   });
-  // The user's own cases: several lines (a Tilefold before 0.1.27 shows one line).
-  tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+  // The user's own cases: a list, one case at a time, where Tilefold has
+  // list settings; else one text (an older Tilefold refuses a list).
+  if (hasCaseList(tf)) {
+    tf.setting("cases", [], tf.t("setting-case-list"), {
+      list: {
+        fields: CASE_FIELDS.map((f) => ({ ...f, label: tf.t(f.label) })),
+        max: MAX_CASES,
+        title: "name",
+      },
+    });
+  } else {
+    tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+  }
   tf.setting("view", "corner", tf.t("setting-view"), {
     choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) })),
   });
@@ -114,7 +130,7 @@ export function settingsOf(settings) {
   return {
     language: read(settings, "language"),
     mode: mode === "natural" ? "natural" : "fix",
-    cases: parseCases(read(settings, "cases")),
+    cases: casesOf(read(settings, "cases")),
     view: viewOf(read(settings, "view")),
     fast: read(settings, "fast") !== false,
     checker: read(settings, "checker") === "agent" ? "agent" : "claude",
