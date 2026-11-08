@@ -649,6 +649,11 @@ function createModes(tf, o) {
     if (first && s?.draft) await o.check(id, s.draft);
     else if (s?.step === "result" && s.draft) await o.check(id, s.draft);
   };
+  const held = (s) => {
+    if (resolved().mode !== "case") return false;
+    if ((s.step === "result" || s.step === "problem") && s.draft) s.step = "write";
+    return true;
+  };
   const write = async (list) => {
     try {
       await tf.settings.set(
@@ -660,6 +665,12 @@ function createModes(tf, o) {
       o.warn(err);
       return false;
     }
+  };
+  const settle = async (id, first) => {
+    const s = o.sessions.get(id);
+    if (s && held(s)) return o.render();
+    await o.render();
+    await again(id, first);
   };
   return {
     load,
@@ -687,8 +698,7 @@ function createModes(tf, o) {
         await keep(to);
         o.audit("mode-picked", { mode: to.startsWith("case:") ? "case" : to });
         const first = answered(id);
-        await o.render();
-        await again(id, first);
+        await settle(id, first);
         return true;
       }
       if (!s) return m.type.startsWith("case-");
@@ -726,8 +736,7 @@ function createModes(tf, o) {
         await keep(`case:${r.name}`);
         o.audit("case-saved", { added: was === null });
         const first = answered(id);
-        await o.render();
-        await again(id, first);
+        await settle(id, first);
         return true;
       }
       if (m.type === "case-remove") {
@@ -1501,6 +1510,8 @@ function setupOf(t) {
       hint: t("label-hint"),
       asIs: t("label-as-is"),
       check: t("label-check"),
+      // A case picked: the write step's button applies it, by name.
+      applyCase: t("label-apply-case", { name: "{name}" }),
       showResult: t("label-show-result"),
       showChanges: t("label-show-changes"),
       clickHint: t("label-click-hint"),
@@ -1641,6 +1652,8 @@ function viewOf2(s, t) {
     draft: s.draft,
     // From the agent input box with own cases: what to fix is picked first.
     choose: !!s.choosing,
+    // A case picked: its name, for the button that applies it.
+    apply: own,
     placeholder: t("label-placeholder", { language: lang.native })
   };
 }

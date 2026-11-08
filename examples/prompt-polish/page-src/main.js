@@ -39,6 +39,8 @@
  * Modified 2026-11-07 (pick before checking): the chip names what to fix
  *   first; a prompt from the agent input box, with own cases, opens on the
  *   menu of what to fix (`choose`), and the pick starts the check.
+ * Modified 2026-11-08 (apply a case): with a case picked, the write step's
+ *   button applies it by name (`apply`).
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
  */
@@ -157,8 +159,10 @@ function drawWrite(v) {
   const size = el("span", "muted");
   const warn = el("p", "warn", L.tooLong);
   const asIs = button("btn ghost", L.asIs, null);
-  const check = button("btn primary", L.check, null);
-  check.title = "⌘↩";
+  // A case picked: the button applies it, by name, rather than checking.
+  const label = v.apply ? L.applyCase.replace("{name}", v.apply) : L.check;
+  const check = button(v.apply ? "btn primary apply" : "btn primary", label, null);
+  check.title = `${label} (⌘↩)`;
   const update = () => {
     const t = area.value;
     size.textContent = sizeText(t, v.unspaced, L);

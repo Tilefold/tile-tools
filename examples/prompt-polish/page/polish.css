@@ -282,6 +282,13 @@ header {
   color: var(--on-accent);
   font-weight: 600;
 }
+/* Apply “case”: a long case name is cut short, never wider than the card. */
+.btn.apply {
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .btn:disabled {
   opacity: 0.5;
   cursor: default;

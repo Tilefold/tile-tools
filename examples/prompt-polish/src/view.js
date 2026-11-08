@@ -34,6 +34,8 @@
  * Modified 2026-11-07 (case rework): while a case is picked, checking and
  *   waiting name the case, not the language; its result is a `rework`,
  *   whose changes are undone with their own buttons.
+ * Modified 2026-11-08 (apply a case): `apply` on the write step, the case
+ *   its button applies, and that button's label.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -83,6 +85,8 @@ export function setupOf(t) {
       hint: t("label-hint"),
       asIs: t("label-as-is"),
       check: t("label-check"),
+      // A case picked: the write step's button applies it, by name.
+      applyCase: t("label-apply-case", { name: "{name}" }),
       showResult: t("label-show-result"),
       showChanges: t("label-show-changes"),
       clickHint: t("label-click-hint"),
@@ -243,6 +247,8 @@ export function viewOf(s, t) {
     draft: s.draft,
     // From the agent input box with own cases: what to fix is picked first.
     choose: !!s.choosing,
+    // A case picked: its name, for the button that applies it.
+    apply: own,
     placeholder: t("label-placeholder", { language: lang.native }),
   };
 }

@@ -7,20 +7,24 @@
  * Prompt Polish — picking what to fix on the card, and the user's own cases
  *
  * The card offers the two built-in modes and the cases from the setting.
- * Picking a case checks the prompt again with its instructions (for Claude
- * and for the polish agent) and is kept. Adding a case on the card saves
+ * Picking a case shows the prompt again with a button that applies it by
+ * name; that button checks it with the case's instructions (for Claude
+ * and for the polish agent), and the pick is kept. Adding a case on the card saves
  * it to the setting through Tilefold and picks it; a case that can't be
  * saved keeps the form, saying why; removing one drops it and its pick. A
  * change of the mode setting wins over the card's pick. Where Tilefold has
  * list settings, the cases are a list saved one case at a time; on a
  * Tilefold that can't save settings, they are one text, from Settings
  * only. From the agent input box, with cases, what to fix is asked before
- * the check: the pick starts it, a saved case too, and closing the menu
+ * the check: a built-in mode picked starts it, a case picked or saved
+ * waits for its Apply, and closing the menu
  * leaves the prompt to check as set. Audits never carry a case's name or
  * words.
  *
  * Modified 2026-11-07 (pick before checking): the card is opened, then a
  *   pick made, before each check here; tests for the question asked first.
+ * Modified 2026-11-08 (apply a case): a case picked or saved waits for the
+ *   user's Apply (a `check` from the write step) before checking.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -64,6 +68,12 @@ const say = async (host, message) => {
 const lastView = (host) => host.page.posted.filter((m) => m.do === "show").at(-1)?.view;
 /** The system prompt of the last question to Claude. */
 const lastSystem = (host) => host.questions.at(-1)?.system ?? "";
+/** Asserts the card holds case `name` for Apply, then presses it. */
+const apply = async (host, name, asked) => {
+  expect(host.questions).toHaveLength(asked);
+  expect(lastView(host)).toMatchObject({ step: "write", draft: PROMPT, apply: name });
+  await say(host, { type: "check", text: PROMPT });
+};
 
 /**
  * Opens the card for the prompt, picks what to fix (asked first, as the
@@ -96,6 +106,7 @@ describe("picking what to fix", () => {
     const host = await checked();
     expect(lastSystem(host)).not.toContain("clip's length");
     await say(host, { type: "mode", to: "case:Video editing" });
+    await apply(host, "Video editing", 1);
     expect(host.questions).toHaveLength(2);
     expect(lastSystem(host)).toContain("-----\nSay the clip's length.\n-----");
     expect(lastView(host)).toMatchObject({ modeId: "case:Video editing", mode: "Video editing" });
@@ -122,6 +133,9 @@ describe("picking what to fix", () => {
     const request = host.helperAsks[0].question.match(/request ([a-z0-9]{10})/)[1];
     await host.command(HAND_BACK, { request, corrected: "Make a video of my cat.", notes: [] });
     await say(host, { type: "mode", to: "case:Video editing" });
+    expect(host.helperAsks).toHaveLength(1);
+    expect(lastView(host)).toMatchObject({ step: "write", apply: "Video editing" });
+    await say(host, { type: "check", text: PROMPT });
     expect(host.helperAsks).toHaveLength(2);
     expect(host.helperAsks[1].question).toContain("follow my instructions");
     expect(host.helperAsks[1].question).toContain("Say the clip's length.");
@@ -138,6 +152,8 @@ describe("the user's own cases on the card", () => {
       key: "cases",
       value: [VIDEO, { name: "Email", rules: "Keep it short." }],
     });
+    expect(lastView(host)).toMatchObject({ modeId: "case:Email" });
+    await apply(host, "Email", 1);
     expect(lastView(host)).toMatchObject({ step: "result", modeId: "case:Email" });
     expect(lastSystem(host)).toContain("Keep it short.");
     expect(host.audits).toContainEqual({ action: "case-saved", details: { added: true } });
@@ -162,7 +178,7 @@ describe("the user's own cases on the card", () => {
     expect(host.settingSets.at(-1).value).toEqual([{ name: "Video", rules: "Say it." }]);
     await say(host, { type: "case-edit", was: null });
     await say(host, { type: "case-cancel" });
-    expect(lastView(host).step).toBe("result");
+    expect(lastView(host)).toMatchObject({ step: "write", apply: "Video" });
   });
 
   it("removes a case, and its pick with it", async () => {
@@ -221,9 +237,11 @@ describe("what to fix, asked before checking a prompt from the agent input box",
     expect(lastView(host)).toMatchObject({ step: "write", draft: PROMPT, choose: true });
   });
 
-  it("starts the check with the case picked, and asks no more", async () => {
+  it("shows the prompt to apply the case picked, and asks no more", async () => {
     const host = await asked();
     await say(host, { type: "mode", to: "case:Video editing" });
+    expect(lastView(host).choose).toBe(false);
+    await apply(host, "Video editing", 0);
     expect(host.questions).toHaveLength(1);
     expect(lastSystem(host)).toContain("Say the clip's length.");
     expect(lastView(host)).toMatchObject({ step: "result", mode: "Video editing" });
@@ -232,10 +250,12 @@ describe("what to fix, asked before checking a prompt from the agent input box",
     expect(lastView(host)).toMatchObject({ step: "write", choose: false });
   });
 
-  it("starts the check for the polish agent too, with the case's instructions", async () => {
+  it("applies the case for the polish agent too, with the case's instructions", async () => {
     const host = await asked({ ai: undefined, agentAsk: true, helper: true });
     expect(host.helperAsks).toHaveLength(0);
     await say(host, { type: "mode", to: "case:Video editing" });
+    expect(host.helperAsks).toHaveLength(0);
+    await say(host, { type: "check", text: PROMPT });
     expect(host.helperAsks).toHaveLength(1);
     expect(host.helperAsks[0].question).toContain("Say the clip's length.");
   });
@@ -249,7 +269,14 @@ describe("what to fix, asked before checking a prompt from the agent input box",
     expect(host.questions).toHaveLength(1);
   });
 
-  it("starts the check with a case added from the menu", async () => {
+  it("starts the check at once with a built-in mode picked", async () => {
+    const host = await asked();
+    await say(host, { type: "mode", to: "natural" });
+    expect(host.questions).toHaveLength(1);
+    expect(lastView(host)).toMatchObject({ step: "result", modeId: "natural" });
+  });
+
+  it("applies a case added from the menu", async () => {
     const host = await asked();
     await say(host, { type: "case-edit", was: null });
     expect(lastView(host).step).toBe("case");
@@ -258,6 +285,7 @@ describe("what to fix, asked before checking a prompt from the agent input box",
     expect(lastView(host)).toMatchObject({ step: "write", choose: true });
     await say(host, { type: "case-edit", was: null });
     await say(host, { type: "case-save", name: "Short", rules: "Keep it short." });
+    await apply(host, "Short", 0);
     expect(host.questions).toHaveLength(1);
     expect(lastSystem(host)).toContain("Keep it short.");
   });

@@ -14,12 +14,14 @@
  * was typed, keeps it when the tile draws the form again (with the reason
  * a save didn't go), and offers Remove only for a case being edited. The
  * chip names what to fix before the language. Asked before a check, the
- * menu shows first with its heading, and closing it tells the tile.
+ * menu shows first with its heading, and closing it tells the tile. With a
+ * case picked, the prompt's button applies it by name.
  *
  * Modified 2026-11-07 (pick before checking): the chip's order, and the
  *   menu asked before the check.
  * Modified 2026-11-07 (case rework): a rework's changes have their own
  *   ✕ and ↺ buttons; a click on the text does nothing there.
+ * Modified 2026-11-08 (apply a case): the write step's Apply button.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -218,6 +220,24 @@ describe("what to fix, asked before the check", () => {
       p.tell({ do: "show", view: viewFor({ ...ASKED, choosing: false }) });
       expect(p.$("draft").value).toBe("make a cut");
     }
+  });
+});
+
+describe("applying a case picked", () => {
+  it("names the case on the prompt's button, which starts the check", () => {
+    const p = page();
+    ready(p, { ...CASES, modeId: "case:Video editing", caseName: "Video editing", draft: "a cut" });
+    const go = p.$("foot").querySelector(".btn.primary");
+    expect(go.textContent).toBe("Apply “Video editing”");
+    expect(go.classList.contains("apply")).toBe(true);
+    p.click(go);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "check", text: "a cut" });
+  });
+
+  it("keeps Check for the built-in modes", () => {
+    const p = page();
+    ready(p, { ...CASES, draft: "a cut" });
+    expect(p.$("foot").querySelector(".btn.primary").textContent).toBe(t("label-check"));
   });
 });
 
