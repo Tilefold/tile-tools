@@ -20,7 +20,8 @@
  *
  * Modified 2026-11-07 (own cases): mode "case" adds the user's own
  *   instructions for that kind of prompt, fenced off as rules
- *   (`whatToDo`, `caseRules`).
+ *   (`whatToDo`, `caseRules`). A case may add to the prompt, so its answer
+ *   may be longer (`longestFor`) and Claude gets room to write it.
  */
 import { keepsProtected } from "./polish.js";
 
@@ -33,7 +34,7 @@ const MAX_NOTES = 40;
 /** What to do, for each mode: the built-in two, or one of the user's own cases. */
 export function whatToDo(mode) {
   if (mode === "case") {
-    return "Fix spelling, grammar, spacing and punctuation, and rework the prompt as the user's own instructions for this kind of prompt say; add or reword only what they ask for.";
+    return 'Fix spelling, grammar, spacing and punctuation. Then rework the prompt as the user\'s own instructions for this kind of prompt say (below): add what they ask for that the prompt is missing, as short clear phrases in the prompt\'s language, and reword what they ask to change; this goes before "do not reword". Leave the rest as written, and note each addition or rewording with kind "style".';
   }
   return mode === "natural"
     ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural."
@@ -73,11 +74,13 @@ export function systemPrompt(language, mode, uiLanguage, rules = "") {
 
 /** What `tf.ai.ask` gets: the prompt, a bounded answer, the fast model unless turned off. */
 export function buildAsk({ text, language, mode, uiLanguage, fast, rules = "" }) {
+  const n = String(text).length;
   return {
     system: systemPrompt(language, mode, uiLanguage, rules),
     messages: [{ role: "user", content: String(text) }],
-    // Room for the corrected text twice over (it and the notes), bounded.
-    maxTokens: Math.min(4000, 400 + Math.ceil(String(text).length * 1.5)),
+    // Room for the corrected text twice over (it and the notes), bounded;
+    // a case may add to the prompt, so it gets more.
+    maxTokens: Math.min(4000, mode === "case" ? 2000 + n * 2 : 400 + Math.ceil(n * 1.5)),
     model: fast ? "fast" : "default",
   };
 }
@@ -129,17 +132,24 @@ function readNote(n) {
  *
  * @param {string} text the answer's text
  * @param {string} original the prompt that was sent
+ * @param {string} [mode] what to fix ("case" may add to the prompt)
  * @returns {{ ok: true, corrected: string, notes: object[] }
  *   | { ok: false, why: "unreadable" | "changed-code" }}
  */
-export function readAnswer(text, original) {
+/** The longest corrected prompt taken for `original`: a case may add to it. */
+export const longestFor = (original, mode) => {
+  const n = String(original).length;
+  return mode === "case" ? Math.min(8000, n * 4 + 1500) : n * 2 + 200;
+};
+
+export function readAnswer(text, original, mode = "fix") {
   const json = findJson(text);
   if (!json || typeof json !== "object" || typeof json.corrected !== "string") {
     return { ok: false, why: "unreadable" };
   }
   const corrected = clean(json.corrected);
   // An empty answer, or one far longer than the prompt, isn't a correction.
-  if (!corrected.trim() || corrected.length > String(original).length * 2 + 200) {
+  if (!corrected.trim() || corrected.length > longestFor(original, mode)) {
     return { ok: false, why: "unreadable" };
   }
   if (!keepsProtected(original, corrected)) return { ok: false, why: "changed-code" };

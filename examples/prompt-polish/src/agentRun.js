@@ -187,7 +187,7 @@ export function createAgentRun(tf, deps) {
     }
     const s = sessions.get(e.pane);
     if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Prompt Polish");
-    const r = readAnswer(h.answer, e.original);
+    const r = readAnswer(h.answer, e.original, e.mode);
     if (!r.ok) {
       const changedCode = r.why === "changed-code";
       await problem(e.pane, s, changedCode ? "error-agent-changed-code" : "error-agent-unreadable");

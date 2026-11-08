@@ -14,7 +14,8 @@
  * taken, a 21st case or too long a list; removing drops one. Control and
  * direction-changing characters never reach a name or instructions. A
  * case's instructions go to Claude and to the polish agent fenced off as
- * rules, with the "never add to it" rule relaxed only for a case.
+ * rules, with the "never add to it" rule relaxed only for a case, whose
+ * answer may also be longer.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -27,7 +28,12 @@ import {
   rulesOf,
   saveCase,
 } from "../../examples/prompt-polish/src/cases.js";
-import { systemPrompt } from "../../examples/prompt-polish/src/answer.js";
+import {
+  buildAsk,
+  longestFor,
+  readAnswer,
+  systemPrompt,
+} from "../../examples/prompt-polish/src/answer.js";
 import { agentQuestion, agentRequest } from "../../examples/prompt-polish/src/agentCheck.js";
 
 const RLO = String.fromCharCode(0x202e);
@@ -104,10 +110,24 @@ describe("a case's instructions in the request", () => {
     expect(fix).not.toContain(VIDEO.rules);
   });
 
+  it("may make the prompt longer, and Claude gets room to write it", () => {
+    const short = "make a logo reveal";
+    const reworked = JSON.stringify({ corrected: `${short}: ${"x".repeat(400)}`, notes: [] });
+    expect(readAnswer(reworked, short).ok).toBe(false);
+    expect(readAnswer(reworked, short, "case").ok).toBe(true);
+    expect(longestFor(short, "case")).toBeGreaterThan(longestFor(short, "fix"));
+    expect(longestFor("x".repeat(5000), "case")).toBe(8000);
+    const ask = (mode) =>
+      buildAsk({ text: short, language: "English", mode, uiLanguage: "English" });
+    expect(ask("case").maxTokens).toBeGreaterThan(ask("fix").maxTokens);
+  });
+
   it("go to the polish agent and the ask card before the prompt", () => {
     const base = { text: "make a video", language: "English", uiLanguage: "English" };
     const r = agentRequest({ ...base, mode: "case", rules: VIDEO.rules, request: "abcdefghij" });
     expect(r).toMatch(/fix mistakes and follow my instructions\./);
+    // It says plainly that a case may add to the prompt.
+    expect(r).toContain("add what they ask for that it is missing");
     expect(r.indexOf(VIDEO.rules)).toBeLessThan(r.indexOf("make a video"));
     const q = agentQuestion({
       ...base,

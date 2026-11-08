@@ -65,7 +65,7 @@ export function createClaudeRun(tf, deps) {
         Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
         return render(id);
       }
-      const r = readAnswer(answer.text, original);
+      const r = readAnswer(answer.text, original, m);
       if (!r.ok) {
         Object.assign(s, {
           step: "problem",
