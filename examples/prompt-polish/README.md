@@ -86,4 +86,4 @@ Needs Tilefold 0.1.23 (`tf.agent.ask`); over the pane from 0.1.11, beside the pa
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
-Last updated: 2026-11-07 by Tilefold
+Last updated: 2026-11-08 by Tilefold
