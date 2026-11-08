@@ -10,6 +10,8 @@
  * tile's function, before any `await`, as Tilefold requires. The card's
  * settings (shown when the window opens, and its corner) are read by the
  * tile itself; the rest go to the page as the player's options.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on" (`showOnSetting`).
  */
 import { CORNERS, cornerOf } from "./scene.js";
 
@@ -43,6 +45,21 @@ export function registerSettings(tf) {
   tf.setting("corner", "bottom-right", tf.t("setting-corner"), {
     choices: CORNERS.map((value) => ({ value, label: tf.t(CORNER_KEYS[value]) })),
   });
+  tf.setting("showOn", "all", tf.t("setting-show-on"), {
+    choices: [
+      { value: "all", label: tf.t("setting-show-on-all") },
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+    ],
+  });
+}
+
+/** Where the card shows: "all" (every tab) or "tab" (the tab where it was opened). */
+export function showOnSetting(settings) {
+  try {
+    return settings.get("showOn") === "tab" ? "tab" : "all";
+  } catch {
+    return "all";
+  }
 }
 
 /** Whether the card shows when the window opens. */

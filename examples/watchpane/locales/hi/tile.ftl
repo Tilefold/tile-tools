@@ -46,3 +46,6 @@ list-empty = अभी कोई वीडियो नहीं।
 cmd-reset = Watchpane: प्लेयर को वापस पेन में रखें
 dock-label = वीडियो नियंत्रण। प्लेयर हटाने के लिए खींचें
 dock-idle-hint = YouTube लिंक चिपकाने के लिए यहाँ क्लिक करें, या ☰ से वीडियो चुनें।
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

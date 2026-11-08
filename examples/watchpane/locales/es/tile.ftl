@@ -46,3 +46,6 @@ list-empty = Aún no hay videos.
 cmd-reset = Watchpane: Devolver el reproductor al panel
 dock-label = Controles del video. Arrastra para mover el reproductor
 dock-idle-hint = Haz clic aquí para pegar un enlace de YouTube, o elige un video con ☰.
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

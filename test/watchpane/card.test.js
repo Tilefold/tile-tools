@@ -439,6 +439,25 @@ describe("Watchpane's card, in the fake host", () => {
   const fromPage = (host, message) => host.emit("page.message", { message });
   const posts = (host) => host.page.posted;
 
+  it("keeps the card to its tab with Show on, and brings it to the tab in front", async () => {
+    const host = await start({ settings: { showOn: "tab" } });
+    await host.command("open");
+    expect(host.overlayPerTab).toBe(true);
+    await host.emit("overlay.tab", { shown: false });
+    await host.command("card");
+    expect(host.overlay).not.toBeNull();
+    // Back on its tab, the card command hides it as before.
+    await host.command("card");
+    expect(host.overlay).toBeNull();
+  });
+
+  it("goes when its tab closes", async () => {
+    const host = await start({ settings: { showOn: "tab" } });
+    await host.command("open");
+    await host.emit("overlay.hidden", { by: "tab" });
+    expect(host.audits).toContainEqual({ action: "card.hidden", details: { byUser: true } });
+  });
+
   it("shows the card with the window, and moves with the page's status", async () => {
     const host = await start();
     await host.command("open");

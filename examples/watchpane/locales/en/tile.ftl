@@ -46,3 +46,6 @@ list-empty = No videos yet.
 cmd-reset = Watchpane: Put the player back in the pane
 dock-label = Video controls. Drag to move the player
 dock-idle-hint = Click here to paste a YouTube link, or pick a video with ☰.
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

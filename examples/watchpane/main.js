@@ -730,7 +730,7 @@ function createCard(tf, hooks) {
     if (ids === drawn) await tf.overlay.update({ items: scene });
     else {
       drawn = ids;
-      await tf.overlay.show({ items: scene });
+      await tf.overlay.show({ items: scene, perTab: hooks.perTab?.() === true });
     }
   };
   const act = async (action) => {
@@ -900,6 +900,19 @@ function registerSettings(tf) {
   tf.setting("corner", "bottom-right", tf.t("setting-corner"), {
     choices: CORNERS.map((value) => ({ value, label: tf.t(CORNER_KEYS[value]) }))
   });
+  tf.setting("showOn", "all", tf.t("setting-show-on"), {
+    choices: [
+      { value: "all", label: tf.t("setting-show-on-all") },
+      { value: "tab", label: tf.t("setting-show-on-tab") }
+    ]
+  });
+}
+function showOnSetting(settings) {
+  try {
+    return settings.get("showOn") === "tab" ? "tab" : "all";
+  } catch {
+    return "all";
+  }
 }
 function showCardSetting(settings) {
   try {
@@ -974,6 +987,7 @@ function runWatchpane(tf) {
     recent: () => recent ?? [],
     isOpen: () => open,
     corner: () => cornerSetting(tf.settings),
+    perTab: () => showOnSetting(tf.settings) === "tab",
     docked: () => open && docked,
     redock: (spot) => tf.page.dock(spot),
     closeWindow: () => close(),
@@ -1060,8 +1074,11 @@ function runWatchpane(tf) {
     if (!open) return show({ resume: true });
     return post({ do: "control", action: action === "mute" ? "mute" : action });
   };
+  let away = false;
   const toggleCard = async () => {
     if (!card) return;
+    if (card.visible && away) await card.hide();
+    away = false;
     if (!card.visible) return card.show();
     await card.hide();
     if (open && docked) await close();
@@ -1146,13 +1163,28 @@ function runWatchpane(tf) {
   );
   tf.on(
     "overlay.hidden",
-    background(() => card?.hide(true))
+    background(async (e) => {
+      away = false;
+      await card?.hide(true);
+      if (e && e.by === "tab" && open && docked) await close();
+    })
   );
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    })
+  );
+  let showOn = showOnSetting(tf.settings);
   let corner = cornerSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
       if (open) await setup();
+      if (showOnSetting(tf.settings) !== showOn) {
+        showOn = showOnSetting(tf.settings);
+        if (card?.visible) await card.hide().then(() => card.show());
+      }
       const now = cornerSetting(tf.settings);
       if (now !== corner) {
         corner = now;

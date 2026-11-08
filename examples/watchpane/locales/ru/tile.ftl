@@ -46,3 +46,6 @@ list-empty = Видео пока нет.
 cmd-reset = Watchpane: Вернуть плеер в панель
 dock-label = Управление видео. Перетащите, чтобы переместить плеер
 dock-idle-hint = Нажмите здесь, чтобы вставить ссылку YouTube, или выберите видео через ☰.
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

@@ -46,3 +46,6 @@ list-empty = 아직 동영상이 없습니다.
 cmd-reset = Watchpane: 플레이어를 창 안으로 되돌리기
 dock-label = 동영상 조작. 끌어서 플레이어 이동
 dock-idle-hint = 여기를 클릭해 YouTube 링크를 붙여 넣거나 ☰로 동영상을 고르세요.
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

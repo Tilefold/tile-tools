@@ -46,3 +46,6 @@ list-empty = 还没有视频。
 cmd-reset = Watchpane：将播放器放回窗格
 dock-label = 视频控制。拖动可移动播放器
 dock-idle-hint = 点击此处粘贴 YouTube 链接，或用 ☰ 选择一个视频。
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

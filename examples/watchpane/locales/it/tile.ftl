@@ -46,3 +46,6 @@ list-empty = Ancora nessun video.
 cmd-reset = Watchpane: Riporta il lettore nel riquadro
 dock-label = Controlli del video. Trascina per spostare il lettore
 dock-idle-hint = Fai clic qui per incollare un link di YouTube, o scegli un video con ☰.
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede
