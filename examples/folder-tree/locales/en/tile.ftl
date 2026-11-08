@@ -122,3 +122,6 @@ menu-unpin = Unpin
 page-pins-label = Pinned folders
 pins-add-label = Add a folder
 pins-add-placeholder = Add a folder by its path
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

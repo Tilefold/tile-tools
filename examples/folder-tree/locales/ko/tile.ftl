@@ -122,3 +122,6 @@ menu-unpin = 고정 해제
 page-pins-label = 고정한 폴더
 pins-add-label = 폴더 추가
 pins-add-placeholder = 경로로 폴더 추가
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

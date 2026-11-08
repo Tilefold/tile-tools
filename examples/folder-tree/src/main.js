@@ -47,6 +47,7 @@
  *   (panel.input) pins the folder the user typed or picked.
  * Modified 2026-11-04 (viewer's file): `viewer.opened` (Tilefold 0.1.26)
  *   shows the document viewer's file in the tree.
+ * Modified 2026-11-08 (one tab or every tab): the "Show on" setting.
  *
  * Last updated by: Tilefold
  */
@@ -58,6 +59,12 @@ export default (tf) => {
   tf.setting("recentMinutes", 30, tf.t("setting-recent-minutes"));
   tf.setting("showHidden", false, tf.t("setting-show-hidden"));
   tf.setting("skipFolders", "node_modules", tf.t("setting-skip-folders"));
+  tf.setting("showOn", "tab", tf.t("setting-show-on"), {
+    choices: [
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+      { value: "all", label: tf.t("setting-show-on-all") },
+    ],
+  });
 
   // An older Tilefold has no panels or folder access: say so instead of failing.
   const supported = Boolean(tf.panel && tf.pane && tf.fs && tf.viewer);

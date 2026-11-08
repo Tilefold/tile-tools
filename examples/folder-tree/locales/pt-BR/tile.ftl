@@ -122,3 +122,6 @@ menu-unpin = Desafixar
 page-pins-label = Pastas fixadas
 pins-add-label = Adicionar uma pasta
 pins-add-placeholder = Adicione uma pasta pelo caminho
+setting-show-on = Mostrar em
+setting-show-on-tab = A aba onde foi aberto
+setting-show-on-all = Todas as abas

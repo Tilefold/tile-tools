@@ -12,6 +12,7 @@
  *
  * Modified 2026-11-04 (viewer's file): where the Recent and Folders
  *   sections' open/closed choices are kept (loadUi, saveUi) moved here.
+ * Modified 2026-11-08 (one tab or every tab): `perTab`, from "Show on".
  *
  * Last updated by: Tilefold
  */
@@ -63,6 +64,8 @@ export function readOptions(tf, ui) {
     activeMs: Math.max(5, Number(tf.settings.get("activeSeconds")) || 20) * 1000,
     recentMs: Math.max(1, Number(tf.settings.get("recentMinutes")) || 30) * 60_000,
     showActivity: tf.settings.get("showActivity") !== false,
+    // "Show on": the tab where it was opened (the default), or every tab.
+    perTab: tf.settings.get("showOn") !== "all",
     filters: {
       showHidden: tf.settings.get("showHidden") === true,
       skip: parseSkip(tf.settings.get("skipFolders")),

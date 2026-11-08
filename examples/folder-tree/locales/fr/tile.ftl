@@ -122,3 +122,6 @@ menu-unpin = Désépingler
 page-pins-label = Dossiers épinglés
 pins-add-label = Ajouter un dossier
 pins-add-placeholder = Ajouter un dossier par son chemin
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

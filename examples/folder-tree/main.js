@@ -47,6 +47,7 @@
  *   (panel.input) pins the folder the user typed or picked.
  * Modified 2026-11-04 (viewer's file): `viewer.opened` (Tilefold 0.1.26)
  *   shows the document viewer's file in the tree.
+ * Modified 2026-11-08 (one tab or every tab): the "Show on" setting.
  *
  * Last updated by: Tilefold
  */
@@ -425,6 +426,8 @@ function readOptions(tf, ui) {
     activeMs: Math.max(5, Number(tf.settings.get("activeSeconds")) || 20) * 1e3,
     recentMs: Math.max(1, Number(tf.settings.get("recentMinutes")) || 30) * 6e4,
     showActivity: tf.settings.get("showActivity") !== false,
+    // "Show on": the tab where it was opened (the default), or every tab.
+    perTab: tf.settings.get("showOn") !== "all",
     filters: {
       showHidden: tf.settings.get("showHidden") === true,
       skip: parseSkip(tf.settings.get("skipFolders"))
@@ -1070,7 +1073,7 @@ ${path}`, 512)
       rows,
       ...footer.rows.length ? { footer: { rows: footer.rows } } : {},
       ...menus && root ? { menus, menu: "space" } : {},
-      perTab: true
+      perTab: opts.perTab !== false
     },
     targets,
     live: active.length > 0
@@ -1854,6 +1857,12 @@ var main_default = (tf) => {
   tf.setting("recentMinutes", 30, tf.t("setting-recent-minutes"));
   tf.setting("showHidden", false, tf.t("setting-show-hidden"));
   tf.setting("skipFolders", "node_modules", tf.t("setting-skip-folders"));
+  tf.setting("showOn", "tab", tf.t("setting-show-on"), {
+    choices: [
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+      { value: "all", label: tf.t("setting-show-on-all") }
+    ]
+  });
   const supported = Boolean(tf.panel && tf.pane && tf.fs && tf.viewer);
   const tree = supported ? createFolderTree(tf) : null;
   const unsupported = () => tf.toast(tf.t("needs-newer-tilefold"));

@@ -122,3 +122,6 @@ menu-unpin = إلغاء التثبيت
 page-pins-label = المجلدات المثبّتة
 pins-add-label = إضافة مجلد
 pins-add-placeholder = أضف مجلدًا بمساره
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

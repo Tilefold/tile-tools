@@ -122,3 +122,6 @@ menu-unpin = Togli
 page-pins-label = Cartelle fissate
 pins-add-label = Aggiungi una cartella
 pins-add-placeholder = Aggiungi una cartella dal suo percorso
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede

@@ -36,6 +36,7 @@
  * Modified 2026-11-03 (pinned folders list): those rows became the
  *   Folders section at the top (folders-view.js), listing every pinned
  *   folder with Follow the pane.
+ * Modified 2026-11-08 (one tab or every tab): `perTab` follows "Show on".
  *
  * Last updated by: Tilefold
  */
@@ -204,7 +205,7 @@ export function panelView({ tree, events, now, t, opts, selected = null, view = 
       rows,
       ...(footer.rows.length ? { footer: { rows: footer.rows } } : {}),
       ...(menus && root ? { menus, menu: "space" } : {}),
-      perTab: true,
+      perTab: opts.perTab !== false,
     },
     targets,
     live: active.length > 0,
