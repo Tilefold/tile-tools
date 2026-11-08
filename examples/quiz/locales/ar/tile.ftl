@@ -59,3 +59,6 @@ page-resize = اسحب لتغيير حجم الاختبار
 setting-show-as-side = مرساة بجانب الأجزاء
 page-dock = أرسِ بجانب الأجزاء
 page-float = اجعلها عائمة فوق الأجزاء
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

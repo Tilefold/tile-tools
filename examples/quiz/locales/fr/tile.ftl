@@ -59,3 +59,6 @@ page-resize = Faites glisser pour redimensionner le quiz
 setting-show-as-side = Ancré à côté des volets
 page-dock = Ancrer à côté des volets
 page-float = Faire flotter au-dessus des volets
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

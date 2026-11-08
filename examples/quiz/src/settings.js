@@ -11,6 +11,8 @@
  * light, dark or follows the system. And the commands the tile adds to the
  * palette, each with a fixed id so its shortcut survives a change of
  * language (the commands AI agents use are in agent.js).
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on" (`showOnSetting`).
  */
 import { APPEARANCES, appearanceOf } from "./appearance.js";
 import { CORNERS, cornerOf } from "./scene.js";
@@ -61,6 +63,21 @@ export function registerSettings(tf) {
   tf.setting("appearance", "auto", tf.t("setting-appearance"), {
     choices: APPEARANCES.map((value) => ({ value, label: tf.t(APPEARANCE_KEYS[value]) })),
   });
+  tf.setting("showOn", "all", tf.t("setting-show-on"), {
+    choices: [
+      { value: "all", label: tf.t("setting-show-on-all") },
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+    ],
+  });
+}
+
+/** Where the card shows: "all" (every tab) or "tab" (the tab where it was opened). */
+export function showOnSetting(settings) {
+  try {
+    return settings.get("showOn") === "tab" ? "tab" : "all";
+  } catch {
+    return "all";
+  }
 }
 
 /** Reads a setting; a missing one is undefined. */

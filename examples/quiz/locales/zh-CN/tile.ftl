@@ -59,3 +59,6 @@ page-resize = 拖动以调整测验大小
 setting-show-as-side = 停靠在窗格旁边
 page-dock = 停靠到窗格旁边
 page-float = 浮动在窗格上方
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

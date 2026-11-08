@@ -24,6 +24,10 @@
  * goes (`pageSpot`) and moves it (`tf.page.dock`). Moves, resizes and resets
  * are recorded in the tile's activity log (`card-moved`, `card-resized`,
  * `card-reset`: a tile's action is one word, recorded as tile.<id>.<action>).
+ *
+ * Modified 2026-11-08 (one tab or every tab): the grip is shown with
+ *   `perTab` when "Show on" is the tab where it was opened (`o.perTab`);
+ *   Tilefold moves the docked page with it.
  */
 import { gripImages } from "./grip.js";
 import { contentOf, createDrag, positionFor, readPosition } from "./position.js";
@@ -112,7 +116,7 @@ export function createCard(tf, o) {
     const scene = items(s);
     const ids = scene.map((i) => i.id).join();
     if (ids === drawnIds) await tf.overlay.update({ items: scene });
-    else await tf.overlay.show({ items: scene });
+    else await tf.overlay.show({ items: scene, perTab: o.perTab?.() === true });
     drawnIds = ids;
     dockPage(s.page);
   };
@@ -140,7 +144,7 @@ export function createCard(tf, o) {
     async show() {
       const s = await spots();
       const scene = items(s);
-      await tf.overlay.show({ items: scene });
+      await tf.overlay.show({ items: scene, perTab: o.perTab?.() === true });
       shown = true;
       drawnIds = scene.map((i) => i.id).join();
       lastPage = JSON.stringify(s.page);
