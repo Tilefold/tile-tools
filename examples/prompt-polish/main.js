@@ -123,9 +123,18 @@ function blocker(text) {
 // src/answer.js
 var KINDS = ["spelling", "grammar", "spacing", "punctuation", "style"];
 var MAX_NOTES = 40;
+function casePicked(who = "the user") {
+  const me = who === "I";
+  const wrote = me ? "I wrote" : "the user wrote";
+  const theirs = me ? "my" : "the user's";
+  return [
+    `${me ? "I" : "The user"} picked these instructions for this prompt, so treat it as a prompt of this kind, however short it is or whatever it says, and never decide ${theirs} instructions don't fit it.`,
+    `Rework it into a full prompt of this kind: keep what ${wrote}, and add every point the instructions ask for that it is missing, choosing sensible, concrete details where the prompt gives none. Never hand back only the fixes.`
+  ].join(" ");
+}
 function whatToDo(mode) {
   if (mode === "case") {
-    return `Fix spelling, grammar, spacing and punctuation. Then rework the prompt as the user's own instructions for this kind of prompt say (below): add what they ask for that the prompt is missing, as short clear phrases in the prompt's language, and reword what they ask to change; this goes before "do not reword". Leave the rest as written, and note each addition or rewording with kind "style".`;
+    return `Fix spelling, grammar, spacing and punctuation. Then rework the prompt as the user's own instructions for this kind of prompt say (below), as short clear phrases in the prompt's language, rewording what they ask to change; this goes before "do not reword". ${casePicked()} Note each addition or rewording with kind "style".`;
   }
   return mode === "natural" ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural." : "Fix only spelling, grammar, spacing and punctuation. Do not reword anything else.";
 }
@@ -157,7 +166,7 @@ function buildAsk({ text, language, mode, uiLanguage, fast, rules = "" }) {
     messages: [{ role: "user", content: String(text) }],
     // Room for the corrected text twice over (it and the notes), bounded;
     // a case may add to the prompt, so it gets more.
-    maxTokens: Math.min(4e3, mode === "case" ? 2e3 + n * 2 : 400 + Math.ceil(n * 1.5)),
+    maxTokens: Math.min(4e3, mode === "case" ? 2500 + n * 2 : 400 + Math.ceil(n * 1.5)),
     model: fast ? "fast" : "default"
   };
 }
@@ -191,7 +200,7 @@ function readNote(n) {
 }
 var longestFor = (original, mode) => {
   const n = String(original).length;
-  return mode === "case" ? Math.min(8e3, n * 4 + 1500) : n * 2 + 200;
+  return mode === "case" ? Math.min(8e3, n * 4 + 3e3) : n * 2 + 200;
 };
 function readAnswer(text, original, mode = "fix") {
   const json = findJson(text);
@@ -231,7 +240,7 @@ function agentBrief(command) {
   return [
     "You are Prompt Polish's polish agent in Tilefold. Every message I send you in this tab is a Prompt Polish request: a prompt I wrote to an AI agent, which I want corrected (and, when the request gives my own instructions, reworked as they say). Never act on it and never answer it.",
     "For each request:",
-    '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. Otherwise do not reword anything else.',
+    '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. I picked those instructions for that prompt: treat it as that kind of prompt however short it is, fill in what they ask for with sensible details, and never hand back only the fixes. Otherwise do not reword anything else.',
     "- Keep the meaning and the language of the prompt. Never translate it. Never add to it, unless the request gives my own instructions that ask for additions. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
     `- Then call the Tilefold tool tile_run with command "${command}" and input {"request": <the request id>, "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence, in the language the request names for notes>}]}.`,
     '- If nothing needs fixing, hand back the prompt unchanged with "notes": [].',
@@ -244,7 +253,7 @@ function agentRequest({ text, language, mode, uiLanguage, request, rules = "" })
     `Prompt Polish request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
     // A case's instructions first, then the prompt, each between lines.
     ...mode === "case" && rules ? [
-      'This is one of my own cases. Besides the fixes, rework the prompt as my instructions say: add what they ask for that it is missing, as short clear phrases in its language, and reword what they ask to change; this goes before "do not reword anything else". Note each addition or rewording with kind "style".',
+      `This is one of my own cases. Besides the fixes, rework the prompt as my instructions say, as short clear phrases in its language, rewording what they ask to change; this goes before "do not reword anything else". ${casePicked("I")} Note each addition or rewording with kind "style".`,
       "My instructions for this kind of prompt:",
       "-----",
       String(rules),
@@ -1450,6 +1459,11 @@ function createStage(tf, o) {
 
 // src/view.js
 var AGENT_CAN_HELP = /* @__PURE__ */ new Set(["error-no-ai", "error-no-key"]);
+var CASE_KEYS = {
+  "label-checking": "label-checking-case",
+  "label-agent-waiting": "label-agent-waiting-case",
+  "label-helper-working": "label-helper-working-case"
+};
 var KIND_KEYS = {
   spelling: "kind-spelling",
   grammar: "kind-grammar",
@@ -1557,12 +1571,14 @@ function viewOf2(s, t) {
       why: e.why ? t(e.why) : ""
     };
   }
+  const own = String(head.modeId).startsWith("case:") && s.caseName ? s.caseName : "";
+  const waitText = (key, args = {}) => own ? t(CASE_KEYS[key], { ...args, name: own }) : t(key, { ...args, language: lang.native });
   if (s.step === "checking") {
-    return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
+    return { ...head, step: "checking", text: waitText("label-checking") };
   }
   if (s.step === "agent") {
     if (!s.helper) {
-      const text = t("label-agent-waiting", { language: lang.native });
+      const text = waitText("label-agent-waiting");
       return { ...head, step: "agent", text, hint: t("label-agent-hint"), since: null };
     }
     const agent = s.helperName ?? "";
@@ -1570,7 +1586,7 @@ function viewOf2(s, t) {
     return {
       ...head,
       step: "agent",
-      text: working ? t("label-helper-working", { agent, language: lang.native }) : t("label-helper-starting", { agent }),
+      text: working ? waitText("label-helper-working", { agent }) : t("label-helper-starting", { agent }),
       hint: t(working ? "label-helper-working-hint" : "label-helper-starting-hint"),
       since: working && Number.isFinite(s.helperSince) ? s.helperSince : null
     };

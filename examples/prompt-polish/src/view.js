@@ -31,12 +31,21 @@
  *   `case` step: the form to add or edit a case, over whatever was there.
  * Modified 2026-11-07 (pick before checking): `choose` on the write step,
  *   and the menu's heading for it.
+ * Modified 2026-11-07 (case rework): while a case is picked, checking and
+ *   waiting name the case, not the language.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
 
 /** Problems the agent in the pane can get around: no Claude, or no key for it. */
 const AGENT_CAN_HELP = new Set(["error-no-ai", "error-no-key"]);
+
+/** Each waiting text, as it reads while one of the user's own cases is picked. */
+const CASE_KEYS = {
+  "label-checking": "label-checking-case",
+  "label-agent-waiting": "label-agent-waiting-case",
+  "label-helper-working": "label-helper-working-case",
+};
 
 /** The label of each kind of fix. */
 const KIND_KEYS = {
@@ -163,12 +172,16 @@ export function viewOf(s, t) {
       why: e.why ? t(e.why) : "",
     };
   }
+  // While a case is picked, the waiting text names it rather than the language.
+  const own = String(head.modeId).startsWith("case:") && s.caseName ? s.caseName : "";
+  const waitText = (key, args = {}) =>
+    own ? t(CASE_KEYS[key], { ...args, name: own }) : t(key, { ...args, language: lang.native });
   if (s.step === "checking") {
-    return { ...head, step: "checking", text: t("label-checking", { language: lang.native }) };
+    return { ...head, step: "checking", text: waitText("label-checking") };
   }
   if (s.step === "agent") {
     if (!s.helper) {
-      const text = t("label-agent-waiting", { language: lang.native });
+      const text = waitText("label-agent-waiting");
       return { ...head, step: "agent", text, hint: t("label-agent-hint"), since: null };
     }
     // The polish agent: getting ready (it may be asking the user something
@@ -179,7 +192,7 @@ export function viewOf(s, t) {
       ...head,
       step: "agent",
       text: working
-        ? t("label-helper-working", { agent, language: lang.native })
+        ? waitText("label-helper-working", { agent })
         : t("label-helper-starting", { agent }),
       hint: t(working ? "label-helper-working-hint" : "label-helper-starting-hint"),
       since: working && Number.isFinite(s.helperSince) ? s.helperSince : null,

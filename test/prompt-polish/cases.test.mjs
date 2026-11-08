@@ -16,7 +16,12 @@
  * case's instructions go to Claude and to the polish agent fenced off as
  * rules, with the "never add to it" rule relaxed only for a case, whose
  * answer may also be longer.
+ *
+ * Modified 2026-11-07 (case rework): a picked case means the prompt is that
+ *   kind, reworked in full however short; waiting names the case.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   MAX_CASES,
@@ -30,11 +35,18 @@ import {
 } from "../../examples/prompt-polish/src/cases.js";
 import {
   buildAsk,
+  casePicked,
   longestFor,
   readAnswer,
   systemPrompt,
 } from "../../examples/prompt-polish/src/answer.js";
-import { agentQuestion, agentRequest } from "../../examples/prompt-polish/src/agentCheck.js";
+import {
+  agentBrief,
+  agentQuestion,
+  agentRequest,
+} from "../../examples/prompt-polish/src/agentCheck.js";
+import { languageOf } from "../../examples/prompt-polish/src/languages.js";
+import { viewOf } from "../../examples/prompt-polish/src/view.js";
 
 const RLO = String.fromCharCode(0x202e);
 const BEL = String.fromCharCode(7);
@@ -127,7 +139,7 @@ describe("a case's instructions in the request", () => {
     const r = agentRequest({ ...base, mode: "case", rules: VIDEO.rules, request: "abcdefghij" });
     expect(r).toMatch(/fix mistakes and follow my instructions\./);
     // It says plainly that a case may add to the prompt.
-    expect(r).toContain("add what they ask for that it is missing");
+    expect(r).toContain("add every point the instructions ask for that it is missing");
     expect(r.indexOf(VIDEO.rules)).toBeLessThan(r.indexOf("make a video"));
     const q = agentQuestion({
       ...base,
@@ -142,5 +154,70 @@ describe("a case's instructions in the request", () => {
     expect(agentRequest({ ...base, mode: "case", rules: "", request: "abcdefghij" })).toMatch(
       /fix mistakes only/,
     );
+  });
+});
+
+describe("a picked case means the prompt is that kind", () => {
+  it("is said to Claude and to the polish agent, never for the built-in modes", () => {
+    const own = systemPrompt("English", "case", "English", VIDEO.rules);
+    expect(own).toContain(casePicked());
+    expect(own).toContain("however short it is");
+    expect(own).toContain("Never hand back only the fixes.");
+    expect(systemPrompt("English", "fix", "English")).not.toContain("however short");
+    const base = { text: "for Tilefold?", language: "English", uiLanguage: "English" };
+    const r = agentRequest({ ...base, mode: "case", rules: VIDEO.rules, request: "abcdefghij" });
+    expect(r).toContain(casePicked("I"));
+    expect(r).toContain("never decide my instructions don't fit it");
+    expect(agentRequest({ ...base, mode: "fix", request: "abcdefghij" })).not.toContain(
+      "however short",
+    );
+    expect(agentBrief("example.prompt-polish.hand-back")).toContain(
+      "never hand back only the fixes",
+    );
+  });
+
+  it("gives a short prompt room for a full rework", () => {
+    const reworked = JSON.stringify({ corrected: "x".repeat(2500), notes: [] });
+    expect(readAnswer(reworked, "for Tilefold?", "case").ok).toBe(true);
+  });
+});
+
+describe("waiting on a case", () => {
+  const ftl = readFileSync(
+    fileURLToPath(new URL("../../examples/prompt-polish/locales/en/tile.ftl", import.meta.url)),
+    "utf8",
+  );
+  const english = new Map([...ftl.matchAll(/^([a-z][\w-]*) = (.*)$/gm)].map((m) => [m[1], m[2]]));
+  const t = (key, args = {}) =>
+    english.get(key).replace(/\{ \$(\w+) \}/g, (_, n) => String(args[n] ?? ""));
+  const at = (s) =>
+    viewOf(
+      {
+        pane: "p1",
+        draft: "for Tilefold?",
+        parts: [],
+        notes: [],
+        rejected: new Set(),
+        view: "bottom",
+        mode: "fix",
+        language: languageOf("en", "en"),
+        ...s,
+      },
+      t,
+    ).text;
+  const CASE = { modeId: "case:Motion", caseName: "Motion" };
+
+  it("names the case, not the language, while it checks or waits", () => {
+    expect(at({ step: "checking", ...CASE })).toBe("Reworking your prompt as “Motion”…");
+    expect(at({ step: "agent", ...CASE })).toBe(
+      "Asked the agent to rework your prompt as “Motion”…",
+    );
+    expect(
+      at({ step: "agent", helper: true, helperStage: "working", helperName: "Polish", ...CASE }),
+    ).toBe("Polish is reworking your prompt as “Motion”…");
+  });
+
+  it("names the language for the built-in modes", () => {
+    expect(at({ step: "checking" })).toBe("Checking your English…");
   });
 });

@@ -22,6 +22,9 @@
  *   instructions for that kind of prompt, fenced off as rules
  *   (`whatToDo`, `caseRules`). A case may add to the prompt, so its answer
  *   may be longer (`longestFor`) and Claude gets room to write it.
+ * Modified 2026-11-07 (case rework): a picked case means the prompt is
+ *   that kind (`casePicked`): it is reworked in full, however short, with
+ *   more room for the answer.
  */
 import { keepsProtected } from "./polish.js";
 
@@ -31,10 +34,25 @@ export const KINDS = ["spelling", "grammar", "spacing", "punctuation", "style"];
 /** The most notes kept from one answer. */
 const MAX_NOTES = 40;
 
+/**
+ * A case was picked for this prompt: it is that kind of prompt, however
+ * short, so the checker reworks it in full and never judges the case not
+ * to fit (`who` is "the user" for Claude, "I" for the polish agent).
+ */
+export function casePicked(who = "the user") {
+  const me = who === "I";
+  const wrote = me ? "I wrote" : "the user wrote";
+  const theirs = me ? "my" : "the user's";
+  return [
+    `${me ? "I" : "The user"} picked these instructions for this prompt, so treat it as a prompt of this kind, however short it is or whatever it says, and never decide ${theirs} instructions don't fit it.`,
+    `Rework it into a full prompt of this kind: keep what ${wrote}, and add every point the instructions ask for that it is missing, choosing sensible, concrete details where the prompt gives none. Never hand back only the fixes.`,
+  ].join(" ");
+}
+
 /** What to do, for each mode: the built-in two, or one of the user's own cases. */
 export function whatToDo(mode) {
   if (mode === "case") {
-    return 'Fix spelling, grammar, spacing and punctuation. Then rework the prompt as the user\'s own instructions for this kind of prompt say (below): add what they ask for that the prompt is missing, as short clear phrases in the prompt\'s language, and reword what they ask to change; this goes before "do not reword". Leave the rest as written, and note each addition or rewording with kind "style".';
+    return `Fix spelling, grammar, spacing and punctuation. Then rework the prompt as the user's own instructions for this kind of prompt say (below), as short clear phrases in the prompt's language, rewording what they ask to change; this goes before "do not reword". ${casePicked()} Note each addition or rewording with kind "style".`;
   }
   return mode === "natural"
     ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural."
@@ -80,7 +98,7 @@ export function buildAsk({ text, language, mode, uiLanguage, fast, rules = "" })
     messages: [{ role: "user", content: String(text) }],
     // Room for the corrected text twice over (it and the notes), bounded;
     // a case may add to the prompt, so it gets more.
-    maxTokens: Math.min(4000, mode === "case" ? 2000 + n * 2 : 400 + Math.ceil(n * 1.5)),
+    maxTokens: Math.min(4000, mode === "case" ? 2500 + n * 2 : 400 + Math.ceil(n * 1.5)),
     model: fast ? "fast" : "default",
   };
 }
@@ -139,7 +157,7 @@ function readNote(n) {
 /** The longest corrected prompt taken for `original`: a case may add to it. */
 export const longestFor = (original, mode) => {
   const n = String(original).length;
-  return mode === "case" ? Math.min(8000, n * 4 + 1500) : n * 2 + 200;
+  return mode === "case" ? Math.min(8000, n * 4 + 3000) : n * 2 + 200;
 };
 
 export function readAnswer(text, original, mode = "fix") {
