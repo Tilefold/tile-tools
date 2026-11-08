@@ -55,6 +55,7 @@ Each entry is either a plain string, `"window.curtain"`, or a one-key object wit
 | `window.annotate` | Mark text on the user's panes and in the document viewer with arrows, boxes and notes (`tf.annotate`; Tilefold 0.1.23) | medium |
 | `agent.ask` | Bring a question to the user's AI agent on Tilefold's ask card, which the user sends (`tf.agent.ask`; Tilefold 0.1.23) | medium |
 | `agent.helper` | Have an AI agent of its own, in a tab Tilefold opens for it, and send it requests without the ask card (`tf.agent.helper`; Tilefold 0.1.27) | high |
+| `agent.define` | Offer the user an AI coding agent to add to their own agents, which they confirm first (`tf.agent.define`; Tilefold 0.1.27) | high |
 | `input.actions` | Add up to 2 buttons to the box where the user writes to agents, and read what they wrote there when they click one; offer new text, which Tilefold shows highlighted with Undo and never sends (`tf.input`; Tilefold 0.1.27) | high |
 | `sound.play` | Play short sounds (`tf.sound.play`) | low |
 | `net:<host>` | Send requests to that host with `tf.net.fetch` | shown per host |

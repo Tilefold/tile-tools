@@ -13,6 +13,7 @@ npx @tilefold/tile-tools build
 
 | Example | What it is | Needs Tilefold |
 |---|---|---|
+| `agent-pack` | Offers AI coding agents Tilefold doesn't know yet (Grok Build, Kimi CLI, Mistral Vibe…) to add to your own agents, each confirmed first | 0.1.27 |
 | `hello` | The smallest useful tile: a setting, a command and translated messages | any |
 | `break-timer` | A break reminder written in TypeScript that survives a restart | any |
 | `with-npm-package` | A tile that bundles an npm package | any |

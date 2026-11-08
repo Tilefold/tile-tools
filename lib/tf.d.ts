@@ -624,12 +624,36 @@ export interface Tf {
      * run this tile's commands without asking, to hand its work back.
      */
     helper?(request: {
-      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode";
+      /** A built-in agent, or the id of one of the user's own agents (Tilefold 0.1.27). */
+      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
       question: string;
       about?: string;
     }): Promise<
       | { sent: true; opened: boolean }
       | { sent: false; why: "busy" | "you-are-typing" | "not-started"; opened: boolean }
+    >;
+    /**
+     * Needs agent.define (Tilefold 0.1.27; missing before). Offers the user
+     * an AI coding agent to add to their own agents: Tilefold asks them
+     * first, showing your tile, the name and the exact command. `command`
+     * is the program and its options, separated by spaces, using only
+     * letters, digits and `. _ , : = @ % + / ~ -` (a shell never treats
+     * them as special); anything else fails with TypeError. `clear` is the
+     * command that clears its context ("/clear" by default, "/new", or ""
+     * for none). One question at a time (BusyError), three a minute.
+     * `exists`: the same command is defined already (its `id`); `full`:
+     * the user has 20 agents of their own; `refused`: the settings didn't
+     * keep it.
+     */
+    define?(agent: {
+      name: string;
+      command: string;
+      title?: string;
+      clear?: "/clear" | "/new" | "";
+    }): Promise<
+      | { added: true; id: string }
+      | { added: false; why: "declined" | "full" | "refused" }
+      | { added: false; why: "exists"; id: string }
     >;
   };
   /**

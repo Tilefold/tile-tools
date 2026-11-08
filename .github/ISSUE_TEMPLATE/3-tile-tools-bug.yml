@@ -25,6 +25,7 @@ body:
         - "tilefold-tile command (build, --check, validate, --watch)"
         - "tf types (@tilefold/tile-tools/tf)"
         - "Documentation"
+        - "Example: agent-pack"
         - "Example: break-timer"
         - "Example: brickfold"
         - "Example: whiteboard"

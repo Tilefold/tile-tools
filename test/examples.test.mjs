@@ -88,6 +88,7 @@ afterEach(() => vi.useRealTimers());
 describe("examples", () => {
   it("are there", () => {
     expect(folders).toEqual([
+      "agent-pack",
       "break-timer",
       "brickfold",
       "folder-tree",
