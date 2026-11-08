@@ -7,8 +7,9 @@
  *
  * The header's chip opens the menu of what to fix, drawn in the card's
  * body (so the card grows to fit it, never cut off): the two built-in
- * modes and the user's own cases, the one in use checked; then "Edit
- * “name”…" for a case in use and "Add your own…", or, where this Tilefold
+ * modes and the user's own cases, the one in use checked; then, with any
+ * cases, "Edit “name”…" for the case in use, or "Edit…" that first asks
+ * which case, and "Add your own…", or, where this Tilefold
  * can't save cases from the card, where to add them in Settings. The case
  * form has the case's name, what to do for that kind of prompt, why the
  * last save didn't go, and Save, Cancel and (editing) Remove. What the
@@ -17,6 +18,8 @@
  *
  * Modified 2026-11-07 (pick before checking): asked before a check, the
  *   menu says so above its entries.
+ * Modified 2026-11-08 (edit any case): Edit always shows above Add while
+ *   there are cases; the question above the menu is a quiet note.
  */
 
 /**
@@ -36,27 +39,58 @@ export function drawModeMenu(v, L, o) {
     b.setAttribute("role", checked === undefined ? "menuitem" : "menuitemradio");
     if (checked !== undefined) b.setAttribute("aria-checked", String(checked));
     b.dir = "auto";
-    b.addEventListener("click", () => o.pick(message));
+    if (message) b.addEventListener("click", () => o.pick(message));
     return b;
   };
   for (const m of v.modes ?? [])
     list.append(item(m.label, { type: "mode", to: m.id }, m.id === v.modeId));
   list.append(o.el("hr", "menu-line"));
   if (v.canEditCases) {
+    const names = (v.modes ?? []).filter((m) => String(m.id).startsWith("case:"));
     if (String(v.modeId).startsWith("case:")) {
       const name = String(v.modeId).slice(5);
       list.append(item(L.editCase.replace("{name}", name), { type: "case-edit", was: name }));
+    } else if (names.length) {
+      const edit = item(L.editCases, null);
+      edit.addEventListener("click", () => drawEditWhich(v, L, o, names));
+      list.append(edit);
     }
     list.append(item(L.addCase, { type: "case-edit", was: null }));
   } else {
     list.append(o.el("p", "muted", L.casesInSettings));
   }
   // Asked before the check (a prompt from the agent input box): say why it shows.
-  const ask = v.step === "write" && v.choose ? [o.el("b", "case-title", L.modeChoose)] : [];
+  const ask = v.step === "write" && v.choose ? [o.el("p", "menu-ask", L.modeChoose)] : [];
   o.body.replaceChildren(...ask, list);
   o.foot.replaceChildren(o.button("btn ghost", L.cancel, null));
   o.foot.firstChild.addEventListener("click", o.close);
   list.querySelector("[aria-checked='true'], button")?.focus();
+}
+
+/**
+ * Asks which of the user's cases to edit (no case in use): one entry per
+ * case, each opening its form; Cancel goes back to the menu.
+ *
+ * @param {any} v the view
+ * @param {any} L the labels
+ * @param {any} o as for drawModeMenu
+ * @param {{ id: string, label: string }[]} names the cases on the menu
+ */
+function drawEditWhich(v, L, o, names) {
+  const list = o.el("div", "menu");
+  list.setAttribute("role", "menu");
+  list.setAttribute("aria-label", L.editWhich);
+  for (const m of names) {
+    const b = o.button("menu-item", m.label, null);
+    b.setAttribute("role", "menuitem");
+    b.dir = "auto";
+    b.addEventListener("click", () => o.pick({ type: "case-edit", was: String(m.id).slice(5) }));
+    list.append(b);
+  }
+  o.body.replaceChildren(o.el("p", "menu-ask", L.editWhich), list);
+  o.foot.replaceChildren(o.button("btn ghost", L.cancel, null));
+  o.foot.firstChild.addEventListener("click", () => drawModeMenu(v, L, o));
+  list.querySelector("button")?.focus();
 }
 
 /**

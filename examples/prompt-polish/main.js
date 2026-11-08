@@ -1538,6 +1538,9 @@ function setupOf(t) {
       modeChoose: t("label-mode-choose"),
       addCase: t("label-add-case"),
       editCase: t("label-edit-case", { name: "{name}" }),
+      // No case in use: Edit… first asks which case.
+      editCases: t("label-edit-cases"),
+      editWhich: t("label-edit-which"),
       casesInSettings: t("label-cases-in-settings"),
       caseNew: t("label-case-new"),
       caseEdit: t("label-case-edit"),

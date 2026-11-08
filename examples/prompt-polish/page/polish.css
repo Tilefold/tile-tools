@@ -16,6 +16,8 @@
  *   ✕ / ↺ buttons, and an undone addition stays in sight, struck.
  * Modified 2026-11-08 (menu divider): the line between the cases and
  *   Edit / Add uses the stronger border, with more room around it.
+ * Modified 2026-11-08 (quiet question): the note above the menu is small,
+ *   italic and muted.
  */
 
 :root {
@@ -518,6 +520,13 @@ textarea {
   inset-inline-start: 10px;
   color: var(--accent);
   font-weight: 700;
+}
+/* The question above the menu: a quiet note, not a heading. */
+.menu-ask {
+  margin: 0 4px 6px;
+  font-size: 0.85em;
+  font-style: italic;
+  color: var(--muted);
 }
 /* Between the cases and Edit / Add: the stronger line, so it shows over any theme. */
 .menu-line {

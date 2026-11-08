@@ -36,6 +36,7 @@
  *   whose changes are undone with their own buttons.
  * Modified 2026-11-08 (apply a case): `apply` on the write step, the case
  *   its button applies, and that button's label.
+ * Modified 2026-11-08 (edit any case): the labels to pick a case to edit.
  */
 import { isUnspaced } from "./languages.js";
 import { MAX_CHARS, changeCount } from "./polish.js";
@@ -113,6 +114,9 @@ export function setupOf(t) {
       modeChoose: t("label-mode-choose"),
       addCase: t("label-add-case"),
       editCase: t("label-edit-case", { name: "{name}" }),
+      // No case in use: Edit… first asks which case.
+      editCases: t("label-edit-cases"),
+      editWhich: t("label-edit-which"),
       casesInSettings: t("label-cases-in-settings"),
       caseNew: t("label-case-new"),
       caseEdit: t("label-case-edit"),

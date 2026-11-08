@@ -23,6 +23,8 @@
  *   ✕ and ↺ buttons; a click on the text does nothing there.
  * Modified 2026-11-08 (apply a case): the write step's Apply button.
  * Modified 2026-11-08 (menu divider): a line between the cases and Edit / Add.
+ * Modified 2026-11-08 (edit any case): Edit… above Add with no case in use,
+ *   asking which case first.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -199,7 +201,7 @@ describe("what to fix, asked before the check", () => {
   it("shows the menu first, saying the pick starts the check", () => {
     const p = page();
     ready(p, ASKED);
-    expect(p.$("body").querySelector(".case-title").textContent).toBe(t("label-mode-choose"));
+    expect(p.$("body").querySelector(".menu-ask").textContent).toBe(t("label-mode-choose"));
     expect(items(p).map((b) => b.textContent)).toContain("Video editing");
     expect(p.$("draft")).toBeNull();
     p.click(items(p)[2]);
@@ -237,6 +239,38 @@ describe("the menu's divider", () => {
       t("label-edit-case", { name: "Video editing" }),
       t("label-add-case"),
     ]);
+  });
+});
+
+describe("editing a case with none in use", () => {
+  it("shows Edit… right above Add, asking which case first", () => {
+    const p = page();
+    ready(p, { cases: ["Video editing", "Email"], canEditCases: true });
+    p.click(p.$("chip"));
+    const tail = items(p).slice(-2);
+    expect(tail.map((b) => b.textContent)).toEqual([t("label-edit-cases"), t("label-add-case")]);
+    p.click(tail[0]);
+    expect(p.posted.some((m) => m.type === "case-edit")).toBe(false);
+    expect(p.$("body").querySelector(".menu-ask").textContent).toBe(t("label-edit-which"));
+    expect(items(p).map((b) => b.textContent)).toEqual(["Video editing", "Email"]);
+    p.click(items(p)[1]);
+    expect(p.posted.at(-1)).toEqual({ pane: "p1", type: "case-edit", was: "Email" });
+  });
+
+  it("goes back to the menu from Cancel", () => {
+    const p = page();
+    ready(p, { cases: ["Video editing"], canEditCases: true });
+    p.click(p.$("chip"));
+    p.click(items(p).at(-2));
+    p.click(p.$("foot").querySelector("button"));
+    expect(items(p).at(-1).textContent).toBe(t("label-add-case"));
+  });
+
+  it("isn't offered without cases", () => {
+    const p = page();
+    ready(p, { cases: [], canEditCases: true });
+    p.click(p.$("chip"));
+    expect(items(p).map((b) => b.textContent)).not.toContain(t("label-edit-cases"));
   });
 });
 

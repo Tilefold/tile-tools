@@ -90,26 +90,47 @@
       b.setAttribute("role", checked === void 0 ? "menuitem" : "menuitemradio");
       if (checked !== void 0) b.setAttribute("aria-checked", String(checked));
       b.dir = "auto";
-      b.addEventListener("click", () => o.pick(message));
+      if (message) b.addEventListener("click", () => o.pick(message));
       return b;
     };
     for (const m of v.modes ?? [])
       list.append(item(m.label, { type: "mode", to: m.id }, m.id === v.modeId));
     list.append(o.el("hr", "menu-line"));
     if (v.canEditCases) {
+      const names = (v.modes ?? []).filter((m) => String(m.id).startsWith("case:"));
       if (String(v.modeId).startsWith("case:")) {
         const name = String(v.modeId).slice(5);
         list.append(item(L2.editCase.replace("{name}", name), { type: "case-edit", was: name }));
+      } else if (names.length) {
+        const edit = item(L2.editCases, null);
+        edit.addEventListener("click", () => drawEditWhich(v, L2, o, names));
+        list.append(edit);
       }
       list.append(item(L2.addCase, { type: "case-edit", was: null }));
     } else {
       list.append(o.el("p", "muted", L2.casesInSettings));
     }
-    const ask = v.step === "write" && v.choose ? [o.el("b", "case-title", L2.modeChoose)] : [];
+    const ask = v.step === "write" && v.choose ? [o.el("p", "menu-ask", L2.modeChoose)] : [];
     o.body.replaceChildren(...ask, list);
     o.foot.replaceChildren(o.button("btn ghost", L2.cancel, null));
     o.foot.firstChild.addEventListener("click", o.close);
     list.querySelector("[aria-checked='true'], button")?.focus();
+  }
+  function drawEditWhich(v, L2, o, names) {
+    const list = o.el("div", "menu");
+    list.setAttribute("role", "menu");
+    list.setAttribute("aria-label", L2.editWhich);
+    for (const m of names) {
+      const b = o.button("menu-item", m.label, null);
+      b.setAttribute("role", "menuitem");
+      b.dir = "auto";
+      b.addEventListener("click", () => o.pick({ type: "case-edit", was: String(m.id).slice(5) }));
+      list.append(b);
+    }
+    o.body.replaceChildren(o.el("p", "menu-ask", L2.editWhich), list);
+    o.foot.replaceChildren(o.button("btn ghost", L2.cancel, null));
+    o.foot.firstChild.addEventListener("click", () => drawModeMenu(v, L2, o));
+    list.querySelector("button")?.focus();
   }
   function drawCase(v, L2, o) {
     const old = o.body.querySelector("form.case");
