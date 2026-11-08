@@ -28,3 +28,6 @@ error-no-browser = Dieses Tilefold kann für Kacheln noch keinen Browser öffnen
 error-refused = Die Webansicht konnte das nicht öffnen: { $reason }
 error-failed = Beim Vorschaufenster ist etwas schiefgelaufen. Versuch es noch einmal.
 error-one-page = Dieses Tilefold zeigt nur eine Seite auf einmal, daher hat Web View nur die erste Adresse geöffnet. Aktualisiere Tilefold, um alle zu öffnen.
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

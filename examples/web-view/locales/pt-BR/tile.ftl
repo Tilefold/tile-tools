@@ -28,3 +28,6 @@ error-no-browser = Este Tilefold ainda não pode abrir um navegador para tiles. 
 error-refused = A prévia web não conseguiu abrir isso: { $reason }
 error-failed = Algo deu errado com a janela de prévia. Tente de novo.
 error-one-page = Este Tilefold mostra uma página por vez, então o Web View abriu só o primeiro endereço. Atualize o Tilefold para abrir todos.
+setting-show-on = Mostrar em
+setting-show-on-tab = A aba onde foi aberto
+setting-show-on-all = Todas as abas

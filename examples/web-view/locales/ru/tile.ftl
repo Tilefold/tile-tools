@@ -28,3 +28,6 @@ error-no-browser = Этот Tilefold пока не может открывать
 error-refused = Веб-просмотр не смог это открыть: { $reason }
 error-failed = С окном просмотра что-то пошло не так. Попробуйте ещё раз.
 error-one-page = Этот Tilefold показывает только одну страницу за раз, поэтому Web View открыл лишь первый адрес. Обновите Tilefold, чтобы открыть все.
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

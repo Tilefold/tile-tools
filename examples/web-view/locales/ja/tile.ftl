@@ -28,3 +28,6 @@ error-no-browser = この Tilefold はまだタイル用のブラウザを開け
 error-refused = Web ビューで開けませんでした: { $reason }
 error-failed = プレビューウィンドウで問題が起きました。もう一度お試しください。
 error-one-page = この Tilefold は一度に 1 ページしか表示できないため、Web View は最初のアドレスだけを開きました。すべて開くには Tilefold を更新してください。
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

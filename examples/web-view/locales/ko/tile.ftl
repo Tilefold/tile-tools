@@ -28,3 +28,6 @@ error-no-browser = 이 Tilefold는 아직 타일용 브라우저를 열 수 없�
 error-refused = 웹 보기에서 열 수 없습니다: { $reason }
 error-failed = 미리보기 창에 문제가 생겼습니다. 다시 시도하세요.
 error-one-page = 이 Tilefold는 한 번에 한 페이지만 보여 주므로 Web View가 첫 번째 주소만 열었습니다. 모두 열려면 Tilefold를 업데이트하세요.
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

@@ -43,6 +43,8 @@
  * panel the user closed stays closed (across restarts too) until they run
  * Open again or turn the panel setting back on.
  *
+ * Modified 2026-11-08 (one tab or every tab): the panel's "Show on".
+ *
  * Last updated by: Tilefold
  *
  * Build:  npx @tilefold/tile-tools build
@@ -80,6 +82,8 @@ export default (tf) => {
       title: tf.t("panel-title"),
       subtitle: tf.t("panel-subtitle"),
       rows: panelRows(recent),
+      // "Show on" the tab where it was opened: the panel keeps to that tab.
+      perTab: tf.settings.get("showOn") === "tab",
     });
   }
 
@@ -99,6 +103,12 @@ export default (tf) => {
   tf.setting("address", "5173", tf.t("setting-address"));
   tf.setting("docked", true, tf.t("setting-docked"));
   tf.setting("panel", true, tf.t("setting-panel"));
+  tf.setting("showOn", "all", tf.t("setting-show-on"), {
+    choices: [
+      { value: "all", label: tf.t("setting-show-on-all") },
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+    ],
+  });
 
   /** Opens `url` in page `b` where the settings say (beside the panes, or a window). */
   const open = (b, url) => b.open(url, { docked: tf.settings.get("docked") === true });
@@ -211,6 +221,11 @@ export default (tf) => {
 
   // Turning the panel setting back on undoes the user's close.
   tf.on("setting.changed", async ({ key }) => {
+    if (key === "showOn") {
+      // Every tab again: the panel is shown afresh, without its tab.
+      if (tf.panel) await tf.panel.hide();
+      return showPanel();
+    }
     if (key !== "panel") return;
     if (tf.settings.get("panel")) await setClosed(false);
     await showPanel();
