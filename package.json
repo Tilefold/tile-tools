@@ -1,6 +1,6 @@
 {
   "name": "@tilefold/tile-tools",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Build a Tilefold tile from several source files into the single main.js Tilefold loads",
   "homepage": "https://github.com/Tilefold/tile-tools#readme",
   "repository": {
