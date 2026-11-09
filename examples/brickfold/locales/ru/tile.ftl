@@ -37,3 +37,6 @@ button-pause = Пауза или продолжение
 button-left = Влево
 button-right = Вправо
 button-launch = Запустить мяч
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

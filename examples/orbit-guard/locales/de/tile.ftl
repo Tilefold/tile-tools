@@ -37,3 +37,6 @@ button-pause = Pausieren oder fortsetzen
 button-left = Nach links
 button-right = Nach rechts
 button-fire = Feuern
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

@@ -37,3 +37,6 @@ button-pause = 일시 정지 또는 계속
 button-left = 왼쪽으로 이동
 button-right = 오른쪽으로 이동
 button-fire = 발사
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

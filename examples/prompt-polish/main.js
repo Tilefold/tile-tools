@@ -1,0 +1,2434 @@
+/**
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Promptsmith — corrects the prompts you write to AI agents
+ *
+ * Write a prompt in the language you choose; Claude fixes its spelling,
+ * grammar, spacing and punctuation (or also makes it read naturally),
+ * with your own Anthropic key. You see every change with a reason, keep
+ * your own words wherever you like, and send the result to the agent in
+ * your pane from Tilefold's ask card. Code, file paths and links are never
+ * changed. The page shows on a card over the agent's pane, behind a button
+ * in its corner, or in the dock beside the panes.
+ *
+ * Needs Tilefold 0.1.23 (`tf.agent.ask`); over the pane from 0.1.11, beside
+ * the panes from 0.1.20.
+ *
+ * Built into main.js with `npx @tilefold/tile-tools build`.
+ */
+// Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
+// src/languages.js
+var LANGUAGES = [
+  { code: "ar", name: "Arabic", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
+  { code: "de", name: "German", native: "Deutsch" },
+  { code: "en", name: "English", native: "English" },
+  { code: "es", name: "Spanish", native: "Espa\xF1ol" },
+  { code: "fr", name: "French", native: "Fran\xE7ais" },
+  { code: "hi", name: "Hindi", native: "\u0939\u093F\u0928\u094D\u0926\u0940" },
+  { code: "it", name: "Italian", native: "Italiano" },
+  { code: "ja", name: "Japanese", native: "\u65E5\u672C\u8A9E" },
+  { code: "ko", name: "Korean", native: "\uD55C\uAD6D\uC5B4" },
+  { code: "pt-BR", name: "Brazilian Portuguese", native: "Portugu\xEAs (Brasil)" },
+  { code: "ru", name: "Russian", native: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439" },
+  { code: "zh-CN", name: "Simplified Chinese", native: "\u7B80\u4F53\u4E2D\u6587" }
+];
+var UNSPACED = /* @__PURE__ */ new Set(["ja", "zh-CN"]);
+function languageOf(setting, uiCode) {
+  const find = (code) => LANGUAGES.find((l) => l.code === code);
+  return find(setting) ?? find(uiCode) ?? find("en");
+}
+var isUnspaced = (code) => UNSPACED.has(code);
+
+// src/translateLanguages.js
+var MAX_WORD = 40;
+var TAG = /^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/i;
+var NAMED = "aa ab af ak am an ar as av ay az ba be bg bi bm bn bo br bs ca ce ch co cr cs cu cv cy da de dv dz ee el en eo es et eu fa ff fi fj fo fr fy ga gd gl gn gu gv ha he hi ho hr ht hu hy hz ia id ie ig ii ik io is it iu ja jv ka kg ki kj kk kl km kn ko kr ks ku kv kw ky la lb lg li ln lo lt lu lv mg mh mi mk ml mn mr ms mt my na nb nd ne ng nl nn no nr nv ny oc oj om or os pa pi pl ps pt qu rm rn ro ru rw sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw ta te tg th ti tk tl tn to tr ts tt tw ty ug uk ur uz ve vi vo wa wo xh yi yo za zh zu fil yue haw ceb hmn zh-Hans zh-Hant zh-TW zh-HK pt-PT pt-BR es-419 en-GB en-US fr-CA sr-Latn".split(" ");
+function displayNames(locale) {
+  try {
+    if (typeof Intl?.DisplayNames !== "function") return null;
+    return new Intl.DisplayNames([locale], { type: "language", fallback: "none" });
+  } catch {
+    return null;
+  }
+}
+var ENGLISH = displayNames("en");
+function canonical(tag) {
+  if (!TAG.test(tag)) return null;
+  try {
+    return Intl.getCanonicalLocales(tag)[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+function englishName(code) {
+  const own = LANGUAGES.find((l) => l.code === code);
+  if (own) return own.name;
+  try {
+    return ENGLISH?.of(code) ?? null;
+  } catch {
+    return null;
+  }
+}
+function nativeName(code) {
+  const own = LANGUAGES.find((l) => l.code === code);
+  if (own) return own.native;
+  try {
+    const name = displayNames(code)?.of(code);
+    if (name) return name;
+  } catch {
+  }
+  return englishName(code) ?? code;
+}
+var byName = null;
+function names() {
+  if (byName) return byName;
+  byName = /* @__PURE__ */ new Map();
+  const add = (name, code) => {
+    const key = String(name ?? "").toLocaleLowerCase();
+    if (key && !byName.has(key)) byName.set(key, code);
+  };
+  for (const l of LANGUAGES) {
+    add(l.name, l.code);
+    add(l.native, l.code);
+  }
+  for (const code of NAMED) {
+    const english = englishName(code);
+    if (!english) continue;
+    add(english, code);
+    add(nativeName(code), code);
+  }
+  return byName;
+}
+function languageCode(word) {
+  const w = String(typeof word === "string" ? word : "").trim();
+  if (!w || [...w].length > MAX_WORD) return null;
+  const key = w.toLocaleLowerCase();
+  const own = LANGUAGES.find((l) => l.code.toLowerCase() === key);
+  if (own) return own.code;
+  const named2 = names().get(key);
+  if (named2) return named2;
+  const code = canonical(w);
+  return code && englishName(code) && englishName(code) !== code ? code : null;
+}
+var askName = (code) => `${englishName(code) ?? code} (${code})`;
+var shownName = (code) => `${nativeName(code)} \xB7 ${code}`;
+
+// src/polish.js
+var MAX_CHARS = 2e3;
+var MAX_CELLS = 4e6;
+var PROTECTED = /```[\s\S]*?```|`[^`\n]*`|https?:\/\/[^\s)]+|(?:~|\.{1,2})?\/?[\w.-]+(?:\/[\w.-]+)+/g;
+function protectedSpans(text) {
+  const spans = [];
+  for (const m of String(text ?? "").matchAll(PROTECTED)) {
+    spans.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
+  }
+  return spans;
+}
+function keepsProtected(original, corrected) {
+  let at = 0;
+  for (const s of protectedSpans(original)) {
+    const found = String(corrected).indexOf(s.text, at);
+    if (found < 0) return false;
+    at = found + s.text.length;
+  }
+  return true;
+}
+var TOKEN = /\s+|`[^`\n]*`|[\p{Script=Latin}\p{N}_'’-]+|[\s\S]/gu;
+var tokenize = (text) => String(text ?? "").match(TOKEN) ?? [];
+function diff(a, b) {
+  const x = tokenize(a);
+  const y = tokenize(b);
+  let head = 0;
+  while (head < x.length && head < y.length && x[head] === y[head]) head++;
+  let tail = 0;
+  while (tail < x.length - head && tail < y.length - head && x[x.length - 1 - tail] === y[y.length - 1 - tail]) {
+    tail++;
+  }
+  const ops = [];
+  const push = (op, text) => {
+    if (!text) return;
+    const last = ops[ops.length - 1];
+    if (last && last.op === op) last.text += text;
+    else ops.push({ op, text });
+  };
+  push("same", x.slice(0, head).join(""));
+  const xm = x.slice(head, x.length - tail);
+  const ym = y.slice(head, y.length - tail);
+  const n = xm.length;
+  const m = ym.length;
+  if ((n + 1) * (m + 1) > MAX_CELLS) {
+    push("del", xm.join(""));
+    push("ins", ym.join(""));
+  } else {
+    const lcs = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i2 = n - 1; i2 >= 0; i2--) {
+      for (let j2 = m - 1; j2 >= 0; j2--) {
+        lcs[i2][j2] = xm[i2] === ym[j2] ? lcs[i2 + 1][j2 + 1] + 1 : Math.max(lcs[i2 + 1][j2], lcs[i2][j2 + 1]);
+      }
+    }
+    let i = 0;
+    let j = 0;
+    while (i < n && j < m) {
+      if (xm[i] === ym[j]) {
+        push("same", xm[i]);
+        i++;
+        j++;
+      } else if (lcs[i + 1][j] >= lcs[i][j + 1]) push("del", xm[i++]);
+      else push("ins", ym[j++]);
+    }
+    while (i < n) push("del", xm[i++]);
+    while (j < m) push("ins", ym[j++]);
+  }
+  push("same", x.slice(x.length - tail).join(""));
+  return ops;
+}
+var SPLIT_OVER = 100;
+var SENTENCE = /[\s\S]*?(?:[.!?]+["'”’)\]]*(?:\s+|$)|[。！？]+\s*|\n+|$)/gu;
+function sentencesOf(text) {
+  return (String(text ?? "").match(SENTENCE) ?? []).filter(Boolean);
+}
+function changes(ops) {
+  const parts = [];
+  let id = 0;
+  for (let k = 0; k < ops.length; k++) {
+    const o = ops[k];
+    if (o.op === "same") {
+      parts.push({ same: o.text });
+      continue;
+    }
+    const c = { del: "", ins: "" };
+    c[o.op] = o.text;
+    const next = ops[k + 1];
+    if (next && next.op !== "same" && next.op !== o.op) {
+      c[next.op] = next.text;
+      k++;
+    }
+    const pieces = c.ins.length > SPLIT_OVER ? sentencesOf(c.ins) : [c.ins];
+    pieces.forEach((ins, i) => parts.push({ id: ++id, del: i === 0 ? c.del : "", ins }));
+  }
+  return parts;
+}
+function build(parts, rejected) {
+  const no = rejected instanceof Set ? rejected : new Set(rejected ?? []);
+  return parts.map((p) => "same" in p ? p.same : no.has(p.id) ? p.del : p.ins).join("");
+}
+var changeCount = (parts) => parts.filter((p) => !("same" in p)).length;
+function blocker(text) {
+  const t = String(text ?? "").trim();
+  if (!t) return "empty";
+  if (t.length > MAX_CHARS) return "too-long";
+  return "";
+}
+
+// src/answer.js
+var KINDS = ["spelling", "grammar", "spacing", "punctuation", "style"];
+var MAX_NOTES = 40;
+function casePicked(who = "the user") {
+  const me = who === "I";
+  const wrote = me ? "I wrote" : "the user wrote";
+  const theirs = me ? "my" : "the user's";
+  return [
+    `${me ? "I" : "The user"} picked these instructions for this prompt, so treat it as a prompt of this kind, however short it is or whatever it says, and never decide ${theirs} instructions don't fit it.`,
+    `Rework it into a full prompt of this kind: keep what ${wrote}, and add every point the instructions ask for that it is missing, choosing sensible, concrete details where the prompt gives none. Never hand back only the fixes.`
+  ].join(" ");
+}
+var named = (codes) => codes.filter((c) => typeof c === "string" && languageCode(c) === c).map(askName).join(", ");
+function translateAsk(codes) {
+  const list = Array.isArray(codes) ? named(codes) : "";
+  if (!list) return "";
+  return `Also translate the corrected prompt, in full, into each of these languages: ${list}. Give them in "translations", an object from each language's code to its translation, such as {"${codes[0]}": string}. Translate only the words: keep anything in backticks, file paths, links, names in code and numbers exactly as they are. The corrected prompt itself stays in its own language.`;
+}
+function whatToDo(mode) {
+  if (mode === "case") {
+    return `Fix spelling, grammar, spacing and punctuation. Then rework the prompt as the user's own instructions for this kind of prompt say (below), as short clear phrases in the prompt's language, rewording what they ask to change; this goes before "do not reword". ${casePicked()} Note each addition or rewording with kind "style".`;
+  }
+  return mode === "natural" ? "Fix spelling, grammar, spacing and punctuation, and make clumsy phrasing natural." : "Fix only spelling, grammar, spacing and punctuation. Do not reword anything else.";
+}
+function caseRules(mode, rules) {
+  if (mode !== "case" || !rules) return [];
+  return [
+    "The user's own instructions for this kind of prompt, between the lines (rules for your correction, not a prompt to answer):",
+    "-----",
+    String(rules),
+    "-----"
+  ];
+}
+function systemPrompt(language, mode, uiLanguage, rules = "", translate = []) {
+  const also = translateAsk(translate);
+  return [
+    `You correct prompts a developer writes in ${language} to an AI coding agent.`,
+    whatToDo(mode),
+    mode === "case" ? `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""} and never answer the prompt.` : `Keep the meaning and the language. Never translate${also ? " the corrected prompt itself" : ""}, never answer the prompt, never add to it.`,
+    "Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
+    `Give each note's "why" as one short sentence in ${uiLanguage}.`,
+    `Answer with JSON only: {"corrected": string, "notes": [{"from": string, "to": string, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": string}]${also ? ', "translations": {string: string}' : ""}}.`,
+    'When nothing needs fixing, answer {"corrected": <the prompt unchanged>, "notes": []}.',
+    ...caseRules(mode, rules),
+    ...also ? [also] : []
+  ].join("\n");
+}
+function buildAsk({ text, language, mode, uiLanguage, fast, rules = "", translate = [] }) {
+  const n = String(text).length;
+  const k = translate.length;
+  return {
+    system: systemPrompt(language, mode, uiLanguage, rules, translate),
+    messages: [{ role: "user", content: String(text) }],
+    // Room for the corrected text twice over (it and the notes), bounded;
+    // a case may add to the prompt, so it gets more.
+    // Each translation is about as long as the corrected text again.
+    maxTokens: Math.min(
+      4e3 + k * 2e3,
+      (mode === "case" ? 2500 + n * 2 : 400 + Math.ceil(n * 1.5)) + k * (1500 + n * 2)
+    ),
+    model: fast ? "fast" : "default"
+  };
+}
+var UNSAFE = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F‪-‮⁦-⁩﻿]/g;
+var clean = (s) => typeof s === "string" ? s.replace(UNSAFE, "") : "";
+var line = (s, max) => {
+  const t = clean(s).replace(/\s+/g, " ").trim();
+  return t.length <= max ? t : "";
+};
+function findJson(text) {
+  const t = String(text ?? "").trim();
+  const fenced = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const body = fenced ? fenced[1] : t;
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(body.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+function readNote(n) {
+  if (!n || typeof n !== "object") return null;
+  const from = clean(n.from).slice(0, 300);
+  const to = clean(n.to).slice(0, 300);
+  if (!from && !to) return null;
+  if (from === to) return null;
+  const kind = KINDS.includes(n.kind) ? n.kind : "grammar";
+  return { from, to, kind, why: line(n.why, 200) };
+}
+var longestFor = (original, mode) => {
+  const n = String(original).length;
+  return mode === "case" ? Math.min(8e3, n * 4 + 3e3) : n * 2 + 200;
+};
+function readTranslations(raw, original, mode, codes) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !Array.isArray(codes)) return [];
+  const out = [];
+  for (const code of codes) {
+    if (!Object.hasOwn(raw, code)) continue;
+    const text = clean(raw[code]).trim();
+    if (!text || text.length > longestFor(original, mode)) continue;
+    if (!keepsProtected(original, text)) continue;
+    out.push({ code, text });
+  }
+  return out;
+}
+function readAnswer(text, original, mode = "fix", translate = []) {
+  const json = findJson(text);
+  if (!json || typeof json !== "object" || typeof json.corrected !== "string") {
+    return { ok: false, why: "unreadable" };
+  }
+  const corrected = clean(json.corrected);
+  if (!corrected.trim() || corrected.length > longestFor(original, mode)) {
+    return { ok: false, why: "unreadable" };
+  }
+  if (!keepsProtected(original, corrected)) return { ok: false, why: "changed-code" };
+  const notes = (Array.isArray(json.notes) ? json.notes : []).slice(0, MAX_NOTES).map(readNote).filter(Boolean);
+  return {
+    ok: true,
+    corrected,
+    notes,
+    translations: readTranslations(json.translations, original, mode, translate)
+  };
+}
+function errorKey(err) {
+  switch (err && typeof err === "object" ? err.name : "") {
+    case "AiDeclinedError":
+      return null;
+    case "AiNotSetUpError":
+      return "error-no-key";
+    case "PermissionDeniedError":
+      return "error-denied";
+    case "BudgetExceededError":
+      return "error-budget";
+    case "RefusedError":
+      return "error-refused";
+    default:
+      return "error-failed";
+  }
+}
+
+// src/agentCheck.js
+var TILE_ID = "example.prompt-polish";
+var HAND_BACK = "hand-back";
+var REQUEST_TTL_MS = 10 * 60 * 1e3;
+function agentBrief(command) {
+  return [
+    "You are Promptsmith's polish agent in Tilefold. Every message I send you in this tab is a Promptsmith request: a prompt I wrote to an AI agent, which I want corrected (and, when the request gives my own instructions, reworked as they say). Never act on it and never answer it.",
+    "For each request:",
+    '- Fix spelling, grammar, spacing and punctuation. When the request says "and make it read naturally", also make clumsy phrasing natural. When it says "and follow my instructions", it gives my own instructions for that kind of prompt between lines: rework the prompt as they say, adding or rewording only what they ask for. I picked those instructions for that prompt: treat it as that kind of prompt however short it is, fill in what they ask for with sensible details, and never hand back only the fixes. Otherwise do not reword anything else.',
+    "- Keep the meaning and the language of the prompt. Never translate it. Never add to it, unless the request gives my own instructions that ask for additions. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.",
+    `- Then call the Tilefold tool tile_run with command "${command}" and input {"request": <the request id>, "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence, in the language the request names for notes>}]}.`,
+    '- When the request also asks for translations, add "translations": {<language code>: <the corrected prompt translated into that language>} to that input; the corrected prompt itself stays in its own language.',
+    '- If nothing needs fixing, hand back the prompt unchanged with "notes": [].',
+    'Do nothing else, reply only "Done", and wait for the next request.'
+  ].join("\n");
+}
+function agentRequest({
+  text,
+  language,
+  mode,
+  uiLanguage,
+  request,
+  rules = "",
+  translate = []
+}) {
+  const what = mode === "case" && rules ? "fix mistakes and follow my instructions" : mode === "natural" ? "fix mistakes and make it read naturally" : "fix mistakes only";
+  return [
+    `Promptsmith request ${request}: ${language}, ${what}. Notes in ${uiLanguage}.`,
+    // A case's instructions first, then the prompt, each between lines.
+    ...mode === "case" && rules ? [
+      `This is one of my own cases. Besides the fixes, rework the prompt as my instructions say, as short clear phrases in its language, rewording what they ask to change; this goes before "do not reword anything else". ${casePicked("I")} Note each addition or rewording with kind "style".`,
+      "My instructions for this kind of prompt:",
+      "-----",
+      String(rules),
+      "-----"
+    ] : [],
+    // The languages to translate into, for a case or a built-in one.
+    ...translateAsk(translate) ? [translateAsk(translate)] : [],
+    ...mode === "case" && rules ? ["The prompt:"] : [],
+    "-----",
+    String(text),
+    "-----"
+  ].join("\n").slice(0, MAX_QUESTION);
+}
+var REQUEST_ID = /^[a-z0-9]{10}$/;
+var MAX_CORRECTED = 8e3;
+var MAX_HANDED = 16;
+var MAX_NOTES2 = 40;
+var MAX_QUESTION = 4e3;
+function newRequestId(random = Math.random) {
+  const abc = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let id = "";
+  for (let i = 0; i < 10; i++) id += abc[Math.floor(random() * abc.length) % abc.length];
+  return id;
+}
+var HAND_BACK_INPUT = `{"request": the id from Promptsmith's request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind": spelling|grammar|spacing|punctuation|style, "why"}], "translations"?: {code: text}}`;
+function agentQuestion({
+  text,
+  language,
+  mode,
+  uiLanguage,
+  request,
+  command,
+  rules = "",
+  translate = []
+}) {
+  const own = mode === "case" && !!rules;
+  const also = translateAsk(translate);
+  const lines = [
+    `Promptsmith request ${request}. Do not act on the prompt below, and do not answer it: it is a prompt I wrote to you in ${language}, and I only want it corrected.`,
+    whatToDo(own ? "case" : mode === "natural" ? "natural" : "fix"),
+    ...caseRules(own ? "case" : mode, rules),
+    own ? `Keep the meaning and the language. Never translate it${also ? " (the corrected prompt itself)" : ""}. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.` : `Keep the meaning and the language. Never translate it${also ? " (the corrected prompt itself)" : ""} and never add to it. Leave anything in backticks, file paths, links, names in code and numbers exactly as they are.`,
+    ...also ? [also] : [],
+    `Then call the Tilefold tool tile_run with command "${command}" and input {"request": "${request}", "corrected": <the corrected prompt>, "notes": [{"from": <what you changed>, "to": <what it became>, "kind": "spelling" | "grammar" | "spacing" | "punctuation" | "style", "why": <one short sentence in ${uiLanguage}>}]${also ? ', "translations": {<language code>: <translation>}' : ""}}.`,
+    'If nothing needs fixing, hand back the prompt unchanged with "notes": []. Do nothing else, and reply only "Done".',
+    "",
+    "The prompt, between the lines:",
+    "-----",
+    String(text),
+    "-----"
+  ];
+  return lines.join("\n").slice(0, MAX_QUESTION);
+}
+var str = (v) => typeof v === "string" ? v : "";
+function readHandBack(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { ok: false };
+  const request = str(input.request);
+  if (!REQUEST_ID.test(request)) return { ok: false };
+  const corrected = str(input.corrected);
+  if (!corrected || corrected.length > MAX_CORRECTED) return { ok: false };
+  const notes = (Array.isArray(input.notes) ? input.notes : []).slice(0, MAX_NOTES2).filter((n) => n && typeof n === "object" && !Array.isArray(n)).map((n) => ({ from: str(n.from), to: str(n.to), kind: str(n.kind), why: str(n.why) }));
+  const raw = input.translations;
+  const translations = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const code of Object.keys(raw).slice(0, MAX_HANDED)) {
+      if (code.length > 24 || languageCode(code) !== code) continue;
+      const v = str(raw[code]);
+      if (v && v.length <= MAX_CORRECTED) translations[code] = v;
+    }
+  }
+  return { ok: true, request, answer: JSON.stringify({ corrected, notes, translations }) };
+}
+function createPending(now = Date.now) {
+  const byId = /* @__PURE__ */ new Map();
+  const sweep = () => {
+    for (const [id, e] of byId) if (now() - e.at > REQUEST_TTL_MS) byId.delete(id);
+  };
+  const dropFor = (pane) => {
+    for (const [id, e] of byId) if (e.pane === pane) byId.delete(id);
+  };
+  return {
+    add(id, entry) {
+      sweep();
+      dropFor(entry.pane);
+      byId.set(id, { ...entry, at: now() });
+    },
+    take(id) {
+      sweep();
+      const e = byId.get(id) ?? null;
+      byId.delete(id);
+      return e;
+    },
+    dropFor,
+    has(pane) {
+      sweep();
+      return [...byId.values()].some((e) => e.pane === pane);
+    }
+  };
+}
+
+// src/agentRun.js
+var MAX_NAME = 40;
+var HELPER_WHY = {
+  busy: "error-helper-busy",
+  "you-are-typing": "error-helper-typing",
+  "not-started": "error-helper-not-started"
+};
+function createAgentRun(tf, deps) {
+  const { sessions, render, refreshButton, audit, warn, language, mode, helperAgent } = deps;
+  const rules = () => typeof deps.rules === "function" ? deps.rules() : "";
+  const translate = () => typeof deps.translate === "function" ? deps.translate() : [];
+  const hasHelper = () => typeof tf.agent?.helper === "function";
+  const pending = createPending();
+  const problem = (id, s, key) => {
+    Object.assign(s, { step: "problem", problem: key });
+    return render(id);
+  };
+  const called = /* @__PURE__ */ new Map();
+  const calledName = () => called.get(helperAgent()) ?? null;
+  const viaHelper = async (id, s, entry, request) => {
+    deps.usedHelper?.();
+    pending.add(request, entry);
+    Object.assign(s, {
+      step: "agent",
+      helper: true,
+      helperStage: "starting",
+      helperSince: null,
+      draft: entry.original,
+      problem: ""
+    });
+    await render(id);
+    let r;
+    try {
+      r = await tf.agent.helper({
+        agent: helperAgent(),
+        brief: agentBrief(`${TILE_ID}.${HAND_BACK}`),
+        question: agentRequest({
+          text: entry.original,
+          language: language().name,
+          mode: entry.mode,
+          rules: entry.rules,
+          translate: entry.translate,
+          uiLanguage: tf.t("ai-language"),
+          request
+        }),
+        about: tf.t("agent-check-about")
+      });
+    } catch (err) {
+      warn(err);
+      r = null;
+    }
+    if (r && "name" in r) {
+      const name = typeof r.name === "string" ? r.name.trim().slice(0, MAX_NAME) : "";
+      called.set(helperAgent(), name || null);
+    }
+    if (s.step !== "agent" || !pending.has(id)) return;
+    if (!r?.sent) {
+      pending.dropFor(id);
+      return problem(id, s, HELPER_WHY[r?.why] ?? "error-helper-failed");
+    }
+    audit("agent-asked", {
+      language: entry.language,
+      mode: entry.mode,
+      helper: true,
+      opened: !!r.opened
+    });
+    Object.assign(s, { helperStage: "working", helperSince: Date.now() });
+    await render(id);
+  };
+  const check = async (id, original) => {
+    const s = sessions.get(id);
+    if (!s) return;
+    if (!hasHelper() && typeof tf.agent?.ask !== "function")
+      return problem(id, s, "error-no-agent-ask");
+    const request = newRequestId();
+    const lang = language();
+    const m = mode();
+    const own = rules();
+    const tl = translate();
+    const question = agentQuestion({
+      text: original,
+      language: lang.name,
+      mode: m,
+      rules: own,
+      translate: tl,
+      uiLanguage: tf.t("ai-language"),
+      request,
+      command: `${TILE_ID}.${HAND_BACK}`
+    });
+    const entry = { pane: id, original, language: lang.code, mode: m, rules: own, translate: tl };
+    if (hasHelper()) return viaHelper(id, s, entry, request);
+    let r;
+    try {
+      r = await tf.agent.ask({ question, about: tf.t("agent-check-about") });
+    } catch (err) {
+      warn(err);
+      return problem(id, s, "error-ask-failed");
+    }
+    if (!r?.shown)
+      return problem(id, s, r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane");
+    pending.add(request, entry);
+    Object.assign(s, { step: "agent", helper: false, draft: original, problem: "" });
+    audit("agent-asked", { language: lang.code, mode: m });
+    await render(id);
+  };
+  const handBack = async (input) => {
+    if (input === null || input === void 0) throw new Error("run by agents only, with input");
+    const h = readHandBack(input);
+    if (!h.ok) {
+      throw new Error(
+        'input: {"request": the id from the request, "corrected": the corrected prompt, "notes": [{"from", "to", "kind", "why"}]}'
+      );
+    }
+    const e = pending.take(h.request);
+    if (!e) {
+      throw new Error(
+        "Promptsmith isn't waiting for this request: it was handed back already, cancelled, or is over 10 minutes old"
+      );
+    }
+    const s = sessions.get(e.pane);
+    if (!s || s.step !== "agent") throw new Error("the user closed this prompt in Promptsmith");
+    const r = readAnswer(h.answer, e.original, e.mode, e.translate);
+    if (!r.ok) {
+      const changedCode = r.why === "changed-code";
+      await problem(e.pane, s, changedCode ? "error-agent-changed-code" : "error-agent-unreadable");
+      throw new Error(
+        changedCode ? "the correction changed code, a file path or a link, so it was not shown; the user can ask again" : "the correction could not be read, so it was not shown; the user can ask again"
+      );
+    }
+    Object.assign(s, {
+      step: "result",
+      parts: changes(diff(e.original, r.corrected)),
+      notes: r.notes,
+      translations: r.translations,
+      rejected: /* @__PURE__ */ new Set(),
+      clean: false
+    });
+    const count = changeCount(s.parts);
+    audit("checked", { language: e.language, mode: e.mode, changes: count, checker: "agent" });
+    await render(e.pane);
+    await refreshButton();
+    return { shown: true, changes: count };
+  };
+  const cancel = async (id) => {
+    pending.dropFor(id);
+    const s = sessions.get(id);
+    if (s && s.step === "agent") s.step = "write";
+    await render(id);
+  };
+  const forget = (id) => pending.dropFor(id);
+  const takeOver = async (id, original) => {
+    if (!hasHelper()) return false;
+    await check(id, original);
+    return true;
+  };
+  return { check, handBack, cancel, forget, takeOver, calledName };
+}
+
+// src/cardMoves.js
+var ZERO = Object.freeze({ dx: 0, dy: 0 });
+var MAX_DRAG = 1e4;
+var px = (v) => Number.isFinite(v) ? Math.max(-MAX_DRAG, Math.min(MAX_DRAG, v)) : 0;
+function createCardMoves(o) {
+  let offset = ZERO;
+  let max = false;
+  let collapsed = false;
+  let base = null;
+  let placing = null;
+  let again = false;
+  const placeLatest = () => {
+    if (placing) {
+      again = true;
+      return placing;
+    }
+    placing = (async () => {
+      do {
+        again = false;
+        await o.place();
+      } while (again);
+    })().finally(() => placing = null);
+    return placing;
+  };
+  return {
+    /** What the stage needs: the drag, and whether the card fills the pane or is folded to its bar. */
+    state: () => ({ offset, max, collapsed }),
+    /** Back where it belongs (another view was chosen). */
+    reset() {
+      offset = ZERO;
+      max = false;
+      collapsed = false;
+      base = null;
+    },
+    /** Takes a `drag`, `max` or `collapse` message from the page; false for any other. */
+    async hear(m) {
+      if (m.type === "collapse") {
+        collapsed = !collapsed;
+        if (collapsed) max = false;
+        base = null;
+        o.audit("card-collapsed", { on: collapsed });
+        await o.place();
+        await o.render();
+        return true;
+      }
+      if (m.type === "max") {
+        max = !max;
+        if (max) collapsed = false;
+        base = null;
+        o.audit("card-filled", { on: max });
+        await o.place();
+        await o.render();
+        return true;
+      }
+      if (m.type !== "drag" || max) return m.type === "drag";
+      if (m.phase === "start" || !base) base = o.kept();
+      offset = { dx: base.dx + px(m.dx), dy: base.dy + px(m.dy) };
+      if (m.phase === "end") {
+        base = null;
+        o.audit("card-moved");
+      }
+      await placeLatest();
+      if (m.phase === "end") offset = o.kept();
+      return true;
+    }
+  };
+}
+
+// src/cases.js
+var MAX_CASES = 20;
+var MAX_NAME2 = 60;
+var MAX_RULES = 2e3;
+var MAX_TRANSLATE = 8;
+var MAX_TRANSLATE_TEXT = 200;
+var TRANSLATE_LINE = /^\s*translate\s*[:：]\s*(.*)$/i;
+var MAX_TEXT = 8e3;
+var UNSAFE2 = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+var nameOf = (v) => String(v ?? "").replace(UNSAFE2, "").replace(/\s+/g, " ").trim().replace(/[:：]$/, "").trim().slice(0, MAX_NAME2);
+var rulesOf = (v) => String(v ?? "").replace(UNSAFE2, "").replace(/\r\n?/g, "\n").split("\n").map((l) => l.trimEnd()).filter((l) => l.trim()).join("\n").trim().slice(0, MAX_RULES);
+function translateOf(v) {
+  const words = Array.isArray(v) ? v.map((x) => String(x ?? "")) : String(typeof v === "string" ? v : "").replace(UNSAFE2, "").slice(0, MAX_TRANSLATE_TEXT).split(/[,;、，\n]+/);
+  const out = [];
+  for (const w of words) {
+    const code = languageCode(w);
+    if (code && !out.includes(code)) out.push(code);
+    if (out.length === MAX_TRANSLATE) break;
+  }
+  return out;
+}
+var translateText = (codes) => (codes ?? []).join(", ");
+function parseCases(text) {
+  const out = [];
+  const blocks = String(typeof text === "string" ? text : "").replace(/\r\n?/g, "\n").split(/\n[^\S\n]*\n/);
+  for (const block of blocks) {
+    const all = block.split("\n").filter((l) => l.trim());
+    const tl = all.slice(1).find((l) => TRANSLATE_LINE.test(l));
+    const lines = all.filter((l) => l !== tl);
+    if (lines.length < 2) continue;
+    const name = nameOf(lines[0]);
+    const rules = rulesOf(lines.slice(1).join("\n"));
+    if (!name || !rules || out.some((c) => c.name === name)) continue;
+    out.push({ name, rules, translate: translateOf(tl ? tl.match(TRANSLATE_LINE)[1] : "") });
+    if (out.length === MAX_CASES) break;
+  }
+  return out;
+}
+var CASE_FIELDS = [
+  { key: "name", label: "label-case-name", max: MAX_NAME2 },
+  { key: "rules", label: "label-case-rules", multiline: true, max: MAX_RULES },
+  { key: "translate", label: "label-case-translate", max: MAX_TRANSLATE_TEXT }
+];
+function casesOf(value) {
+  if (!Array.isArray(value)) return parseCases(value);
+  const out = [];
+  for (const e of value) {
+    const name = nameOf(e?.name);
+    const rules = rulesOf(e?.rules);
+    if (!name || !rules || out.some((c) => c.name === name)) continue;
+    out.push({ name, rules, translate: translateOf(e?.translate) });
+    if (out.length === MAX_CASES) break;
+  }
+  return out;
+}
+var formatCases = (cases) => cases.map((c) => {
+  const tl = translateText(c.translate);
+  return `${c.name}
+${c.rules}${tl ? `
+Translate: ${tl}` : ""}`;
+}).join("\n\n");
+function saveCase(cases, was, input, maxText = MAX_TEXT) {
+  const name = nameOf(input?.name);
+  const rules = rulesOf(input?.rules);
+  const translate = translateOf(input?.translate);
+  if (!name) return { why: "case-needs-name" };
+  if (!rules) return { why: "case-needs-rules" };
+  if (cases.some((c) => c.name === name && c.name !== was)) return { why: "case-name-taken" };
+  const at = was === null ? -1 : cases.findIndex((c) => c.name === was);
+  if (at < 0 && cases.length >= MAX_CASES) return { why: "case-too-many" };
+  const saved = { name, rules, translate };
+  const next = at < 0 ? [...cases, saved] : cases.map((c, i) => i === at ? saved : c);
+  if (formatCases(next).length > maxText) return { why: "case-too-long" };
+  return { cases: next, name };
+}
+var removeCase = (cases, name) => cases.filter((c) => c.name !== name);
+
+// src/place.js
+var VIEWS = ["corner", "bottom", "side"];
+var SPOT_MIN = 120;
+var SPOT_MAX = 2e3;
+var BAR_H = 40;
+var GAP = 12;
+var BUTTON = 36;
+var BUTTON_H = 26;
+var CORNER_W = 420;
+var MAX_H = 440;
+var viewOf = (value) => VIEWS.includes(value) ? value : "corner";
+function focusedPane(layout, paneId) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  const ok = panes.filter((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
+  if (paneId !== void 0 && paneId !== null) return ok.find((p) => p.id === paneId) ?? null;
+  return ok.find((p) => p.focused) ?? ok[0] ?? null;
+}
+function placeFor(layout, view, opts = {}) {
+  const h = Math.min(MAX_H, Math.max(SPOT_MIN, Number.isFinite(opts.h) ? opts.h : 260));
+  const pane = focusedPane(layout, opts.pane);
+  if (!pane || view !== "bottom" && view !== "corner") return null;
+  const top = pane.y + GAP;
+  const composer = pane.composer && Number.isFinite(pane.composer.y) ? pane.composer : null;
+  const floor = (composer ? composer.y : pane.y + pane.h) - GAP;
+  const round = (r) => ({
+    x: Math.round(r.x),
+    y: Math.round(r.y),
+    w: Math.round(r.w),
+    h: Math.round(r.h)
+  });
+  if (view === "bottom") {
+    const w2 = Math.min(SPOT_MAX, pane.w - 2 * GAP);
+    const ch2 = Math.min(h, floor - top);
+    if (w2 < SPOT_MIN || ch2 < SPOT_MIN) return null;
+    const moved2 = adjust({ x: pane.x + GAP, y: floor - ch2, w: w2, h: ch2 }, pane, floor, opts);
+    return { card: round(moved2.card), button: null, offset: moved2.offset };
+  }
+  const bw = Number.isFinite(opts.bw) ? opts.bw : BUTTON;
+  const bx = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - bw;
+  const button = round({ x: bx, y: floor - BUTTON_H, w: bw, h: BUTTON_H });
+  if (button.y < top || pane.w < bw + 2 * GAP) return null;
+  const shown = opts.noPill ? null : button;
+  if (!opts.open) return { card: null, button: shown };
+  const w = Math.min(CORNER_W, pane.w - 2 * GAP);
+  const bottom = shown ? button.y - GAP : floor;
+  const ch = Math.min(h, bottom - top);
+  if (w < SPOT_MIN || ch < SPOT_MIN) return null;
+  const x = opts.rtl ? pane.x + GAP : pane.x + pane.w - GAP - w;
+  const moved = adjust({ x, y: bottom - ch, w, h: ch }, pane, floor, opts);
+  return { card: round(moved.card), button: shown, offset: moved.offset };
+}
+var clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+function adjust(card, pane, floor, opts = {}) {
+  const top = pane.y + GAP;
+  if (opts.max) {
+    const w = Math.min(SPOT_MAX, pane.w - 2 * GAP);
+    const h2 = Math.min(SPOT_MAX, floor - top);
+    if (w >= SPOT_MIN && h2 >= SPOT_MIN) {
+      return { card: { x: pane.x + GAP, y: top, w, h: h2 }, offset: offsetOf(opts.offset) };
+    }
+  }
+  const o = offsetOf(opts.offset);
+  const bar = Math.min(card.h, Number.isFinite(opts.barH) ? opts.barH : BAR_H);
+  const h = opts.collapsed ? bar : card.h;
+  const x = clamp(card.x + o.dx, pane.x + GAP, pane.x + pane.w - GAP - card.w);
+  const y = clamp(card.y + o.dy, top, floor - h);
+  return { card: { ...card, x, y, h }, offset: { dx: x - card.x, dy: y - card.y } };
+}
+var offsetOf = (o) => ({
+  dx: Number.isFinite(o?.dx) ? o.dx : 0,
+  dy: Number.isFinite(o?.dy) ? o.dy : 0
+});
+var sameSpot = (a, b) => a === b || !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+
+// src/settings.js
+var MODES = ["fix", "natural"];
+var CHECKERS = ["claude", "agent"];
+var SOLIDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+var solidOf = (v) => SOLIDS.includes(Number(v)) ? Number(v) : 100;
+var HELPER_AGENTS = [
+  { value: "claude", label: "Claude Code" },
+  { value: "codex", label: "Codex" },
+  { value: "gemini", label: "Gemini CLI" },
+  { value: "cursor", label: "Cursor Agent" },
+  { value: "agy", label: "Antigravity CLI" },
+  { value: "opencode", label: "OpenCode" }
+];
+var MODE_KEYS = { fix: "setting-mode-fix", natural: "setting-mode-natural" };
+var CHECKER_KEYS = { claude: "setting-checker-claude", agent: "setting-checker-agent" };
+var VIEW_KEYS = {
+  corner: "setting-view-corner",
+  bottom: "setting-view-bottom",
+  side: "setting-view-side"
+};
+var COMMANDS = [
+  { id: "open", title: "cmd-open" },
+  { id: "close", title: "cmd-close" },
+  { id: "helper-show", title: "cmd-helper-show" },
+  { id: "helper-restart", title: "cmd-helper-restart" }
+];
+var TRANSLATE_SETTINGS = { fix: "fixTranslate", natural: "naturalTranslate" };
+var hasCaseList = (tf) => typeof tf.settings?.set === "function";
+function registerSettings(tf) {
+  tf.setting("language", "auto", tf.t("setting-language"), {
+    choices: [
+      { value: "auto", label: tf.t("setting-language-auto") },
+      ...LANGUAGES.map((l) => ({ value: l.code, label: l.native }))
+    ]
+  });
+  tf.setting("mode", "fix", tf.t("setting-mode"), {
+    choices: MODES.map((value) => ({ value, label: tf.t(MODE_KEYS[value]) }))
+  });
+  if (hasCaseList(tf)) {
+    tf.setting("cases", [], tf.t("setting-case-list"), {
+      list: {
+        fields: CASE_FIELDS.map((f) => ({ ...f, label: tf.t(f.label) })),
+        max: MAX_CASES,
+        title: "name"
+      }
+    });
+  } else {
+    tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+  }
+  tf.setting(TRANSLATE_SETTINGS.fix, "", tf.t("setting-fix-translate"));
+  tf.setting(TRANSLATE_SETTINGS.natural, "", tf.t("setting-natural-translate"));
+  tf.setting("view", "corner", tf.t("setting-view"), {
+    choices: VIEWS.map((value) => ({ value, label: tf.t(VIEW_KEYS[value]) }))
+  });
+  tf.setting("checker", "claude", tf.t("setting-checker"), {
+    choices: CHECKERS.map((value) => ({ value, label: tf.t(CHECKER_KEYS[value]) }))
+  });
+  tf.setting("helperAgent", "claude", tf.t("setting-helper-agent"), {
+    choices: HELPER_AGENTS.map((a) => ({ ...a }))
+  });
+  tf.setting("solid", "100", tf.t("setting-solid"), {
+    choices: SOLIDS.map((v) => ({
+      value: String(v),
+      label: v === 100 ? tf.t("setting-solid-full") : v === 0 ? tf.t("setting-solid-text-only") : tf.t("setting-solid-percent", { percent: v })
+    }))
+  });
+  tf.setting("fast", true, tf.t("setting-fast"));
+}
+var read = (settings, key) => {
+  try {
+    return settings.get(key);
+  } catch {
+    return void 0;
+  }
+};
+function settingsOf(settings) {
+  const mode = read(settings, "mode");
+  return {
+    language: read(settings, "language"),
+    mode: mode === "natural" ? "natural" : "fix",
+    cases: casesOf(read(settings, "cases")),
+    // The languages each built-in case translates into, as codes.
+    builtinTranslate: {
+      fix: translateOf(read(settings, TRANSLATE_SETTINGS.fix)),
+      natural: translateOf(read(settings, TRANSLATE_SETTINGS.natural))
+    },
+    view: viewOf(read(settings, "view")),
+    fast: read(settings, "fast") !== false,
+    checker: read(settings, "checker") === "agent" ? "agent" : "claude",
+    helperAgent: helperAgentOf(read(settings, "helperAgent")),
+    solid: solidOf(read(settings, "solid"))
+  };
+}
+var helperAgentOf = (v) => HELPER_AGENTS.some((a) => a.value === v) ? v : HELPER_AGENTS[0].value;
+var helperAgentName = (v) => HELPER_AGENTS.find((a) => a.value === helperAgentOf(v)).label;
+var cardSettings = (c) => ({
+  mode: c.mode,
+  helperName: helperAgentName(c.helperAgent),
+  solid: c.solid
+});
+
+// src/commands.js
+function registerCommands(tf, o) {
+  o.inputAction.register();
+  tf.on(
+    "input.action",
+    o.background((e) => o.inputAction.clicked(e))
+  );
+  tf.on(
+    "input.cancelled",
+    o.background((e) => o.inputAction.cancelled(e))
+  );
+  for (const c of COMMANDS) {
+    tf.command(
+      tf.t(c.title),
+      o.background(() => o.runs[c.id]()),
+      { id: c.id }
+    );
+  }
+  tf.command(
+    tf.t("cmd-hand-back"),
+    async (input) => input == null ? void await o.open() : o.handBack(input),
+    { id: o.handBackId, input: o.handBackInput }
+  );
+}
+function registerPill(tf, o) {
+  tf.on(
+    "overlay.pointer",
+    o.background(async (e) => {
+      if (!e || e.item !== o.buttonId || e.type !== "click") return;
+      const s = o.sessions.ensure(o.focusId());
+      s.open = !s.open;
+      await o.place();
+    })
+  );
+  tf.on(
+    "overlay.hidden",
+    // The user hid tile overlays: the button goes, and the card with it.
+    o.background(async () => {
+      o.stage.lostOverlay();
+      if (o.stage.where() === "card") await o.closeAll();
+    })
+  );
+  tf.on(
+    "theme.changed",
+    o.background(async (e) => {
+      o.stage.setAccent(e?.colors?.accent ?? null);
+      if (o.stage.buttonShown()) await o.place();
+    })
+  );
+}
+
+// src/helperTab.js
+var START_GAP_MS = 3e4;
+var USED_KEY = "helper-used";
+var RESULT_KEYS = {
+  ready: "toast-helper-ready",
+  busy: "toast-helper-busy",
+  "not-started": "error-helper-not-started"
+};
+var HELPER_PROBLEMS = /* @__PURE__ */ new Set(["error-helper-not-started", "error-helper-failed"]);
+function createHelperTab(tf, o) {
+  const now = o.now ?? Date.now;
+  let lastAuto = 0;
+  let starting = false;
+  let used = null;
+  const supported = () => typeof tf.agent?.helperStart === "function" && typeof tf.agent?.helperStatus === "function";
+  const wasUsed = async () => {
+    if (used === null) used = await tf.store.get(USED_KEY).catch(() => null) === true;
+    return used;
+  };
+  const willCheck = async () => o.current().checker === "agent" || typeof tf.ai?.ask !== "function" || await wasUsed();
+  const start = async (how) => {
+    starting = true;
+    try {
+      const r = await tf.agent.helperStart({
+        agent: o.current().helperAgent,
+        ...how === "auto" ? {} : { show: true },
+        ...how === "restart" ? { restart: true } : {}
+      });
+      const state = typeof r?.state === "string" ? r.state : "not-started";
+      o.audit("helper-started", { how, state });
+      return state;
+    } catch (err) {
+      o.warn(err);
+      if (how !== "auto") {
+        const reason = String(err && err.name || err).slice(0, 64);
+        await tf.toast(tf.t("toast-helper-failed", { reason })).catch(o.warn);
+      }
+      return null;
+    } finally {
+      starting = false;
+    }
+  };
+  return {
+    /** Whether the card can offer to show or restart the agent. */
+    view: () => ({ canShowHelper: supported() }),
+    /** The polish agent checked a prompt: start it ahead of time from now on. */
+    async noteUsed() {
+      if (used === true) return;
+      used = true;
+      await tf.store.set(USED_KEY, true).catch(o.warn);
+    },
+    /**
+     * The card opened: starts the polish agent in the background when it
+     * will check and isn't running. Never awaited by the card.
+     */
+    async ensure() {
+      if (!supported() || starting || now() - lastAuto < START_GAP_MS) return;
+      if (!await willCheck()) return;
+      lastAuto = now();
+      let status;
+      try {
+        status = await tf.agent.helperStatus({ agent: o.current().helperAgent });
+      } catch (err) {
+        return o.warn(err);
+      }
+      if (status?.state === "none" || status?.state === "stopped") await start("auto");
+    },
+    /** Shows the agent's tab (`restart`: after starting it afresh) and says how it went. */
+    async show(restart = false) {
+      if (!supported()) return tf.toast(tf.t("toast-helper-unsupported"));
+      if (starting && !restart) return;
+      const state = await start(restart ? "restart" : "show");
+      if (state) await tf.toast(tf.t(RESULT_KEYS[state] ?? "error-helper-not-started"));
+    },
+    /**
+     * Takes a message from the page about the agent; false for any other.
+     * From a problem card, the card goes back to the prompt, to try again.
+     */
+    async hear(m) {
+      if (m.type !== "helper-show" && m.type !== "helper-restart") return false;
+      const id = typeof m.pane === "string" ? m.pane : null;
+      const s = id ? o.sessions.get(id) : null;
+      if (s?.step === "problem" && HELPER_PROBLEMS.has(s.problem)) {
+        Object.assign(s, { step: "write", problem: "" });
+        await o.render(id);
+      }
+      await this.show(m.type === "helper-restart");
+      return true;
+    }
+  };
+}
+
+// src/modes.js
+var PICK_KEY = "mode-pick";
+var MAX_PICK = 80;
+function createModes(tf, o) {
+  let pick = null;
+  let loaded = false;
+  const cases = () => o.current().cases;
+  const canEdit = () => typeof tf.settings?.set === "function";
+  const load = async () => {
+    if (loaded) return;
+    loaded = true;
+    const v = await tf.store.get(PICK_KEY).catch(() => null);
+    pick = typeof v === "string" ? v.slice(0, MAX_PICK) : null;
+  };
+  const resolved = () => {
+    if (pick?.startsWith("case:")) {
+      const c = cases().find((x) => x.name === pick.slice(5));
+      if (c) return { mode: "case", name: c.name, rules: c.rules, translate: c.translate ?? [] };
+    }
+    const mode = pick === "fix" || pick === "natural" ? pick : o.current().mode;
+    return { mode, name: "", rules: "", translate: o.current().builtinTranslate?.[mode] ?? [] };
+  };
+  const keep = async (next) => {
+    pick = next;
+    if (next === null) await tf.store.delete(PICK_KEY).catch(o.warn);
+    else await tf.store.set(PICK_KEY, next).catch(o.warn);
+  };
+  const answered = (id) => {
+    const s = o.sessions.get(id);
+    if (!(s?.step === "write" && s.choosing)) return false;
+    s.choosing = false;
+    return true;
+  };
+  const again = async (id, first = false) => {
+    const s = o.sessions.get(id);
+    if (first && s?.draft) await o.check(id, s.draft);
+    else if (s?.step === "result" && s.draft) await o.check(id, s.draft);
+  };
+  const held = (s) => {
+    if (resolved().mode !== "case") return false;
+    if ((s.step === "result" || s.step === "problem") && s.draft) s.step = "write";
+    return true;
+  };
+  const write = async (list) => {
+    try {
+      await tf.settings.set(
+        "cases",
+        list.map((c) => ({ name: c.name, rules: c.rules, translate: translateText(c.translate) }))
+      );
+      return true;
+    } catch (err) {
+      o.warn(err);
+      return false;
+    }
+  };
+  const saveBuiltin = async (s, id, m) => {
+    const mode = s.editing.builtin;
+    const codes = translateOf(typeof m.translate === "string" ? m.translate : "");
+    try {
+      await tf.settings.set(TRANSLATE_SETTINGS[mode], translateText(codes));
+    } catch (err) {
+      o.warn(err);
+      s.editing = { ...s.editing, translate: String(m.translate ?? ""), why: "case-not-saved" };
+      await o.render();
+      return true;
+    }
+    s.editing = null;
+    await keep(mode);
+    o.audit("builtin-saved", { mode, languages: codes.length });
+    await settle(id, answered(id));
+    return true;
+  };
+  const settle = async (id, first) => {
+    const s = o.sessions.get(id);
+    if (s && held(s)) return o.render();
+    await o.render();
+    await again(id, first);
+  };
+  return {
+    load,
+    /** What to fix now. */
+    now: () => resolved(),
+    /** The `mode` setting changed: it decides again. */
+    settingChanged: () => keep(null),
+    /** What the card's chip and menu show. */
+    view: () => {
+      const r = resolved();
+      return {
+        modeId: r.mode === "case" ? `case:${r.name}` : r.mode,
+        caseName: r.name,
+        cases: cases().map((c) => c.name),
+        canEditCases: canEdit()
+      };
+    },
+    /** Takes a message from the page about what to fix; false for any other. */
+    async hear(m, id) {
+      const s = o.sessions.get(id);
+      if (m.type === "mode") {
+        const to = typeof m.to === "string" ? m.to.slice(0, MAX_PICK) : "";
+        const known = to === "fix" || to === "natural" || to.startsWith("case:") && cases().some((c) => c.name === to.slice(5));
+        if (!known) return true;
+        await keep(to);
+        o.audit("mode-picked", { mode: to.startsWith("case:") ? "case" : to });
+        const first = answered(id);
+        await settle(id, first);
+        return true;
+      }
+      if (!s) return m.type.startsWith("case-");
+      if (m.type === "case-edit") {
+        if (!canEdit()) return true;
+        if (m.builtin === "fix" || m.builtin === "natural") {
+          const codes = o.current().builtinTranslate?.[m.builtin] ?? [];
+          s.editing = { builtin: m.builtin, translate: translateText(codes), why: "" };
+          await o.render();
+          return true;
+        }
+        const was = typeof m.was === "string" ? cases().find((c) => c.name === m.was) : null;
+        s.editing = {
+          was: was?.name ?? null,
+          name: was?.name ?? "",
+          rules: was?.rules ?? "",
+          translate: translateText(was?.translate),
+          why: ""
+        };
+        await o.render();
+        return true;
+      }
+      if (m.type === "case-cancel") {
+        s.editing = null;
+        await o.render();
+        return true;
+      }
+      if (m.type === "case-save") {
+        if (!s.editing || !canEdit()) return true;
+        if (s.editing.builtin) return saveBuiltin(s, id, m);
+        const was = s.editing.was;
+        const input = { name: m.name, rules: m.rules, translate: m.translate };
+        const r = saveCase(cases(), was, input, Infinity);
+        const draft = {
+          was,
+          name: String(m.name ?? ""),
+          rules: String(m.rules ?? ""),
+          translate: String(m.translate ?? "")
+        };
+        if (r.why) {
+          s.editing = { ...draft, why: r.why };
+          return o.render().then(() => true);
+        }
+        if (!await write(r.cases)) {
+          s.editing = { ...draft, why: "case-not-saved" };
+          return o.render().then(() => true);
+        }
+        s.editing = null;
+        await keep(`case:${r.name}`);
+        o.audit("case-saved", { added: was === null });
+        const first = answered(id);
+        await settle(id, first);
+        return true;
+      }
+      if (m.type === "case-remove") {
+        const name = nameOf(m.name);
+        if (!canEdit() || !cases().some((c) => c.name === name)) return true;
+        if (!await write(removeCase(cases(), name))) return true;
+        s.editing = null;
+        if (pick === `case:${name}`) await keep(null);
+        o.audit("case-removed");
+        await o.render();
+        return true;
+      }
+      return false;
+    }
+  };
+}
+
+// src/log.js
+function createLog(tf) {
+  const warn = (err) => void Promise.resolve().then(() => tf.log.warn(String(err && err.message ? err.message : err))).catch(() => {
+  });
+  const audit = (action, details) => void Promise.resolve().then(() => tf.audit(action, details)).catch(warn);
+  const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch(warn);
+  return { warn, audit, background };
+}
+
+// src/claudeRun.js
+function createClaudeRun(tf, deps) {
+  const { sessions, render, refreshButton, audit, language, mode, fast, noKey } = deps;
+  const rules = () => typeof deps.rules === "function" ? deps.rules() : "";
+  const translate = () => typeof deps.translate === "function" ? deps.translate() : [];
+  const check = async (id, original) => {
+    const s = sessions.get(id);
+    if (!s) return;
+    if (!tf.ai && await noKey?.(id, original)) return;
+    if (!tf.ai) {
+      Object.assign(s, { step: "problem", problem: "error-no-ai" });
+      return render(id);
+    }
+    s.busy = true;
+    const lang = language();
+    const m = mode();
+    const tl = translate();
+    s.step = "checking";
+    await render(id);
+    try {
+      let answer;
+      try {
+        answer = await tf.ai.ask(
+          buildAsk({
+            text: original,
+            language: lang.name,
+            mode: m,
+            rules: rules(),
+            translate: tl,
+            uiLanguage: tf.t("ai-language"),
+            fast: fast()
+          })
+        );
+      } catch (err) {
+        const key = errorKey(err);
+        if (key === "error-no-key" && await noKey?.(id, original)) return;
+        Object.assign(s, key ? { step: "problem", problem: key } : { step: "write" });
+        return render(id);
+      }
+      const r = readAnswer(answer.text, original, m, tl);
+      if (!r.ok) {
+        Object.assign(s, {
+          step: "problem",
+          problem: r.why === "changed-code" ? "error-changed-code" : "error-unreadable"
+        });
+        return render(id);
+      }
+      Object.assign(s, {
+        step: "result",
+        parts: changes(diff(original, r.corrected)),
+        notes: r.notes,
+        translations: r.translations,
+        rejected: /* @__PURE__ */ new Set(),
+        clean: false
+      });
+      audit("checked", {
+        language: lang.code,
+        mode: m,
+        changes: changeCount(s.parts),
+        model: String(answer.model ?? ""),
+        outputTokens: Number(answer.usage?.outputTokens ?? 0)
+      });
+      await render(id);
+      await refreshButton();
+    } finally {
+      s.busy = false;
+    }
+  };
+  return { check };
+}
+
+// src/sessions.js
+var waitingFixes = (s) => s && s.step === "result" ? changeCount(s.parts) - s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
+var keepsPill = (s) => !!s && !s.open && s.step !== "write";
+function applyToSession(s, m) {
+  if (m.type === "toggle" && s.step === "result") {
+    const n = Number(m.id);
+    if (!s.parts.some((p) => p.id === n)) return { done: true, changed: false, toggled: false };
+    if (s.rejected.has(n)) s.rejected.delete(n);
+    else s.rejected.add(n);
+    return { done: true, changed: true, toggled: true };
+  }
+  if (m.type === "clean" && s.step === "result") {
+    s.clean = !s.clean;
+    return { done: true, changed: true, toggled: false };
+  }
+  if (m.type === "back") {
+    s.step = "write";
+    s.choosing = false;
+    return { done: true, changed: true, toggled: false };
+  }
+  if (m.type === "choose-skip" && s.choosing) {
+    s.choosing = false;
+    return { done: true, changed: true, toggled: false };
+  }
+  return { done: false, changed: false, toggled: false };
+}
+var MAX_DRAFT = 2e4;
+var NO_PANE = "window";
+var MAX_SESSIONS = 24;
+function freshSession() {
+  return {
+    open: false,
+    step: "write",
+    draft: "",
+    parts: [],
+    notes: [],
+    // A case's translations of the corrected prompt: [{ code, text }].
+    translations: [],
+    rejected: /* @__PURE__ */ new Set(),
+    clean: false,
+    problem: "",
+    busy: false,
+    // A click on ✦ Polish in the agent input box waiting for Use or Keep mine.
+    input: null,
+    // What to fix is asked before that click's prompt is checked.
+    choosing: false
+  };
+}
+function resetSession(s) {
+  Object.assign(s, {
+    step: "write",
+    draft: "",
+    parts: [],
+    notes: [],
+    // A case's translations of the corrected prompt: [{ code, text }].
+    translations: [],
+    rejected: /* @__PURE__ */ new Set(),
+    clean: false,
+    problem: "",
+    choosing: false
+  });
+  return s;
+}
+function focusedId(layout) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  const p = panes.find((x) => x && x.focused && typeof x.id === "string");
+  return p ? p.id : null;
+}
+function createSessions() {
+  const byPane = /* @__PURE__ */ new Map();
+  const touch = (id, s) => {
+    byPane.delete(id);
+    byPane.set(id, s);
+    return s;
+  };
+  return {
+    get(id) {
+      return typeof id === "string" ? byPane.get(id) ?? null : null;
+    },
+    ensure(id) {
+      if (typeof id !== "string" || !id) return null;
+      const s = byPane.get(id);
+      if (s) return touch(id, s);
+      for (const [old, o] of byPane) {
+        if (byPane.size < MAX_SESSIONS) break;
+        if (!o.busy) byPane.delete(old);
+      }
+      return touch(id, freshSession());
+    },
+    drop(id) {
+      byPane.delete(id);
+    },
+    size: () => byPane.size,
+    ids: () => [...byPane.keys()]
+  };
+}
+
+// src/inputAction.js
+var ACTION_ID = "polish";
+var WHY_KEYS = {
+  changed: "error-input-changed",
+  expired: "error-input-expired",
+  gone: "error-input-gone",
+  // Tilefold refused the text itself (such as too long for the box).
+  refused: "error-input-refused"
+};
+function paneAt(layout, spot) {
+  const panes = Array.isArray(layout?.panes) ? layout.panes : [];
+  if (spot && [spot.x, spot.y, spot.w, spot.h].every(Number.isFinite)) {
+    const cx = spot.x + spot.w / 2;
+    const cy = spot.y + spot.h / 2;
+    const hit = panes.find((p) => {
+      const r = p?.composer;
+      return r && cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h;
+    });
+    if (hit && typeof hit.id === "string") return hit.id;
+  }
+  const focused = panes.find((p) => p?.focused && typeof p.id === "string");
+  return focused ? focused.id : null;
+}
+function createInputAction(tf, deps) {
+  const { sessions, render, audit, warn, layout, openFor, check, fold, noPane, choose } = deps;
+  const available = () => typeof tf.input?.action === "function";
+  const register = () => {
+    if (available()) tf.input.action({ id: ACTION_ID, label: tf.t("action-label") });
+  };
+  const release = async (id) => {
+    const s = sessions.get(id);
+    const request = s?.input?.request;
+    if (!request) return;
+    s.input = null;
+    await tf.input.release(request).catch(warn);
+  };
+  const releaseAll = async () => {
+    for (const id of sessions.ids()) await release(id);
+  };
+  const cancelled = async (e) => {
+    const request = e && typeof e.request === "string" ? e.request : null;
+    const id = request && sessions.ids().find((p) => sessions.get(p)?.input?.request === request);
+    if (!id) return;
+    const s = sessions.get(id);
+    s.input = null;
+    resetSession(s);
+    await fold(id);
+  };
+  const clicked = async (e) => {
+    if (!e || e.action !== ACTION_ID || typeof e.request !== "string") return;
+    const id = paneAt(await layout(), e.spot) ?? noPane;
+    await release(id);
+    const s = sessions.ensure(id);
+    resetSession(s);
+    s.input = { request: e.request };
+    s.draft = String(e.text ?? "");
+    s.choosing = !!choose?.();
+    await openFor(id);
+    if (s.choosing) return render(id);
+    await check(id, s.draft);
+  };
+  const use = async (id, send = false, text = null) => {
+    const s = sessions.get(id);
+    const request = s?.input?.request;
+    if (!s || !request || s.step !== "result") return;
+    const total = changeCount(s.parts);
+    const undone = s.parts.filter((p) => p.id && s.rejected.has(p.id)).length;
+    s.input = null;
+    let r;
+    try {
+      r = await tf.input.replace(request, { text: text ?? build(s.parts, s.rejected), send });
+    } catch (err) {
+      warn(err);
+      await tf.input.release(request).catch(warn);
+      r = { done: false, why: "refused" };
+    }
+    if (r?.why === "stopped") return;
+    if (r?.done) {
+      audit("used", { kept: total - undone, undone, sent: send, translation: !!text });
+      resetSession(s);
+      await fold(id);
+      return;
+    }
+    Object.assign(s, { step: "problem", problem: WHY_KEYS[r?.why] ?? WHY_KEYS.gone });
+    await render(id);
+  };
+  const keep = async (id) => {
+    const s = sessions.get(id);
+    if (!s?.input) return;
+    await release(id);
+    resetSession(s);
+    await fold(id);
+  };
+  return { available, register, clicked, cancelled, use, keep, release, releaseAll };
+}
+
+// src/sendToAgent.js
+function createSendToAgent(tf, deps) {
+  const { sessions, render, audit, warn, language, afterSend } = deps;
+  return async (id, text, how) => {
+    const s = sessions.get(id);
+    const question = String(text ?? "").trim();
+    if (!s || !question) return;
+    if (typeof tf.agent?.ask !== "function") return tf.toast(tf.t("error-no-agent-ask"));
+    let r;
+    try {
+      r = await tf.agent.ask({
+        question,
+        about: tf.t("ask-about", { language: language().native })
+      });
+    } catch (err) {
+      warn(err);
+      return tf.toast(tf.t("error-ask-failed"));
+    }
+    if (!r?.shown)
+      return tf.toast(tf.t(r?.why === "busy" ? "error-ask-busy" : "error-ask-no-pane"));
+    const total = how === "corrected" ? changeCount(s.parts) : 0;
+    const undone = how === "corrected" ? s.parts.filter((p) => p.id && s.rejected.has(p.id)).length : 0;
+    audit("sent", { how, kept: total - undone, undone });
+    resetSession(s).step = "sent";
+    await render(id);
+    await afterSend(s);
+  };
+}
+
+// src/resultActions.js
+function createResultActions(o) {
+  return async (m, id, s) => {
+    const result = s.step === "result";
+    const asked = "translation" in m ? typeof m.translation === "string" ? m.translation : "" : null;
+    const tl = asked ? (s.translations ?? []).find((x) => x.code === asked)?.text ?? null : null;
+    if (asked !== null && !tl) return m.type === "send" || m.type === "send-now";
+    if ((m.type === "send" || m.type === "send-now") && result && s.input) {
+      await o.inputAction.use(id, m.type === "send-now", tl);
+      return true;
+    }
+    if (m.type === "keep") {
+      await o.inputAction.keep(id);
+      return true;
+    }
+    if (m.type === "send" && result) {
+      await o.sendToAgent(id, tl ?? build(s.parts, s.rejected), tl ? "translation" : "corrected");
+      return true;
+    }
+    if (m.type === "again") {
+      await o.inputAction.release(id);
+      o.agentRun.forget(id);
+      resetSession(s);
+      await o.render(id);
+      return true;
+    }
+    return false;
+  };
+}
+
+// src/button.js
+var PILL_H = 26;
+var PILL_MIN_W = 64;
+var PILL_MAX_W = 160;
+function colorOr(value, fallback) {
+  const v = String(value ?? "").trim();
+  return /^#[0-9a-f]{3,8}$/i.test(v) || /^rgba?\([\d\s.,%]+\)$/i.test(v) ? v : fallback;
+}
+var xml = (s) => String(s).replace(
+  /[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]
+);
+var textWidth = (label) => [...String(label)].reduce((w, ch) => w + (/[ᄀ-ￜ]/.test(ch) ? 12.5 : 7), 0);
+var pillWidth = (label) => Math.round(Math.min(PILL_MAX_W, Math.max(PILL_MIN_W, 34 + textWidth(label))));
+function base64(text) {
+  let bin = "";
+  for (const b of new TextEncoder().encode(text)) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function buttonImage({
+  label = "Polish",
+  w,
+  accent,
+  waiting = 0,
+  open = false,
+  rtl = false
+} = {}) {
+  const width = Number.isFinite(w) ? w : pillWidth(label);
+  const fill = colorOr(accent, "#7c5cff");
+  const n = Math.max(0, Math.min(99, Math.floor(Number(waiting) || 0)));
+  const h = PILL_H;
+  const sx = rtl ? width - 16 : 16;
+  const tx = rtl ? width - 28 : 28;
+  const ring = open ? `<rect x="0.75" y="0.75" width="${width - 1.5}" height="${h - 1.5}" rx="${(h - 1.5) / 2}" fill="none" stroke="#fff" stroke-width="1.5" opacity=".8"/>` : "";
+  const mark = n > 0 ? `<circle cx="${sx}" cy="${h / 2}" r="7.5" fill="#fff"/><text x="${sx}" y="${h / 2 + 3.5}" font-size="10" font-weight="700" text-anchor="middle" fill="${fill}" font-family="system-ui,sans-serif">${n}</text>` : `<path d="M${sx} 7.5l1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4z" fill="#fff"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${h}" viewBox="0 0 ${width} ${h}"><rect width="${width}" height="${h}" rx="${h / 2}" fill="${fill}"/>${ring}` + mark + `<text x="${tx}" y="17" font-size="12" font-weight="600" text-anchor="${rtl ? "end" : "start"}" fill="#fff" font-family="system-ui,sans-serif">${xml(label)}</text></svg>`;
+  return `data:image/svg+xml;base64,${base64(svg)}`;
+}
+
+// src/show.js
+var BUTTON_ID = "polish-button";
+function createStage(tf, o) {
+  let where = null;
+  let spot = null;
+  let buttonShown = false;
+  let sceneShown = false;
+  let layout = null;
+  let focus = null;
+  let wantH = 260;
+  let accent = null;
+  let toldSmall = false;
+  let kept = { dx: 0, dy: 0 };
+  let barH = BAR_H;
+  const rtl = () => tf.t("page-dir") === "rtl";
+  const closePage = async () => {
+    if (!where) return;
+    where = null;
+    spot = null;
+    await tf.page.close().catch(o.warn);
+  };
+  const hideButton = async () => {
+    if (!buttonShown) return;
+    buttonShown = false;
+    await tf.overlay.show({ items: [] }).catch(o.warn);
+  };
+  const dropOverlay = async () => {
+    if (!sceneShown) return;
+    buttonShown = false;
+    sceneShown = false;
+    await tf.overlay.hide().catch(o.warn);
+  };
+  const keepOverlay = async () => {
+    if (sceneShown || !tf.overlay) return;
+    sceneShown = true;
+    await tf.overlay.show({ items: [] }).catch(o.warn);
+  };
+  const pill = () => {
+    const label = tf.t("pill-label");
+    return { label, w: pillWidth(label) };
+  };
+  const drawButton = async (rect, waiting, open) => {
+    const item = {
+      id: BUTTON_ID,
+      image: buttonImage({ ...pill(), accent, waiting, open, rtl: rtl() }),
+      ...rect,
+      hit: true,
+      cursor: "pointer",
+      label: tf.t("button-label")
+    };
+    if (sceneShown) await tf.overlay.update({ items: [item] });
+    else await tf.overlay.show({ items: [item] });
+    buttonShown = true;
+    sceneShown = true;
+  };
+  const dockAt = async (card) => {
+    if (where === "card") {
+      if (!sameSpot(card, spot)) await tf.page.dock(card);
+    } else {
+      await tf.page.open({ dock: card, seeThrough: true });
+    }
+    where = "card";
+    spot = card;
+  };
+  const toCard = async (card) => {
+    try {
+      await dockAt(card);
+    } catch (err) {
+      if (card.h >= SPOT_MIN) throw err;
+      barH = SPOT_MIN;
+      await dockAt({ ...card, h: SPOT_MIN });
+    }
+  };
+  const toSide = async () => {
+    await hideButton();
+    if (where !== "side") await tf.page.open({ side: true });
+    where = "side";
+    spot = null;
+  };
+  const toWindow = async () => {
+    await hideButton();
+    if (!where) await tf.page.open();
+    where = "window";
+    spot = null;
+  };
+  const ensureLayout = async () => {
+    if (layout || !tf.overlay) return;
+    const l = await tf.overlay.layout().catch(() => null);
+    if (l) setLayout(l);
+  };
+  function setLayout(l) {
+    layout = l;
+    const here = Array.isArray(l?.panes) && l.panes.some((p) => p?.id === focus);
+    focus = focusedId(l) ?? (here ? focus : null);
+  }
+  return {
+    setLayout,
+    ensureLayout,
+    focus: () => focus,
+    layout: () => layout,
+    /** The pane a click in its agent input box came from. */
+    focusOn: (id) => void (focus = id ?? focus),
+    where: () => where,
+    kept: () => kept,
+    /** Sends the page a message; a closed page drops it (it gets everything on hello). */
+    async post(message) {
+      if (!where) return;
+      try {
+        await tf.page.post(message);
+      } catch {
+      }
+    },
+    buttonShown: () => buttonShown,
+    setAccent: (a) => void (accent = a ?? accent),
+    setHeight(h) {
+      if (!Number.isFinite(h) || Math.abs(h - wantH) < 2) return false;
+      wantH = h;
+      return where === "card";
+    },
+    /** The overlay was hidden by the user: the button is gone. */
+    lostOverlay: () => void (buttonShown = false, sceneShown = false),
+    /** The page was closed from elsewhere. */
+    lostPage() {
+      where = null;
+      spot = null;
+    },
+    /**
+     * Shows what should be: `view`, whether the focused pane's card is open,
+     * whether anything shows at all (`active`), the button's badge, the
+     * user's drag (`offset`) or fill (`max`), and whether to draw the pill
+     * even over the agent input box (`keepPill`). Returns where the page
+     * ended up.
+     */
+    async show({
+      view,
+      open,
+      active,
+      waiting = 0,
+      offset,
+      max = false,
+      collapsed = false,
+      keepPill = false
+    }) {
+      if (!active) {
+        await closePage();
+        await dropOverlay();
+        return where;
+      }
+      await keepOverlay();
+      if (view === "side") {
+        await toSide();
+        return where;
+      }
+      if (view === "window") {
+        await toWindow();
+        return where;
+      }
+      await ensureLayout();
+      if (view === "bottom" && !open) {
+        await hideButton();
+        await closePage();
+        return where;
+      }
+      const spots = placeFor(layout, view, {
+        h: wantH,
+        open,
+        rtl: rtl(),
+        pane: focus,
+        bw: pill().w,
+        noPill: !keepPill && !!(layout?.panes ?? []).find((p) => p.id === focus)?.agentInput,
+        offset,
+        max,
+        collapsed,
+        barH
+      });
+      if (spots?.offset) kept = spots.offset;
+      if (!spots) {
+        const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);
+        await hideButton();
+        if (!hasPane) {
+          await closePage();
+          return where;
+        }
+        if (!toldSmall) {
+          toldSmall = true;
+          await tf.toast(tf.t("toast-too-small"));
+        }
+        if (o.canSide()) await toSide();
+        else await toWindow();
+        return where;
+      }
+      toldSmall = false;
+      if (spots.button) await drawButton(spots.button, waiting, open);
+      else await hideButton();
+      if (spots.card) await toCard(spots.card);
+      else await closePage();
+      return where;
+    }
+  };
+}
+
+// src/view.js
+var AGENT_CAN_HELP = /* @__PURE__ */ new Set(["error-no-ai", "error-no-key"]);
+var HELPER_CAN_FIX = /* @__PURE__ */ new Set(["error-helper-not-started", "error-helper-failed"]);
+var CASE_KEYS = {
+  "label-checking": "label-checking-case",
+  "label-agent-waiting": "label-agent-waiting-case",
+  "label-helper-working": "label-helper-working-case"
+};
+var KIND_KEYS = {
+  spelling: "kind-spelling",
+  grammar: "kind-grammar",
+  spacing: "kind-spacing",
+  punctuation: "kind-punctuation",
+  style: "kind-style"
+};
+function setupOf(t) {
+  return {
+    lang: t("page-lang"),
+    dir: t("page-dir"),
+    labels: {
+      name: t("button-label"),
+      views: {
+        bottom: t("setting-view-bottom"),
+        corner: t("setting-view-corner"),
+        side: t("setting-view-side")
+      },
+      overPane: t("label-over-pane"),
+      inDock: t("label-in-dock"),
+      fold: t("label-fold"),
+      fill: t("label-fill"),
+      restore: t("label-restore"),
+      move: t("label-move"),
+      close: t("label-close"),
+      hint: t("label-hint"),
+      asIs: t("label-as-is"),
+      check: t("label-check"),
+      // A case picked: the write step's button applies it, by name.
+      applyCase: t("label-apply-case", { name: "{name}" }),
+      showResult: t("label-show-result"),
+      showChanges: t("label-show-changes"),
+      clickHint: t("label-click-hint"),
+      // A case's rework: each change has its own button to undo or bring it back.
+      clickHintRework: t("label-click-hint-rework"),
+      undoChange: t("label-undo-change"),
+      restoreChange: t("label-restore-change"),
+      back: t("label-back"),
+      send: t("label-send"),
+      sent: t("label-sent"),
+      again: t("label-again"),
+      cancel: t("label-cancel"),
+      askAgent: t("label-ask-agent"),
+      use: t("label-use"),
+      keep: t("label-keep"),
+      agentHint: t("label-agent-hint"),
+      // The time a check has taken; the page puts the seconds in place of {n}.
+      elapsed: t("label-elapsed", { seconds: "{n}" }),
+      words: t("label-words", { count: "{count}" }),
+      chars: t("label-chars", { count: "{count}" }),
+      tooLong: t("label-too-long", { max: MAX_CHARS }),
+      // What to fix: the chip's menu and the form for the user's own cases.
+      modeMenu: t("label-mode-menu"),
+      modeChoose: t("label-mode-choose"),
+      addCase: t("label-add-case"),
+      editCase: t("label-edit-case", { name: "{name}" }),
+      // No case in use: Edit… first asks which case.
+      editCases: t("label-edit-cases"),
+      editWhich: t("label-edit-which"),
+      // With a built-in case in use: edit one of the user's own cases instead.
+      editAnother: t("label-edit-another"),
+      caseBuiltin: t("label-case-builtin"),
+      caseBuiltinNote: t("label-case-builtin-note"),
+      // The polish agent's tab: bring it to the front, or start it afresh.
+      helperShow: t("label-helper-show"),
+      helperRestart: t("label-helper-restart"),
+      casesInSettings: t("label-cases-in-settings"),
+      caseNew: t("label-case-new"),
+      caseEdit: t("label-case-edit"),
+      caseName: t("label-case-name"),
+      caseRules: t("label-case-rules"),
+      caseRulesHint: t("label-case-rules-hint"),
+      // A case's languages to translate into, and the result's translations.
+      caseTranslate: t("label-case-translate"),
+      caseTranslateHint: t("label-case-translate-hint"),
+      // How to name the languages, and what the field reads them as while typing.
+      caseTranslateHelp: t("label-case-translate-help"),
+      translatePreview: t("label-translate-preview"),
+      translateUnknown: t("label-translate-unknown", { words: "{words}" }),
+      translateTooMany: t("label-translate-too-many", { max: 8 }),
+      translations: t("label-translations"),
+      useThis: t("label-use-this"),
+      sendThis: t("label-send-this"),
+      copy: t("label-copy"),
+      copied: t("label-copied"),
+      caseSave: t("label-case-save"),
+      caseRemove: t("label-case-remove")
+    }
+  };
+}
+function translationsOf(s) {
+  return (Array.isArray(s.translations) ? s.translations : []).map((x) => ({
+    code: x.code,
+    native: shownName(x.code),
+    text: x.text
+  }));
+}
+function modeLabel(s, t) {
+  if (typeof s.modeId === "string" && s.modeId.startsWith("case:") && s.caseName) return s.caseName;
+  const id = typeof s.modeId === "string" ? s.modeId : s.mode;
+  return id === "natural" ? t("setting-mode-natural") : t("setting-mode-fix");
+}
+function viewOf2(s, t) {
+  const lang = s.language;
+  const head = {
+    // Whose prompt this is: the page sends it back with what the user does.
+    pane: typeof s.pane === "string" ? s.pane : null,
+    view: s.view,
+    language: lang.native,
+    // What to fix, as the card picked it (a case shows its own name).
+    mode: modeLabel(s, t),
+    modeId: typeof s.modeId === "string" ? s.modeId : s.mode === "natural" ? "natural" : "fix",
+    modes: [
+      { id: "fix", label: t("setting-mode-fix") },
+      { id: "natural", label: t("setting-mode-natural") },
+      ...(Array.isArray(s.cases) ? s.cases : []).map((name) => ({
+        id: `case:${name}`,
+        label: name
+      }))
+    ],
+    canEditCases: !!s.canEditCases,
+    unspaced: isUnspaced(lang.code),
+    langCode: lang.code,
+    // From the agent input box: Use puts the result back there.
+    input: !!s.input,
+    // How solid the card's background is over the pane (100: not see-through).
+    solid: Number.isFinite(s.solid) ? s.solid : 100,
+    // The card fills the pane (its ▢ button is pressed).
+    max: !!s.max,
+    // Folded to its header bar.
+    collapsed: !!s.collapsed
+  };
+  if (s.editing) {
+    const e = s.editing;
+    if (e.builtin === "fix" || e.builtin === "natural") {
+      return {
+        ...head,
+        step: "case",
+        builtin: e.builtin,
+        was: null,
+        name: t(e.builtin === "natural" ? "setting-mode-natural" : "setting-mode-fix"),
+        rules: "",
+        translate: String(e.translate ?? ""),
+        why: e.why ? t(e.why) : ""
+      };
+    }
+    return {
+      ...head,
+      step: "case",
+      was: typeof e.was === "string" ? e.was : null,
+      name: String(e.name ?? ""),
+      rules: String(e.rules ?? ""),
+      translate: String(e.translate ?? ""),
+      why: e.why ? t(e.why) : ""
+    };
+  }
+  const own = String(head.modeId).startsWith("case:") && s.caseName ? s.caseName : "";
+  const waitText = (key, args = {}) => own ? t(CASE_KEYS[key], { ...args, name: own }) : t(key, { ...args, language: lang.native });
+  if (s.step === "checking") {
+    return { ...head, step: "checking", text: waitText("label-checking") };
+  }
+  if (s.step === "agent") {
+    if (!s.helper) {
+      const text = waitText("label-agent-waiting");
+      return { ...head, step: "agent", text, hint: t("label-agent-hint"), since: null };
+    }
+    const agent = s.helperName ?? "";
+    const working = s.helperStage === "working";
+    return {
+      ...head,
+      step: "agent",
+      text: working ? waitText("label-helper-working", { agent }) : t("label-helper-starting", { agent }),
+      hint: t(working ? "label-helper-working-hint" : "label-helper-starting-hint"),
+      since: working && Number.isFinite(s.helperSince) ? s.helperSince : null,
+      // Its tab can be brought to the front, to answer it or watch it.
+      showHelper: !!s.canShowHelper
+    };
+  }
+  if (s.step === "problem") {
+    const offer = AGENT_CAN_HELP.has(s.problem) && !!String(s.draft ?? "").trim();
+    const helperFix = !!s.canShowHelper && HELPER_CAN_FIX.has(s.problem);
+    return { ...head, step: "problem", text: t(s.problem), askAgent: offer, helperFix };
+  }
+  if (s.step === "sent") return { ...head, step: "sent" };
+  if (s.step === "result") {
+    const total = changeCount(s.parts);
+    const undone = s.parts.filter((p) => p.id && s.rejected.has(p.id)).length;
+    if (!total) {
+      return {
+        ...head,
+        step: "result",
+        nothing: t("label-nothing", { language: lang.native }),
+        parts: [],
+        notes: [],
+        translations: translationsOf(s)
+      };
+    }
+    return {
+      ...head,
+      step: "result",
+      summary: t("label-changes", { count: total }),
+      // A case's rework: undone with each change's button, never by a click on the text.
+      rework: String(head.modeId).startsWith("case:"),
+      undone: undone ? t("label-undone", { count: undone }) : "",
+      clean: !!s.clean,
+      parts: s.parts.map(
+        (p) => "same" in p ? { same: p.same } : { id: p.id, del: p.del, ins: p.ins, off: s.rejected.has(p.id) }
+      ),
+      notes: s.notes.map((n) => ({ ...n, kindLabel: t(KIND_KEYS[n.kind] ?? "kind-grammar") })),
+      translations: translationsOf(s)
+    };
+  }
+  return {
+    ...head,
+    step: "write",
+    draft: s.draft,
+    // From the agent input box with own cases: what to fix is picked first.
+    choose: !!s.choosing,
+    // A case picked: its name, for the button that applies it.
+    apply: own,
+    placeholder: t("label-placeholder", { language: lang.native })
+  };
+}
+
+// src/run.js
+var VIEW_KEY = "view";
+function runPolish(tf) {
+  const { warn, audit, background } = createLog(tf);
+  const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
+  const canSide = () => !!tf.page && typeof tf.theme === "function";
+  const sessions = createSessions();
+  const stage = createStage(tf, { warn, canSide });
+  const kept = () => stage.kept();
+  const moves = createCardMoves({ place: () => place(), render: () => render(), audit, kept });
+  const later = {
+    current: () => current(),
+    check: (id, t) => check(id, t),
+    render: () => render()
+  };
+  const modes = createModes(tf, { ...later, sessions, audit, warn });
+  const helperTab = createHelperTab(tf, {
+    ...later,
+    render: (id) => render(id),
+    sessions,
+    audit,
+    warn
+  });
+  let active = false;
+  let dismissed = false;
+  let shown = null;
+  let chosen = null;
+  let loaded = false;
+  const current = () => settingsOf(tf.settings);
+  const language = () => languageOf(current().language, tf.t("page-lang"));
+  const effectiveView = () => {
+    let v = chosen ?? current().view;
+    if (v !== "side" && !canFloat()) v = "side";
+    if (v === "side" && !canSide()) v = canFloat() ? "bottom" : "window";
+    return v;
+  };
+  const focusId = () => stage.focus() ?? NO_PANE;
+  const load = async () => {
+    if (loaded) return;
+    loaded = true;
+    await modes.load();
+    const v = await tf.store.get(VIEW_KEY).catch(() => null);
+    chosen = v === "bottom" || v === "corner" || v === "side" ? v : null;
+    if (typeof tf.theme === "function") {
+      stage.setAccent((await tf.theme().catch(() => null))?.colors?.accent ?? null);
+    }
+  };
+  const post = (message) => stage.post(message);
+  const render = async (id = shown) => {
+    const s = sessions.get(id);
+    if (!s || id !== shown) return;
+    helperTab.ensure().catch(warn);
+    const { max, collapsed } = moves.state();
+    const card = {
+      ...cardSettings(current()),
+      ...modes.view(),
+      ...helperTab.view(),
+      max,
+      collapsed
+    };
+    const called = agentRun.calledName();
+    if (called) card.helperName = called;
+    await post({
+      do: "show",
+      view: viewOf2({ ...s, pane: id, view: effectiveView(), language: language(), ...card }, tf.t)
+    });
+  };
+  const place = async () => {
+    await stage.ensureLayout();
+    const view = effectiveView();
+    const id = focusId();
+    const s = view === "side" || view === "window" ? sessions.ensure(id) : sessions.get(id);
+    const show = {
+      view,
+      active,
+      open: !!s?.open,
+      waiting: waitingFixes(s),
+      keepPill: keepsPill(s)
+    };
+    const where = await stage.show({ ...show, ...moves.state() });
+    const next = where && s ? id : null;
+    if (next !== shown) {
+      shown = next;
+      await render();
+    }
+  };
+  const open = async () => {
+    await load();
+    if (!tf.page) {
+      await tf.toast(tf.t("toast-needs-tilefold"));
+      return;
+    }
+    await stage.ensureLayout();
+    const s = sessions.ensure(focusId());
+    const was = active && s.open;
+    active = true;
+    dismissed = false;
+    s.open = true;
+    await place();
+    if (!was) audit("opened", { view: effectiveView() });
+  };
+  const openFor = async (id) => {
+    await load();
+    if (!tf.page) return;
+    await stage.ensureLayout();
+    stage.focusOn(id);
+    const s = sessions.ensure(id);
+    const was = active && s.open;
+    active = true;
+    dismissed = false;
+    s.open = true;
+    await place();
+    if (!was) audit("opened", { view: effectiveView(), from: "input" });
+  };
+  const foldAfter = async (id) => {
+    const v = effectiveView();
+    const s = sessions.get(id);
+    if (s && v !== "side" && v !== "window") s.open = false;
+    await place();
+    await render(id);
+  };
+  const closeShown = async () => {
+    const s = sessions.get(shown);
+    if (s) {
+      await inputAction.release(shown);
+      agentRun.forget(shown);
+      resetSession(s);
+      s.open = false;
+    }
+    const v = effectiveView();
+    if (v === "side" || v === "window") active = false;
+    await place();
+    audit("closed", {});
+  };
+  const closeAll = async () => {
+    const was = active;
+    active = false;
+    dismissed = true;
+    await inputAction.releaseAll();
+    for (const id of sessions.ids()) sessions.drop(id);
+    await place();
+    if (was) audit("closed", {});
+  };
+  const chooseView = async (to) => {
+    const v = viewOf(to);
+    if (v !== to) return;
+    chosen = v;
+    moves.reset();
+    await tf.store.set(VIEW_KEY, v);
+    const s = sessions.ensure(focusId());
+    s.open = true;
+    audit("view-changed", { to: v });
+    await place();
+  };
+  const fold = async () => {
+    const v = effectiveView();
+    if (v === "side" || v === "window") return;
+    if (v !== "corner") {
+      chosen = "corner";
+      await tf.store.set(VIEW_KEY, "corner");
+      audit("view-changed", { to: "corner" });
+    }
+    const s = sessions.get(focusId());
+    if (s) s.open = false;
+    await place();
+  };
+  const deps = {
+    sessions,
+    render,
+    refreshButton: async () => {
+      if (stage.buttonShown()) await place();
+    },
+    audit,
+    warn,
+    language,
+    mode: () => modes.now().mode,
+    rules: () => modes.now().rules,
+    translate: () => modes.now().translate,
+    choose: () => current().cases.length > 0,
+    fast: () => current().fast,
+    helperAgent: () => current().helperAgent,
+    usedHelper: () => helperTab.noteUsed()
+  };
+  const agentRun = createAgentRun(tf, deps);
+  const claudeRun = createClaudeRun(tf, { ...deps, noKey: agentRun.takeOver });
+  const sendToAgent = createSendToAgent(tf, {
+    ...deps,
+    // With the pill, the card folds back into it.
+    afterSend: async (s) => {
+      if (effectiveView() !== "corner") return;
+      s.open = false;
+      await place();
+    }
+  });
+  const inputAction = createInputAction(tf, {
+    ...deps,
+    layout: async () => (await stage.ensureLayout(), stage.layout()),
+    openFor,
+    check: (id, text) => check(id, text),
+    fold: foldAfter,
+    noPane: NO_PANE
+  });
+  const results = createResultActions({ inputAction, sendToAgent, agentRun, render });
+  const check = async (id, text, by = current().checker) => {
+    const s = sessions.get(id);
+    if (!s) return;
+    s.draft = String(text ?? "").slice(0, MAX_DRAFT);
+    if (s.busy || blocker(s.draft)) return;
+    if (by === "agent") return agentRun.check(id, s.draft);
+    return claudeRun.check(id, s.draft);
+  };
+  const hear = async (m) => {
+    if (!m || typeof m !== "object") return;
+    if (m.type === "hello") {
+      await post({ do: "setup", ...setupOf(tf.t) });
+      return render();
+    }
+    const pane = typeof m.pane === "string" ? m.pane : shown;
+    if (await moves.hear(m) || await modes.hear(m, pane) || await helperTab.hear({ ...m, pane }))
+      return;
+    if (m.type === "view") return chooseView(m.to);
+    if (m.type === "fold") return fold();
+    if (m.type === "size") {
+      if (stage.setHeight(Number(m.h))) await place();
+      return;
+    }
+    if (m.type === "close") return closeShown();
+    const id = typeof m.pane === "string" ? m.pane : shown;
+    const s = sessions.get(id);
+    if (!s) return;
+    if (m.type === "draft") {
+      if (s.step === "write") s.draft = String(m.text ?? "").slice(0, MAX_DRAFT);
+      return;
+    }
+    if (m.type === "check") return check(id, m.text);
+    if (m.type === "agent-check") return check(id, s.draft, "agent");
+    if (m.type === "cancel-agent") return agentRun.cancel(id);
+    if (m.type === "as-is")
+      return sendToAgent(id, String(m.text ?? "").slice(0, MAX_DRAFT), "as-is");
+    const r = applyToSession(s, m);
+    if (r.done) {
+      if (r.changed) await render(id);
+      if (r.toggled && stage.buttonShown()) await place();
+      return;
+    }
+    await results(m, id, s);
+  };
+  const wake = async () => {
+    await load();
+    if (active || dismissed || !canFloat() || effectiveView() !== "corner") return;
+    active = true;
+    await place();
+  };
+  registerCommands(tf, {
+    background,
+    inputAction,
+    open,
+    runs: {
+      open,
+      close: closeAll,
+      "helper-show": () => helperTab.show(),
+      "helper-restart": () => helperTab.show(true)
+    },
+    handBack: (input) => agentRun.handBack(input),
+    handBackId: HAND_BACK,
+    handBackInput: HAND_BACK_INPUT
+  });
+  tf.on(
+    "page.message",
+    background((e) => hear(e && e.message))
+  );
+  tf.on(
+    "page.closed",
+    background(async () => {
+      if (!stage.where()) return;
+      stage.lostPage();
+      await inputAction.releaseAll();
+      const s = sessions.get(shown);
+      shown = null;
+      const v = effectiveView();
+      if (v === "side" || v === "window") active = false;
+      else if (s) s.open = false;
+      await place();
+    })
+  );
+  tf.on(
+    "page.undocked",
+    // The user pressed Undock on the dock's bar: back over the pane.
+    background(async () => {
+      stage.lostPage();
+      shown = null;
+      await chooseView("bottom");
+    })
+  );
+  tf.on(
+    "overlay.layout",
+    background(async (e) => {
+      if (!e || !Array.isArray(e.panes)) return;
+      stage.setLayout(e);
+      await wake();
+      if (active) await place();
+    })
+  );
+  registerPill(tf, {
+    background,
+    stage,
+    sessions,
+    focusId,
+    place,
+    closeAll,
+    buttonId: BUTTON_ID
+  });
+  tf.on(
+    "setting.changed",
+    background(async (e) => {
+      await load();
+      if (e?.key === "mode") await modes.settingChanged();
+      if (e?.key === "view") {
+        chosen = null;
+        await tf.store.delete(VIEW_KEY);
+        await wake();
+        if (active) await place();
+      }
+      await render();
+    })
+  );
+  void Promise.resolve().then(wake).catch(warn);
+  return {
+    state: () => ({ where: stage.where(), shown, active, sessions: sessions.size() })
+  };
+}
+
+// src/main.js
+var main_default = (tf) => {
+  registerSettings(tf);
+  runPolish(tf);
+};
+export default main_default;

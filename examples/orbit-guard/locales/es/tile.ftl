@@ -37,3 +37,6 @@ button-pause = Pausar o reanudar
 button-left = Mover a la izquierda
 button-right = Mover a la derecha
 button-fire = Disparar
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

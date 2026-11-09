@@ -59,3 +59,6 @@ page-resize = ドラッグしてクイズのサイズを変更
 setting-show-as-side = ペインの横にドッキング
 page-dock = ペインの横にドッキング
 page-float = ペインの上に浮かせる
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

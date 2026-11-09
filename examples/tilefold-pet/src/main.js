@@ -45,5 +45,11 @@ export default (tf) => {
   tf.setting("speech", true, tf.t("setting-speech"));
   tf.setting("bark", true, tf.t("setting-bark"));
   tf.setting("sleepAfterIdle", 5, tf.t("setting-sleep-after"));
+  tf.setting("showOn", "all", tf.t("setting-show-on"), {
+    choices: [
+      { value: "all", label: tf.t("setting-show-on-all") },
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+    ],
+  });
   runPet(tf);
 };

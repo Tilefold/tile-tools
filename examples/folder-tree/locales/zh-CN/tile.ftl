@@ -122,3 +122,6 @@ menu-unpin = 取消固定
 page-pins-label = 已固定的文件夹
 pins-add-label = 添加文件夹
 pins-add-placeholder = 按路径添加文件夹
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

@@ -43,3 +43,6 @@ state-rate = GitLab bittet um eine Pause
 state-rate-hint = Neue Abfrage in fünf Minuten.
 state-error = GitLab hat nicht geantwortet
 state-error-hint = Gleich neuer Versuch. Klick auf die Tafel, um es jetzt zu versuchen.
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

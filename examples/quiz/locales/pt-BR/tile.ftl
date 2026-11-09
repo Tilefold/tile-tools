@@ -59,3 +59,6 @@ page-resize = Arraste para redimensionar o quiz
 setting-show-as-side = Acoplado ao lado dos painéis
 page-dock = Acoplar ao lado dos painéis
 page-float = Flutuar sobre os painéis
+setting-show-on = Mostrar em
+setting-show-on-tab = A aba onde foi aberto
+setting-show-on-all = Todas as abas

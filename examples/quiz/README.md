@@ -44,6 +44,7 @@ In **Settings → Tiles → Quiz**:
 - **Show the quiz:** on a card over the panes (the default), docked beside the panes (Tilefold 0.1.20), or in a panel beside the panes, where the list, the questions and the answers are rows drawn in your theme.
 - **Corner of the pane for the card:** where the card starts.
 - **Appearance of the card** (before Tilefold 0.1.20): Automatic, Light or Dark.
+- **Show on:** every tab (the default), or only the tab where you opened the quiz, for the card and the panel (Tilefold 0.1.27).
 
 The floating card needs Tilefold 0.1.11, agents' quizzes 0.1.14, and docking beside the panes and your theme's colors 0.1.20. From 0.1.7 to 0.1.10 the quiz opens in a window of its own, and the panel needs 0.1.9.
 

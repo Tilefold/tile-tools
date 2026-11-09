@@ -20,9 +20,18 @@
  * Needs Tilefold 0.1.7 for the page, 0.1.20 to dock it beside the panes.
  *
  * Built into main.js with `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-11-08 (one tab or every tab): the "Show on" setting.
  */
 import { runTileGo } from "./run.js";
 
 export default (tf) => {
+  // Beside the panes: on the tab where it was opened (the default), or on every tab.
+  tf.setting("showOn", "tab", tf.t("setting-show-on"), {
+    choices: [
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+      { value: "all", label: tf.t("setting-show-on-all") },
+    ],
+  });
   runTileGo(tf);
 };

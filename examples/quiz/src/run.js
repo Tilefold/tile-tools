@@ -35,6 +35,9 @@
  *
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on"; opening the card
+ *   from another tab brings it here.
  */
 import { createAgentCommands, AGENT_COMMANDS } from "./agent.js";
 import { createCard } from "./card.js";
@@ -42,7 +45,7 @@ import { BUILTIN_ID, visible, withBest, withBuiltin } from "./library.js";
 import { createLook } from "./look.js";
 import { isMovable, placeOf, showsAt } from "./place.js";
 import { nextQuestion, pickChoice, startQuiz } from "./quiz.js";
-import { COMMANDS, cornerSetting, showAsSetting } from "./settings.js";
+import { COMMANDS, cornerSetting, showAsSetting, showOnSetting } from "./settings.js";
 import { createStore } from "./store.js";
 import {
   ROW,
@@ -85,6 +88,7 @@ export function runQuiz(tf) {
   const card = canFloat()
     ? createCard(tf, {
         corner: () => cornerSetting(tf.settings),
+        perTab: () => showOnSetting(tf.settings) === "tab",
         theme: () => look.mode(),
         colors: () => look.colors(),
         label: () => tf.t("grip-label"),
@@ -133,7 +137,8 @@ export function runQuiz(tf) {
   const render = async () => {
     if (where === "panel") {
       const content = quiz ? panelView(state, quiz, tf.t) : listPanelView(visible(index), tf.t);
-      await tf.panel.show(content);
+      // "Show on" the tab where it was opened: the panel keeps to that tab too.
+      await tf.panel.show({ ...content, perTab: showOnSetting(tf.settings) === "tab" });
     } else if (where) {
       const view = quiz ? cardView(state, quiz, tf.t) : listCardView(visible(index), tf.t);
       await post({ do: "show", view });
@@ -167,9 +172,15 @@ export function runQuiz(tf) {
     where = "side";
   };
 
+  /** The card is shown on its own tab, and the user is on another. */
+  let away = false;
+
   /** Opens the quiz where it should go, or moves it there; falls back as needed. */
   const open = async () => {
     await load();
+    // Away on another tab: the card comes to the tab in front.
+    if (where === "card" && away) await close(false);
+    away = false;
     const place = placeOf(showAsSetting(tf.settings), chosen, canSide());
     if (where && showsAt(where, place)) return render();
     // Between the card and the dock the page moves (Tilefold reloads it there).
@@ -438,9 +449,17 @@ export function runQuiz(tf) {
     // with "Quiz: Start or show". Everything stays kept.
     background(() => (where === "card" ? close() : undefined)),
   );
+  // "Show on" the tab where it was opened: the user left that tab, or came back.
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    }),
+  );
   /** The settings as last seen, to tell what changed. */
   let corner = cornerSetting(tf.settings);
   let showAs = showAsSetting(tf.settings);
+  let showOn = showOnSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
@@ -452,6 +471,13 @@ export function runQuiz(tf) {
         chosen = null;
         await store.savePlacement(null);
         if (where) await open();
+      }
+      if (showOnSetting(tf.settings) !== showOn) {
+        // One tab or every tab: the card is shown again with the new choice.
+        showOn = showOnSetting(tf.settings);
+        if (where === "card") await close(false).then(open);
+        // A panel is shown again with it (every tab: shown afresh, without its tab).
+        if (where === "panel") await tf.panel.hide().then(render);
       }
       if (await look.settingChanged()) await applyLook();
       if (now.corner !== corner) {

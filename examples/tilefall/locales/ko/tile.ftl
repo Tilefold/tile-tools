@@ -50,3 +50,6 @@ button-play = 시작
 button-left = 왼쪽으로 이동
 button-down = 아래로 이동
 button-right = 오른쪽으로 이동
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

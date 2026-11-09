@@ -265,3 +265,24 @@ describe("Tilefold Pet barking", () => {
     expect(tessa.sounds).toEqual([]);
   });
 });
+
+describe("one tab or every tab", () => {
+  it("shows on every tab unless asked, then keeps to its tab", async () => {
+    const host = await started();
+    expect(host.overlayPerTab).toBe(false);
+    await host.setSetting("showOn", "tab");
+    await host.advance(0);
+    expect(host.overlayPerTab).toBe(true);
+  });
+
+  it("comes to the tab in front when shown from another tab, and goes when its tab closes", async () => {
+    const host = await started({ settings: { showOn: "tab" } });
+    await host.emit("overlay.tab", { shown: false });
+    await host.command("toggle");
+    await host.advance(0);
+    expect(host.overlay).not.toBeNull();
+    await host.emit("overlay.hidden", { by: "tab" });
+    await host.advance(0);
+    expect(host.overlay).toBeNull();
+  });
+});

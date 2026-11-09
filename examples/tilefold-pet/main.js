@@ -1053,6 +1053,23 @@ function posesOf(character) {
   return drawn.get(character.id);
 }
 
+// src/tabs.js
+function watchTab(tf, background) {
+  let away = false;
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    })
+  );
+  return {
+    away: () => away,
+    here: () => {
+      away = false;
+    }
+  };
+}
+
 // src/pet.js
 function runPet(tf) {
   const pet = { x: 0, y: 0, flip: false, state: "off", asleep: false, pane: null };
@@ -1154,6 +1171,7 @@ function runPet(tf) {
     })().catch((err) => void tf.log.error(String(err && err.message || err)).catch(() => {
     }));
   };
+  const tab = watchTab(tf, background);
   const idle = async () => {
     pet.state = "idle";
     await draw("idle");
@@ -1242,11 +1260,17 @@ function runPet(tf) {
   const appear = async () => {
     layout = await tf.overlay.layout();
     place();
-    const shown = await tf.overlay.show({ items: [] });
+    const perTab = tf.settings.get("showOn") === "tab";
+    const shown = await tf.overlay.show({ items: [], perTab });
+    tab.here();
     pet.state = "idle";
     await draw("idle");
     await tf.store.set("visible", true);
     if (shown) later(1500, choose);
+  };
+  const moveHere = async () => {
+    await tf.overlay.hide();
+    await appear();
   };
   const vanish = async () => {
     clearTimeout(timer);
@@ -1255,7 +1279,8 @@ function runPet(tf) {
     await tf.overlay.hide();
     await tf.store.set("visible", false);
   };
-  tf.command(tf.t("cmd-toggle"), async () => pet.state === "off" ? appear() : vanish(), {
+  const toggle = async () => pet.state === "off" ? appear() : tab.away() ? moveHere() : vanish();
+  tf.command(tf.t("cmd-toggle"), toggle, {
     id: "toggle"
   });
   tf.command(
@@ -1287,6 +1312,7 @@ function runPet(tf) {
     background(async (e) => {
       const key = e && e.key;
       if (key === "character") await tf.audit("character", { character: character().id });
+      if (key === "showOn" && pet.state !== "off") return moveHere();
       if (pet.state === "off" || pet.state === "held") return;
       if (!["character", "size", "name", "roam"].includes(key)) return;
       settle();
@@ -1356,8 +1382,9 @@ function runPet(tf) {
   );
   tf.on(
     "overlay.hidden",
-    background(() => {
+    background(async (e) => {
       clearTimeout(timer);
+      if (e && e.by === "tab") await vanish();
     })
   );
   tf.on(
@@ -1415,6 +1442,12 @@ var main_default = (tf) => {
   tf.setting("speech", true, tf.t("setting-speech"));
   tf.setting("bark", true, tf.t("setting-bark"));
   tf.setting("sleepAfterIdle", 5, tf.t("setting-sleep-after"));
+  tf.setting("showOn", "all", tf.t("setting-show-on"), {
+    choices: [
+      { value: "all", label: tf.t("setting-show-on-all") },
+      { value: "tab", label: tf.t("setting-show-on-tab") }
+    ]
+  });
   runPet(tf);
 };
 export default main_default;

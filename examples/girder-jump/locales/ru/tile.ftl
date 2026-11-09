@@ -42,3 +42,6 @@ button-up = Вверх
 button-down = Вниз
 button-jump = Прыжок
 hud-bonus = БОНУС
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

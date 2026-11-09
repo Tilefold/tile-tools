@@ -37,3 +37,6 @@ button-pause = Pause or resume
 button-left = Move left
 button-right = Move right
 button-launch = Launch the ball
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

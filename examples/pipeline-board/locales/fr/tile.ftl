@@ -43,3 +43,6 @@ state-rate = GitLab demande de ralentir
 state-rate-hint = Nouvelle vérification dans cinq minutes.
 state-error = GitLab n'a pas répondu
 state-error-hint = Nouvel essai sous peu. Cliquez sur le tableau pour réessayer maintenant.
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

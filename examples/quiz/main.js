@@ -502,7 +502,7 @@ function createCard(tf, o) {
     const scene = items(s);
     const ids = scene.map((i) => i.id).join();
     if (ids === drawnIds) await tf.overlay.update({ items: scene });
-    else await tf.overlay.show({ items: scene });
+    else await tf.overlay.show({ items: scene, perTab: o.perTab?.() === true });
     drawnIds = ids;
     dockPage(s.page);
   };
@@ -525,7 +525,7 @@ function createCard(tf, o) {
     async show() {
       const s = await spots();
       const scene = items(s);
-      await tf.overlay.show({ items: scene });
+      await tf.overlay.show({ items: scene, perTab: o.perTab?.() === true });
       shown = true;
       drawnIds = scene.map((i) => i.id).join();
       lastPage = JSON.stringify(s.page);
@@ -685,6 +685,19 @@ function registerSettings(tf) {
   tf.setting("appearance", "auto", tf.t("setting-appearance"), {
     choices: APPEARANCES.map((value) => ({ value, label: tf.t(APPEARANCE_KEYS[value]) }))
   });
+  tf.setting("showOn", "all", tf.t("setting-show-on"), {
+    choices: [
+      { value: "all", label: tf.t("setting-show-on-all") },
+      { value: "tab", label: tf.t("setting-show-on-tab") }
+    ]
+  });
+}
+function showOnSetting(settings) {
+  try {
+    return settings.get("showOn") === "tab" ? "tab" : "all";
+  } catch {
+    return "all";
+  }
 }
 var read = (settings, key) => {
   try {
@@ -986,6 +999,7 @@ function runQuiz(tf) {
   const canSide = () => !!tf.page && typeof tf.theme === "function";
   const card = canFloat() ? createCard(tf, {
     corner: () => cornerSetting(tf.settings),
+    perTab: () => showOnSetting(tf.settings) === "tab",
     theme: () => look.mode(),
     colors: () => look.colors(),
     label: () => tf.t("grip-label"),
@@ -1023,7 +1037,7 @@ function runQuiz(tf) {
   const render = async () => {
     if (where === "panel") {
       const content = quiz ? panelView(state, quiz, tf.t) : listPanelView(visible(index), tf.t);
-      await tf.panel.show(content);
+      await tf.panel.show({ ...content, perTab: showOnSetting(tf.settings) === "tab" });
     } else if (where) {
       const view = quiz ? cardView(state, quiz, tf.t) : listCardView(visible(index), tf.t);
       await post({ do: "show", view });
@@ -1050,8 +1064,11 @@ function runQuiz(tf) {
     await tf.page.open({ side: true });
     where = "side";
   };
+  let away = false;
   const open = async () => {
     await load();
+    if (where === "card" && away) await close(false);
+    away = false;
     const place = placeOf(showAsSetting(tf.settings), chosen, canSide());
     if (where && showsAt(where, place)) return render();
     if (where && where !== "panel" && isMovable(place)) {
@@ -1286,8 +1303,15 @@ function runQuiz(tf) {
     // with "Quiz: Start or show". Everything stays kept.
     background(() => where === "card" ? close() : void 0)
   );
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    })
+  );
   let corner = cornerSetting(tf.settings);
   let showAs = showAsSetting(tf.settings);
+  let showOn = showOnSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
@@ -1298,6 +1322,11 @@ function runQuiz(tf) {
         chosen = null;
         await store.savePlacement(null);
         if (where) await open();
+      }
+      if (showOnSetting(tf.settings) !== showOn) {
+        showOn = showOnSetting(tf.settings);
+        if (where === "card") await close(false).then(open);
+        if (where === "panel") await tf.panel.hide().then(render);
       }
       if (await look.settingChanged()) await applyLook();
       if (now.corner !== corner) {

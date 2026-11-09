@@ -46,3 +46,6 @@ summary-no-key = Add your Anthropic key in Settings → AI for a summary.
 summary-denied = Allow Weather Card to ask Claude in Settings → Tiles.
 summary-budget = Today's summary allowance is used up.
 summary-system = Write one short, friendly sentence of at most 70 characters about what the coming hours' weather means for someone's day, in { $language }. No emoji, no greeting, no quotation marks.
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

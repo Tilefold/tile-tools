@@ -123,6 +123,7 @@ describe("Watchpane", () => {
       ["private", true],
       ["showCard", true],
       ["corner", "bottom-right"],
+      ["showOn", "all"],
     ]);
     const cmds = host.regs.filter((r) => r.kind === "command");
     expect(cmds.map((c) => [c.id, c.title])).toEqual([

@@ -46,3 +46,6 @@ list-empty = Aucune vidéo pour l'instant.
 cmd-reset = Watchpane : Remettre le lecteur dans le panneau
 dock-label = Commandes de la vidéo. Faites glisser pour déplacer le lecteur
 dock-idle-hint = Cliquez ici pour coller un lien YouTube, ou choisissez une vidéo avec ☰.
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

@@ -37,3 +37,6 @@ button-pause = pause ou reprise
 button-left = Déplacer à gauche
 button-right = Déplacer à droite
 button-launch = Lancer la balle
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

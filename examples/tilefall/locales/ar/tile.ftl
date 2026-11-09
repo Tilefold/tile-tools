@@ -50,3 +50,6 @@ button-play = لعب
 button-left = تحريك لليسار
 button-down = تحريك لأسفل
 button-right = تحريك لليمين
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

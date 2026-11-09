@@ -707,6 +707,32 @@ function computeLayout(layout, settings = {}, options = {}) {
   return rects;
 }
 
+// src/tile/tabs.js
+var SHOW_ON = ["tab", "all"];
+function watchTab(tf, background, lost) {
+  let away = false;
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    })
+  );
+  tf.on(
+    "overlay.hidden",
+    background(async (e) => {
+      away = false;
+      await lost(e && e.by === "tab" ? "tab" : "user");
+    })
+  );
+  return {
+    away: () => away,
+    /** The card was shown again (on the tab in front). */
+    here: () => {
+      away = false;
+    }
+  };
+}
+
 // src/tile/settings.js
 var CORNER_LABELS = {
   "bottom-right": "setting-corner-bottom-right",
@@ -730,7 +756,16 @@ var SETTINGS = [
     label: "setting-corner",
     choices: CORNERS.map((c) => ({ value: c, label: CORNER_LABELS[c] }))
   },
-  { key: "poll", default: true, label: "setting-poll" }
+  { key: "poll", default: true, label: "setting-poll" },
+  {
+    key: "showOn",
+    default: "tab",
+    label: "setting-show-on",
+    choices: [
+      { value: "tab", label: "setting-show-on-tab" },
+      { value: "all", label: "setting-show-on-all" }
+    ]
+  }
 ];
 var LAYOUT_KEYS = ["size", "corner"];
 function registerSettings(tf) {
@@ -758,7 +793,11 @@ function readSettings(settings) {
       /** @type {string} */
       corner
     ) : "bottom-right",
-    poll: get("poll") !== false
+    poll: get("poll") !== false,
+    showOn: SHOW_ON.includes(
+      /** @type {string} */
+      get("showOn")
+    ) ? get("showOn") : "tab"
   };
 }
 
@@ -2090,7 +2129,7 @@ function runTuneboard(tf, deps = {}) {
       position: mover.position()
     });
     if (!shown) {
-      const ok = await tf.overlay.show({ items });
+      const ok = await tf.overlay.show({ items, perTab: settings().showOn === "tab" });
       shown = ok === false ? null : items;
       return;
     }
@@ -2210,6 +2249,8 @@ function runTuneboard(tf, deps = {}) {
     }
   }
   const show = async () => {
+    if (tab.away()) await tf.overlay.hide();
+    tab.here();
     visible = true;
     shown = null;
     await mover.load();
@@ -2257,7 +2298,7 @@ function runTuneboard(tf, deps = {}) {
   };
   const run = async (action) => {
     await ensureConnected();
-    if (action === "toggle") return visible ? hide() : show();
+    if (action === "toggle") return visible && !tab.away() ? hide() : show();
     if (action === "refresh") {
       trail.record("control.refresh", {});
       if (!session.connected || session.status === "signed-out" || session.status === "premium") {
@@ -2332,13 +2373,11 @@ function runTuneboard(tf, deps = {}) {
       if (visible) await draw();
     })
   );
-  tf.on(
-    "overlay.hidden",
-    background(async () => {
-      shown = null;
-      updateTimers();
-    })
-  );
+  const tab = watchTab(tf, background, async (by) => {
+    if (by === "tab") return hide();
+    shown = null;
+    updateTimers();
+  });
   const presence = (here) => background(async () => {
     present = here;
     updateTimers();
@@ -2352,6 +2391,7 @@ function runTuneboard(tf, deps = {}) {
     background(async (e) => {
       const key = e && e.key;
       if (key === "corner") await mover.reset("corner");
+      if (key === "showOn") shown = null;
       if (LAYOUT_KEYS.includes(key) && visible) {
         try {
           layout = await tf.overlay.layout();

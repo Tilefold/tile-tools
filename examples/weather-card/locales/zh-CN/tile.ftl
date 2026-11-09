@@ -46,3 +46,6 @@ summary-no-key = 请在 设置 → AI 中添加你的 Anthropic 密钥以获得�
 summary-denied = 请在 设置 → 磁贴 中允许天气卡片询问 Claude。
 summary-budget = 今天的总结额度已用完。
 summary-system = 用{ $language }写一句简短友好的话，不超过 70 个字，说明接下来几小时的天气对这一天意味着什么。不要表情符号、问候语或引号。
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

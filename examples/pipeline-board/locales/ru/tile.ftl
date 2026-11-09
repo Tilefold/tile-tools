@@ -43,3 +43,6 @@ state-rate = GitLab просит снизить частоту
 state-rate-hint = Следующая проверка через пять минут.
 state-error = GitLab не ответил
 state-error-hint = Скоро повторим. Нажмите на доску, чтобы попробовать сейчас.
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

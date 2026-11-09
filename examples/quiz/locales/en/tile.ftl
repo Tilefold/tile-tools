@@ -59,3 +59,6 @@ page-resize = Drag to resize the quiz
 setting-show-as-side = Docked beside the panes
 page-dock = Dock beside the panes
 page-float = Float over the panes
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

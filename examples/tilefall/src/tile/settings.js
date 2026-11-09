@@ -10,6 +10,9 @@
  * them to Tilefold (it must run at the top of the tile, before any await);
  * `readSettings` reads them back as clean values, so the rest of the tile
  * never has to guard against a hand-edited or out-of-range setting.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on", every tab (the
+ *   default) or the tab where it was opened.
  */
 import { CORNERS } from "./scene.js";
 
@@ -51,6 +54,15 @@ export const SETTINGS = [
     choices: CORNERS.map((c) => ({ value: c, label: CORNER_LABELS[c] })),
   },
   { key: "pauseOnBlur", default: true, label: "setting-pause-on-blur" },
+  {
+    key: "showOn",
+    default: "all",
+    label: "setting-show-on",
+    choices: [
+      { value: "all", label: "setting-show-on-all" },
+      { value: "tab", label: "setting-show-on-tab" },
+    ],
+  },
 ];
 
 /** The keys whose change means the scene must be laid out again. */
@@ -112,5 +124,6 @@ export function readSettings(settings) {
       ? /** @type {string} */ (corner)
       : "bottom-right",
     pauseOnBlur: get("pauseOnBlur") !== false,
+    showOn: get("showOn") === "tab" ? "tab" : "all",
   };
 }

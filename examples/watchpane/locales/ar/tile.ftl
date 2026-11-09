@@ -46,3 +46,6 @@ list-empty = لا توجد مقاطع بعد.
 cmd-reset = Watchpane: إعادة المشغّل إلى اللوحة
 dock-label = أزرار التحكم بالمقطع. اسحب لتحريك المشغّل
 dock-idle-hint = انقر هنا للصق رابط YouTube، أو اختر مقطعًا عبر ☰.
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

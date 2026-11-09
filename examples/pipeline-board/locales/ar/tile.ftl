@@ -43,3 +43,6 @@ state-rate = طلب GitLab الإبطاء
 state-rate-hint = سيُعاد الفحص بعد خمس دقائق.
 state-error = لم يُجب GitLab
 state-error-hint = ستُعاد المحاولة قريبًا. انقر على اللوحة للمحاولة الآن.
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

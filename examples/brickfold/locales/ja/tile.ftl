@@ -37,3 +37,6 @@ button-pause = 一時停止／再開
 button-left = 左に移動
 button-right = 右に移動
 button-launch = ボールを発射
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

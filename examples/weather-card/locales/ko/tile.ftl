@@ -46,3 +46,6 @@ summary-no-key = 요약을 받으려면 설정 → AI에서 Anthropic 키를 추
 summary-denied = 설정 → 타일에서 날씨 카드가 Claude에게 물어볼 수 있게 허용해 주세요.
 summary-budget = 오늘 요약 한도를 다 썼어요.
 summary-system = 앞으로 몇 시간의 날씨가 하루에 어떤 의미인지 { $language }로 70자 이내의 짧고 다정한 한 문장으로 써 줘. 이모지, 인사, 따옴표는 쓰지 마.
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

@@ -51,3 +51,6 @@ scene-reset = Очистить рисунок и выбор
 scene-close = Закрыть этот 3D-вид
 scene-closed = Показать закрытые 3D-виды ({ $n })
 scene-tags = Показать или скрыть подписи
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

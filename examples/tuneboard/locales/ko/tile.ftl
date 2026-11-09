@@ -75,3 +75,6 @@ card-volume = { $volume }%
 card-muted = 음소거
 button-volume = 볼륨: 줄이기, 음소거, 키우기
 cmd-reset-position = Tuneboard: 카드를 창 영역으로 되돌리기
+setting-show-on = 표시 위치
+setting-show-on-tab = 연 탭
+setting-show-on-all = 모든 탭

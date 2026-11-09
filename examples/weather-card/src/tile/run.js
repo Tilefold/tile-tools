@@ -20,6 +20,10 @@
  *   and an older Tilefold without tile networking gets a plain message.
  *
  * Registration comes first, with no `await` before it.
+ *
+ * Modified 2026-11-08 (one tab or every tab): with "Show on" the tab where
+ *   it was opened, it keeps to that tab (perTab), and Show brings it to the
+ *   tab in front.
  */
 import {
   failureOf,
@@ -50,6 +54,8 @@ export function runWeatherCard(tf) {
   let visible = false;
   /** The item on screen, or null when nothing (or not this) is drawn. */
   let shown = null;
+  /** Shown on its own tab, and the user is on another. */
+  let away = false;
   let layout = null;
   let status = "no-place";
   /** @type {{ query: string, units: string, name: string, country: string, lat: number, lon: number } | null} */
@@ -87,7 +93,7 @@ export function runWeatherCard(tf) {
       t: (key, args) => tf.t(key, args),
     });
     if (!shown) {
-      const ok = await tf.overlay.show({ items: [item] });
+      const ok = await tf.overlay.show({ items: [item], perTab: settings().showOn === "tab" });
       // False: the user has overlays hidden. Draw it whole next time.
       shown = ok === false ? null : item;
       return;
@@ -199,6 +205,9 @@ export function runWeatherCard(tf) {
 
   // ------------------------------------------------------------ showing
   const show = async () => {
+    // Away on another tab: it comes to the tab in front.
+    if (away) await tf.overlay.hide();
+    away = false;
     visible = true;
     shown = null;
     try {
@@ -252,7 +261,7 @@ export function runWeatherCard(tf) {
   for (const c of COMMANDS) {
     const run =
       c.id === "toggle"
-        ? background(() => (visible ? hide() : show()))
+        ? background(() => (visible && !away ? hide() : show()))
         : background(() => (visible ? refresh(true) : show()));
     tf.command(tf.t(c.title), run, c.key ? { id: c.id, key: c.key } : { id: c.id });
   }
@@ -272,7 +281,10 @@ export function runWeatherCard(tf) {
   );
   tf.on(
     "overlay.hidden",
-    background(async () => {
+    background(async (e) => {
+      away = false;
+      // Its tab closed: it goes with it.
+      if (e && e.by === "tab") return hide();
       shown = null;
     }),
   );
@@ -282,9 +294,19 @@ export function runWeatherCard(tf) {
       if (visible && Date.now() - fetchedAt >= settings().everyMs) await refresh(false);
     }),
   );
+  // "Show on" the tab where it was opened: the user left that tab, or came back.
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    }),
+  );
+
   tf.on(
     "setting.changed",
     background(async (e) => {
+      // One tab or every tab: shown whole again, with the new choice.
+      if (e && e.key === "showOn") shown = null;
       const key = e && e.key;
       if (FETCH_KEYS.includes(key)) {
         if (key === "place") place = null;

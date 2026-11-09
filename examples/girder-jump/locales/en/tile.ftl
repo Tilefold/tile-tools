@@ -42,3 +42,6 @@ button-up = Climb up
 button-down = Climb down
 button-jump = Jump
 hud-bonus = BONUS
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

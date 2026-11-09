@@ -75,3 +75,6 @@ card-volume = { $volume } %
 card-muted = Silenciado
 button-volume = Volumen: bajar, silenciar o subir
 cmd-reset-position = Tuneboard: Devolver la tarjeta al panel
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

@@ -50,3 +50,6 @@ button-play = プレイ
 button-left = 左に移動
 button-down = 下に移動
 button-right = 右に移動
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

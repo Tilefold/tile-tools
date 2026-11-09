@@ -150,3 +150,33 @@ describe("on an older Tilefold", () => {
     expect(host.page.dock).toEqual(SPOT.page);
   });
 });
+
+describe("one tab or every tab", () => {
+  it("keeps the card to its tab with Show on, and brings it to the tab in front", async () => {
+    const host = await start({ page: "dock", settings: { showOn: "tab" } });
+    await host.command("open");
+    expect(host.overlayPerTab).toBe(true);
+    const opens = host.page.opens?.length ?? 0;
+    await host.emit("overlay.tab", { shown: false });
+    await host.command("open");
+    expect(host.overlay).not.toBeNull();
+    expect(host.overlayPerTab).toBe(true);
+    if (host.page.opens) expect(host.page.opens.length).toBeGreaterThan(opens);
+  });
+
+  it("shows the card on every tab by default", async () => {
+    const host = await start({ page: "dock" });
+    await host.command("open");
+    expect(host.overlayPerTab).toBe(false);
+  });
+});
+
+describe("the panel, one tab or every tab", () => {
+  it("keeps the panel to its tab with Show on", async () => {
+    const host = await start({ settings: { showAs: "panel", showOn: "tab" } });
+    await host.command("open");
+    expect(host.panel.content.perTab).toBe(true);
+    await host.setSetting("showOn", "all");
+    expect(host.panel.content.perTab).toBe(false);
+  });
+});

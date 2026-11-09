@@ -42,3 +42,6 @@ button-up = Subir
 button-down = Descer
 button-jump = Pular
 hud-bonus = BÔNUS
+setting-show-on = Mostrar em
+setting-show-on-tab = A aba onde foi aberto
+setting-show-on-all = Todas as abas

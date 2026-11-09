@@ -42,3 +42,6 @@ button-up = 上る
 button-down = 下りる
 button-jump = ジャンプ
 hud-bonus = ボーナス
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

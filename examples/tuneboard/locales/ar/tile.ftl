@@ -75,3 +75,6 @@ card-volume = { $volume }٪
 card-muted = مكتوم
 button-volume = مستوى الصوت: خفض أو كتم أو رفع
 cmd-reset-position = Tuneboard: إعادة البطاقة إلى اللوحة
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

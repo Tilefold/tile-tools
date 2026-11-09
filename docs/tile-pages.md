@@ -132,7 +132,7 @@ Every opening and closing is recorded as `tile.page.open` and `tile.page.close`,
 
 ## 7. Dock the page in Tilefold's window
 
-From **Tilefold 0.1.11**, a page can sit **inside Tilefold's window** instead of in a window of its own: a video next to the tile's card, say. Open it with a spot, in the window's content and in CSS pixels, like overlay items (120 to 2,000 pixels a side):
+From **Tilefold 0.1.11**, a page can sit **inside Tilefold's window** instead of in a window of its own: a video next to the tile's card, say. Open it with a spot, in the window's content and in CSS pixels, like overlay items (120 to 2,000 pixels wide; 32 to 2,000 tall from Tilefold 0.1.27, enough for a header bar, and 120 to 2,000 before):
 
 ```js
 await tf.page.open({ origin: "https", dock: { x: 600, y: 300, w: 356, h: 200 } });
@@ -150,6 +150,22 @@ The **Watchpane** example docks YouTube's player this way, with its controls dra
 
 A docked page doesn't need `origin: "https"`: a page of the tile's own, with no website in it, docks just the same. The **Quiz** example (`examples/quiz`) is one: a borderless card floating over the panes, with a grip drawn as overlay items above it to drag it by.
 
+From **Tilefold 0.1.27**, a docked page can be **see-through**: open it with `seeThrough: true` and its window is transparent, so whatever the page leaves without a background shows the panes under it. Give `html` and `body` a transparent background and the card a background with some transparency, so the text stays solid. Only a page docked at a spot can be see-through, and only when it opens. Promptsmith does this, with a setting for how solid its card is:
+
+```js
+await tf.page.open({ dock: spot, seeThrough: true });
+```
+
+```css
+html,
+body {
+  background: transparent;
+}
+.card {
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+}
+```
+
 ## 8. Dock the page beside the panes
 
 From **Tilefold 0.1.20**, a page can also go **in the dock beside the panes**, on the right, where the pages of Tilefold's browser go. The panes make room for it, and Tilefold draws a bar above it with the tile's name, the tab menu, **Undock** and **Close**. The user resizes it by its edge and shows it on one tab or every tab, like any page in the dock.
@@ -159,6 +175,8 @@ await tf.page.open({ side: true });                          // into the dock
 await tf.page.open({ dock: spot });                          // back out, floating over the panes
 tf.on("page.undocked", () => void tf.page.open({ dock: spot })); // the user pressed Undock
 ```
+
+It lands on the tab in front. From **Tilefold 0.1.27**, `tf.page.open({ side: true, perTab: false })` puts it on every tab, and `perTab: true` brings it to the tab in front, so you can offer a **Show on** setting (the tab where it was opened, or every tab). Older Tilefolds ignore `perTab`.
 
 Opened without `side`, a page in the dock moves back out: to the `dock` spot you give, or a window of its own. When the user presses **Undock**, the docked page closes and the tile hears `page.undocked`: show it again where it should go. Moving a page between the dock and a window **loads it again**, so keep the page's state (where the user is, what they chose) in the tile, and send it again when the page says hello. A page with a web address (`origin: "https"`) can't dock there yet, and `side` can't be given with a `dock` spot. Docking and undocking are recorded as `tile.page.dock` and `tile.page.undock`.
 

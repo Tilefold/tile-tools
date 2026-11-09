@@ -81,6 +81,8 @@ Adds a setting under the tile's card in Settings → Tiles.
 |---|---|
 | `key` | A letter, then letters, digits, `_`, `.` or `-`, at most 64 characters, unique within the tile |
 | `default` | `true` / `false` gives a switch, a number gives a number box, text (at most 1,000 characters) gives a text box |
+| `options.multiline` | `true` on a text setting without choices: a box of several lines in Settings, holding up to 8,000 characters (Tilefold 0.1.27) |
+| `options.list` | A list of entries the user adds, edits and removes one at a time in Settings (Tilefold 0.1.27): `{ fields, max, title }`, where `fields` is 1 to 4 `{ key, label, multiline?, max? }` (`key` a lowercase letter, then letters or digits; `max` 1 to 4,000 characters, 200 when left out), `max` is the most entries (1 to 50, 20 when left out) and `title` the field each entry is shown by (the first when left out). The default is a list, usually `[]`, and the value a list of objects with exactly those fields as text. Older Tilefolds refuse a tile with an `options.list` setting, so register one only where `tf.settings.set` exists |
 | `description` | The label, at most 200 characters. Translate it with `tf.t` |
 | `options.choices` | A drop-down instead: 2 to 24 entries, each a string or `{ value, label }` (values at most 64 characters, labels at most 80). The default must be one of the values |
 
@@ -96,6 +98,16 @@ tf.setting("corner", "bottom-right", tf.t("setting-corner"), {
 ### tf.settings.get(key)
 
 The setting's current value, at once (not a promise): the user's value when it fits the setting's type, otherwise the default. When the user changes a setting, the tile gets `setting.changed` with `{ key }`.
+
+### tf.settings.set(key, value)
+
+Changes one of your tile's own settings, as the user could in Settings → Tiles (Tilefold 0.1.27): for something the user did on your page, such as adding an entry to a list setting. The value must fit the setting as registered (its type, its choices, its length), else it rejects with a `TypeError`; your tile then gets `setting.changed`, as for the user's change. At most 30 changes a minute (`RateLimitError`). Tilefold records that the tile changed the setting, never the value.
+
+```js
+tf.setting("cases", "", tf.t("setting-cases"), { multiline: true });
+// Later, when the user saves a case on the tile's page:
+await tf.settings.set("cases", `${tf.settings.get("cases")}\n\n${name}\n${rules}`.trim());
+```
 
 ### tf.on(event, handler)
 
@@ -129,6 +141,8 @@ A listener that runs too long five times in ten minutes is skipped for the rest 
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
 | `viewer.opened` | The document viewer showed a file inside one of the panes' folders: the user opened it, or an AI agent did to point at something (needs `fs.list`; Tilefold 0.1.26) | `{ path }` |
+| `input.action` | The user clicked one of the tile's buttons in the agent input box (needs `input.actions`; Tilefold 0.1.27) | `{ action, request, text, language, spot }` |
+| `input.cancelled` | The user clicked × beside the tile's spinning button to stop waiting (needs `input.actions`; Tilefold 0.1.27) | `{ request }` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
 
@@ -209,6 +223,16 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 ## Asking the user's agent
 
 `tf.agent.ask({ question, about })` needs `agent.ask` (Tilefold 0.1.23). It brings a question to the AI agent in the pane the user works in, such as one the user typed on the tile's page. Tilefold opens its ask card at the top of the window with the question and a line naming your tile and `about`, and the user presses Return to send it, edits it, or drops it. Your tile never types into a pane. It resolves `{ shown, why }`: `why` is `busy` while a card is already open, or `no-pane` when there's no pane to send to, so keep the question somewhere the agent can still find it, as the Whiteboard keeps it on its board.
+
+`tf.agent.helper({ agent, question, about })` needs `agent.helper` (Tilefold 0.1.27). It gives your tile an AI agent of its own, so the agent the user works with is never interrupted. The first time (or after the user closed it), Tilefold opens a tab in the background named after your tile and starts `agent` there (`claude`, `codex`, `gemini`, `cursor`, `agy` or `opencode`; let the user pick it in a setting), in a folder of your tile's own (`~/.tilefold/tile-helpers/<tile>`). Nothing is typed until the agent is past its first questions, such as whether to trust that folder: the user answers them in its tab, which comes to the front if they take a while. Then it types `question` to that agent, with a line naming your tile and `about`, without the ask card. It resolves `{ sent: true, opened, name }` or `{ sent: false, why, opened, name }`, where `name` is what the user renamed the agent's pane to (or `null` while it keeps your tile's name; call the agent by it in your UI), and `why` is `busy` (the agent works or waits on the user), `you-are-typing` (the user types in its tab) or `not-started` (the agent wasn't ready within two minutes, for example because it isn't installed or its first questions weren't answered). The first call can take a while, so start it without awaiting it in a listener. The agent there may run your tile's commands without asking, so give it one to hand its work back, as Promptsmith's Hand back command does.
+
+`tf.agent.helperStatus({ agent })` and `tf.agent.helperStart({ agent, show, restart })` need `agent.helper` too (Tilefold 0.1.27). `helperStatus` resolves `{ state, name }`, with `state` `none` (your helper isn't running that agent), `stopped` (its tab is there but no agent runs in it, as after a reload; a start replaces the tab), `starting` (not past its first questions yet), `ready` or `busy`. `helperStart` starts your helper without typing anything, so it is ready before the first request: its tab opens in the background and comes forward only while the agent asks something. It resolves once the agent is ready or gave up, to `{ state, opened, name }` with `state` `ready`, `busy` or `not-started`. `show: true` brings the agent's tab to the front and leaves it there, for when the user wants to see it; `restart: true` closes your tile's own helper tabs first and starts a new one, for when the user says it's stuck. Starts count toward the six calls a minute. Promptsmith starts its polish agent when its card opens and offers **Show the polish agent** and **Restart the polish agent**.
+
+`tf.agent.define({ name, command, title, clear })` needs `agent.define` (Tilefold 0.1.27). It offers the user an AI coding agent Tilefold doesn't know, to add to **Settings → Agents → Your own agents**: a tile that knows how to start Kimi CLI or Grok Build, say. Tilefold asks the user first, in its own dialog showing your tile, `name` and the exact `command`; nothing is added unless they press **Add agent**. `command` is the program and its options, separated by spaces, with only letters, digits and `. _ , : = @ % + / ~ -` (characters a shell never treats as special), so a definition can never run a second command; anything else fails with `TypeError`. `title` (optional) is words the agent shows in its terminal title, for recognizing it; `clear` is what clears its context (`"/clear"`, the default, `"/new"`, or `""` for none). It resolves `{ added: true, id }`, or `{ added: false, why }` with `why` `declined`, `full` (the user has 20 agents of their own), `refused`, or `exists` (the same command is defined already, with its `id`). One question at a time (`BusyError`) and three a minute (`RateLimitError`). Once added, the agent can be your helper too: pass its `id` to `tf.agent.helper`.
+
+## Buttons in the agent input box
+
+`tf.input.action({ id, label })` needs `input.actions` (Tilefold 0.1.27). It adds a button to the box where the user writes to an AI agent. A click arrives as the `input.action` event with the box's text (secrets masked) and a one-time `request`; answer with `tf.input.replace(request, { text })`, which Tilefold shows highlighted with Undo and never sends, or `tf.input.release(request)`. See [Buttons in the agent input box](input-actions.md).
 
 ## The internet, keys and sign-ins
 

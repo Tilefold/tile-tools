@@ -42,3 +42,6 @@ button-up = تسلّق لأعلى
 button-down = انزل
 button-jump = اقفز
 hud-bonus = مكافأة
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

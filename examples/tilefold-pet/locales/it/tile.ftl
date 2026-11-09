@@ -36,3 +36,6 @@ bubble-welcome = Bentornato!
 bubble-woof = Bau!
 bubble-zap = Bzzzt!
 bubble-roar = ROARRR!
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede

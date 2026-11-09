@@ -97,10 +97,18 @@ describe("arcade kit", () => {
       size: "medium",
       corner: "bottom-right",
       pauseOnBlur: true,
+      showOn: "all",
     });
     expect(
       readSettings(get({ sounds: false, size: "huge", corner: "middle", pauseOnBlur: false })),
-    ).toEqual({ sounds: false, size: "medium", corner: "bottom-right", pauseOnBlur: false });
+    ).toEqual({
+      sounds: false,
+      size: "medium",
+      corner: "bottom-right",
+      pauseOnBlur: false,
+      showOn: "all",
+    });
+    expect(readSettings(get({ showOn: "tab" })).showOn).toBe("tab");
     expect(
       readSettings({
         get: () => {

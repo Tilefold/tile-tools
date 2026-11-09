@@ -61,7 +61,7 @@ describe("registration", () => {
   it("registers its settings and two commands, the toggle with a shortcut", async () => {
     const host = await startTile(DIR, { net: openMeteo() });
     const settings = host.regs.filter((r) => r.kind === "setting").map((r) => r.key);
-    expect(settings).toEqual(["place", "units", "corner", "every", "summary"]);
+    expect(settings).toEqual(["place", "units", "corner", "every", "summary", "showOn"]);
     expect(host.regs.find((r) => r.key === "summary").default).toBe(false);
     expect(host.regs.filter((r) => r.kind === "command").map((r) => r.id)).toEqual([
       "toggle",
@@ -282,5 +282,26 @@ describe("Claude's summary", () => {
     await host.setSetting("summary", false);
     await host.advance(0);
     expect(textOf(host)).not.toContain("Dry all afternoon.");
+  });
+});
+
+describe("one tab or every tab", () => {
+  it("shows on every tab unless asked, and keeps to its tab when asked", async () => {
+    const host = await startTile(DIR, {
+      net: openMeteo(),
+      settings: { place: "Berlin", showOn: "tab" },
+    });
+    await host.command("toggle");
+    await host.advance(0);
+    expect(host.overlayPerTab).toBe(true);
+    // Away on another tab: Show brings it to the tab in front.
+    await host.emit("overlay.tab", { shown: false });
+    await host.command("toggle");
+    await host.advance(0);
+    expect(host.overlay).not.toBeNull();
+    // Its tab closed: it goes.
+    await host.emit("overlay.hidden", { by: "tab" });
+    await host.advance(0);
+    expect(host.overlay).toBeNull();
   });
 });

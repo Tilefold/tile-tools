@@ -121,7 +121,7 @@ describe("settings", () => {
     const { host, tf } = createHost();
     registerSettings(tf);
     expect(host.regs.map((r) => r.key)).toEqual(SETTINGS.map((s) => s.key));
-    expect(host.regs.map((r) => r.key)).toEqual(["size", "corner", "poll"]);
+    expect(host.regs.map((r) => r.key)).toEqual(["size", "corner", "poll", "showOn"]);
     expect(host.regs.find((r) => r.key === "corner").choices).toHaveLength(4);
     expect(host.regs.find((r) => r.key === "size").choices[1]).toEqual({
       value: "small",
@@ -134,12 +134,15 @@ describe("settings", () => {
       size: "giant",
       corner: "nowhere",
       poll: "yes",
+      showOn: "everywhere",
     };
     expect(readSettings({ get: (k) => values[k] })).toEqual({
       size: "medium",
       corner: "bottom-right",
       poll: true,
+      showOn: "tab",
     });
+    expect(readSettings({ get: (k) => (k === "showOn" ? "all" : undefined) }).showOn).toBe("all");
     expect(
       readSettings({ get: (k) => ({ size: "small", corner: "top-left", poll: false })[k] }),
     ).toMatchObject({
@@ -156,7 +159,7 @@ describe("settings", () => {
           throw new Error("x");
         },
       }),
-    ).toEqual({ size: "medium", corner: "bottom-right", poll: true });
+    ).toEqual({ size: "medium", corner: "bottom-right", poll: true, showOn: "tab" });
   });
 });
 

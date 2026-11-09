@@ -122,3 +122,6 @@ menu-unpin = 固定を外す
 page-pins-label = 固定したフォルダー
 pins-add-label = フォルダーを追加
 pins-add-placeholder = パスでフォルダーを追加
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

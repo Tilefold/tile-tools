@@ -189,6 +189,14 @@ describe("Folder Tree with agent activity", () => {
     expect(host.panel.shows).toBe(shows);
   });
 
+  it("shows on every tab when Show on says so", async () => {
+    const host = await start();
+    await host.command("toggle");
+    await host.setSetting("showOn", "all");
+    await host.advance(0);
+    expect(host.panel.content.perTab).toBe(false);
+  });
+
   it("belongs to its tab: rests while the user is away, and shows again on return", async () => {
     const host = await start();
     await host.command("toggle");

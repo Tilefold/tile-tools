@@ -59,3 +59,6 @@ page-resize = Trascina per ridimensionare il quiz
 setting-show-as-side = Agganciato accanto ai riquadri
 page-dock = Aggancia accanto ai riquadri
 page-float = Fai fluttuare sopra i riquadri
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede

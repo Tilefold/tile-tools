@@ -27,6 +27,9 @@
  * moves every second while a video plays); opening or closing the list
  * draws the scene again. Pictures arrive later than the status and draw
  * the card again when they do.
+ *
+ * Modified 2026-11-08 (one tab or every tab): shown with `perTab` when
+ *   "Show on" is the tab where it was opened (`hooks.perTab`).
  */
 import { actionForClick, BUTTONS, renderButton } from "../render/buttons.js";
 import { clock, renderCard } from "../render/card.js";
@@ -191,7 +194,7 @@ export function createCard(tf, hooks) {
     if (ids === drawn) await tf.overlay.update({ items: scene });
     else {
       drawn = ids;
-      await tf.overlay.show({ items: scene });
+      await tf.overlay.show({ items: scene, perTab: hooks.perTab?.() === true });
     }
   };
 

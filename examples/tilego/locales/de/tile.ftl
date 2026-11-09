@@ -96,3 +96,6 @@ error-room-full = Dieses Spiel hat schon zwei Spieler.
 error-room-gone = Dieses Spiel ist auf dem Server beendet.
 error-offline = Der Spielserver ist nicht erreichbar. Versuche es weiter…
 error-server = Der Spielserver hat das abgelehnt. Versuch es gleich noch einmal.
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

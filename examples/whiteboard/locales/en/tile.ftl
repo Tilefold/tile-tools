@@ -51,3 +51,6 @@ scene-reset = Clear drawing and selection
 scene-close = Close this 3D view
 scene-closed = Show closed 3D views ({ $n })
 scene-tags = Show or hide the labels
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

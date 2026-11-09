@@ -50,3 +50,6 @@ button-play = खेलें
 button-left = बाएँ ले जाएँ
 button-down = नीचे ले जाएँ
 button-right = दाएँ ले जाएँ
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

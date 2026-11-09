@@ -43,3 +43,6 @@ state-rate = GitLab pidió ir más despacio
 state-rate-hint = Se volverá a consultar en cinco minutos.
 state-error = GitLab no respondió
 state-error-hint = Se volverá a intentar en breve. Haz clic en el panel para intentarlo ya.
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

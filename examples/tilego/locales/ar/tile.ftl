@@ -96,3 +96,6 @@ error-room-full = هذه اللعبة فيها لاعبان بالفعل.
 error-room-gone = انتهت هذه اللعبة على الخادم.
 error-offline = تعذّر الوصول إلى خادم اللعبة. ما زلنا نحاول…
 error-server = رفض خادم اللعبة ذلك. حاول مرة أخرى بعد قليل.
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

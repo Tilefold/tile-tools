@@ -50,3 +50,6 @@ button-play = Играть
 button-left = Влево
 button-down = Вниз
 button-right = Вправо
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

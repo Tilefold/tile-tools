@@ -43,3 +43,6 @@ state-rate = GitLab asked to slow down
 state-rate-hint = Checking again in five minutes.
 state-error = GitLab didn't answer
 state-error-hint = Trying again shortly. Click the board to try now.
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

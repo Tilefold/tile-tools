@@ -28,3 +28,6 @@ error-no-browser = This Tilefold can't open a browser for tiles yet. Update Tile
 error-refused = Web View couldn't open that: { $reason }
 error-failed = Something went wrong with the preview window. Try again.
 error-one-page = This Tilefold shows one page at a time, so Web View opened only the first address. Update Tilefold to open them all.
+setting-show-on = Show on
+setting-show-on-tab = The tab where it was opened
+setting-show-on-all = Every tab

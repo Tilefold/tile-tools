@@ -12,6 +12,9 @@
  *
  * This file is the same in every arcade example (Orbit Guard, Brickfold,
  * Girder Jump), so each example stays a folder you can copy on its own.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on", every tab (the
+ *   default) or the tab where the game was opened.
  */
 
 /** The corners the game can sit in. */
@@ -52,6 +55,15 @@ export const SETTINGS = [
     choices: CORNERS.map((c) => ({ value: c, label: CORNER_LABELS[c] })),
   },
   { key: "pauseOnBlur", default: true, label: "setting-pause-on-blur" },
+  {
+    key: "showOn",
+    default: "all",
+    label: "setting-show-on",
+    choices: [
+      { value: "all", label: "setting-show-on-all" },
+      { value: "tab", label: "setting-show-on-tab" },
+    ],
+  },
 ];
 
 /** The keys whose change means the game must be laid out again. */
@@ -78,7 +90,8 @@ export function registerSettings(tf) {
  * The current settings, cleaned up: anything unknown falls back to its default.
  *
  * @param {{ get: (key: string) => unknown }} settings `tf.settings`.
- * @returns {{ sounds: boolean, size: "medium" | "small", corner: string, pauseOnBlur: boolean }}
+ * @returns {{ sounds: boolean, size: "medium" | "small", corner: string, pauseOnBlur: boolean,
+ *   showOn: "all" | "tab" }}
  */
 export function readSettings(settings) {
   const get = (key) => {
@@ -96,5 +109,6 @@ export function readSettings(settings) {
       ? /** @type {string} */ (corner)
       : "bottom-right",
     pauseOnBlur: get("pauseOnBlur") !== false,
+    showOn: get("showOn") === "tab" ? "tab" : "all",
   };
 }

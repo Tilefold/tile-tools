@@ -37,3 +37,6 @@ button-pause = 暂停或继续
 button-left = 左移
 button-right = 右移
 button-launch = 发球
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

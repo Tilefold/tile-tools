@@ -8,6 +8,9 @@
  * Every setting the tile registers, and a reader that turns whatever is
  * stored into values the tile can trust. Registered at the top of the
  * tile's function, before any `await`, as Tilefold requires.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on", every tab (the
+ *   default) or the tab where it was opened.
  */
 import { cleanQuery } from "../weather/openMeteo.js";
 
@@ -57,6 +60,15 @@ export const SETTINGS = [
     ],
   },
   { key: "summary", default: false, label: "setting-summary" },
+  {
+    key: "showOn",
+    default: "all",
+    label: "setting-show-on",
+    choices: [
+      { value: "all", label: "setting-show-on-all" },
+      { value: "tab", label: "setting-show-on-tab" },
+    ],
+  },
 ];
 
 /** Settings whose change needs new weather, not just a redraw. */
@@ -101,5 +113,6 @@ export function readSettings(settings) {
     corner,
     everyMs: every * 60_000,
     summary: get("summary") === true,
+    showOn: get("showOn") === "tab" ? "tab" : "all",
   };
 }

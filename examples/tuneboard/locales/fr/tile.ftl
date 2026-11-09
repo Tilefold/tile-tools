@@ -75,3 +75,6 @@ card-volume = { $volume } %
 card-muted = Muet
 button-volume = Volume : baisser, couper ou monter
 cmd-reset-position = Tuneboard : Remettre la carte dans le volet
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

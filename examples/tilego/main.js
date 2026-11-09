@@ -20,6 +20,8 @@
  * Needs Tilefold 0.1.7 for the page, 0.1.20 to dock it beside the panes.
  *
  * Built into main.js with `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-11-08 (one tab or every tab): the "Show on" setting.
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
 // src/config.js
@@ -157,10 +159,11 @@ function runTileGo(tf) {
   const pending = /* @__PURE__ */ new Map();
   let nextId = 0;
   const canSide = () => !!tf.page && typeof tf.theme === "function";
+  const perTab = () => tf.settings.get("showOn") !== "all";
   async function open() {
     if (!tf.page) return tf.toast(tf.t("toast-needs-tilefold"));
     const side = canSide();
-    await tf.page.open(side ? { side: true } : {});
+    await tf.page.open(side ? { side: true, perTab: perTab() } : {});
     if (!where) audit("opened", { as: side ? "side" : "window" });
     where = side ? "side" : "window";
   }
@@ -289,6 +292,11 @@ function runTileGo(tf) {
     if (reply.error) throw new Error(`${reply.error}`);
     return reply;
   };
+  tf.on("setting.changed", (e) => {
+    if (e && e.key === "showOn" && where === "side") {
+      void tf.page.open({ side: true, perTab: perTab() }).catch(warn);
+    }
+  });
   tf.command(tf.t("cmd-versus"), () => forAgent("versus"), { id: "versus" });
   tf.command(tf.t("cmd-board"), (input) => forAgent("board", input), {
     id: "board",
@@ -328,6 +336,12 @@ function runTileGo(tf) {
 
 // src/main.js
 var main_default = (tf) => {
+  tf.setting("showOn", "tab", tf.t("setting-show-on"), {
+    choices: [
+      { value: "tab", label: tf.t("setting-show-on-tab") },
+      { value: "all", label: tf.t("setting-show-on-all") }
+    ]
+  });
   runTileGo(tf);
 };
 export default main_default;

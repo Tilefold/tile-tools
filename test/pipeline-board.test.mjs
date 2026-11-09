@@ -59,6 +59,7 @@ describe("registration and setup", () => {
       "ref",
       "corner",
       "notify",
+      "showOn",
     ]);
     expect(host.regs.filter((r) => r.kind === "command").map((r) => r.id)).toEqual([
       "toggle",
@@ -236,5 +237,23 @@ describe("when things go wrong", () => {
     fail = false;
     await host.advance(120_000);
     expect(label(host)).toBe("Pipelines of group/app: latest Running");
+  });
+});
+
+describe("one tab or every tab", () => {
+  it("shows on every tab unless asked, and keeps to its tab when asked", async () => {
+    const host = await start({ settings: { showOn: "tab" } });
+    await host.command("toggle");
+    await host.advance(0);
+    expect(host.overlayPerTab).toBe(true);
+    // Away on another tab: Show brings it to the tab in front.
+    await host.emit("overlay.tab", { shown: false });
+    await host.command("toggle");
+    await host.advance(0);
+    expect(host.overlay).not.toBeNull();
+    // Its tab closed: it goes.
+    await host.emit("overlay.hidden", { by: "tab" });
+    await host.advance(0);
+    expect(host.overlay).toBeNull();
   });
 });

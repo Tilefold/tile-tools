@@ -43,3 +43,6 @@ state-rate = GitLab 要求降低频率
 state-rate-hint = 五分钟后再次检查。
 state-error = GitLab 没有响应
 state-error-hint = 稍后将重试。点击看板可立即重试。
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

@@ -373,7 +373,16 @@ var SETTINGS = [
     label: "setting-corner",
     choices: CORNERS.map((c) => ({ value: c, label: CORNER_LABELS[c] }))
   },
-  { key: "pauseOnBlur", default: true, label: "setting-pause-on-blur" }
+  { key: "pauseOnBlur", default: true, label: "setting-pause-on-blur" },
+  {
+    key: "showOn",
+    default: "all",
+    label: "setting-show-on",
+    choices: [
+      { value: "all", label: "setting-show-on-all" },
+      { value: "tab", label: "setting-show-on-tab" }
+    ]
+  }
 ];
 var LAYOUT_KEYS = ["size", "corner"];
 function registerSettings(tf) {
@@ -405,7 +414,8 @@ function readSettings(settings) {
       /** @type {string} */
       corner
     ) : "bottom-right",
-    pauseOnBlur: get("pauseOnBlur") !== false
+    pauseOnBlur: get("pauseOnBlur") !== false,
+    showOn: get("showOn") === "tab" ? "tab" : "all"
   };
 }
 
@@ -600,6 +610,7 @@ function runArcade(tf, game) {
   let visible = false;
   let layout = null;
   let shown = null;
+  let away = false;
   let clock = null;
   const fail = (err) => {
     void Promise.resolve(tf.log?.error(String(err && err.message ? err.message : err))).catch(
@@ -658,7 +669,7 @@ function runArcade(tf, game) {
     if (!visible) return;
     const next = items();
     if (!shown) {
-      const ok = await tf.overlay.show({ items: next });
+      const ok = await tf.overlay.show({ items: next, perTab: settings().showOn === "tab" });
       if (ok === false) {
         pause("hidden");
         return;
@@ -757,6 +768,8 @@ function runArcade(tf, game) {
     return loading;
   };
   const show = async () => {
+    if (away) await tf.overlay.hide();
+    away = false;
     visible = true;
     shown = null;
     try {
@@ -778,7 +791,7 @@ function runArcade(tf, game) {
   };
   const run = async (action) => {
     await ensureLoaded();
-    if (action === "toggle") return visible ? hide() : show();
+    if (action === "toggle") return visible && !away ? hide() : show();
     if (action === "newGame") {
       if (!visible) await show();
       newGame();
@@ -836,9 +849,18 @@ function runArcade(tf, game) {
   );
   tf.on(
     "overlay.hidden",
-    background(async () => {
+    background(async (e) => {
       pause("hidden");
       shown = null;
+      away = false;
+      if (e && e.by === "tab") await hide();
+    })
+  );
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+      if (away) pause("hidden");
     })
   );
   tf.on(
@@ -857,6 +879,7 @@ function runArcade(tf, game) {
     "setting.changed",
     background(async (e) => {
       if (!visible) return;
+      if (e && e.key === "showOn") shown = null;
       if (e && LAYOUT_KEYS.includes(e.key)) {
         try {
           layout = await tf.overlay.layout();

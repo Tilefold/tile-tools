@@ -75,3 +75,6 @@ card-volume = { $volume } %
 card-muted = Stumm
 button-volume = Lautstärke: leiser, stumm oder lauter
 cmd-reset-position = Tuneboard: Karte zurück in den Bereich setzen
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

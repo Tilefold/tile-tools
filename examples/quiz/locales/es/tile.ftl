@@ -59,3 +59,6 @@ page-resize = Arrastra para cambiar el tamaño del cuestionario
 setting-show-as-side = Acoplado junto a los paneles
 page-dock = Acoplar junto a los paneles
 page-float = Flotar sobre los paneles
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

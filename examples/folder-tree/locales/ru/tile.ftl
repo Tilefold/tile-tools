@@ -122,3 +122,6 @@ menu-unpin = Открепить
 page-pins-label = Закреплённые папки
 pins-add-label = Добавить папку
 pins-add-placeholder = Добавьте папку по её пути
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

@@ -36,3 +36,6 @@ bubble-welcome = おかえり！
 bubble-woof = ワン！
 bubble-zap = ビビビッ！
 bubble-roar = ガオー！
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

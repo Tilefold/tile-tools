@@ -122,3 +122,6 @@ menu-unpin = अनपिन करें
 page-pins-label = पिन किए फ़ोल्डर
 pins-add-label = फ़ोल्डर जोड़ें
 pins-add-placeholder = पथ से फ़ोल्डर जोड़ें
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

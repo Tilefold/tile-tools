@@ -59,3 +59,6 @@ page-resize = Ziehen, um die Größe des Quiz zu ändern
 setting-show-as-side = Neben den Bereichen angedockt
 page-dock = Neben den Bereichen andocken
 page-float = Über den Bereichen schweben lassen
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

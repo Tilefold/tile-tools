@@ -51,3 +51,6 @@ scene-reset = 清除绘制和选择
 scene-close = 关闭此 3D 视图
 scene-closed = 显示已关闭的 3D 视图 ({ $n })
 scene-tags = 显示或隐藏标签
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

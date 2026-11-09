@@ -50,3 +50,6 @@ button-play = Spielen
 button-left = Nach links
 button-down = Nach unten
 button-right = Nach rechts
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

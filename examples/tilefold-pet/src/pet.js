@@ -26,10 +26,12 @@
  *
  * Modified 2026-10-12 (a click, double-click, drag or nap during a walk
  * stops the pet where it is instead of making it jump to the walk's end).
+ * Modified 2026-11-08 (one tab or every tab): "Show on" (tabs.js).
  *
  * Last updated by: Tilefold
  */
 import { characterById, posesOf } from "./characters/index.js";
+import { watchTab } from "./tabs.js";
 
 /**
  * Registers Tilefold Pet's commands and listeners and runs the pet. Call it at
@@ -189,6 +191,8 @@ export function runPet(tf) {
       await fn(e);
     })().catch((err) => void tf.log.error(String((err && err.message) || err)).catch(() => {}));
   };
+  // Whether it is away on another tab ("Show on" the tab where it was opened).
+  const tab = watchTab(tf, background);
 
   // ------------------------------------------------------------ behaviour
   /** Stands and breathes, then picks what to do next. */
@@ -302,11 +306,19 @@ export function runPet(tf) {
   const appear = async () => {
     layout = await tf.overlay.layout();
     place();
-    const shown = await tf.overlay.show({ items: [] });
+    const perTab = tf.settings.get("showOn") === "tab";
+    const shown = await tf.overlay.show({ items: [], perTab });
+    tab.here();
     pet.state = "idle";
     await draw("idle");
     await tf.store.set("visible", true);
     if (shown) later(1500, choose);
+  };
+
+  /** Shows it again on the tab in front (or every tab), as "Show on" says. */
+  const moveHere = async () => {
+    await tf.overlay.hide();
+    await appear();
   };
 
   /** Takes it away. */
@@ -319,7 +331,9 @@ export function runPet(tf) {
   };
 
   // ------------------------------------------------------------- commands
-  tf.command(tf.t("cmd-toggle"), async () => (pet.state === "off" ? appear() : vanish()), {
+  // Away on another tab: Show brings it to the tab in front.
+  const toggle = async () => (pet.state === "off" ? appear() : tab.away() ? moveHere() : vanish());
+  tf.command(tf.t("cmd-toggle"), toggle, {
     id: "toggle",
   });
 
@@ -357,6 +371,7 @@ export function runPet(tf) {
     background(async (e) => {
       const key = e && e.key;
       if (key === "character") await tf.audit("character", { character: character().id });
+      if (key === "showOn" && pet.state !== "off") return moveHere();
       if (pet.state === "off" || pet.state === "held") return;
       if (!["character", "size", "name", "roam"].includes(key)) return;
       settle();
@@ -433,8 +448,10 @@ export function runPet(tf) {
 
   tf.on(
     "overlay.hidden",
-    background(() => {
+    background(async (e) => {
       clearTimeout(timer);
+      // Its tab closed: it goes with it.
+      if (e && e.by === "tab") await vanish();
     }),
   );
 

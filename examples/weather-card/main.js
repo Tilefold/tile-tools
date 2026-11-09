@@ -223,7 +223,16 @@ var SETTINGS = [
       { value: "60", label: "setting-every-hour" }
     ]
   },
-  { key: "summary", default: false, label: "setting-summary" }
+  { key: "summary", default: false, label: "setting-summary" },
+  {
+    key: "showOn",
+    default: "all",
+    label: "setting-show-on",
+    choices: [
+      { value: "all", label: "setting-show-on-all" },
+      { value: "tab", label: "setting-show-on-tab" }
+    ]
+  }
 ];
 var FETCH_KEYS = ["place", "units"];
 function registerSettings(tf) {
@@ -252,7 +261,8 @@ function readSettings(settings) {
     units,
     corner,
     everyMs: every * 6e4,
-    summary: get("summary") === true
+    summary: get("summary") === true,
+    showOn: get("showOn") === "tab" ? "tab" : "all"
   };
 }
 
@@ -559,6 +569,7 @@ var COMMANDS = [
 function runWeatherCard(tf) {
   let visible = false;
   let shown = null;
+  let away = false;
   let layout = null;
   let status = "no-place";
   let place = null;
@@ -589,7 +600,7 @@ function runWeatherCard(tf) {
       t: (key, args) => tf.t(key, args)
     });
     if (!shown) {
-      const ok = await tf.overlay.show({ items: [item] });
+      const ok = await tf.overlay.show({ items: [item], perTab: settings().showOn === "tab" });
       shown = ok === false ? null : item;
       return;
     }
@@ -689,6 +700,8 @@ function runWeatherCard(tf) {
     }
   };
   const show = async () => {
+    if (away) await tf.overlay.hide();
+    away = false;
     visible = true;
     shown = null;
     try {
@@ -730,7 +743,7 @@ function runWeatherCard(tf) {
   };
   const background = (fn) => (e) => void Promise.resolve().then(() => fn(e)).catch((err) => warn(err));
   for (const c of COMMANDS) {
-    const run = c.id === "toggle" ? background(() => visible ? hide() : show()) : background(() => visible ? refresh(true) : show());
+    const run = c.id === "toggle" ? background(() => visible && !away ? hide() : show()) : background(() => visible ? refresh(true) : show());
     tf.command(tf.t(c.title), run, c.key ? { id: c.id, key: c.key } : { id: c.id });
   }
   tf.on("app.ready", background(restore));
@@ -749,7 +762,9 @@ function runWeatherCard(tf) {
   );
   tf.on(
     "overlay.hidden",
-    background(async () => {
+    background(async (e) => {
+      away = false;
+      if (e && e.by === "tab") return hide();
       shown = null;
     })
   );
@@ -760,8 +775,15 @@ function runWeatherCard(tf) {
     })
   );
   tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    })
+  );
+  tf.on(
     "setting.changed",
     background(async (e) => {
+      if (e && e.key === "showOn") shown = null;
       const key = e && e.key;
       if (FETCH_KEYS.includes(key)) {
         if (key === "place") place = null;

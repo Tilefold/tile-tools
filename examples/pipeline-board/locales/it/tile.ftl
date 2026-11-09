@@ -43,3 +43,6 @@ state-rate = GitLab ha chiesto di rallentare
 state-rate-hint = Nuovo controllo tra cinque minuti.
 state-error = GitLab non ha risposto
 state-error-hint = Nuovo tentativo a breve. Fai clic sul tabellone per riprovare ora.
+setting-show-on = Mostra su
+setting-show-on-tab = La scheda in cui è stato aperto
+setting-show-on-all = Tutte le schede

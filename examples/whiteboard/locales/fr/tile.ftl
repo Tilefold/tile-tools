@@ -51,3 +51,6 @@ scene-reset = Effacer le dessin et la sélection
 scene-close = Fermer cette vue 3D
 scene-closed = Afficher les vues 3D fermées ({ $n })
 scene-tags = Afficher ou masquer les étiquettes
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

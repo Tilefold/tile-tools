@@ -42,11 +42,14 @@
  * single page/main.js.
  *
  * Registration comes first, with no `await` before it.
+ *
+ * Modified 2026-11-08 (one tab or every tab): "Show on"; showing the card
+ *   from another tab brings it here, and its tab closing takes it away.
  */
 import { cleanStatus, createCard } from "./card.js";
 import { addRecent, readRecent } from "./recent.js";
 import { cleanStart, readResume, resumePoint } from "./resume.js";
-import { cornerSetting, readOptions, showCardSetting } from "./settings.js";
+import { cornerSetting, readOptions, showCardSetting, showOnSetting } from "./settings.js";
 
 /** Keys in `tf.store`. */
 export const KEYS = { recent: "recent", resume: "resume" };
@@ -111,6 +114,7 @@ export function runWatchpane(tf) {
         recent: () => recent ?? [],
         isOpen: () => open,
         corner: () => cornerSetting(tf.settings),
+        perTab: () => showOnSetting(tf.settings) === "tab",
         docked: () => open && docked,
         redock: (spot) => tf.page.dock(spot),
         closeWindow: () => close(),
@@ -230,9 +234,15 @@ export function runWatchpane(tf) {
     return post({ do: "control", action: action === "mute" ? "mute" : action });
   };
 
+  /** The card is shown on its own tab, and the user is on another. */
+  let away = false;
+
   /** Shows the card, or hides it. */
   const toggleCard = async () => {
     if (!card) return;
+    // Away on another tab: it comes to the tab in front.
+    if (card.visible && away) await card.hide();
+    away = false;
     if (!card.visible) return card.show();
     await card.hide();
     // A docked video belongs with its card: it goes too.
@@ -328,14 +338,32 @@ export function runWatchpane(tf) {
   );
   tf.on(
     "overlay.hidden",
-    background(() => card?.hide(true)),
+    background(async (e) => {
+      away = false;
+      await card?.hide(true);
+      // Its tab closed: a docked video goes with the card.
+      if (e && e.by === "tab" && open && docked) await close();
+    }),
   );
+  // "Show on" the tab where it was opened: the user left that tab, or came back.
+  tf.on(
+    "overlay.tab",
+    background(async (e) => {
+      away = !(e && e.shown === true);
+    }),
+  );
+  /** "Show on" as last seen: a change shows the card again with it. */
+  let showOn = showOnSetting(tf.settings);
   /** The corner setting as last seen: choosing another puts a dragged player back. */
   let corner = cornerSetting(tf.settings);
   tf.on(
     "setting.changed",
     background(async () => {
       if (open) await setup();
+      if (showOnSetting(tf.settings) !== showOn) {
+        showOn = showOnSetting(tf.settings);
+        if (card?.visible) await card.hide().then(() => card.show());
+      }
       const now = cornerSetting(tf.settings);
       if (now !== corner) {
         corner = now;

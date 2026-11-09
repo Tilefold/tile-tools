@@ -75,3 +75,6 @@ card-volume = { $volume }%
 card-muted = ミュート
 button-volume = 音量: 下げる、ミュート、上げる
 cmd-reset-position = Tuneboard: カードをペインに戻す
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

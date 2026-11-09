@@ -28,3 +28,6 @@ error-no-browser = यह Tilefold अभी टाइल्स के लिए
 error-refused = वेब व्यू इसे नहीं खोल सका: { $reason }
 error-failed = प्रीव्यू विंडो में कुछ गड़बड़ हो गई। फिर से कोशिश करें।
 error-one-page = यह Tilefold एक बार में एक ही पेज दिखाता है, इसलिए Web View ने सिर्फ़ पहला पता खोला। सभी खोलने के लिए Tilefold अपडेट करें।
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

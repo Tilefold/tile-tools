@@ -36,3 +36,6 @@ bubble-welcome = Willkommen zurück!
 bubble-woof = Wuff!
 bubble-zap = Bzzzt!
 bubble-roar = BRÜLL!
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

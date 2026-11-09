@@ -42,3 +42,6 @@ button-up = Monter
 button-down = Descendre
 button-jump = Sauter
 hud-bonus = BONUS
+setting-show-on = Afficher sur
+setting-show-on-tab = L’onglet où il a été ouvert
+setting-show-on-all = Tous les onglets

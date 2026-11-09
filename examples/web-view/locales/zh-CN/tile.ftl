@@ -28,3 +28,6 @@ error-no-browser = 此 Tilefold 还不能为磁贴打开浏览器。请更新 Ti
 error-refused = 网页视图无法打开:{ $reason }
 error-failed = 预览窗口出了点问题。请重试。
 error-one-page = 此 Tilefold 一次只能显示一个页面，因此 Web View 只打开了第一个地址。更新 Tilefold 即可全部打开。
+setting-show-on = 显示于
+setting-show-on-tab = 打开它的标签页
+setting-show-on-all = 所有标签页

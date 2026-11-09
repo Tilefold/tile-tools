@@ -122,3 +122,6 @@ menu-unpin = Quitar
 page-pins-label = Carpetas fijadas
 pins-add-label = Añadir una carpeta
 pins-add-placeholder = Añade una carpeta por su ruta
+setting-show-on = Mostrar en
+setting-show-on-tab = La pestaña donde se abrió
+setting-show-on-all = Todas las pestañas

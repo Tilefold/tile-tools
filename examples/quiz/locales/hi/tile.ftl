@@ -59,3 +59,6 @@ page-resize = क्विज़ का आकार बदलने के ल�
 setting-show-as-side = पेन के बगल में डॉक
 page-dock = पेन के बगल में डॉक करें
 page-float = पेन के ऊपर तैराएँ
+setting-show-on = कहाँ दिखाएँ
+setting-show-on-tab = उस टैब पर जहाँ खोला गया
+setting-show-on-all = हर टैब पर

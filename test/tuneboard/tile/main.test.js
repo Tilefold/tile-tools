@@ -97,7 +97,7 @@ describe("built main.js", () => {
     expect(host.regs.filter((r) => r.kind === "command").map((r) => r.id)).toEqual(
       COMMANDS.map((c) => c.id),
     );
-    expect(host.regs.filter((r) => r.kind === "hook")).toHaveLength(9);
+    expect(host.regs.filter((r) => r.kind === "hook")).toHaveLength(10);
   });
 
   it("sends nothing anywhere when Tilefold offers no network", async () => {

@@ -51,3 +51,6 @@ scene-reset = مسح الرسم والتحديد
 scene-close = إغلاق هذا العرض ثلاثي الأبعاد
 scene-closed = إظهار العروض ثلاثية الأبعاد المغلقة ({ $n })
 scene-tags = إظهار التسميات أو إخفاؤها
+setting-show-on = العرض في
+setting-show-on-tab = علامة التبويب التي فُتح فيها
+setting-show-on-all = كل علامات التبويب

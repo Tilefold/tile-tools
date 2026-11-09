@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Tilefold
+  Author: Tilefold
+  Released under the MIT License.
+
+  Promptsmith's page: where you write a prompt, see the fixes Claude
+  suggests as a diff with a reason for each, keep your own words where you
+  like, and send the result to the agent. Its header switches where it
+  shows (over the pane, behind a corner button, beside the panes). All
+  text arrives from the tile in the user's language; main.js is built from
+  page-src/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Promptsmith</title>
+    <link rel="stylesheet" href="polish.css" />
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <main id="card" class="card">
+      <header id="head">
+        <span class="logo" aria-hidden="true">P</span>
+        <b id="name"></b>
+        <span id="where" class="where"></span>
+        <span class="spacer"></span>
+        <span id="views" class="views" role="group"></span>
+        <button
+          id="chip"
+          class="chip"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded="false"
+        ></button>
+        <button id="fill" class="icon" type="button" aria-pressed="false">▢</button>
+        <button id="fold" class="icon" type="button">–</button>
+        <button id="close" class="icon" type="button">×</button>
+      </header>
+      <section id="body" class="body"></section>
+      <footer id="foot" class="foot"></footer>
+    </main>
+  </body>
+</html>

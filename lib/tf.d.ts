@@ -34,6 +34,10 @@
  *   `panel.input` event.
  * Modified 2026-11-05 (Tilefold 0.1.26): the `viewer.opened` event; the
  *   `panel.input` event name in the list of names.
+ * Modified 2026-11-06 (Tilefold 0.1.27): `tf.input` (buttons in the agent
+ *   input box), the `input.action` and `input.cancelled` events, the
+ *   `stopped` answer, and a layout pane's `agentInput`; `tf.agent.helper`;
+ *   `tf.page.open({ seeThrough })`.
  *
  * Last updated by: Tilefold
  */
@@ -56,6 +60,7 @@ export type TileEvent =
   | "overlay.pointer"
   | "overlay.layout"
   | "overlay.hidden"
+  | "overlay.tab"
   | "annotate.cleared"
   | "page.closed"
   | "page.message"
@@ -70,6 +75,8 @@ export type TileEvent =
   | "panel.dblclick"
   | "panel.input"
   | "viewer.opened"
+  | "input.action"
+  | "input.cancelled"
   | "browser.navigated"
   | "browser.closed";
 
@@ -110,7 +117,18 @@ export interface Rect {
 /** Where the panes are: rectangles only, never what they show. */
 export interface OverlayLayout {
   content: { w: number; h: number };
-  panes: Array<Rect & { id: string; focused: boolean; composer: Rect | null }>;
+  panes: Array<
+    Rect & {
+      id: string;
+      focused: boolean;
+      composer: Rect | null;
+      /**
+       * The row is the agent input box (Tilefold 0.1.27; told only to tiles
+       * granted input.actions, so they can keep out of their own button's way).
+       */
+      agentInput?: true;
+    }
+  >;
 }
 
 /** What each event's handler receives. */
@@ -129,7 +147,10 @@ export interface TileEventPayloads {
     y: number;
   };
   "overlay.layout": OverlayLayout;
-  "overlay.hidden": { by: "user" };
+  /** `by: "tab"`: the tab a `perTab` scene was on closed, and the scene went with it. */
+  "overlay.hidden": { by: "user" | "tab" };
+  /** The user moved to (`shown: true`) or from the tab a `perTab` scene is on (Tilefold 0.1.27). */
+  "overlay.tab": { shown: boolean };
   /** The user cleared every tile's marks (Clear annotations; Tilefold 0.1.23). */
   "annotate.cleared": { by: "user" };
   "page.closed": Record<string, never>;
@@ -178,6 +199,28 @@ export interface TileEventPayloads {
    * (needs fs.list; Tilefold 0.1.26).
    */
   "viewer.opened": { path: string };
+  /**
+   * The user clicked one of the tile's buttons in the agent input box
+   * (needs input.actions; Tilefold 0.1.27). `text` is what the box holds,
+   * with secrets masked as "[redacted]"; `request` answers this click only
+   * (`tf.input.replace` or `release`); `language` is the user's Tilefold
+   * language; `spot` is where the box is, to open a card above it. The
+   * pane and the agent are never named. Return at once and work after.
+   */
+  "input.action": {
+    action: string;
+    request: string;
+    text: string;
+    language: string;
+    spot: Rect | null;
+  };
+  /**
+   * The user pressed × beside the tile's spinning button to stop waiting
+   * for request `request` (needs input.actions; Tilefold 0.1.27). Close
+   * what you opened for that click; `tf.input.replace` now answers
+   * `stopped`.
+   */
+  "input.cancelled": { request: string };
 }
 
 /** An icon Tilefold draws in a panel row; `file` picks a file-type icon from the label. */
@@ -524,7 +567,12 @@ export interface Tf {
   readonly window: { protect(on: boolean): Promise<null> };
   /** Needs window.overlay. `show` and `update` resolve false while the user hides overlays. */
   readonly overlay: {
-    show(scene: { items: OverlayItem[] }): Promise<boolean>;
+    /**
+     * `perTab: true` (Tilefold 0.1.27): the scene stays on the tab in front
+     * when first shown (and a page docked at a spot with it); `false` gives
+     * it every tab. Older Tilefolds show it on every tab.
+     */
+    show(scene: { items: OverlayItem[]; perTab?: boolean }): Promise<boolean>;
     update(changes: OverlayUpdate): Promise<boolean>;
     hide(): Promise<null>;
     layout(): Promise<OverlayLayout>;
@@ -561,6 +609,115 @@ export interface Tf {
       shown: boolean;
       why?: "busy" | "no-pane";
     }>;
+    /**
+     * Needs agent.helper (Tilefold 0.1.27; missing before). Types `question`
+     * to the tile's own helper agent, with a line naming the tile: the
+     * first time (or after the user closed it), Tilefold opens a tab in
+     * the background named after the tile and starts `agent` there, in a
+     * folder of the tile's own; no ask card. Nothing is typed until the
+     * agent is past its first questions (such as trusting the folder),
+     * which the user answers in its tab. `opened`: this call opened the tab
+     * (it can take a while: don't await it in a listener). `why`: the agent
+     * works or waits on the user (`busy`), the user types in its tab
+     * (`you-are-typing`), it wasn't ready within two minutes
+     * (`not-started`). Six a minute. The agent may
+     * run this tile's commands without asking, to hand its work back.
+     */
+    helper?(request: {
+      /** A built-in agent, or the id of one of the user's own agents (Tilefold 0.1.27). */
+      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
+      question: string;
+      about?: string;
+    }): Promise<
+      | { sent: true; opened: boolean }
+      | { sent: false; why: "busy" | "you-are-typing" | "not-started"; opened: boolean }
+    >;
+    /**
+     * Needs agent.helper (Tilefold 0.1.27; missing before). How the tile's
+     * helper running `agent` is: `none` (not running), `stopped` (its tab is
+     * there but no agent runs in it; a start replaces it), `starting` (not yet
+     * past its first questions), `ready`, or `busy` (it works or waits on
+     * the user); `name` as for `helper`.
+     */
+    helperStatus?(request: {
+      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
+    }): Promise<{
+      state: "none" | "stopped" | "starting" | "ready" | "busy";
+      name: string | null;
+    }>;
+    /**
+     * Needs agent.helper (Tilefold 0.1.27; missing before). Starts the
+     * tile's helper running `agent` without typing anything, and resolves
+     * once it is ready or gave up (`not-started`, after two minutes): its tab
+     * opens in the background when it isn't running, and comes forward only
+     * while the agent asks something. `show: true` brings its tab to the
+     * front and leaves it there; `restart: true` closes the tile's own
+     * helper tabs first. Use them when the user asks. Counts toward the six
+     * calls a minute (`RateLimitError`).
+     */
+    helperStart?(request: {
+      agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
+      show?: boolean;
+      restart?: boolean;
+    }): Promise<{
+      state: "ready" | "busy" | "not-started";
+      opened: boolean;
+      name: string | null;
+    }>;
+    /**
+     * Needs agent.define (Tilefold 0.1.27; missing before). Offers the user
+     * an AI coding agent to add to their own agents: Tilefold asks them
+     * first, showing your tile, the name and the exact command. `command`
+     * is the program and its options, separated by spaces, using only
+     * letters, digits and `. _ , : = @ % + / ~ -` (a shell never treats
+     * them as special); anything else fails with TypeError. `clear` is the
+     * command that clears its context ("/clear" by default, "/new", or ""
+     * for none). One question at a time (BusyError), three a minute.
+     * `exists`: the same command is defined already (its `id`); `full`:
+     * the user has 20 agents of their own; `refused`: the settings didn't
+     * keep it.
+     */
+    define?(agent: {
+      name: string;
+      command: string;
+      title?: string;
+      clear?: "/clear" | "/new" | "";
+    }): Promise<
+      | { added: true; id: string }
+      | { added: false; why: "declined" | "full" | "refused" }
+      | { added: false; why: "exists"; id: string }
+    >;
+  };
+  /**
+   * Needs input.actions (Tilefold 0.1.27; missing before). Buttons in the
+   * box where the user writes to an AI agent; Tilefold draws them with the
+   * tile's name. A click arrives as the `input.action` event.
+   */
+  readonly input?: {
+    /**
+     * Adds a button, registered up front like a command: `id` 1–32
+     * lowercase letters, digits and dashes; `label` 1–24 characters on one
+     * line. At most 2 per tile. A tile adding one without asking for
+     * input.actions in tile.json doesn't load.
+     */
+    action(options: { id: string; label: string }): void;
+    /**
+     * Puts `text` in the box in place of what was clicked: once per
+     * request, within 10 minutes, at most four times the clicked text
+     * plus 3,000 characters (8,000 at most). Tilefold highlights the changes, offers Undo and never
+     * sends it; masks kept in place get the user's own words back. `why`:
+     * the user edited the box since (`changed`), too late (`expired`), the
+     * box went (`gone`), the user stopped waiting (`stopped`). Another
+     * request, or text too long, throws a TypeError. With `send: true`
+     * (only when the user pressed the tile's Send; Tilefold 0.1.27),
+     * Tilefold also sends it from the box, as Enter would.
+     */
+    replace(
+      request: string,
+      proposal: { text: string; send?: boolean },
+    ): Promise<{ done: true } | { done: false; why: "changed" | "expired" | "gone" | "stopped" }>;
+    /** Ends a request without a change (the user kept their own words). */
+    release(request: string): Promise<null>;
   };
   /** Needs sound.play. Resolves whether the sound will be heard. */
   readonly sound: {
@@ -604,6 +761,14 @@ export interface Tf {
       origin?: "https";
       dock?: Rect;
       side?: boolean;
+      /**
+       * With `side` (Tilefold 0.1.27): `true` brings the page to the tab in
+       * front, `false` puts it on every tab. Left out: it lands on the tab
+       * in front.
+       */
+      perTab?: boolean;
+      /** A docked page's window is transparent (Tilefold 0.1.27; needs `dock`). */
+      seeThrough?: boolean;
     }): Promise<null>;
     dock?(spot: Rect): Promise<null>;
     close(): Promise<null>;

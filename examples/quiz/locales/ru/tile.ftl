@@ -59,3 +59,6 @@ page-resize = Перетащите, чтобы изменить размер в�
 setting-show-as-side = Закреплена рядом с панелями
 page-dock = Закрепить рядом с панелями
 page-float = Поверх панелей
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

@@ -36,3 +36,6 @@ bubble-welcome = С возвращением!
 bubble-woof = Гав!
 bubble-zap = Бзззт!
 bubble-roar = Р-Р-РЫ!
+setting-show-on = Показывать на
+setting-show-on-tab = Вкладке, где открыт
+setting-show-on-all = Всех вкладках

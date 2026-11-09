@@ -42,3 +42,6 @@ button-up = Hochklettern
 button-down = Hinunterklettern
 button-jump = Springen
 hud-bonus = BONUS
+setting-show-on = Anzeigen auf
+setting-show-on-tab = Dem Tab, in dem es geöffnet wurde
+setting-show-on-all = Jedem Tab

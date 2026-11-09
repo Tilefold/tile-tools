@@ -40,6 +40,16 @@ describe("the panel", () => {
     expect(host.panel.content.rows.map((r) => r.label)).toEqual(["My app"]);
   });
 
+  it("keeps to the tab where it was opened with Show on, else every tab", async () => {
+    const host = await ready();
+    await host.visit("http://localhost:5173/", "My app");
+    await host.advance(0);
+    expect(host.panel.content.perTab).toBe(false);
+    await host.setSetting("showOn", "tab");
+    await host.advance(0);
+    expect(host.panel.content.perTab).toBe(true);
+  });
+
   /** Plays the user closing the panel, as Tilefold does: hidden, then told. */
   async function userCloses(host) {
     host.panel.content = null;

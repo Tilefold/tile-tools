@@ -10,7 +10,7 @@
  * fall back to their registered defaults and can be changed (firing
  * `setting.changed`), messages come from the tile's own locales/<lang>/
  * tile.ftl with `{ $var }` placeholders filled in, overlay updates merge
- * into the scene item by item, and notices, sounds, audit records, store
+ * into the scene item by item (`overlayPerTab` is the last show's `perTab`), and notices, sounds, audit records, store
  * writes and logged errors are all recorded for assertions. Commands and events are
  * run by id and name, the way Tilefold invokes them.
  *
@@ -85,6 +85,27 @@
  * Modified 2026-10-31 (Tilefold 0.1.23): `agentAsk` adds `tf.agent.ask`;
  *   the questions are kept in `host.asks`, and it answers `{ shown: true }`
  *   or the object `agentAsk` gives (such as `{ shown: false, why: "busy" }`).
+ * Modified 2026-11-06 (Tilefold 0.1.27): `input: true` (or `{ text,
+ *   language }`) adds `tf.input` (fake-input.mjs): the agent input box's
+ *   buttons, a click (`host.clickAction`) and the tile's replacement in
+ *   `host.box`.
+ * Modified 2026-11-08 (helper start): with `helper`, `tf.agent.helperStatus`
+ *   and `helperStart` too (fake-helper.mjs), unless `helperControl: false`.
+ * Modified 2026-11-08 (Tilefold 0.1.27): `define` adds `tf.agent.define`
+ *   (`true`: added; or the answer to give, or a function of the offer,
+ *   which may return a promise to hold the answer back);
+ *   offers are kept in `host.defines`.
+ * Modified 2026-11-06 (Tilefold 0.1.27): `helper: true` (or the answer to
+ *   give) adds `tf.agent.helper` (fake-helper.mjs): requests to the tile's
+ *   own helper agent are kept in `host.helperAsks`.
+ * Modified 2026-11-07 (Tilefold 0.1.27): `page.open` checks `seeThrough`
+ *   (a docked page only), as Tilefold does.
+ * Modified 2026-11-07 (Tilefold 0.1.27): a docked page's spot is checked as
+ *   Tilefold does: 120 to 2,000 px wide, 32 (`dockMinH`; 120 before 0.1.27)
+ *   to 2,000 px tall.
+ * Modified 2026-11-07 (Tilefold 0.1.27): `tf.settings.set` changes the
+ *   tile's own setting, checked as Tilefold does (`multiline` text up to
+ *   8,000 characters, a `list` by its fields), kept in `host.settingSets`.
  *
  * Last updated by: Tilefold
  */
@@ -93,6 +114,8 @@ import { join } from "node:path";
 import { addBrowser } from "./fake-browser.mjs";
 import { addScreensaver } from "./fake-screensaver.mjs";
 import { addAnnotate } from "./fake-annotate.mjs";
+import { addHelper } from "./fake-helper.mjs";
+import { addInput } from "./fake-input.mjs";
 import { addFileWrites } from "./fake-files.mjs";
 import { checkPanelMenus, chooseFromMenu, doubleClick } from "./fake-panel-menus.mjs";
 import { pathToFileURL } from "node:url";
@@ -164,6 +187,8 @@ export async function startTile(dir, opts = {}) {
   const host = {
     regs: [],
     audits: [],
+    /** What the tile saved with tf.settings.set, in order. */
+    settingSets: [],
     /** Notices shown with tf.toast, as text. */
     toasts: [],
     sounds: [],
@@ -252,7 +277,43 @@ export async function startTile(dir, opts = {}) {
       host.regs.push({ kind: "hook", event });
       handlers.set(event, [...(handlers.get(event) ?? []), run]);
     },
-    settings: { get: (key) => (values.has(key) ? values.get(key) : defaults.get(key)) },
+    settings: {
+      get: (key) => (values.has(key) ? values.get(key) : defaults.get(key)),
+      // Tilefold 0.1.27: the tile's own settings, checked as Tilefold does
+      // (`settingsSet: false` plays an older Tilefold, without it).
+      async set(key, value) {
+        const def = defaults.get(key);
+        const reg = host.regs.find((r) => r.kind === "setting" && r.key === key);
+        const max = reg?.multiline ? 8000 : 1000;
+        // A list setting: exactly its fields, as text within each one's length.
+        const listFits = (list) =>
+          Array.isArray(value) &&
+          value.length <= (list.max ?? 20) &&
+          value.every(
+            (e) =>
+              e &&
+              typeof e === "object" &&
+              Object.keys(e).every((k) => list.fields.some((f) => f.key === k)) &&
+              list.fields.every(
+                (f) =>
+                  typeof (e[f.key] ?? "") === "string" && (e[f.key] ?? "").length <= (f.max ?? 200),
+              ),
+          );
+        const fits =
+          reg &&
+          (reg.list
+            ? listFits(reg.list)
+            : typeof value === typeof def &&
+              (typeof value !== "string" || value.length <= max) &&
+              (!reg.choices || reg.choices.some((c) => (c?.value ?? c) === value)));
+        if (!fits)
+          throw named("TypeError", "not one of this tile's settings, or a value it can't take");
+        values.set(key, value);
+        host.settingSets.push({ key, value });
+        await host.emit("setting.changed", { key });
+        return null;
+      },
+    },
     store: {
       get: async (key) => (host.store.has(key) ? host.store.get(key) : null),
       set: async (key, value) => {
@@ -286,6 +347,8 @@ export async function startTile(dir, opts = {}) {
       },
       async show(scene) {
         host.overlay = { items: (scene.items ?? []).map((i) => ({ bubble: null, ...i })) };
+        // perTab as the tile last asked (undefined: left out, every tab).
+        host.overlayPerTab = scene.perTab;
         return true;
       },
       async update(patch) {
@@ -348,10 +411,12 @@ export async function startTile(dir, opts = {}) {
   };
 
   if (opts.folders) addFolders(tf, host, opts.folders, named);
+  if (opts.settingsSet === false) tf.settings = { get: tf.settings.get };
   if (opts.page) {
     addPage(tf, host, {
       dock: opts.page === "dock" || opts.page === "side",
       side: opts.page === "side",
+      minH: opts.dockMinH ?? 32,
     });
   }
   if (opts.theme !== undefined) {
@@ -366,6 +431,7 @@ export async function startTile(dir, opts = {}) {
   if (opts.browser) addBrowser(tf, host, named, opts.browser === "one-page");
   if (opts.screensaver) addScreensaver(tf, host, named);
   if (opts.annotate) addAnnotate(tf, host, named, opts.annotate);
+  if (opts.input) addInput(tf, host, named, opts.input === true ? {} : opts.input);
   if (opts.agentAsk) {
     host.asks = [];
     tf.agent = {
@@ -375,6 +441,26 @@ export async function startTile(dir, opts = {}) {
         host.asks.push(structuredClone(request));
         return typeof opts.agentAsk === "object" ? { ...opts.agentAsk } : { shown: true };
       },
+    };
+  }
+
+  if (opts.helper) addHelper(tf, host, named, opts.helper, opts.helperControl !== false);
+  if (opts.define) {
+    // tf.agent.define: each offer is kept; the answer is `define` (a function of the offer, or an object).
+    host.defines = [];
+    tf.agent = tf.agent ?? {};
+    tf.agent.define = async (agent) => {
+      if (
+        !isPlainJson(agent) ||
+        typeof agent?.name !== "string" ||
+        typeof agent?.command !== "string"
+      )
+        throw named("TypeError", "define({ name, command, title?, clear? })");
+      host.defines.push(structuredClone(agent));
+      const a = await (typeof opts.define === "function" ? opts.define(agent) : opts.define);
+      return a === true
+        ? { added: true, id: agent.name.toLowerCase().replace(/\W+/g, "-") }
+        : { ...a };
     };
   }
 
@@ -473,7 +559,13 @@ function addFolders(
  * (Tilefold 0.1.11) a page can be docked in the window: `host.page.dock`
  * is its spot (null for a window of its own), and `dock()` moves it.
  */
-function addPage(tf, host, { dock = false, side = false } = {}) {
+function addPage(tf, host, { dock = false, side = false, minH = 32 } = {}) {
+  /** Refuses a spot this Tilefold wouldn't dock at. */
+  const checkSpot = (spot) => {
+    if (!spot) return;
+    if (spot.w < 120 || spot.w > 2000 || spot.h < minH || spot.h > 2000)
+      throw new TypeError(`a docked page is 120 to 2000 pixels wide and ${minH} to 2000 tall`);
+  };
   host.page = {
     open: false,
     opens: [],
@@ -485,6 +577,12 @@ function addPage(tf, host, { dock = false, side = false } = {}) {
   };
   tf.page = {
     async open(options = {}) {
+      // See-through (Tilefold 0.1.27): only a page docked at a spot.
+      if (options.seeThrough !== undefined && typeof options.seeThrough !== "boolean")
+        throw new TypeError("seeThrough must be true or false");
+      if (options.seeThrough === true && !options.dock)
+        throw new TypeError("only a docked page (dock) can be see-through");
+      if (dock) checkSpot(options.dock);
       // Beside the panes (Tilefold 0.1.20), as Tilefold checks it.
       if (side && options.side === true) {
         if (options.dock)
@@ -533,6 +631,7 @@ function addPage(tf, host, { dock = false, side = false } = {}) {
       if (!host.page.dock) {
         throw Object.assign(new Error("the page is not docked"), { name: "PageError" });
       }
+      checkSpot(spot);
       host.page.dock = { ...spot };
       host.page.docks.push({ ...spot });
       return null;

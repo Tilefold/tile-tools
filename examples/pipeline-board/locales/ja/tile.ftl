@@ -43,3 +43,6 @@ state-rate = GitLab から頻度を下げるよう求められました
 state-rate-hint = 5 分後にもう一度確認します。
 state-error = GitLab から応答がありません
 state-error-hint = まもなく再試行します。今すぐ試すにはボードをクリックしてください。
+setting-show-on = 表示する場所
+setting-show-on-tab = 開いたタブ
+setting-show-on-all = すべてのタブ

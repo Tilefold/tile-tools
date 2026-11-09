@@ -1,0 +1,608 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Promptsmith's page. Drawn in Tilefold's theme where Tilefold gives it
+ * (the --tf-* variables, Tilefold 0.1.20), else in its own light or dark
+ * following the system. Removed text is struck, added text underlined, and
+ * a change the user undid shows their own words again, dotted. Over the
+ * pane the card may be see-through: down to 60% only between its blocks
+ * (text sits on a solid surface), below that the blocks fade too and the
+ * text gets a halo, and at "Text only" every surface is clear. The
+ * chip opens a menu of what to fix, and a form adds the user's own case.
+ *
+ * Modified 2026-11-07 (case rework): a rework's changes have their own
+ *   ✕ / ↺ buttons, and an undone addition stays in sight, struck.
+ * Modified 2026-11-08 (menu divider): the line between the cases and
+ *   Edit / Add uses the stronger border, with more room around it.
+ * Modified 2026-11-08 (translations): a case's translations under the
+ *   fixes, one block per language.
+ * Modified 2026-11-08 (quiet question): the note above the menu is small,
+ *   italic and muted.
+ * Modified 2026-11-08 (built-in translations): a built-in case's name in
+ *   its form, and the note under it.
+ * Modified 2026-11-08 (any language): the languages field's help and what
+ *   it reads.
+ */
+
+:root {
+  --bg: var(--tf-surface-raised, #ffffff);
+  --sunken: var(--tf-canvas, #f0f2f7);
+  --hover: var(--tf-surface-hover, #eceef5);
+  --line: var(--tf-border, #e3e6ee);
+  --line-strong: var(--tf-border-strong, #ccd1de);
+  --text: var(--tf-text, #151826);
+  --text-2: var(--tf-text-secondary, #4a5068);
+  --muted: var(--tf-text-muted, #6e748c);
+  --accent: var(--tf-accent, #6a4df5);
+  --accent-soft: var(--tf-accent-soft, rgba(106, 77, 245, 0.12));
+  --on-accent: var(--tf-on-accent, #ffffff);
+  --ok: var(--tf-success, #12a86a);
+  --bad: var(--tf-error, #d83b52);
+  --warn: var(--tf-warning, #b97a0e);
+  --focus: var(--tf-focus-ring, rgba(106, 77, 245, 0.55));
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--tf-surface-raised, #171a25);
+    --sunken: var(--tf-canvas, #0d0f15);
+    --hover: var(--tf-surface-hover, #1d2130);
+    --line: var(--tf-border, #262b3b);
+    --line-strong: var(--tf-border-strong, #343b50);
+    --text: var(--tf-text, #e8eaf2);
+    --text-2: var(--tf-text-secondary, #a3a9bc);
+    --muted: var(--tf-text-muted, #737a90);
+    --accent: var(--tf-accent, #8b6cff);
+    --accent-soft: var(--tf-accent-soft, rgba(139, 108, 255, 0.16));
+    --ok: var(--tf-success, #3dd68c);
+    --bad: var(--tf-error, #ff5d73);
+    --warn: var(--tf-warning, #f5b451);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    13px/1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+/* See-through over the pane: only the card's background fades, never its text. */
+html.see-through,
+html.see-through body {
+  background: transparent;
+}
+html.see-through .card {
+  background: color-mix(in srgb, var(--bg) var(--solid, 100%), transparent);
+}
+/* Text never sits over the pane's own text: the header, the footer and each
+   block of the body keep a solid surface, so only the gaps between them are
+   see-through. :where() keeps this weaker than a block's own background. */
+:where(html.see-through) header,
+:where(html.see-through) .foot,
+:where(html.see-through .body > *),
+:where(html.see-through .notes li) {
+  background: var(--bg);
+}
+/* Below 60%, the blocks fade with the card, and the text gets a soft halo
+   in the card's own color so it stays readable over the pane's text. */
+:where(html.faded) header,
+:where(html.faded) .foot,
+:where(html.faded .body > *),
+:where(html.faded .notes li) {
+  background: color-mix(in srgb, var(--bg) var(--solid, 100%), transparent);
+}
+html.faded .diff {
+  background: color-mix(in srgb, var(--sunken) var(--solid, 100%), transparent);
+}
+html.faded body {
+  text-shadow:
+    0 0 2px var(--bg),
+    0 0 4px var(--bg),
+    0 0 8px var(--bg);
+}
+/* Text only: every surface, border and button face is clear; only the text
+   (and the marks on changes: struck, underlined) shows over the pane. */
+html.text-only *,
+html.text-only *::before,
+html.text-only *::after {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html.text-only .btn.primary {
+  color: var(--accent);
+  font-weight: 700;
+}
+:where(html.see-through .body > p) {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+}
+button {
+  font: inherit;
+  color: inherit;
+}
+button:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* Header: name, where it is, the view switch, the language chip, fill, fold,
+   close. Over the pane it is the card's handle: drag to move it. */
+header.movable {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+html.dragging,
+html.dragging header {
+  cursor: grabbing;
+}
+/* Folded to its header bar: only the header shows, filling the bar. */
+html.collapsed .body,
+html.collapsed .foot {
+  display: none;
+}
+html.collapsed header {
+  flex: 1;
+  border-bottom: 0;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 11px;
+}
+.where {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.spacer {
+  flex: 1;
+}
+.views {
+  display: inline-flex;
+  gap: 1px;
+  padding: 1px;
+  border-radius: 6px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+.views button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 3px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: grid;
+}
+.views button svg {
+  width: 16px;
+  height: 12px;
+}
+.views button[aria-pressed="true"] {
+  background: var(--bg);
+  color: var(--accent);
+}
+.chip {
+  cursor: pointer;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+}
+.icon {
+  border: 0;
+  background: transparent;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 15px;
+}
+.icon:hover,
+.views button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* The step's body scrolls; its buttons stay in view below it. */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.foot:empty {
+  display: none;
+}
+.btn {
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--hover);
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+/* Apply “case”: a long case name is cut short, never wider than the card. */
+.btn.apply {
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.warn {
+  color: var(--warn);
+  font-size: 12px;
+}
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+}
+textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.state {
+  padding: 14px 6px;
+  text-align: center;
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.shimmer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.shimmer i {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--hover), var(--sunken), var(--hover));
+  background-size: 200% 100%;
+  animation: sh 1.2s linear infinite;
+}
+@keyframes sh {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer i {
+    animation: none;
+  }
+}
+
+/* The diff. */
+.sum {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.diff {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.75;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+.code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.92em;
+}
+.chg {
+  cursor: pointer;
+  border-radius: 3px;
+}
+.chg del {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  text-decoration: line-through;
+}
+.chg ins {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  text-decoration: underline 2px;
+  text-underline-offset: 3px;
+}
+.chg.off ins {
+  display: none;
+}
+/* A case's rework: the text isn't clickable; each change has a small ✕ / ↺,
+   and an undone addition stays in sight, faded and struck, to bring back. */
+.diff.rework .chg {
+  cursor: text;
+}
+.diff.rework .chg.off ins {
+  display: inline;
+  color: var(--muted);
+  background: none;
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.chg-x {
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  margin-inline: 2px 4px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--text-2);
+  vertical-align: 1px;
+}
+.chg-x:hover,
+.chg-x:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.diff.clean .chg-x {
+  display: none;
+}
+.chg.off del {
+  color: inherit;
+  background: var(--hover);
+  text-decoration: underline dotted;
+}
+.diff.clean .chg:not(.off) del {
+  display: none;
+}
+.diff.clean ins,
+.diff.clean .chg.off del {
+  background: none;
+  color: inherit;
+  text-decoration: none;
+}
+.ws {
+  font-size: 0.85em;
+}
+
+/* The notes: kind, what changed, why. */
+.notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.notes li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.kind {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 6px;
+  border-radius: 999px;
+  align-self: start;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.what {
+  overflow-wrap: anywhere;
+}
+.what s {
+  color: var(--bad);
+}
+.what b {
+  color: var(--ok);
+  font-weight: 600;
+}
+.why {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* What to fix: the chip's menu, drawn in the body. */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu-item {
+  text-align: start;
+  padding: 6px 10px 6px 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  overflow-wrap: anywhere;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--hover);
+}
+/* The one in use: a check mark, never color alone. */
+.menu-item.pick[aria-checked="true"]::before {
+  content: "✓";
+  position: absolute;
+  inset-inline-start: 10px;
+  color: var(--accent);
+  font-weight: 700;
+}
+/* The question above the menu: a quiet note, not a heading. */
+.menu-ask {
+  margin: 0 4px 6px;
+  font-size: 0.85em;
+  font-style: italic;
+  color: var(--muted);
+}
+/* Between the cases and Edit / Add: the stronger line, so it shows over any theme. */
+.menu-line {
+  flex: none;
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--line-strong);
+  margin: 6px 4px;
+}
+
+/* The form for one of the user's own cases. */
+.case {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.case-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.case input {
+  font: inherit;
+  color: var(--text);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.case textarea {
+  min-height: 7em;
+}
+/* The languages field: how to name them, and what it reads as the user types. */
+.case .tl-help,
+.case .tl-reads {
+  font-size: 0.85em;
+  line-height: 1.35;
+}
+.case .tl-reads:empty {
+  display: none;
+}
+
+/* A built-in case's name, which can't change: plain text, not a field. */
+.case .case-name {
+  margin: 0;
+  font-weight: 600;
+}
+.case .case-name + .muted {
+  margin: 0;
+}
+
+/* A case's translations: one block per language, under the fixes. */
+.translations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.tl {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.tl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tl-text {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
