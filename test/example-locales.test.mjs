@@ -21,6 +21,8 @@
  *   languages, its name never translated.
  * Modified 2026-11-06 (Promptsmith example): Promptsmith ships all twelve
  *   languages, its name never translated.
+ * Modified 2026-11-06 (Manager Board example): the Manager Board ships all
+ *   twelve languages.
  *
  * Last updated by: Tilefold
  */
@@ -38,6 +40,7 @@ const EXAMPLES = [
   "girder-jump",
   "github-inbox",
   "gomoku",
+  "manager-board",
   "orbit-guard",
   "pipeline-board",
   "prompt-polish",

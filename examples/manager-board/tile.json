@@ -1,0 +1,12 @@
+{
+  "id": "example.manager-board",
+  "version": "1.0.0",
+  "name": "%tile-name%",
+  "description": "%tile-description%",
+  "permissions": [
+    { "page": "to show the board docked beside your panes, or in a window of its own" },
+    {
+      "agent.timeline": "to show what you, your manager agents and their agents said and did, as a timeline you can filter and export"
+    }
+  ]
+}

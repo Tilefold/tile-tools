@@ -1,0 +1,60 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Tilefold
+  Author: Tilefold
+  Released under the MIT License.
+
+  The Manager Board's page: the header (the view switch, Export and Close),
+  the scope, the kinds and a search, then Waiting on you, Now and the view
+  (Timeline or Lanes). Whole texts open in a sheet over the board. All text
+  arrives from the tile in the user's language; main.js is built from
+  page-src/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manager Board</title>
+    <link rel="stylesheet" href="board.css" />
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1 id="title"></h1>
+        <span class="spacer"></span>
+        <div id="views" class="views" role="group">
+          <button id="view-timeline" type="button" data-view="timeline"></button>
+          <button id="view-lanes" type="button" data-view="lanes"></button>
+        </div>
+        <div class="menu-wrap">
+          <button id="export" type="button" class="ghost"></button>
+          <div id="export-menu" class="menu" hidden>
+            <button id="export-markdown" type="button"></button>
+            <button id="export-json" type="button"></button>
+          </div>
+        </div>
+        <button id="close" class="icon" type="button">×</button>
+      </header>
+      <div class="tools">
+        <select id="scope"></select>
+        <div id="kinds" class="kinds" role="group"></div>
+        <span class="spacer"></span>
+        <select id="window" hidden>
+          <option value="60"></option>
+          <option value="120"></option>
+          <option value="240"></option>
+        </select>
+        <input id="search" type="search" maxlength="200" autocomplete="off" spellcheck="false" />
+      </div>
+      <div id="content" class="content" aria-live="polite"></div>
+    </main>
+    <div id="sheet" class="sheet" hidden>
+      <div class="sheet-box" role="dialog" aria-modal="true" aria-labelledby="full-title">
+        <h2 id="full-title"></h2>
+        <div id="full-text" class="full"></div>
+        <div class="actions"><button id="full-close" type="button" class="primary"></button></div>
+      </div>
+    </div>
+  </body>
+</html>

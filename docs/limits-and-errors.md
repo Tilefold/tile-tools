@@ -46,6 +46,7 @@ Every limit Tilefold puts on a tile, and every error name a `tf` call can fail w
 | `tf.agent.helper` | `agent` one of `claude`, `codex`, `gemini`, `cursor`, `agy`, `opencode`, or one of the user's own agents' ids; `question` and `about` as for `tf.agent.ask`; 6 a minute; the agent has two minutes to be ready (past its first questions, such as trusting its folder); never typed while it works, waits on the user, or the user types in its tab |
 | `tf.agent.helperStatus`, `tf.agent.helperStart` | `agent` as for `tf.agent.helper`; `show` and `restart` true or false, no other fields; starts count toward the 6 a minute; a restart closes only your tile's own helper tabs |
 | `tf.input` | 2 buttons per tile (4 shown in the box); `id` 1–32 characters, `label` 1–24; the box's text 8,000 characters; 10 clicks a minute per tile; one answer per click within 10 minutes; a replacement at most four times the clicked text plus 3,000 characters (8,000 at most) |
+| `tf.timeline` | `limit` 1–200; filter values, cursors 1,024 characters and ids 600, without control characters; 60 reads and 3 exports a minute; an export holds at most 5,000 events or 8 MB |
 | `tf.sound.play` | 400,000 characters of data URL (about 300 KB); 2 a second and 30 a minute |
 | `tf.net.fetch` | `https` on port 443 only; URL 8 KB; 64 headers, each value 8 KB; body 1 MB; answer 4 MB; 30 seconds; 5 redirects; 4 at once and 60 a minute |
 | `tf.ai.ask` | 1–50 messages; 200,000 characters; `maxTokens` 1–16,000 (default 4,096); 50,000 tokens per tile per day (UTC); a question waits at most 5 minutes for the user; an answer at most 2 minutes |
@@ -63,7 +64,7 @@ A failed call rejects (or throws) an `Error`. Tell errors apart by **`err.name`*
 | `name` | Thrown by | Means |
 |---|---|---|
 | `PermissionDeniedError` | Any call that needs a permission | The user hasn't allowed it, or the tile was turned off. Also recorded in the activity log |
-| `RateLimitError` | `tf.toast`, `tf.overlay`, `tf.annotate.draw`, `tf.agent.ask`, `tf.agent.helper`, `tf.agent.helperStart`, `tf.agent.define`, `tf.sound.play`, `tf.net.fetch`, `tf.ai.ask`, `tf.panel.show`, `tf.fs.*`, `tf.viewer.open` | Too many calls; slow down |
+| `RateLimitError` | `tf.toast`, `tf.overlay`, `tf.annotate.draw`, `tf.agent.ask`, `tf.agent.helper`, `tf.agent.helperStart`, `tf.agent.define`, `tf.sound.play`, `tf.net.fetch`, `tf.ai.ask`, `tf.panel.show`, `tf.fs.*`, `tf.viewer.open`, `tf.timeline` | Too many calls; slow down |
 | `TypeError` | Any call | Bad arguments: a non-JSON store value, a malformed scene or clip, a body that isn't a string, a malformed or expired question, a mark that names a field wrongly (the message names the field) |
 | `RangeError` | `tf.annotate.draw` | The draw would leave more than 20 marks; clear some first |
 | `NotSupportedError` | `tf.overlay`, `tf.annotate`, `tf.agent.ask`, `tf.agent.helper`, `tf.sound`, `tf.curtain` (lock), `tf.ai.ask`, `tf.pane.cwd`, `tf.viewer.open`, `tf.panel`, `tf.browser` | This Tilefold, or this platform, can't do it |

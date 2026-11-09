@@ -34,6 +34,7 @@ body:
         - "Example: github-inbox"
         - "Example: gomoku"
         - "Example: hello"
+        - "Example: manager-board"
         - "Example: orbit-guard"
         - "Example: pipeline-board"
         - "Example: prompt-polish"

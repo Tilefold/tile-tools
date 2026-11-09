@@ -39,6 +39,8 @@
  *   `stopped` answer, and a layout pane's `agentInput`; `tf.agent.helper`;
  *   `tf.page.open({ seeThrough })`.
  *
+ * Modified 2026-11-06 (Tilefold 0.1.27): `tf.timeline`, the agents' timeline
+ *   (agent.timeline).
  * Last updated by: Tilefold
  */
 
@@ -463,6 +465,48 @@ export interface ScreensaverColors {
   accent: string;
 }
 
+/** Which events `tf.timeline` gives: everything, a manager's team, a project or a fold. */
+export type TimelineFilter =
+  | { kind: "all" }
+  | { kind: "team"; value: string }
+  | { kind: "project"; value: string }
+  | { kind: "fold"; value: string };
+
+/** One event on the agents' timeline. */
+export interface TimelineEvent {
+  /** `<kind>:<row>`. */
+  id: string;
+  /** ISO time, UTC. */
+  at: string;
+  kind: "turn" | "message" | "ask" | "nudge" | "heartbeat" | "run";
+  /** The pane it happened in (`tilefold:<session>`), or `schedule:<id>`. */
+  pane: string;
+  /** The pane it went to (a message), if any. */
+  to: string | null;
+  who: "you" | "agent" | "tilefold" | "schedule";
+  /** At most 280 characters, on one line, cleaned. */
+  summary: string;
+  /** True when `fullText(id)` has more than the summary. */
+  more: boolean;
+  status: string | null;
+  project: string;
+  /** Kind-specific: a request's `tool`, a message's `kind`, a run's `name`… */
+  detail: Record<string, unknown>;
+}
+
+/** An agent pane open now, from `tf.timeline.now()`. */
+export interface TimelinePane {
+  pane: string;
+  /** What the user calls it ("2 · api"), or "". */
+  name: string;
+  agent: string;
+  state: "ready" | "idle" | "busy" | "asking";
+  /** manager, side, opened or "". */
+  role: string;
+  project: string;
+  stateAt: string;
+}
+
 /** What a screensaver theme's `draw` receives, once per frame. */
 export interface ScreensaverFrame {
   /** A Canvas 2D context covering the window, scaled so sizes are in CSS pixels. */
@@ -718,6 +762,33 @@ export interface Tf {
     ): Promise<{ done: true } | { done: false; why: "changed" | "expired" | "gone" | "stopped" }>;
     /** Ends a request without a change (the user kept their own words). */
     release(request: string): Promise<null>;
+  };
+  /**
+   * Needs agent.timeline (Tilefold 0.1.27; missing before), marked high risk:
+   * it shows what the user and their agents said in panes. Read-only.
+   * `events` gives a page, newest first, and `next`, the cursor of the older
+   * page (null at the start of history). `fullText` gives the whole text of
+   * an event whose `more` is true (turns and messages). `export` shows
+   * Tilefold's save dialog; the tile learns the file's name, never its
+   * folder. 60 reads and 3 exports a minute; `limit` 1–200.
+   */
+  readonly timeline?: {
+    events(request?: {
+      filter?: TimelineFilter;
+      before?: string | null;
+      limit?: number;
+    }): Promise<{ events: TimelineEvent[]; next: string | null }>;
+    fullText(id: string): Promise<string>;
+    filters(): Promise<{
+      managers: Array<{ pane: string; name: string; project: string }>;
+      projects: string[];
+      folds: Array<{ id: string; name: string }>;
+    }>;
+    now(): Promise<TimelinePane[]>;
+    export(request?: {
+      filter?: TimelineFilter;
+      format?: "markdown" | "json";
+    }): Promise<{ saved: string; events: number; truncated: boolean } | { cancelled: true }>;
   };
   /** Needs sound.play. Resolves whether the sound will be heard. */
   readonly sound: {

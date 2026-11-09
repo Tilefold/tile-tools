@@ -58,6 +58,8 @@ describe("lib/tf.d.ts", () => {
       "readonly viewer?:",
       "readonly screensaver?:",
       "readonly annotate?:",
+      "readonly timeline?:",
+      "interface TimelineEvent",
       "type AnnotationTarget",
       "interface ScreensaverFrame",
       "interface TilePageBridge",
