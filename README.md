@@ -242,12 +242,94 @@ Run with `npm test` (2391 tests in 128 files, all passing on 2026-11-08).
 | Rules | One default export, named exports and imports refused, size limit |
 | Bundling | Entry choice, local imports, npm packages, TypeScript, tree-shaking, the notice on top, export rewriting, errors with their place, minify, page scripts |
 | Commands and CLI | build, `--watch`, `--check`, validate, help, version, bad arguments and exit codes |
-| Examples | Each ships a fresh build, has a valid tile.json (permissions with reasons, no secrets), uses exactly the messages it defines in every language, registers up front with command ids, has its own default shortcuts, and does what it promises (Gomoku also: Undo against an agent and asked of another player, allowed, declined or missed while away; games against an AI agent through its commands (reading the board, waiting for its turn, its moves and their refusals, from the tile to the built page), five in a row in every direction, draws, refused moves, game codes, the relay client's reconnects and pings, two players through a fake relay with rematches and catching up after a drop, and its built page played by two windows; TileGo also: captures, suicide and ko on every board size, passing and the end of play, marking dead stones a group at a time on both boards (clicks at once still agree), acceptances taken back by a change, area scoring with komi, the rough guess at who's ahead and its winning chances, the coordinates round the board, Undo after both passed going back to playing, the board size taken from the room's maker, coming back to the marking or the score, games against an AI agent through its commands (moves, passes, marks and their refusals), and its built page played by two windows and by an agent; Whiteboard also: content as numbered lines at fixed places, every kind of shape and 3D object checked with the field named, arrows to lines, columns and shapes, steps with their captions, Back and Next, replacing and erasing shapes, the board's size limit, pointing and asking with a waiting read, pointing on the user's panes through `tf.annotate` (marks not placed, hidden overlays and older Tilefolds), 3D scenes turned by dragging and floating in windows the user moves, folds, resizes, zooms and makes see-through, areas marked and lines drawn on a model and asked about, closed windows brought back, the board kept and sent back, and its built page in a DOM; Promptsmith also: its Polish pill by the input shown as soon as it runs (opening the card on a click, folding back after sending, away after Close, its word and count in every script), its card over the focused pane above the input, fitting its height, one prompt per pane (switching panes and tabs, focus leaving the panes, the side dock, a check finishing in another pane, a draft sent to its own pane), the corner button opened, folded and clicked, the side dock and Undock, a pane too small, a window on older Tilefolds, Claude asked in the chosen language, answers read field by field (fenced, unreadable, too long, code changed, control and direction characters, unknown kinds), the diff by words and letters with changes undone one by one, the ask card (sent, busy, as is), checks by the agent in the pane (the request on the ask card, a hand-back taken once and only for its own request, one that changed code refused, Cancel, and the offer when the key is missing), checks by its own polish agent (no key, the agent chosen, and why a request couldn't go), and its built page in a DOM, with the prompt never stored or recorded; Quiz also: its card docked over the pane, moved by its top bar or grip and resized by its corner, docked beside the panes and back, in Tilefold's theme or light or dark, the panel, saved progress, quizzes added by agents and checked, and older Tilefolds; Folder Tree also: its agent hooks' markers, Claude Code and Codex input, installer and hook command, adding, renaming, moving and trashing files, its panel per tab, its Recent section kept before any activity, its Now section's last action, agents of the hour, tally and setup row, its pinned folders (kept, moved, unpinned, busy and out of reach) and its Add a folder field and its window's file tools in a DOM) against the fake host |
+| Examples | The checks every example shares, plus each example's own behavior, against the fake host (listed under Example tiles below) |
 | Room relay | Rooms, codes and names; joining in any case; messages to the others only; full rooms, wrong apps, unknown codes and malformed frames; one room per connection; seats freed on leave and close; the frame allowance and size limit; rooms expiring after a day unused; `authorize` and the token in the address; an activity log without names, codes or messages; WebSocket frames at every length, the RFC 6455 handshake, split messages, unmasked frames refused, the heartbeat closing silent clients, wrong paths and origins turned away, `/health`; the command's options; and a whole Gomoku game between two boards over a real relay, one board leaving and coming back mid-game |
 | Fake host | The fake Tilefold behaves like the real one for settings, commands with an agent's input and their results, strings, storage, overlays, panels (per tab too), pages, browsers (several pages per tile), screensaver themes, sounds, network, keys, AI, folders and file changes, the agent input box's buttons (a click, masked keys put back, `changed`, `expired`, `gone` and `stopped`), and a tile's own helper agent |
 | tf types | `lib/tf.d.ts` parses as TypeScript and declares every member, event and error name the documentation lists |
 | Issue tracker | The issue forms parse, set one area, one type and `status: triage` from `labels.json`, and list every example tile; blank issues off; the label sync creates and corrects labels without deleting any, and a dry run changes nothing |
 | Package | Public and MIT-licensed, the right files exported and packed, the MIT line in every shipped file |
+
+### Example tiles
+
+Every example:
+
+- ships a fresh build
+- has a valid `tile.json` (permissions with reasons, no secrets)
+- uses exactly the messages it defines, in every language
+- registers up front with command ids
+- has its own default shortcuts
+- does what it promises, against the fake host
+
+Each example also covers:
+
+#### Gomoku
+
+| Area | Covers |
+|---|---|
+| Rules | Five in a row in every direction, draws, refused moves |
+| Undo | Against an agent; asked of another player, then allowed, declined or missed while away |
+| AI agent | Games through its commands: reading the board, waiting for its turn, its moves and their refusals, from the tile to the built page |
+| Multiplayer | Game codes; the relay client's reconnects and pings; two players through a fake relay, with rematches and catching up after a drop |
+| Built page | Played by two windows |
+
+#### TileGo
+
+| Area | Covers |
+|---|---|
+| Rules | Captures, suicide and ko on every board size; passing and the end of play |
+| Dead stones | Marked a group at a time on both boards (clicks at once still agree); acceptances taken back by a change |
+| Scoring | Area scoring with komi; the rough guess at who's ahead and its winning chances |
+| Board | The coordinates round the board; the board size taken from the room's maker |
+| Flow | Undo after both passed goes back to playing; coming back to the marking or the score |
+| AI agent | Games through its commands: moves, passes, marks and their refusals |
+| Built page | Played by two windows and by an agent |
+
+#### Whiteboard
+
+| Area | Covers |
+|---|---|
+| Content | Numbered lines at fixed places; every kind of shape and 3D object checked with the field named; arrows to lines, columns and shapes |
+| Steps | Captions, Back and Next; replacing and erasing shapes; the board's size limit |
+| Pointing and asking | Pointing and asking with a waiting read; pointing on the user's panes through `tf.annotate` (marks not placed, hidden overlays and older Tilefolds) |
+| 3D | Scenes turned by dragging; floating in windows the user moves, folds, resizes, zooms and makes see-through; areas marked and lines drawn on a model and asked about; closed windows brought back |
+| State | The board kept and sent back |
+| Built page | Run in a DOM |
+
+#### Promptsmith
+
+| Area | Covers |
+|---|---|
+| Polish pill | Shown by the input as soon as it runs; opens the card on a click, folds back after sending, goes away after Close; its word and count in every script |
+| Card | Over the focused pane above the input, fitting its height; the corner button opened, folded and clicked; the side dock and Undock; a pane too small; a window on older Tilefolds |
+| One prompt per pane | Switching panes and tabs, focus leaving the panes, the side dock, a check finishing in another pane, a draft sent to its own pane |
+| Claude's answers | Asked in the chosen language; read field by field (fenced, unreadable, too long, code changed, control and direction characters, unknown kinds) |
+| Diff | By words and letters, with changes undone one by one |
+| Ask card | Sent, busy, as is |
+| Checks by the pane's agent | The request on the ask card; a hand-back taken once and only for its own request; one that changed code refused; Cancel; the offer when the key is missing |
+| Checks by its own polish agent | No key; the agent chosen; why a request couldn't go |
+| Built page | Run in a DOM |
+| Privacy | The prompt is never stored or recorded |
+
+#### Quiz
+
+| Area | Covers |
+|---|---|
+| Card | Docked over the pane; moved by its top bar or grip; resized by its corner; docked beside the panes and back |
+| Theme | Tilefold's theme, light or dark |
+| Panel and progress | The panel; saved progress |
+| Agents | Quizzes added by agents and checked |
+| Compatibility | Older Tilefolds |
+
+#### Folder Tree
+
+| Area | Covers |
+|---|---|
+| Agent hooks | Their markers; Claude Code and Codex input; the installer and hook command |
+| Files | Adding, renaming, moving and trashing |
+| Panel | One per tab; its Recent section kept before any activity |
+| Now section | The last action, agents of the hour, the tally and the setup row |
+| Pinned folders | Kept, moved, unpinned, busy and out of reach; the Add a folder field |
+| Built page | The window's file tools in a DOM |
 
 ## Known blockers
 
