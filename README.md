@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-2391%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-25-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-2394%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-25-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -235,7 +235,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (2391 tests in 128 files, all passing on 2026-11-08).
+Run with `npm test` (2394 tests in 128 files, all passing on 2026-11-10).
 
 | Area | Covers |
 |---|---|
@@ -299,8 +299,8 @@ Each example also covers:
 
 | Area | Covers |
 |---|---|
-| Polish pill | Shown by the input as soon as it runs; opens the card on a click, folds back after sending, goes away after Close; its word and count in every script |
-| Card | Over the focused pane above the input, fitting its height; the corner button opened, folded and clicked; the side dock and Undock; a pane too small; a window on older Tilefolds |
+| Polish pill | Shown by the input as soon as it runs; opens the card on a click, folds back after sending, goes away after Close; its word and count in every script; drawn quietly in the theme's colors; never over the agent input box, whose Card button brings a folded card back |
+| Card | The input box's Card button shows and folds it, reading nothing, also while a check runs; over the focused pane above the input, fitting its height; the corner button opened, folded and clicked; the side dock and Undock; a pane too small; a window on older Tilefolds |
 | One prompt per pane | Switching panes and tabs, focus leaving the panes, the side dock, a check finishing in another pane, a draft sent to its own pane |
 | Claude's answers | Asked in the chosen language; read field by field (fenced, unreadable, too long, code changed, control and direction characters, unknown kinds) |
 | Diff | By words and letters, with changes undone one by one |
@@ -341,4 +341,4 @@ Each example also covers:
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-11-08 by Tilefold
+Last updated: 2026-11-10 by Tilefold
