@@ -16,6 +16,10 @@
  * and never touches a file it can't read. The hook command writes markers
  * at the project's top and in the agent's own folder (the same marker, so
  * the tile counts it once), prints nothing and always exits 0.
+ *
+ * Modified 2026-11-11 (Windows): expected paths are resolved the way the
+ *   platform resolves them, and the tile side gets "/"-written folders, so
+ *   the tests pass on Windows as on macOS and Linux.
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -29,7 +33,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -61,6 +65,9 @@ import { record } from "../../examples/folder-tree/hooks/record.mjs";
 import { watched } from "../../examples/folder-tree/hooks/watch.mjs";
 import { toEvents } from "../../examples/folder-tree/src/activity.js";
 import { decodeMarker, joinChunks } from "../../examples/folder-tree/src/marker.js";
+
+/** A "/"-written absolute path as this platform resolves it (a drive letter on Windows). */
+const P = (p) => resolve(p);
 
 const HOOKS = fileURLToPath(new URL("../../examples/folder-tree/hooks/", import.meta.url));
 const made = [];
@@ -281,8 +288,8 @@ describe("agent input", () => {
 
   it("finds the folder a command works in from its plain cd", () => {
     expect(commandDir("ls", "/w")).toBe("/w");
-    expect(commandDir("cd app && sed -i x a.js", "/w")).toBe("/w/app");
-    expect(commandDir("cd /abs; cd sub; ls", "/w")).toBe("/abs/sub");
+    expect(commandDir("cd app && sed -i x a.js", "/w")).toBe(P("/w/app"));
+    expect(commandDir("cd /abs; cd sub; ls", "/w")).toBe(P("/abs/sub"));
     expect(commandDir("cd $HOME; ls", "/w")).toBe("/w");
   });
 
@@ -293,45 +300,45 @@ describe("agent input", () => {
   const old = { mtimeMs: NOW - CHANGED_MS - 1, birthtimeMs: NOW - 86_400_000 };
 
   it("sees files a shell command just changed, made or removed", () => {
-    const info = disk({ "/w/a.js": fresh, "/w/src/new.ts": born, "/w/b.js": old });
+    const info = disk({ [P("/w/a.js")]: fresh, [P("/w/src/new.ts")]: born, [P("/w/b.js")]: old });
     const opts = { dir: "/w", now: NOW };
     expect(shellChanges("sed -i 's/a/b/' a.js b.js", info, opts)).toEqual([
-      { action: "e", file: "/w/a.js" },
+      { action: "e", file: P("/w/a.js") },
     ]);
     expect(shellChanges("cat > src/new.ts <<'EOF'\nx\nEOF", info, opts)).toEqual([
-      { action: "a", file: "/w/src/new.ts" },
+      { action: "a", file: P("/w/src/new.ts") },
     ]);
     // Names inside a script count too.
     const script = "python3 - <<'EOF'\np='a.js'\nopen(p,'w').write(s)\nEOF";
-    expect(shellChanges(script, info, opts)).toEqual([{ action: "e", file: "/w/a.js" }]);
+    expect(shellChanges(script, info, opts)).toEqual([{ action: "e", file: P("/w/a.js") }]);
     expect(shellChanges("rm -f gone.js b.js && git rm old.md", info, opts)).toEqual([
-      { action: "d", file: "/w/gone.js" },
-      { action: "d", file: "/w/old.md" },
+      { action: "d", file: P("/w/gone.js") },
+      { action: "d", file: P("/w/old.md") },
     ]);
     expect(shellChanges("curl https://x.io/a.js; ls ~/a.js", info, opts)).toEqual([]);
     // sed -i replaces the file: a fresh birth time is still an edit.
     expect(shellChanges("sed -i '' s/a/b/ src/new.ts", info, opts)).toEqual([
-      { action: "e", file: "/w/src/new.ts" },
+      { action: "e", file: P("/w/src/new.ts") },
     ]);
     // Only read here, however recently it changed.
     expect(shellChanges("cat a.js | head -3; sed -n 1p a.js", info, opts)).toEqual([]);
   });
 
   it("turns a shell command into reads and changes, never both for one file", () => {
-    const info = disk({ "/w/app/a.js": fresh, "/w/app/b.js": old });
+    const info = disk({ [P("/w/app/a.js")]: fresh, [P("/w/app/b.js")]: old });
     const hook = (command) => ({ cwd: "/w", tool_name: "Bash", tool_input: { command } });
     expect(actionsFrom(hook("cd app && head -n 3 b.js"), info, NOW)).toEqual([
-      { action: "r", file: "/w/app/b.js" },
+      { action: "r", file: P("/w/app/b.js") },
     ]);
     expect(actionsFrom(hook("cd app && cat a.js && sed -i x a.js"), info, NOW)).toEqual([
-      { action: "e", file: "/w/app/a.js" },
+      { action: "e", file: P("/w/app/a.js") },
     ]);
     expect(actionsFrom(hook("cd app && cat a.js"), info, NOW)).toEqual([
-      { action: "r", file: "/w/app/a.js" },
+      { action: "r", file: P("/w/app/a.js") },
     ]);
     // A redirect writes: cat > is no read.
     expect(actionsFrom(hook("cat > app/a.js <<'EOF'\nx\nEOF"), info, NOW)).toEqual([
-      { action: "e", file: "/w/app/a.js" },
+      { action: "e", file: P("/w/app/a.js") },
     ]);
   });
 
@@ -473,9 +480,11 @@ describe("hook command", () => {
     const file = join(sub, "a.js");
     const names = writeMarkers([top, sub, `${sub}/`], { action: "e", pane: "x", file, now: NOW });
     expect(names).toHaveLength(2);
+    // The tile sees "/"-written folders, as Tilefold gives them (on Windows too).
+    const slash = (dir) => dir.replaceAll("\\", "/");
     const found = [
-      { root: top, marker: decodeMarker(names[0], NOW) },
-      { root: sub, marker: decodeMarker(names[1], NOW) },
+      { root: slash(top), marker: decodeMarker(names[0], NOW) },
+      { root: slash(sub), marker: decodeMarker(names[1], NOW) },
     ];
     expect(toEvents(found)).toHaveLength(1);
   });
