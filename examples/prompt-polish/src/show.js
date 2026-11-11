@@ -39,6 +39,8 @@
  * Modified 2026-11-10 (card stays put): a shown card whose pane is missing
  *   from a layout stays for GRACE_MS and is placed again, closing only if
  *   the pane is still gone, so a redraw no longer makes it blink away.
+ * Modified 2026-11-10 (quieter pill): the button is drawn in the theme's
+ *   colors (`setColors`), not filled with its accent.
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
@@ -71,9 +73,9 @@ export function createStage(tf, o) {
   let layout = null;
   /** The focused pane's id, kept while focus is away from the panes. */
   let focus = null;
-  /** How tall the page asked to be, and Tilefold's accent for the button. */
+  /** How tall the page asked to be, and Tilefold's theme colors for the button. */
   let wantH = 260;
-  let accent = null;
+  let colors = null;
   /** Whether the "too small" notice was shown for this time it didn't fit. */
   let toldSmall = false;
   /** The user's drag of the card, as it could be kept inside the pane. */
@@ -126,7 +128,7 @@ export function createStage(tf, o) {
   const drawButton = async (rect, waiting, open) => {
     const item = {
       id: BUTTON_ID,
-      image: buttonImage({ ...pill(), accent, waiting, open, rtl: rtl() }),
+      image: buttonImage({ ...pill(), colors, waiting, open, rtl: rtl() }),
       ...rect,
       hit: true,
       cursor: "pointer",
@@ -209,7 +211,7 @@ export function createStage(tf, o) {
       }
     },
     buttonShown: () => buttonShown,
-    setAccent: (a) => void (accent = a ?? accent),
+    setColors: (c) => void (colors = c && typeof c === "object" ? c : colors),
     setHeight(h) {
       if (!Number.isFinite(h) || Math.abs(h - wantH) < 2) return false;
       wantH = h;

@@ -12,7 +12,7 @@
  * hand back the prompt it corrected (from the palette it opens the card).
  * And the pill's events: a click on it opens or folds the focused pane's
  * card, tile overlays hidden take it (and the card) away, and a new theme
- * redraws it in the new accent.
+ * redraws it in the new colors.
  */
 import { COMMANDS } from "./settings.js";
 
@@ -78,7 +78,7 @@ export function registerPill(tf, o) {
   tf.on(
     "theme.changed",
     o.background(async (e) => {
-      o.stage.setAccent(e?.colors?.accent ?? null);
+      o.stage.setColors(e?.colors ?? null);
       if (o.stage.buttonShown()) await o.place();
     }),
   );

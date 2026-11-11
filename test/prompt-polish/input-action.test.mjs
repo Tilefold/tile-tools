@@ -21,7 +21,8 @@
  * Modified 2026-11-07 (reworked prompts): a text Tilefold refuses ends the
  *   request and says so.
  * Modified 2026-11-10 (Card button): Card shows the pane's card and folds
- *   it again, reading nothing, also while a check runs.
+ *   it again, reading nothing, also while a check runs; a card folded with
+ *   a result waiting brings no pill back over the box.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -267,10 +268,11 @@ describe("the Card button", () => {
     await clicked(host);
     await host.clickAction("card", { spot: SPOT });
     expect(host.page.open).toBe(false);
+    // Folded with a result waiting: the box's Card button brings it back, so no pill shows.
+    expect(host.item("polish-button")).toBeFalsy();
     await host.clickAction("card", { spot: SPOT });
     await say(host, { type: "hello" });
     expect(host.page.open).toBe(true);
     expect(lastView(host)).toMatchObject({ step: "result", pane: "p1", input: true });
   });
 });
-

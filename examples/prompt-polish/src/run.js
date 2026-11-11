@@ -67,6 +67,9 @@
  *   events, and the pill's, are registered in commands.js.
  * Modified 2026-11-10 (card stays put): the stage places again after a
  *   moment when a shown card's pane went missing.
+ * Modified 2026-11-10 (Card button): a folded card no longer brings the
+ *   pill back over the agent input box, whose Card button shows it again;
+ *   the pill takes Tilefold's theme colors, not just its accent.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
@@ -155,7 +158,7 @@ export function runPolish(tf) {
     const v = await tf.store.get(VIEW_KEY).catch(() => null);
     chosen = v === "bottom" || v === "corner" || v === "side" ? v : null;
     if (typeof tf.theme === "function") {
-      stage.setAccent((await tf.theme().catch(() => null))?.colors?.accent ?? null);
+      stage.setColors((await tf.theme().catch(() => null))?.colors ?? null);
     }
   };
 
@@ -201,7 +204,8 @@ export function runPolish(tf) {
       active,
       open: !!s?.open,
       waiting: waitingFixes(s),
-      keepPill: keepsPill(s),
+      // The box's own Card button brings the card back, so no pill is needed there.
+      keepPill: keepsPill(s) && !inputAction.available(),
     };
     const where = await stage.show({ ...show, ...moves.state() });
     const next = where && s ? id : null;

@@ -1018,7 +1018,7 @@ function registerPill(tf, o) {
   tf.on(
     "theme.changed",
     o.background(async (e) => {
-      o.stage.setAccent(e?.colors?.accent ?? null);
+      o.stage.setColors(e?.colors ?? null);
       if (o.stage.buttonShown()) await o.place();
     })
   );
@@ -1654,23 +1654,36 @@ function base64(text) {
   for (const b of new TextEncoder().encode(text)) bin += String.fromCharCode(b);
   return btoa(bin);
 }
+var QUIET = {
+  surface: "#262a33",
+  border: "#3b404c",
+  text: "#c3c7d0",
+  accent: "#9b87f5",
+  onAccent: "#ffffff"
+};
 function buttonImage({
   label = "Polish",
   w,
   accent,
+  colors = null,
   waiting = 0,
   open = false,
   rtl = false
 } = {}) {
   const width = Number.isFinite(w) ? w : pillWidth(label);
-  const fill = colorOr(accent, "#7c5cff");
+  const c = colors && typeof colors === "object" ? colors : {};
+  const fill = colorOr(c.surfaceRaised, QUIET.surface);
+  const edge = colorOr(c.borderStrong ?? c.border, QUIET.border);
+  const ink = colorOr(c.textSecondary ?? c.text, QUIET.text);
+  const mark = colorOr(c.accent ?? accent, QUIET.accent);
+  const onMark = colorOr(c.onAccent, QUIET.onAccent);
   const n = Math.max(0, Math.min(99, Math.floor(Number(waiting) || 0)));
   const h = PILL_H;
   const sx = rtl ? width - 16 : 16;
   const tx = rtl ? width - 28 : 28;
-  const ring = open ? `<rect x="0.75" y="0.75" width="${width - 1.5}" height="${h - 1.5}" rx="${(h - 1.5) / 2}" fill="none" stroke="#fff" stroke-width="1.5" opacity=".8"/>` : "";
-  const mark = n > 0 ? `<circle cx="${sx}" cy="${h / 2}" r="7.5" fill="#fff"/><text x="${sx}" y="${h / 2 + 3.5}" font-size="10" font-weight="700" text-anchor="middle" fill="${fill}" font-family="system-ui,sans-serif">${n}</text>` : `<path d="M${sx} 7.5l1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4z" fill="#fff"/>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${h}" viewBox="0 0 ${width} ${h}"><rect width="${width}" height="${h}" rx="${h / 2}" fill="${fill}"/>${ring}` + mark + `<text x="${tx}" y="17" font-size="12" font-weight="600" text-anchor="${rtl ? "end" : "start"}" fill="#fff" font-family="system-ui,sans-serif">${xml(label)}</text></svg>`;
+  const ring = `<rect x="0.5" y="0.5" width="${width - 1}" height="${h - 1}" rx="${(h - 1) / 2}" fill="none" stroke="${open ? mark : edge}" stroke-width="${open ? 1.5 : 1}"/>`;
+  const sign = n > 0 ? `<circle cx="${sx}" cy="${h / 2}" r="7.5" fill="${mark}"/><text x="${sx}" y="${h / 2 + 3.5}" font-size="10" font-weight="700" text-anchor="middle" fill="${onMark}" font-family="system-ui,sans-serif">${n}</text>` : `<path d="M${sx} 7.5l1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4z" fill="${mark}"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${h}" viewBox="0 0 ${width} ${h}"><rect width="${width}" height="${h}" rx="${h / 2}" fill="${fill}"/>${ring}` + sign + `<text x="${tx}" y="17" font-size="12" font-weight="500" text-anchor="${rtl ? "end" : "start"}" fill="${ink}" font-family="system-ui,sans-serif">${xml(label)}</text></svg>`;
   return `data:image/svg+xml;base64,${base64(svg)}`;
 }
 
@@ -1687,7 +1700,7 @@ function createStage(tf, o) {
   let layout = null;
   let focus = null;
   let wantH = 260;
-  let accent = null;
+  let colors = null;
   let toldSmall = false;
   let kept = { dx: 0, dy: 0 };
   let barH = BAR_H;
@@ -1721,7 +1734,7 @@ function createStage(tf, o) {
   const drawButton = async (rect, waiting, open) => {
     const item = {
       id: BUTTON_ID,
-      image: buttonImage({ ...pill(), accent, waiting, open, rtl: rtl() }),
+      image: buttonImage({ ...pill(), colors, waiting, open, rtl: rtl() }),
       ...rect,
       hit: true,
       cursor: "pointer",
@@ -1790,7 +1803,7 @@ function createStage(tf, o) {
       }
     },
     buttonShown: () => buttonShown,
-    setAccent: (a) => void (accent = a ?? accent),
+    setColors: (c) => void (colors = c && typeof c === "object" ? c : colors),
     setHeight(h) {
       if (!Number.isFinite(h) || Math.abs(h - wantH) < 2) return false;
       wantH = h;
@@ -2164,7 +2177,7 @@ function runPolish(tf) {
     const v = await tf.store.get(VIEW_KEY).catch(() => null);
     chosen = v === "bottom" || v === "corner" || v === "side" ? v : null;
     if (typeof tf.theme === "function") {
-      stage.setAccent((await tf.theme().catch(() => null))?.colors?.accent ?? null);
+      stage.setColors((await tf.theme().catch(() => null))?.colors ?? null);
     }
   };
   const post = (message) => stage.post(message);
@@ -2197,7 +2210,8 @@ function runPolish(tf) {
       active,
       open: !!s?.open,
       waiting: waitingFixes(s),
-      keepPill: keepsPill(s)
+      // The box's own Card button brings the card back, so no pill is needed there.
+      keepPill: keepsPill(s) && !inputAction.available()
     };
     const where = await stage.show({ ...show, ...moves.state() });
     const next = where && s ? id : null;
