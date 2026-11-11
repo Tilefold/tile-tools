@@ -14,10 +14,14 @@
  * count as reads. The hook takes a stamp before a shell command and marks
  * what changed and what was found after it, falls back to the command's
  * names without a stamp, and the installer adds and removes both hooks.
+ *
+ * Modified 2026-11-11 (Windows): expected paths are resolved the way the
+ *   platform resolves them, and the tile side gets "/"-written folders, so
+ *   the tests pass on Windows as on macOS and Linux.
  */
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { actionsFrom } from "../../examples/folder-tree/hooks/agents.mjs";
 import { AGENTS, withHook, withoutHook } from "../../examples/folder-tree/hooks/install.mjs";
@@ -32,6 +36,9 @@ import {
   walkChanged,
 } from "../../examples/folder-tree/hooks/scan.mjs";
 import { decodeMarker } from "../../examples/folder-tree/src/marker.js";
+
+/** A "/"-written absolute path as this platform resolves it (a drive letter on Windows). */
+const P = (p) => resolve(p);
 
 const made = [];
 /** A fresh temporary folder, removed after the test. */
@@ -136,15 +143,16 @@ describe("changed files", () => {
 });
 
 describe("found files", () => {
-  const files = new Set(["/w/src/a.js", "/w/b.md"]);
+  // An absolute name a search printed is kept as printed; others are resolved.
+  const files = new Set(["/w/b.md", P("/w/src/a.js"), P("/w/b.md")]);
   const isFile = (f) => files.has(f);
 
   it("are what a search printed, with or without line numbers", () => {
     const out = "src/a.js:12:const x\nsrc/a.js:30-  y\n/w/b.md\nmissing.js:1:z\n";
-    expect(outputReads("rg -n x", out, "/w", isFile)).toEqual(["/w/src/a.js", "/w/b.md"]);
-    expect(outputReads("cd /w && git grep -l x", "b.md\n", "/w", isFile)).toEqual(["/w/b.md"]);
+    expect(outputReads("rg -n x", out, "/w", isFile)).toEqual([P("/w/src/a.js"), "/w/b.md"]);
+    expect(outputReads("cd /w && git grep -l x", "b.md\n", "/w", isFile)).toEqual([P("/w/b.md")]);
     expect(outputReads("LC_ALL=C /usr/bin/grep -rl x .", "src/a.js\n", "/w", isFile)).toEqual([
-      "/w/src/a.js",
+      P("/w/src/a.js"),
     ]);
   });
 
@@ -157,10 +165,12 @@ describe("found files", () => {
   it("from Claude Code's Grep and Glob count as reads", () => {
     const hook = (tool_name, filenames) => ({ cwd: "/w", tool_name, tool_response: { filenames } });
     expect(actionsFrom(hook("Grep", ["src/a.js", "/w/b.md"]))).toEqual([
-      { action: "r", file: "/w/src/a.js" },
-      { action: "r", file: "/w/b.md" },
+      { action: "r", file: P("/w/src/a.js") },
+      { action: "r", file: P("/w/b.md") },
     ]);
-    expect(actionsFrom(hook("Glob", ["x.ts", 3, ""]))).toEqual([{ action: "r", file: "/w/x.ts" }]);
+    expect(actionsFrom(hook("Glob", ["x.ts", 3, ""]))).toEqual([
+      { action: "r", file: P("/w/x.ts") },
+    ]);
     expect(actionsFrom(hook("Grep", undefined))).toEqual([]);
   });
 });
