@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: このプロンプトを直して返してく�
 button-label = Promptsmith
 pill-label = 校正
 action-label = ✦ 校正
+card-action-label = カード
 label-over-pane = ペインの上
 label-in-dock = ペインの横
 label-fold = 隅のボタンにたたむ

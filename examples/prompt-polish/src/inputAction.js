@@ -32,12 +32,17 @@
  *   request and says so (`refused`), rather than that the box went.
  * Modified 2026-11-08 (translations): Use may put a translation of the
  *   corrected prompt in the box instead.
+ * Modified 2026-11-10 (Card button): a second button, Card, shows or folds
+ *   the pane's card (a view button: it reads nothing, and it can be pressed
+ *   while a check runs, spinning meanwhile); audited as `card-toggled`.
  */
 import { build, changeCount } from "./polish.js";
 import { resetSession } from "./sessions.js";
 
 /** The button's id in the box. */
 export const ACTION_ID = "polish";
+/** The Card button's id: shows or hides the pane's card (a view button). */
+export const CARD_ID = "card";
 
 /** What Tilefold answered, as the card's problem message. */
 const WHY_KEYS = {
@@ -79,9 +84,27 @@ export function createInputAction(tf, deps) {
   const { sessions, render, audit, warn, layout, openFor, check, fold, noPane, choose } = deps;
   const available = () => typeof tf.input?.action === "function";
 
-  /** Adds the ✦ Polish button (registered with everything else, up front). */
+  /** Adds the ✦ Polish and Card buttons (registered with everything else, up front). */
   const register = () => {
-    if (available()) tf.input.action({ id: ACTION_ID, label: tf.t("action-label") });
+    if (!available()) return;
+    tf.input.action({ id: ACTION_ID, label: tf.t("action-label") });
+    // A view button: it never reads the box (a Tilefold without them reads it, unused).
+    tf.input.action({ id: CARD_ID, label: tf.t("card-action-label"), view: true });
+  };
+
+  /**
+   * The user clicked Card: pane `id`'s card shows, or folds away if it was
+   * showing (a check under way keeps going). A Tilefold without view
+   * buttons opened a request for the click: it ends at once, unchanged.
+   */
+  const toggled = async (e) => {
+    if (typeof e.request === "string") await tf.input.release(e.request).catch(warn);
+    const id = paneAt(await layout(), e.spot) ?? noPane;
+    const s = sessions.get(id);
+    const showing = !!s?.open;
+    audit("card-toggled", { shown: !showing });
+    if (showing) await fold(id);
+    else await openFor(id);
   };
 
   /** Ends pane `id`'s open request without a change, if it has one. */
@@ -111,6 +134,7 @@ export function createInputAction(tf, deps) {
 
   /** The user clicked ✦ Polish: the card opens for that pane and checks at once. */
   const clicked = async (e) => {
+    if (e?.action === CARD_ID) return toggled(e);
     if (!e || e.action !== ACTION_ID || typeof e.request !== "string") return;
     const id = paneAt(await layout(), e.spot) ?? noPane;
     // An earlier click on this pane that wasn't answered gives way.

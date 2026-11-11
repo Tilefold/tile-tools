@@ -36,6 +36,9 @@
  *   folded card has something to come back to (`keepPill`). Folded to its
  *   header bar (`collapsed`); where Tilefold docks nothing that short (before
  *   0.1.27), the bar is SPOT_MIN tall from then on.
+ * Modified 2026-11-10 (card stays put): a shown card whose pane is missing
+ *   from a layout stays for GRACE_MS and is placed again, closing only if
+ *   the pane is still gone, so a redraw no longer makes it blink away.
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
@@ -45,10 +48,20 @@ import { BAR_H, SPOT_MIN, placeFor, sameSpot } from "./place.js";
 export const BUTTON_ID = "polish-button";
 
 /**
+ * How long a shown card waits when its pane is missing from a layout
+ * (Tilefold redrawing the pane, the input box moving) before it closes.
+ */
+export const GRACE_MS = 800;
+
+/**
  * @param {any} tf
- * @param {{ warn: (err: unknown) => void, canSide: () => boolean }} o
+ * @param {{ warn: (err: unknown) => void, canSide: () => boolean,
+ *   retry?: () => void, now?: () => number }} o `retry` shows again (after GRACE_MS)
  */
 export function createStage(tf, o) {
+  const now = o.now ?? (() => Date.now());
+  /** Since when the shown card's pane has been missing, or null. */
+  let missingSince = null;
   /** Where the page is: "card", "side", "window", or null when closed. */
   let where = null;
   let spot = null;
@@ -263,6 +276,16 @@ export function createStage(tf, o) {
       if (!spots) {
         // No pane to show over (another tab), or the pane is too small.
         const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);
+        if (!hasPane && where === "card" && o.retry) {
+          // Gone for a moment (Tilefold redrawing): the card stays, and looks again.
+          if (missingSince === null) {
+            missingSince = now();
+            setTimeout(o.retry, GRACE_MS);
+            return where;
+          }
+          if (now() - missingSince < GRACE_MS) return where;
+        }
+        missingSince = null;
         await hideButton();
         if (!hasPane) {
           await closePage();
@@ -277,6 +300,7 @@ export function createStage(tf, o) {
         return where;
       }
       toldSmall = false;
+      missingSince = null;
       if (spots.button) await drawButton(spots.button, waiting, open);
       else await hideButton();
       if (spots.card) await toCard(spots.card);

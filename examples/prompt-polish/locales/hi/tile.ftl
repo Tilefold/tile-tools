@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: इस प्रॉम्प्ट को स�
 button-label = Promptsmith
 pill-label = सुधारें
 action-label = ✦ सुधारें
+card-action-label = कार्ड
 label-over-pane = पेन के ऊपर
 label-in-dock = पेन के बगल में
 label-fold = कोने के बटन में समेटें

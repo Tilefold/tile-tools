@@ -34,6 +34,7 @@ agent-check-about = Promptsmith：请修改这段提示词并交回，不要执�
 button-label = Promptsmith
 pill-label = 润色
 action-label = ✦ 润色
+card-action-label = 卡片
 label-over-pane = 在窗格上
 label-in-dock = 在窗格旁
 label-fold = 收起为角落按钮

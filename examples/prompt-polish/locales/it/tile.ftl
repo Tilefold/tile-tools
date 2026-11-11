@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: correggi questo prompt e restituiscilo; non ese
 button-label = Promptsmith
 pill-label = Rifinisci
 action-label = ✦ Rifinisci
+card-action-label = Scheda
 label-over-pane = sul riquadro
 label-in-dock = accanto ai riquadri
 label-fold = Riduci nel pulsante d'angolo

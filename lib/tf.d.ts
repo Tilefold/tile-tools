@@ -42,6 +42,8 @@
  * Modified 2026-11-06 (Tilefold 0.1.27): `tf.timeline`, the agents' timeline
  *   (agent.timeline).
  * Last updated by: Tilefold
+ * Modified 2026-11-10 (Tilefold 0.1.29): view buttons, `tf.input.action`'s
+ *   `view: true`, and their `input.action` event without text or request.
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -208,14 +210,19 @@ export interface TileEventPayloads {
    * (`tf.input.replace` or `release`); `language` is the user's Tilefold
    * language; `spot` is where the box is, to open a card above it. The
    * pane and the agent are never named. Return at once and work after.
+   * A view button's click (`view: true`, Tilefold 0.1.29) has no `text`
+   * and no `request`: it only says which button and where the box is.
    */
-  "input.action": {
-    action: string;
-    request: string;
-    text: string;
-    language: string;
-    spot: Rect | null;
-  };
+  "input.action":
+    | {
+        action: string;
+        request: string;
+        text: string;
+        language: string;
+        spot: Rect | null;
+        view?: undefined;
+      }
+    | { action: string; view: true; language: string; spot: Rect | null };
   /**
    * The user pressed × beside the tile's spinning button to stop waiting
    * for request `request` (needs input.actions; Tilefold 0.1.27). Close
@@ -742,9 +749,14 @@ export interface Tf {
      * Adds a button, registered up front like a command: `id` 1–32
      * lowercase letters, digits and dashes; `label` 1–24 characters on one
      * line. At most 2 per tile. A tile adding one without asking for
-     * input.actions in tile.json doesn't load.
+     * input.actions in tile.json doesn't load. `view: true` (Tilefold
+     * 0.1.29) makes it a view button, which shows or hides the tile's own
+     * card or panel for the pane: it never reads the box, shows while the
+     * box is empty, and stays clickable while the tile works on a click
+     * (spinning meanwhile). An older Tilefold treats it as an ordinary
+     * button: release its request at once.
      */
-    action(options: { id: string; label: string }): void;
+    action(options: { id: string; label: string; view?: boolean }): void;
     /**
      * Puts `text` in the box in place of what was clicked: once per
      * request, within 10 minutes, at most four times the clicked text

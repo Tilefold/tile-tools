@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: исправь этот запрос и вер�
 button-label = Promptsmith
 pill-label = Исправить
 action-label = ✦ Исправить
+card-action-label = Карточка
 label-over-pane = над панелью
 label-in-dock = рядом с панелями
 label-fold = Свернуть в угловую кнопку

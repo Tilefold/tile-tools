@@ -1469,6 +1469,7 @@ function createSessions() {
 
 // src/inputAction.js
 var ACTION_ID = "polish";
+var CARD_ID = "card";
 var WHY_KEYS = {
   changed: "error-input-changed",
   expired: "error-input-expired",
@@ -1494,7 +1495,18 @@ function createInputAction(tf, deps) {
   const { sessions, render, audit, warn, layout, openFor, check, fold, noPane, choose } = deps;
   const available = () => typeof tf.input?.action === "function";
   const register = () => {
-    if (available()) tf.input.action({ id: ACTION_ID, label: tf.t("action-label") });
+    if (!available()) return;
+    tf.input.action({ id: ACTION_ID, label: tf.t("action-label") });
+    tf.input.action({ id: CARD_ID, label: tf.t("card-action-label"), view: true });
+  };
+  const toggled = async (e) => {
+    if (typeof e.request === "string") await tf.input.release(e.request).catch(warn);
+    const id = paneAt(await layout(), e.spot) ?? noPane;
+    const s = sessions.get(id);
+    const showing = !!s?.open;
+    audit("card-toggled", { shown: !showing });
+    if (showing) await fold(id);
+    else await openFor(id);
   };
   const release = async (id) => {
     const s = sessions.get(id);
@@ -1516,6 +1528,7 @@ function createInputAction(tf, deps) {
     await fold(id);
   };
   const clicked = async (e) => {
+    if (e?.action === CARD_ID) return toggled(e);
     if (!e || e.action !== ACTION_ID || typeof e.request !== "string") return;
     const id = paneAt(await layout(), e.spot) ?? noPane;
     await release(id);
@@ -1663,7 +1676,10 @@ function buttonImage({
 
 // src/show.js
 var BUTTON_ID = "polish-button";
+var GRACE_MS = 800;
 function createStage(tf, o) {
+  const now = o.now ?? (() => Date.now());
+  let missingSince = null;
   let where = null;
   let spot = null;
   let buttonShown = false;
@@ -1839,6 +1855,15 @@ function createStage(tf, o) {
       if (spots?.offset) kept = spots.offset;
       if (!spots) {
         const hasPane = (layout?.panes ?? []).some((p) => p.id === focus);
+        if (!hasPane && where === "card" && o.retry) {
+          if (missingSince === null) {
+            missingSince = now();
+            setTimeout(o.retry, GRACE_MS);
+            return where;
+          }
+          if (now() - missingSince < GRACE_MS) return where;
+        }
+        missingSince = null;
         await hideButton();
         if (!hasPane) {
           await closePage();
@@ -1853,6 +1878,7 @@ function createStage(tf, o) {
         return where;
       }
       toldSmall = false;
+      missingSince = null;
       if (spots.button) await drawButton(spots.button, waiting, open);
       else await hideButton();
       if (spots.card) await toCard(spots.card);
@@ -2101,7 +2127,7 @@ function runPolish(tf) {
   const canFloat = () => typeof tf.page?.dock === "function" && !!tf.overlay;
   const canSide = () => !!tf.page && typeof tf.theme === "function";
   const sessions = createSessions();
-  const stage = createStage(tf, { warn, canSide });
+  const stage = createStage(tf, { warn, canSide, retry: () => void place().catch(warn) });
   const kept = () => stage.kept();
   const moves = createCardMoves({ place: () => place(), render: () => render(), audit, kept });
   const later = {

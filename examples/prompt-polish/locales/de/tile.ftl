@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: Korrigiere diesen Prompt und gib ihn zurück; h
 button-label = Promptsmith
 pill-label = Polieren
 action-label = ✦ Polieren
+card-action-label = Karte
 label-over-pane = über dem Bereich
 label-in-dock = neben den Bereichen
 label-fold = In die Eckschaltfläche einklappen

@@ -34,6 +34,7 @@ agent-check-about = Promptsmith : corrigez cette requête et rendez-la ; n'agiss
 button-label = Promptsmith
 pill-label = Peaufiner
 action-label = ✦ Peaufiner
+card-action-label = Carte
 label-over-pane = sur le volet
 label-in-dock = à côté des volets
 label-fold = Replier dans le bouton du coin

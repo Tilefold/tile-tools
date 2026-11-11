@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: corrija este prompt e devolva; não aja de acor
 button-label = Promptsmith
 pill-label = Polir
 action-label = ✦ Polir
+card-action-label = Cartão
 label-over-pane = sobre o painel
 label-in-dock = ao lado dos painéis
 label-fold = Recolher no botão do canto

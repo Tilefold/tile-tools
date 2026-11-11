@@ -65,6 +65,8 @@
  *   of time when the card shows (helperTab), Show and Restart the polish
  *   agent are commands and card buttons; the commands and the input box's
  *   events, and the pill's, are registered in commands.js.
+ * Modified 2026-11-10 (card stays put): the stage places again after a
+ *   moment when a shown card's pane went missing.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
@@ -106,7 +108,7 @@ export function runPolish(tf) {
   const canSide = () => !!tf.page && typeof tf.theme === "function";
 
   const sessions = createSessions();
-  const stage = createStage(tf, { warn, canSide });
+  const stage = createStage(tf, { warn, canSide, retry: () => void place().catch(warn) });
   const kept = () => stage.kept();
   const moves = createCardMoves({ place: () => place(), render: () => render(), audit, kept });
   const later = {
