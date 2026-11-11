@@ -141,7 +141,7 @@ A listener that runs too long five times in ten minutes is skipped for the rest 
 | `browser.navigated` | The tile's browser finished loading a page, or the page's title changed (needs `browser`; Tilefold 0.1.11) | `{ url, title }` |
 | `browser.closed` | The user closed the tile's browser window | `{ url }` |
 | `viewer.opened` | The document viewer showed a file inside one of the panes' folders: the user opened it, or an AI agent did to point at something (needs `fs.list`; Tilefold 0.1.26) | `{ path }` |
-| `input.action` | The user clicked one of the tile's buttons in the agent input box (needs `input.actions`; Tilefold 0.1.27) | `{ action, request, text, language, spot }` |
+| `input.action` | The user clicked one of the tile's buttons in the agent input box (needs `input.actions`; Tilefold 0.1.27) | `{ action, request, text, language, spot }`; for a view button (Tilefold 0.1.29) `{ action, view: true, language, spot }` |
 | `input.cancelled` | The user clicked × beside the tile's spinning button to stop waiting (needs `input.actions`; Tilefold 0.1.27) | `{ request }` |
 
 Events carry only these facts. A tile never learns which key was pressed, where the pointer is outside its own items, or what a pane shows.
@@ -232,7 +232,7 @@ Needs `window.protect`. `true` leaves Tilefold's window out of screen sharing, r
 
 ## Buttons in the agent input box
 
-`tf.input.action({ id, label })` needs `input.actions` (Tilefold 0.1.27). It adds a button to the box where the user writes to an AI agent. A click arrives as the `input.action` event with the box's text (secrets masked) and a one-time `request`; answer with `tf.input.replace(request, { text })`, which Tilefold shows highlighted with Undo and never sends, or `tf.input.release(request)`. See [Buttons in the agent input box](input-actions.md).
+`tf.input.action({ id, label })` needs `input.actions` (Tilefold 0.1.27). It adds a button to the box where the user writes to an AI agent. A click arrives as the `input.action` event with the box's text (secrets masked) and a one-time `request`; answer with `tf.input.replace(request, { text })`, which Tilefold shows highlighted with Undo and never sends, or `tf.input.release(request)`. With `view: true` (Tilefold 0.1.29) it is a view button: it only shows or hides the tile's own view, shows while the box is empty, stays clickable while the tile works, and its click carries no text and no request. See [Buttons in the agent input box](input-actions.md).
 ## Your agents' timeline
 
 `tf.timeline` needs `agent.timeline` (Tilefold 0.1.27), which Tilefold marks as high risk because it shows what the user and their agents said in panes. It is read-only: what the user asked an agent and what it replied, messages between panes, the panes an agent asked to open and what the user answered, heartbeat nudges, heartbeats that ended and schedule runs. The Manager Board example draws it as a timeline and as lanes.

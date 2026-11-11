@@ -32,6 +32,30 @@ export default (tf) => {
 
 The button shows once the box holds text. It's off when the box holds more than 8,000 characters, and ignores a click right after a key, so the user's typing doesn't trigger it.
 
+### View buttons (Tilefold 0.1.29)
+
+A button that only shows or hides something of yours for that pane (a card, a panel) never needs the user's words. Mark it `view: true`:
+
+```js
+tf.input.action({ id: "card", label: tf.t("card-label"), view: true });
+```
+
+- A click arrives as `input.action` with `{ action, view: true, language, spot }`: no `text`, no `request`, so there is nothing to answer or release.
+- It shows even while the box is empty, and stays clickable (spinning) while your tile works on a click of its other button, so the user can bring back or hide a card mid-check.
+- It counts toward the 2 buttons per tile. Turning a view button into an ordinary one (or back) changes the tile's consent fingerprint, so Tilefold asks the user to approve the tile again.
+- An older Tilefold treats it as an ordinary button: the click carries the box's text and a request. Release that request at once, unused:
+
+```js
+tf.on("input.action", (e) => {
+  if (e.action === "card") {
+    if (typeof e.request === "string") void tf.input.release(e.request); // an older Tilefold
+    void toggleCard(e.spot);
+    return;
+  }
+  void polish(e);
+});
+```
+
 ## 3. Hear the click
 
 ```js
@@ -85,10 +109,10 @@ await tf.input.release(e.request);
 
 ## 5. Keeping out of the way
 
-A tile that also draws over the panes (`window.overlay`) and holds `input.actions` sees `agentInput: true` on a pane in `tf.overlay.layout()` and the `overlay.layout` event when that pane's row is the agent input box. Promptsmith uses it to hide its own pill there, since its button is in the box. Other tiles don't see it.
+A tile that also draws over the panes (`window.overlay`) and holds `input.actions` sees `agentInput: true` on a pane in `tf.overlay.layout()` and the `overlay.layout` event when that pane's row is the agent input box. Promptsmith uses it to hide its own pill there, since its buttons are in the box (and its Card view button brings a folded card back). Other tiles don't see it.
 
 ## Testing
 
-`test/fake-host.mjs` adds `tf.input` with `input: true` (or `input: { text, language }`). `host.clickAction(id)` plays a click on the box's text (`host.box.text`) and resolves to the request id; `host.box.replaced` and `host.box.released` record the answers; change `host.box.text`, call `host.expireInput()` or `host.closeBox()` to get `changed`, `expired` or `gone`; `host.stopAction()` plays the user's × (`input.cancelled`, then `stopped`). See `test/fake-input.test.mjs` and `test/prompt-polish/input-action.test.mjs`.
+`test/fake-host.mjs` adds `tf.input` with `input: true` (or `input: { text, language }`). `host.clickAction(id)` plays a click on the box's text (`host.box.text`) and resolves to the request id; `host.box.replaced` and `host.box.released` record the answers; change `host.box.text`, call `host.expireInput()` or `host.closeBox()` to get `changed`, `expired` or `gone`; `host.stopAction()` plays the user's × (`input.cancelled`, then `stopped`). A click on a view button (`host.clickAction("card")`) resolves to `null`: it carries no request. See `test/fake-input.test.mjs` and `test/prompt-polish/input-action.test.mjs`.
 
 Copyright (c) 2026 Tilefold. Released under the MIT License.

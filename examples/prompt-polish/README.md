@@ -19,7 +19,7 @@ With **Settings → Agents → Write to agents in Tilefold's input box** on (Til
 - **Send to agent** does the same and sends it to your agent right away, as Enter would (if the agent is busy, it waits in the box).
 - **Keep mine** closes the card and leaves the box as it was.
 
-If you edit the box while the card is open, Use doesn't overwrite it: the card says so, and you click **✦ Polish** again. While the check runs, Tilefold shows a **×** beside the spinning button: click it to stop waiting, and the card closes. Beside it, **Card** shows or hides the card for that pane whenever you like, even while the box is empty or the check is still running (it spins meanwhile); it never reads what you wrote. If the card ever goes missing, Card brings it back with whatever it was showing. The pill isn't drawn over a pane that has this box, since the button is in the box itself, except after you fold a card that still has fixes: then the pill stays, so you can open the card again.
+If you edit the box while the card is open, Use doesn't overwrite it: the card says so, and you click **✦ Polish** again. While the check runs, Tilefold shows a **×** beside the spinning button: click it to stop waiting, and the card closes. Beside it, **Card** shows or hides the card for that pane whenever you like, even while the box is empty or the check is still running (it spins meanwhile); it never reads what you wrote. If the card ever goes missing, Card brings it back with whatever it was showing. The pill isn't drawn over a pane that has this box, since the buttons are in the box itself: after you fold a card that still has fixes, **Card** opens it again.
 
 ## One prompt per pane
 
@@ -92,7 +92,7 @@ Your prompts stay in the tile's memory while you work on them, one per pane. A p
 
 The tile asks Claude for JSON (the corrected text and a note per fix) and reads it field by field: control and direction-changing characters are taken out, lengths are bounded, and a correction that changed any code, path or link is refused (`src/answer.js`). The diff splits Latin text by words and other scripts by letters, so a Korean spacing fix or a Japanese particle is one change (`src/polish.js`). Where the card goes over the pane comes from the panes' rectangles Tilefold gives tiles, never from what is in them (`src/place.js`); the Polish pill is an overlay item (`src/button.js`). The agent in your pane answers through the **Hand back** command, giving the request's one-time id: Promptsmith takes a hand-back once, only for a request it is waiting on and within ten minutes, and reads it exactly like Claude's answer (`src/agentCheck.js`, `src/agentRun.js`). The **✦ Polish** button is an input action: a click hands the tile the box's text and a one-time request, and **Use** answers it with `tf.input.replace`, which Tilefold applies only if the box still holds what you clicked (`src/inputAction.js`). The page (`page-src/`) only draws what the tile sends and says what you clicked.
 
-Needs Tilefold 0.1.23 (`tf.agent.ask`); over the pane from 0.1.11, beside the panes from 0.1.20, the ✦ Polish button in Tilefold's input box from 0.1.27.
+Needs Tilefold 0.1.23 (`tf.agent.ask`); over the pane from 0.1.11, beside the panes from 0.1.20, the ✦ Polish button in Tilefold's input box from 0.1.27, and the Card button as a show-and-hide button from 0.1.29.
 
 Copyright (c) 2026 Tilefold
 Released under the MIT License.
