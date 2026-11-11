@@ -31,6 +31,9 @@
  *
  * Modified 2026-11-07 (reworked prompts): Tilefold's longer replacement
  *   limit, and `maxReplace`.
+ * Modified 2026-11-10 (view buttons): `view: true` adds a view button; its
+ *   click fires `input.action` with { action, view: true, language, spot },
+ *   no text and no request, and resolves to null.
  */
 
 const ACTION_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
@@ -56,7 +59,18 @@ export function addInput(tf, host, named, opts = {}) {
   let seq = 0;
 
   host.clickAction = async (id, { text = host.box.text, spot = null } = {}) => {
-    if (!host.actions.some((a) => a.id === id)) throw new Error(`no input action ${id}`);
+    const action = host.actions.find((a) => a.id === id);
+    if (!action) throw new Error(`no input action ${id}`);
+    // A view button reads nothing and opens no request.
+    if (action.view) {
+      await host.emit("input.action", {
+        action: id,
+        view: true,
+        language: opts.language ?? "en",
+        spot,
+      });
+      return null;
+    }
     host.box.text = text;
     seq += 1;
     const request = `req${seq}`;
@@ -111,8 +125,9 @@ export function addInput(tf, host, named, opts = {}) {
         throw new Error(`two input actions share the id "${id}"`);
       }
       if (host.actions.length >= 2) throw new Error("a tile may add at most 2 input actions");
-      host.actions.push({ id, label });
-      host.regs.push({ kind: "action", id, label });
+      const view = options.view === true ? { view: true } : {};
+      host.actions.push({ id, label, ...view });
+      host.regs.push({ kind: "action", id, label, ...view });
     },
     async replace(request, proposal) {
       const r = own(request);

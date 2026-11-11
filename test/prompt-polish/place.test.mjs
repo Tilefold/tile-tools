@@ -202,10 +202,35 @@ describe("the corner button", () => {
     expect(svg(buttonImage({ waiting: 3 }))).toMatch(/>3</);
     expect(svg(buttonImage({ waiting: 0 }))).toMatch(/<path/);
     expect(svg(buttonImage({ waiting: 3 }))).not.toMatch(/<path/);
-    expect(svg(buttonImage({ open: true }))).toMatch(/stroke=/);
+    expect(svg(buttonImage({ open: true }))).toMatch(/stroke-width="1.5"/);
+    expect(svg(buttonImage({ open: false }))).toMatch(/stroke-width="1"/);
     expect(svg(buttonImage({ accent: "#123456" }))).toMatch(/#123456/);
     // Only plain colors from the theme reach the picture.
     expect(svg(buttonImage({ accent: 'red" onload="x' }))).not.toMatch(/onload/);
+    expect(svg(buttonImage({ colors: { surfaceRaised: 'x" onload="y' } }))).not.toMatch(/onload/);
+  });
+
+  it("is quiet: the theme's raised surface, border and text, with only the sparkle in the accent", () => {
+    const svg = (url) =>
+      new TextDecoder().decode(
+        Uint8Array.from(atob(url.replace("data:image/svg+xml;base64,", "")), (c) =>
+          c.charCodeAt(0),
+        ),
+      );
+    const colors = {
+      surfaceRaised: "#101112",
+      borderStrong: "#202122",
+      textSecondary: "#303132",
+      accent: "#7c5cff",
+    };
+    const out = svg(buttonImage({ colors }));
+    // The pill's body is the surface, never the accent.
+    expect(out).toMatch(/<rect width="\d+" height="26" rx="13" fill="#101112"\/>/);
+    expect(out).toMatch(/stroke="#202122"/);
+    expect(out).toMatch(/fill="#303132"[^>]*>Polish</);
+    expect(out).toMatch(/<path [^>]*fill="#7c5cff"/);
+    // Without a theme it falls back to the quiet defaults, not a purple fill.
+    expect(svg(buttonImage())).not.toMatch(/rx="13" fill="#7c5cff"/);
   });
 });
 

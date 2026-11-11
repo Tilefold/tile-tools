@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: صحّح هذه المطالبة وأعدها؛
 button-label = Promptsmith
 pill-label = تحسين
 action-label = ✦ تحسين
+card-action-label = البطاقة
 label-over-pane = فوق الجزء
 label-in-dock = بجانب الأجزاء
 label-fold = طيّ في زر الزاوية

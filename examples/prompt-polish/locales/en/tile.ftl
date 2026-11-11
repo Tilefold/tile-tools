@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: correct this prompt and hand it back; don't act
 button-label = Promptsmith
 pill-label = Polish
 action-label = ✦ Polish
+card-action-label = Card
 label-over-pane = over the pane
 label-in-dock = beside the panes
 label-fold = Fold into the corner button

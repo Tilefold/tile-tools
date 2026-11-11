@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: 이 프롬프트를 고쳐서 돌려주세요. 
 button-label = Promptsmith
 pill-label = 다듬기
 action-label = ✦ 다듬기
+card-action-label = 카드
 label-over-pane = 창 위
 label-in-dock = 창 옆
 label-fold = 모서리 버튼으로 접기

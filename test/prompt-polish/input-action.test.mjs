@@ -20,6 +20,9 @@
  *
  * Modified 2026-11-07 (reworked prompts): a text Tilefold refuses ends the
  *   request and says so.
+ * Modified 2026-11-10 (Card button): Card shows the pane's card and folds
+ *   it again, reading nothing, also while a check runs; a card folded with
+ *   a result waiting brings no pill back over the box.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -101,9 +104,12 @@ async function clicked(host) {
 describe("the ✦ Polish button in the agent input box", () => {
   it("is added where Tilefold has input actions, labelled in the user's language", async () => {
     const host = await start();
-    expect(host.actions).toEqual([{ id: "polish", label: "✦ Polish" }]);
+    expect(host.actions).toEqual([
+      { id: "polish", label: "✦ Polish" },
+      { id: "card", label: "Card", view: true },
+    ]);
     const ko = await start({ locale: "ko" });
-    expect(ko.actions).toEqual([{ id: "polish", label: "✦ 다듬기" }]);
+    expect(ko.actions.map((a) => a.label)).toEqual(["✦ 다듬기", "카드"]);
   });
 
   it("isn't added, and nothing breaks, on a Tilefold without them", async () => {
@@ -241,5 +247,32 @@ describe("paneAt", () => {
     expect(paneAt(LAYOUT, null)).toBe("p1");
     expect(paneAt(LAYOUT, { x: 0, y: 0, w: 1, h: 1 })).toBe("p1");
     expect(paneAt({ panes: [] }, SPOT)).toBeNull();
+  });
+});
+
+describe("the Card button", () => {
+  it("shows the pane's card and folds it again, reading nothing", async () => {
+    const host = await start();
+    expect(await host.clickAction("card", { spot: SPOT })).toBeNull();
+    await say(host, { type: "hello" });
+    expect(host.page.open).toBe(true);
+    expect(host.questions).toHaveLength(0);
+    expect(host.audits).toContainEqual({ action: "card-toggled", details: { shown: true } });
+    await host.clickAction("card", { spot: SPOT });
+    expect(host.page.open).toBe(false);
+    expect(host.audits).toContainEqual({ action: "card-toggled", details: { shown: false } });
+  });
+
+  it("brings back a check under way", async () => {
+    const host = await start();
+    await clicked(host);
+    await host.clickAction("card", { spot: SPOT });
+    expect(host.page.open).toBe(false);
+    // Folded with a result waiting: the box's Card button brings it back, so no pill shows.
+    expect(host.item("polish-button")).toBeFalsy();
+    await host.clickAction("card", { spot: SPOT });
+    await say(host, { type: "hello" });
+    expect(host.page.open).toBe(true);
+    expect(lastView(host)).toMatchObject({ step: "result", pane: "p1", input: true });
   });
 });

@@ -34,6 +34,7 @@ agent-check-about = Promptsmith: corrige esta indicación y devuélvela; no act�
 button-label = Promptsmith
 pill-label = Pulir
 action-label = ✦ Pulir
+card-action-label = Tarjeta
 label-over-pane = sobre el panel
 label-in-dock = junto a los paneles
 label-fold = Plegar en el botón de la esquina

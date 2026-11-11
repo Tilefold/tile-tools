@@ -13,7 +13,9 @@
  * header bar, right where its header was, and back; a Tilefold that docks
  * nothing that short gets the shortest card it takes. Choosing another view puts it
  * back in place. Folded over Tilefold's agent input box, a card with fixes
- * leaves the pill, which opens it again. Audits carry no positions.
+ * leaves no pill: the box's Card button opens it again. Audits carry no positions.
+ *
+ * Modified 2026-11-10 (Card button): no pill comes back over the box.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -190,13 +192,14 @@ describe("folding to the header bar", () => {
 });
 
 describe("folding over the agent input box", () => {
-  it("leaves the pill while the card has fixes, and the pill opens it again", async () => {
+  it("brings no pill back while the card has fixes: the box's Card button opens it again", async () => {
     const host = await opened();
     expect(host.item("polish-button")).toBeFalsy();
     await say(host, { type: "fold" });
     expect(host.page.open).toBe(false);
-    expect(host.item("polish-button")).toBeTruthy();
-    await host.emit("overlay.pointer", { item: "polish-button", type: "click" });
+    expect(host.item("polish-button")).toBeFalsy();
+    await host.clickAction("card", { spot: { x: 60, y: 720, w: 600, h: 40 } });
+    await say(host, { type: "hello" });
     expect(host.page.open).toBe(true);
     expect(lastView(host)).toMatchObject({ step: "result" });
   });
