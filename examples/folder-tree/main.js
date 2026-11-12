@@ -49,6 +49,9 @@
  *   shows the document viewer's file in the tree.
  * Modified 2026-11-08 (one tab or every tab): the "Show on" setting.
  *
+ * Modified 2026-11-11 (rename from the menu): no `panel.dblclick`; a
+ *   double-click no longer renames, the right-click menu's Rename… does.
+ *
  * Last updated by: Tilefold
  */
 // Built by @tilefold/tile-tools from src/main.js. Edit the sources, then rebuild.
@@ -640,6 +643,8 @@ function pageStrings(t, hookCommand) {
       newFile: t("page-new-file"),
       newFolder: t("page-new-folder"),
       rename: t("page-rename"),
+      renameMenu: t("menu-rename"),
+      open: t("menu-open"),
       edit: t("page-edit"),
       trash: t("page-trash"),
       nameLabel: t("page-name-label"),
@@ -1687,13 +1692,6 @@ function createFolderTree(tf) {
     rename: edits.rename,
     openWindow: () => api.openWindow()
   }) : tf.toast(tf.t("error-nothing-chosen"));
-  const doubled = (id) => {
-    const target = targets.get(id);
-    const file = target && (target.kind === "file" || target.kind === "link");
-    if (!file || target.path !== id) return void 0;
-    selected = id;
-    return renameChosen();
-  };
   const fromMenu = async (id, item) => {
     const target = id ? targets.get(id) : null;
     if (id && !target) return void 0;
@@ -1752,8 +1750,6 @@ function createFolderTree(tf) {
     refresh: () => shown || pageOpen ? start(tree.root) : void 0,
     /** A click (or key) on a row of the panel. */
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
-    /** A double-click on a row of the panel. */
-    doubled: ({ row } = {}) => typeof row === "string" ? doubled(row) : void 0,
     fieldInput: (e) => views.field(e),
     /** A choice from a panel row's right-click menu. */
     menuChosen: ({ row, item } = {}) => typeof item === "string" ? fromMenu(typeof row === "string" ? row : null, item) : void 0,
@@ -1903,7 +1899,6 @@ var main_default = (tf) => {
   tf.on("panel.closed", () => tree?.closed());
   tf.on("panel.opened", () => void tree?.reopened());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
-  tf.on("panel.dblclick", (e) => void tree?.doubled(e));
   tf.on("panel.input", (e) => void tree?.fieldInput(e));
   tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());

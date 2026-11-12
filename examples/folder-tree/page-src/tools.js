@@ -11,20 +11,20 @@
  * place (Enter keeps the new name, Escape or leaving the field keeps the
  * old one); dragging a file or folder onto a folder, or onto the Files
  * heading for the tree's own folder, moves it; F2 renames and ⌘⌫ / Delete
- * moves the chosen row to the Trash (Tilefold asks first). A double-click
- * on a file renames it in place: the second click on the same file within
- * DOUBLE_MS starts the rename instead of opening it again. It is counted by
- * row id, not left to the browser, since the first click's redraw replaces
- * the row's element. Everything goes
+ * moves the chosen row to the Trash (Tilefold asks first). A right-click on
+ * a file or folder (or Shift+F10 and the menu key on the chosen row) opens
+ * its menu: Open and Edit for a file, then Rename… and Move to Trash. A
+ * click only ever opens; renaming is never a click. Everything goes
  * to the tile as a message; the tile and Tilefold check it all again.
  * Names are only ever set with `textContent` and the field's value.
+ *
+ * Modified 2026-11-11 (rename from the menu): a second click on a file no
+ *   longer renames it; renaming is in the new right-click menu (files and
+ *   folders), the toolbar and F2.
  */
 
 /** The drag type that carries a row id between rows of this window. */
 const DRAG_TYPE = "application/x-folder-tree-row";
-
-/** Two clicks on the same file within this many milliseconds are a double-click. */
-export const DOUBLE_MS = 500;
 
 /**
  * The tools for one window. `send(message)` posts to the tile, `el(tag,
@@ -36,8 +36,8 @@ export function createTools({ send, el, $ }) {
   /** The row being renamed, and one the tile asked to rename before it was drawn. */
   let renaming = null;
   let pendingRename = null;
-  /** The last click on a file row (to tell a double-click). */
-  let lastClick = { id: null, at: 0 };
+  /** The open right-click menu, if any. */
+  let menu = null;
 
   const chosen = () => state?.selected ?? null;
   const rowOf = (id) => state?.tree.find((r) => r.id === id) ?? null;
@@ -78,6 +78,85 @@ export function createTools({ send, el, $ }) {
     field.setSelectionRange(0, dot > 0 ? dot : row.name.length);
   };
 
+  /** Closes the right-click menu, giving the focus back to its row when asked. */
+  const closeMenu = (refocus = false) => {
+    if (!menu) return;
+    const { el: box, id } = menu;
+    menu = null;
+    box.remove();
+    document.removeEventListener("pointerdown", onOutside, true);
+    if (refocus) document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.focus();
+  };
+  /** A press outside the menu closes it. */
+  const onOutside = (e) => {
+    if (menu && !menu.el.contains(e.target)) closeMenu();
+  };
+
+  /** The menu's items for row `row`: [action, label] pairs, null for a separator. */
+  const menuItems = (row) => {
+    const s = strings.edit;
+    const fileish = row.kind === "file" || row.kind === "link";
+    return [
+      ...(fileish ? [["open", s.open]] : []),
+      ...(row.kind === "file" ? [["edit", s.edit]] : []),
+      ...(fileish ? [null] : []),
+      ["rename", s.renameMenu],
+      ["trash", s.trash],
+    ];
+  };
+
+  /** Does `action` on row `id`. */
+  const doAction = (action, id) => {
+    if (action === "rename") startRename(id);
+    else send({ type: action, id });
+  };
+
+  /** Opens row `id`'s right-click menu at (x, y), inside the window. */
+  const openMenu = (id, x, y) => {
+    const row = rowOf(id);
+    closeMenu();
+    if (!row || row.kind === "note" || row.muted || !on() || renaming) return;
+    const box = el("div", "row-menu");
+    box.setAttribute("role", "menu");
+    box.setAttribute("aria-label", strings.edit.tools);
+    for (const item of menuItems(row)) {
+      if (!item) {
+        box.append(el("div", "row-menu__sep"));
+        continue;
+      }
+      const [action, label] = item;
+      const b = el("button", `row-menu__item${action === "trash" ? " danger" : ""}`, label);
+      b.type = "button";
+      b.setAttribute("role", "menuitem");
+      b.addEventListener("click", () => {
+        closeMenu();
+        doAction(action, id);
+      });
+      box.append(b);
+    }
+    box.addEventListener("keydown", (e) => {
+      const items = Array.from(box.querySelectorAll(".row-menu__item"));
+      const at = items.indexOf(document.activeElement);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu(true);
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const step = e.key === "ArrowDown" ? 1 : -1;
+        items[(at + step + items.length) % items.length]?.focus();
+      } else if (e.key === "Tab") closeMenu();
+    });
+    document.body.append(box);
+    // Kept inside the window, as a native menu would be.
+    const w = box.offsetWidth;
+    const h = box.offsetHeight;
+    box.style.left = `${Math.max(4, Math.min(x, innerWidth - w - 4))}px`;
+    box.style.top = `${Math.max(4, Math.min(y, innerHeight - h - 4))}px`;
+    menu = { el: box, id };
+    document.addEventListener("pointerdown", onOutside, true);
+    box.querySelector(".row-menu__item")?.focus();
+  };
+
   /** Moves the dragged row into folder row `to` (null: the tree's folder). */
   const dropOn = (target, to) => {
     target.addEventListener("dragover", (e) => {
@@ -115,6 +194,8 @@ export function createTools({ send, el, $ }) {
     /** A new state from the tile: the toolbar follows the chosen row. */
     setState(next) {
       state = next;
+      // A row the menu was opened on may be gone, or changed.
+      if (menu && !rowOf(menu.id)) closeMenu();
       $("tools").hidden = !on();
       const row = rowOf(chosen());
       const entry = row && row.kind !== "note";
@@ -134,18 +215,10 @@ export function createTools({ send, el, $ }) {
       if (r.id === chosen()) button.classList.add("chosen");
       button.setAttribute("aria-selected", String(r.id === chosen()));
       if (!on() || r.muted || r.kind === "note") return;
-      if (r.kind === "file" || r.kind === "link") {
-        // Added before the window's own click listener, so a second click
-        // can keep it from opening the file again.
-        button.addEventListener("click", (e) => {
-          const now = Date.now();
-          const again = lastClick.id === r.id && now - lastClick.at < DOUBLE_MS;
-          lastClick = again ? { id: null, at: 0 } : { id: r.id, at: now };
-          if (!again) return;
-          e.stopImmediatePropagation();
-          startRename(r.id);
-        });
-      }
+      button.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        openMenu(r.id, e.clientX, e.clientY);
+      });
       button.draggable = true;
       button.addEventListener("dragstart", (e) => {
         e.dataTransfer?.setData(DRAG_TYPE, r.id);
@@ -175,6 +248,11 @@ export function createTools({ send, el, $ }) {
         if (e.key === "F2") {
           e.preventDefault();
           startRename(chosen());
+        } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+          e.preventDefault();
+          const box = document.querySelector(`[data-id="${CSS.escape(chosen())}"]`);
+          const b = box?.getBoundingClientRect();
+          openMenu(chosen(), b ? b.left + 16 : 16, b ? b.bottom : 16);
         } else if (e.key === "Delete" || (e.key === "Backspace" && e.metaKey)) {
           e.preventDefault();
           send({ type: "trash", id: chosen() });

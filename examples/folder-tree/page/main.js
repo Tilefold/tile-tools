@@ -54,13 +54,12 @@
 
   // page-src/tools.js
   var DRAG_TYPE = "application/x-folder-tree-row";
-  var DOUBLE_MS = 500;
   function createTools({ send: send2, el: el2, $: $2 }) {
     let state2 = null;
     let strings2 = null;
     let renaming = null;
     let pendingRename = null;
-    let lastClick = { id: null, at: 0 };
+    let menu = null;
     const chosen = () => state2?.selected ?? null;
     const rowOf = (id) => state2?.tree.find((r) => r.id === id) ?? null;
     const on = () => Boolean(state2?.canEdit);
@@ -96,6 +95,75 @@
       const dot2 = row.kind === "dir" ? -1 : row.name.lastIndexOf(".");
       field.setSelectionRange(0, dot2 > 0 ? dot2 : row.name.length);
     };
+    const closeMenu = (refocus = false) => {
+      if (!menu) return;
+      const { el: box, id } = menu;
+      menu = null;
+      box.remove();
+      document.removeEventListener("pointerdown", onOutside, true);
+      if (refocus) document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.focus();
+    };
+    const onOutside = (e) => {
+      if (menu && !menu.el.contains(e.target)) closeMenu();
+    };
+    const menuItems = (row) => {
+      const s = strings2.edit;
+      const fileish = row.kind === "file" || row.kind === "link";
+      return [
+        ...fileish ? [["open", s.open]] : [],
+        ...row.kind === "file" ? [["edit", s.edit]] : [],
+        ...fileish ? [null] : [],
+        ["rename", s.renameMenu],
+        ["trash", s.trash]
+      ];
+    };
+    const doAction = (action, id) => {
+      if (action === "rename") startRename(id);
+      else send2({ type: action, id });
+    };
+    const openMenu = (id, x, y) => {
+      const row = rowOf(id);
+      closeMenu();
+      if (!row || row.kind === "note" || row.muted || !on() || renaming) return;
+      const box = el2("div", "row-menu");
+      box.setAttribute("role", "menu");
+      box.setAttribute("aria-label", strings2.edit.tools);
+      for (const item of menuItems(row)) {
+        if (!item) {
+          box.append(el2("div", "row-menu__sep"));
+          continue;
+        }
+        const [action, label] = item;
+        const b = el2("button", `row-menu__item${action === "trash" ? " danger" : ""}`, label);
+        b.type = "button";
+        b.setAttribute("role", "menuitem");
+        b.addEventListener("click", () => {
+          closeMenu();
+          doAction(action, id);
+        });
+        box.append(b);
+      }
+      box.addEventListener("keydown", (e) => {
+        const items = Array.from(box.querySelectorAll(".row-menu__item"));
+        const at = items.indexOf(document.activeElement);
+        if (e.key === "Escape") {
+          e.preventDefault();
+          closeMenu(true);
+        } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          const step = e.key === "ArrowDown" ? 1 : -1;
+          items[(at + step + items.length) % items.length]?.focus();
+        } else if (e.key === "Tab") closeMenu();
+      });
+      document.body.append(box);
+      const w = box.offsetWidth;
+      const h = box.offsetHeight;
+      box.style.left = `${Math.max(4, Math.min(x, innerWidth - w - 4))}px`;
+      box.style.top = `${Math.max(4, Math.min(y, innerHeight - h - 4))}px`;
+      menu = { el: box, id };
+      document.addEventListener("pointerdown", onOutside, true);
+      box.querySelector(".row-menu__item")?.focus();
+    };
     const dropOn = (target, to) => {
       target.addEventListener("dragover", (e) => {
         if (!on() || !e.dataTransfer?.types.includes(DRAG_TYPE)) return;
@@ -130,6 +198,7 @@
       /** A new state from the tile: the toolbar follows the chosen row. */
       setState(next) {
         state2 = next;
+        if (menu && !rowOf(menu.id)) closeMenu();
         $2("tools").hidden = !on();
         const row = rowOf(chosen());
         const entry = row && row.kind !== "note";
@@ -148,16 +217,10 @@
         if (r.id === chosen()) button.classList.add("chosen");
         button.setAttribute("aria-selected", String(r.id === chosen()));
         if (!on() || r.muted || r.kind === "note") return;
-        if (r.kind === "file" || r.kind === "link") {
-          button.addEventListener("click", (e) => {
-            const now = Date.now();
-            const again = lastClick.id === r.id && now - lastClick.at < DOUBLE_MS;
-            lastClick = again ? { id: null, at: 0 } : { id: r.id, at: now };
-            if (!again) return;
-            e.stopImmediatePropagation();
-            startRename(r.id);
-          });
-        }
+        button.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          openMenu(r.id, e.clientX, e.clientY);
+        });
         button.draggable = true;
         button.addEventListener("dragstart", (e) => {
           e.dataTransfer?.setData(DRAG_TYPE, r.id);
@@ -186,6 +249,11 @@
           if (e.key === "F2") {
             e.preventDefault();
             startRename(chosen());
+          } else if (e.key === "ContextMenu" || e.key === "F10" && e.shiftKey) {
+            e.preventDefault();
+            const box = document.querySelector(`[data-id="${CSS.escape(chosen())}"]`);
+            const b = box?.getBoundingClientRect();
+            openMenu(chosen(), b ? b.left + 16 : 16, b ? b.bottom : 16);
           } else if (e.key === "Delete" || e.key === "Backspace" && e.metaKey) {
             e.preventDefault();
             send2({ type: "trash", id: chosen() });

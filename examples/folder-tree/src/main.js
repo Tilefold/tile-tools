@@ -49,6 +49,9 @@
  *   shows the document viewer's file in the tree.
  * Modified 2026-11-08 (one tab or every tab): the "Show on" setting.
  *
+ * Modified 2026-11-11 (rename from the menu): no `panel.dblclick`; a
+ *   double-click no longer renames, the right-click menu's Rename… does.
+ *
  * Last updated by: Tilefold
  */
 import { createFolderTree } from "./session.js";
@@ -112,7 +115,6 @@ export default (tf) => {
   tf.on("panel.closed", () => tree?.closed());
   tf.on("panel.opened", () => void tree?.reopened());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
-  tf.on("panel.dblclick", (e) => void tree?.doubled(e));
   tf.on("panel.input", (e) => void tree?.fieldInput(e));
   tf.on("page.message", (e) => void tree?.message(e));
   tf.on("page.closed", () => tree?.pageClosed());
