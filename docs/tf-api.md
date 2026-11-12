@@ -44,13 +44,15 @@ Adds a command to the palette.
 
 | Argument | |
 |---|---|
-| `title` | What the palette shows, at most 120 characters. Translate it with `tf.t` |
+| `title` | What the palette shows, at most 120 characters. Translate it with `tf.t`. Control and bidirectional characters are dropped and white space is folded to single spaces (Tilefold 0.1.30), so a title shows as plain text |
 | `handler` | `(input) => unknown`, with ten seconds to finish. `input` is `null` when the user runs it |
 | `options.id` | A short id, unique within the tile: a lowercase letter, then lowercase letters, digits or hyphens. Made from the title when left out, which breaks when the title is translated, so **always give one** |
 | `options.key` | A default shortcut: one string for every platform, or `{ mac, other }` |
-| `options.input` | What AI agents may pass the command, in up to 300 characters (`"{ title, column? }: the card to add"`). Leave it out for a command that takes no data |
+| `options.input` | What AI agents may pass the command, in up to 300 characters (`"{ title, column? }: the card to add"`). Line ends are kept; other control and bidirectional characters are dropped (Tilefold 0.1.30). Leave it out for a command that takes no data |
 
 Shortcuts are modifiers (`Ctrl`, `Alt`, `Shift`, `Meta`) and one key, joined by `+`: `"Ctrl+Alt+N"`, `{ mac: "Alt+Meta+H", other: "Ctrl+Alt+H" }`. `Meta` is ⌘ on macOS. Keys are physical keys, so they work on any keyboard layout: `A`–`Z`, `0`–`9`, `F1`–`F12`, and names such as `ArrowUp`, `Enter`, `Tab`, `Comma`, `BracketLeft` and `Space`. Every shortcut needs `Ctrl`, `Alt` or `Meta` (or is a function key), so it can never swallow typing. Users can change the shortcut in Settings → Keyboard, where tile commands have their own group. Tiles never see key presses; a shortcut runs the command.
+
+**Add your main command first.** The first command a tile adds is its main one, usually *Show or hide* or *Open*. The palette lists a tile's commands in the order it added them, and from Tilefold 0.1.30 its Index sort (by name) still puts the main command first among the tile's commands, so someone who types your tile's name finds it at once. Users can also pin any command to the top of the palette themselves.
 
 #### Commands AI agents call with data
 
