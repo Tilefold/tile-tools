@@ -7,6 +7,11 @@
  * action has a colour (read blue, edit amber, add green, delete red); the
  * files agents are on now pulse. The recent list is pinned to the bottom
  * and, showing all, grows upward to half the window, scrolling inside.
+ *
+ * Modified 2026-11-11 (clicks on a name): a row's text can't be selected
+ *   and everything in it takes the row's cursor. A row is draggable, and
+ *   WebKit let the name's text be selected inside it: over the name the
+ *   cursor was a text cursor and a press started a selection, not a click.
  */
 :root {
   color-scheme: light dark;
@@ -218,6 +223,17 @@ h1 {
 
 .row:hover {
   background: var(--hover);
+}
+
+/* A draggable row's name is still part of the button: not text to select. */
+.row,
+.row * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.row * {
+  cursor: inherit;
 }
 
 .row.muted,

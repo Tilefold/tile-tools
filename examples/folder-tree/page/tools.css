@@ -6,6 +6,9 @@
  * Folder Tree's window — the file tools: the toolbar beside the Files
  * heading, the chosen row, the rename field, and where a dragged row would
  * land. Uses the colours tree.css defines for both themes.
+ *
+ * Modified 2026-11-11 (clicks on a name): the rename field stays
+ *   selectable and keeps its text cursor inside rows whose text is not.
  */
 
 .files-head {
@@ -64,6 +67,10 @@
 
 .rename {
   flex: 1;
+  /* Typed in, inside a row whose text can't be selected. */
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
   min-width: 0;
   padding: 1px 4px;
   font: inherit;
