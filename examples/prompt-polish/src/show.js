@@ -41,6 +41,9 @@
  *   the pane is still gone, so a redraw no longer makes it blink away.
  * Modified 2026-11-10 (quieter pill): the button is drawn in the theme's
  *   colors (`setColors`), not filled with its accent.
+ * Modified 2026-11-13 (card didn't show): the layout is read again
+ *   whenever no overlay is shown, since none comes then, so a card opened
+ *   later (Card, a hand-back) is placed over the panes as they are now.
  */
 import { buttonImage, pillWidth } from "./button.js";
 import { focusedId } from "./sessions.js";
@@ -176,9 +179,15 @@ export function createStage(tf, o) {
     spot = null;
   };
 
-  /** Reads the layout the first time (when the tile can float its page). */
-  const ensureLayout = async () => {
-    if (layout || !tf.overlay) return;
+  /**
+   * Reads the layout when the one kept may be out of date (when the tile
+   * can float its page): the first time, whenever no overlay is shown
+   * (Tilefold tells only a tile showing one when the panes change), and
+   * when `fresh` asks for it (a click in a box, which may have moved).
+   */
+  const ensureLayout = async (fresh = false) => {
+    if (!tf.overlay) return;
+    if (layout && sceneShown && !fresh) return;
     const l = await tf.overlay.layout().catch(() => null);
     if (l) setLayout(l);
   };

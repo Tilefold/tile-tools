@@ -1775,8 +1775,9 @@ function createStage(tf, o) {
     where = "window";
     spot = null;
   };
-  const ensureLayout = async () => {
-    if (layout || !tf.overlay) return;
+  const ensureLayout = async (fresh = false) => {
+    if (!tf.overlay) return;
+    if (layout && sceneShown && !fresh) return;
     const l = await tf.overlay.layout().catch(() => null);
     if (l) setLayout(l);
   };
@@ -2330,7 +2331,8 @@ function runPolish(tf) {
   });
   const inputAction = createInputAction(tf, {
     ...deps,
-    layout: async () => (await stage.ensureLayout(), stage.layout()),
+    // A click in a box: the panes as they are now, not as last heard.
+    layout: async () => (await stage.ensureLayout(true), stage.layout()),
     openFor,
     check: (id, text) => check(id, text),
     fold: foldAfter,

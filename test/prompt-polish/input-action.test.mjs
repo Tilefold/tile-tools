@@ -23,6 +23,8 @@
  * Modified 2026-11-10 (Card button): Card shows the pane's card and folds
  *   it again, reading nothing, also while a check runs; a card folded with
  *   a result waiting brings no pill back over the box.
+ * Modified 2026-11-13 (card didn't show): Card places the card over the
+ *   panes as they are now, also after they changed while it was closed.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -261,6 +263,36 @@ describe("the Card button", () => {
     await host.clickAction("card", { spot: SPOT });
     expect(host.page.open).toBe(false);
     expect(host.audits).toContainEqual({ action: "card-toggled", details: { shown: false } });
+  });
+
+  it("shows over the panes as they are now, after they changed while it was closed", async () => {
+    const host = await start();
+    await host.clickAction("card", { spot: SPOT });
+    await say(host, { type: "hello" });
+    await host.command("close");
+    // Closed, Promptsmith shows no overlay, so Tilefold tells it nothing when
+    // the panes change: here, another tab with one agent pane, p3.
+    host.layout = {
+      content: { w: 1200, h: 800 },
+      panes: [
+        {
+          id: "p3",
+          x: 300,
+          y: 40,
+          w: 900,
+          h: 730,
+          focused: true,
+          composer: { x: 300, y: 714, w: 900, h: 56 },
+          agentInput: true,
+        },
+      ],
+    };
+    await host.clickAction("card", { spot: { x: 360, y: 720, w: 600, h: 40 } });
+    await say(host, { type: "hello" });
+    expect(host.page.open).toBe(true);
+    expect(lastView(host)).toMatchObject({ pane: "p3" });
+    // Docked inside p3, not where p1 was.
+    expect(host.page.dock.x).toBeGreaterThanOrEqual(300);
   });
 
   it("brings back a check under way", async () => {
