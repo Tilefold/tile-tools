@@ -70,6 +70,8 @@
  * Modified 2026-11-10 (Card button): a folded card no longer brings the
  *   pill back over the agent input box, whose Card button shows it again;
  *   the pill takes Tilefold's theme colors, not just its accent.
+ * Modified 2026-11-13 (card didn't show): a click in a box reads the panes
+ *   as they are now before it finds its pane.
  */
 import { HAND_BACK, HAND_BACK_INPUT } from "./agentCheck.js";
 import { createAgentRun } from "./agentRun.js";
@@ -341,7 +343,8 @@ export function runPolish(tf) {
   });
   const inputAction = createInputAction(tf, {
     ...deps,
-    layout: async () => (await stage.ensureLayout(), stage.layout()),
+    // A click in a box: the panes as they are now, not as last heard.
+    layout: async () => (await stage.ensureLayout(true), stage.layout()),
     openFor,
     check: (id, text) => check(id, text),
     fold: foldAfter,
