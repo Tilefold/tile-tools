@@ -41,7 +41,7 @@ tf.input.action({ id: "card", label: tf.t("card-label"), view: true });
 ```
 
 - A click arrives as `input.action` with `{ action, view: true, language, spot }`: no `text`, no `request`, so there is nothing to answer or release.
-- It shows even while the box is empty, and stays clickable (spinning) while your tile works on a click of its other button, so the user can bring back or hide a card mid-check.
+- It shows even while the box is empty, and stays clickable while your tile works on a click of its other button, so the user can bring back or hide a card mid-check. From Tilefold 0.1.33 it doesn't spin meanwhile (only the button being worked on does); earlier versions spin it too.
 - It counts toward the 2 buttons per tile. Turning a view button into an ordinary one (or back) changes the tile's consent fingerprint, so Tilefold asks the user to approve the tile again.
 - An older Tilefold treats it as an ordinary button: the click carries the box's text and a request. Release that request at once, unused:
 
