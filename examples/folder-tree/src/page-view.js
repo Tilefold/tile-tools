@@ -26,6 +26,9 @@
  *   folders (name, shown, no pane reaches it) and whether the folder shown
  *   is one of them; the strings carry the list's labels.
  *
+ * Modified 2026-11-11 (rename from the menu): the strings carry the
+ *   right-click menu's Open and Rename… labels.
+ *
  * Last updated by: Tilefold
  */
 import { activeFiles, hotFolders, paneCount, recentFiles } from "./activity.js";
@@ -167,6 +170,8 @@ export function pageStrings(t, hookCommand) {
       newFile: t("page-new-file"),
       newFolder: t("page-new-folder"),
       rename: t("page-rename"),
+      renameMenu: t("menu-rename"),
+      open: t("menu-open"),
       edit: t("page-edit"),
       trash: t("page-trash"),
       nameLabel: t("page-name-label"),

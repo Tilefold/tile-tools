@@ -12,14 +12,18 @@
  * place (Enter sends the new name, Escape sends nothing) and the tree isn't
  * redrawn under it; the tile can ask for a rename before the row is drawn;
  * dropping a row on a folder or the Files heading moves it; F2 and ⌘⌫ work
- * on the chosen row; a double-click on a file renames it (counted by row,
- * so a redraw between the clicks doesn't lose it) and opens it only once;
- * and names only ever arrive as text.
+ * on the chosen row; a click only ever opens (a double-click opens twice);
+ * a right-click on a file or folder opens its menu (Open and Edit for a
+ * file, Rename… and Move to Trash), which acts on that row, closes with
+ * Escape or a press outside, and opens from Shift+F10 too; and names only
+ * ever arrive as text.
+ *
+ * Modified 2026-11-11 (rename from the menu): renaming moved from the
+ *   second click to the right-click menu.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath, URL as NodeURL } from "node:url";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { DOUBLE_MS } from "../../examples/folder-tree/page-src/tools.js";
 
 // jsdom has its own URL; Node's is the one fileURLToPath takes.
 const PAGE = fileURLToPath(new NodeURL("../../examples/folder-tree/page/", import.meta.url));
@@ -49,6 +53,8 @@ const STRINGS = {
     newFile: "New file",
     newFolder: "New folder",
     rename: "Rename",
+    renameMenu: "Rename…",
+    open: "Open",
     edit: "Edit",
     trash: "Move to Trash",
     nameLabel: "New name",
@@ -133,6 +139,9 @@ beforeAll(async () => {
 
 beforeEach(() => {
   sent.length = 0;
+  // A menu left open by the test before doesn't carry over.
+  document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+  for (const box of document.querySelectorAll(".row-menu")) box.remove();
 });
 
 describe("Folder Tree window tools", () => {
@@ -181,38 +190,85 @@ describe("Folder Tree window tools", () => {
     expect(sent).toHaveLength(1);
   });
 
-  it("rename a double-clicked file in place, opening it only once", async () => {
+  it("open on every click, never rename: a double-click opens twice", async () => {
     await post(state());
     button("/work/app/README.md").click();
-    // The tile's answer to the first click redraws the tree between the clicks.
     await post(state({ selected: "/work/app/README.md" }));
     button("/work/app/README.md").click();
-    expect(sent).toEqual([{ type: "open", id: "/work/app/README.md" }]);
-    const field = document.querySelector("input.rename");
-    expect(field.value).toBe("README.md");
-    field.value = "NOTES.md";
-    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(sent.at(-1)).toEqual({ type: "rename", id: "/work/app/README.md", name: "NOTES.md" });
+    button("/work/app/src").click();
+    button("/work/app/src").click();
+    expect(document.querySelector("input.rename")).toBeNull();
+    expect(sent.filter((m) => m.type === "open")).toHaveLength(2);
+    expect(sent.filter((m) => m.type === "toggle")).toHaveLength(2);
   });
 
-  it("treat slow clicks, or clicks on two files or on a folder, as plain clicks", async () => {
-    const now = vi.spyOn(Date, "now");
-    try {
-      await post(state());
-      now.mockReturnValue(10_000);
-      button("/work/app/README.md").click();
-      now.mockReturnValue(10_000 + DOUBLE_MS);
-      button("/work/app/README.md").click();
-      button("/work/app/<b>x</b>.md").click();
-      button("/work/app/README.md").click();
-      button("/work/app/src").click();
-      button("/work/app/src").click();
-      expect(document.querySelector("input.rename")).toBeNull();
-      expect(sent.filter((m) => m.type === "open")).toHaveLength(4);
-      expect(sent.filter((m) => m.type === "toggle")).toHaveLength(2);
-    } finally {
-      now.mockRestore();
-    }
+  /** Right-clicks row `id`, and returns the menu's item labels. */
+  const rightClick = (id) => {
+    button(id).dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 40 }),
+    );
+    const box = document.querySelector('.row-menu[role="menu"]');
+    return box ? [...box.querySelectorAll(".row-menu__item")].map((b) => b.textContent) : null;
+  };
+  const item = (label) =>
+    [...document.querySelectorAll(".row-menu__item")].find((b) => b.textContent === label);
+
+  it("offer Open, Edit, Rename… and Move to Trash on a file's right-click", async () => {
+    await post(state());
+    expect(rightClick("/work/app/README.md")).toEqual(["Open", "Edit", "Rename…", "Move to Trash"]);
+    item("Open").click();
+    expect(sent.at(-1)).toEqual({ type: "open", id: "/work/app/README.md" });
+    expect(document.querySelector(".row-menu")).toBeNull();
+  });
+
+  it("rename a file or a folder from its right-click menu", async () => {
+    await post(state());
+    expect(rightClick("/work/app/src")).toEqual(["Rename…", "Move to Trash"]);
+    item("Rename…").click();
+    const field = document.querySelector("input.rename");
+    expect(field.value).toBe("src");
+    field.value = "lib";
+    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(sent.at(-1)).toEqual({ type: "rename", id: "/work/app/src", name: "lib" });
+    rightClick("/work/app/README.md");
+    item("Rename…").click();
+    const again = document.querySelector("input.rename");
+    expect(again.value).toBe("README.md");
+    // While a name is typed, no menu opens over it; Escape ends the rename.
+    expect(rightClick("/work/app/src")).toBeNull();
+    again.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
+
+  it("send Move to Trash and Edit for the row right-clicked, not the chosen one", async () => {
+    await post(state({ selected: "/work/app/src" }));
+    rightClick("/work/app/README.md");
+    item("Move to Trash").click();
+    expect(sent.at(-1)).toEqual({ type: "trash", id: "/work/app/README.md" });
+    expect(rightClick("/work/app/README.md")).toContain("Edit");
+    item("Edit").click();
+    expect(sent.at(-1)).toEqual({ type: "edit", id: "/work/app/README.md" });
+  });
+
+  it("close the menu with Escape or a press outside it, and open it with Shift+F10", async () => {
+    await post(state({ selected: "/work/app/README.md" }));
+    rightClick("/work/app/README.md");
+    document.activeElement.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(document.querySelector(".row-menu")).toBeNull();
+    expect(document.activeElement).toBe(button("/work/app/README.md"));
+    rightClick("/work/app/README.md");
+    document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    expect(document.querySelector(".row-menu")).toBeNull();
+    button("/work/app/README.md").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }),
+    );
+    expect(document.querySelector(".row-menu")).not.toBeNull();
+  });
+
+  it("show no menu where the tile can't change files", async () => {
+    await post(state({ canEdit: false }));
+    expect(rightClick("/work/app/README.md")).toBeNull();
   });
 
   it("start a rename the tile asked for, once the row is drawn", async () => {

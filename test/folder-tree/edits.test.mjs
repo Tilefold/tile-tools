@@ -12,9 +12,13 @@
  * trashes, and asks Tilefold, which asks the user, before the Trash;
  * refusals are notices in the user's language; the panel tints the chosen
  * row, and folders, files and the empty space get right-click menus whose
- * items act on what was clicked; a double-click on a file renames it in
- * place while folders only open and close; nothing is recorded with a name; and an
- * older Tilefold says what it needs. Also the pure helpers: free names and finding an entry's folder.
+ * items act on what was clicked; a double-click never renames (Rename…
+ * in the menu does, for files and folders) and a folder's only opens and
+ * closes it; nothing is recorded with a name; and an older Tilefold says
+ * what it needs. Also the pure helpers: free names and finding an entry's folder.
+ *
+ * Modified 2026-11-11 (rename from the menu): a double-click on a file
+ *   no longer renames it.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -215,12 +219,15 @@ describe("Folder Tree's right-click menus", () => {
     expect(host.trashAsked).toEqual(["src"]);
   });
 
-  it("rename a double-clicked file in place, after its clicks opened it", async () => {
+  it("never rename a double-clicked file; Rename… in its menu does", async () => {
     const host = await start();
     await host.command("toggle");
     await host.doubleClick("/work/app/README.md");
     await vi.advanceTimersByTimeAsync(0);
-    expect(host.opened.at(-1)).toBe("/work/app/README.md");
+    expect(host.panel.editing).toBeNull();
+    expect(host.changes).toEqual([]);
+    await host.menu("/work/app/README.md", "rename");
+    await vi.advanceTimersByTimeAsync(0);
     expect(host.panel.editing).toMatchObject({
       row: "/work/app/README.md",
       options: { value: "README.md", selectTo: 6 },
@@ -228,7 +235,6 @@ describe("Folder Tree's right-click menus", () => {
     await host.typeName("NOTES.md");
     await vi.advanceTimersByTimeAsync(0);
     expect(host.changes).toEqual([["rename", "/work/app/README.md", "/work/app/NOTES.md"]]);
-    expect(host.page.opens).toEqual([]);
   });
 
   it("only open and close a double-clicked folder", async () => {
