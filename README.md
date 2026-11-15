@@ -47,7 +47,7 @@ npx @tilefold/tile-tools build
 Or add it to the tile's own `package.json`, pinned to an exact version so every build of the tile uses the same bundler:
 
 ```sh
-npm install --save-dev --save-exact @tilefold/tile-tools@0.2.1
+npm install --save-dev --save-exact @tilefold/tile-tools@0.2.2
 npx tilefold-tile build
 ```
 
