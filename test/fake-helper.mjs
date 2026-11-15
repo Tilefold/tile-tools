@@ -25,6 +25,10 @@
  * `{ state: "ready", opened, name: null }`.
  *
  * Modified 2026-11-08 (helper start): helperStatus and helperStart.
+ * Modified 2026-11-14 (helper notices): both take `notifyDone`, true or
+ *   false only, as Tilefold 0.1.37 checks it.
+ *
+ * Last updated by: Tilefold
  */
 
 /** The agents Tilefold can start as a helper. */
@@ -59,7 +63,7 @@ export function addHelper(tf, host, named, answer, control = true) {
         },
         async helperStart(request) {
           const agent = agentIn(request);
-          for (const f of ["show", "restart"])
+          for (const f of ["show", "restart", "notifyDone"])
             if (request[f] !== undefined && typeof request[f] !== "boolean")
               throw named("TypeError", `${f}: true or false`);
           host.helperStarts.push(structuredClone(request));
@@ -79,6 +83,8 @@ export function addHelper(tf, host, named, answer, control = true) {
         throw named("TypeError", `agent: one of ${HELPER_AGENTS.join(", ")}`);
       if (typeof request.question !== "string" || !request.question.trim())
         throw named("TypeError", "question: text to ask");
+      if (request.notifyDone !== undefined && typeof request.notifyDone !== "boolean")
+        throw named("TypeError", "notifyDone: true or false");
       host.helperAsks.push(structuredClone(request));
       if (typeof answer === "function") return answer(request);
       if (typeof answer === "object") return { ...answer };

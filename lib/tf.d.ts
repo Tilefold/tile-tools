@@ -44,6 +44,8 @@
  * Last updated by: Tilefold
  * Modified 2026-11-10 (Tilefold 0.1.29): view buttons, `tf.input.action`'s
  *   `view: true`, and their `input.action` event without text or request.
+ * Modified 2026-11-14 (Tilefold 0.1.37): `notifyDone` on `tf.agent.helper`
+ *   and `tf.agent.helperStart`.
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -679,6 +681,14 @@ export interface Tf {
       agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
       question: string;
       about?: string;
+      /**
+       * Tilefold 0.1.37: true makes the helper's finished turns count as
+       * needing the user, like any agent's (Dock badge, needs-you count,
+       * sound, alerts). Left out or false: they don't (the tile takes the
+       * answer). Say it on every call that should count. Its asking for
+       * input always counts. Anything but true or false is a TypeError.
+       */
+      notifyDone?: boolean;
     }): Promise<
       | { sent: true; opened: boolean }
       | { sent: false; why: "busy" | "you-are-typing" | "not-started"; opened: boolean }
@@ -710,6 +720,14 @@ export interface Tf {
       agent: "claude" | "codex" | "gemini" | "cursor" | "agy" | "opencode" | (string & {});
       show?: boolean;
       restart?: boolean;
+      /**
+       * Tilefold 0.1.37: true makes the helper's finished turns count as
+       * needing the user, like any agent's (Dock badge, needs-you count,
+       * sound, alerts). Left out or false: they don't (the tile takes the
+       * answer). Say it on every call that should count. Its asking for
+       * input always counts. Anything but true or false is a TypeError.
+       */
+      notifyDone?: boolean;
     }): Promise<{
       state: "ready" | "busy" | "not-started";
       opened: boolean;
