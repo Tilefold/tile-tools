@@ -38,7 +38,7 @@ Each `show` replaces the whole panel; updating it keeps its place. `tf.panel.hid
 | `expandable`, `expanded` | The row opens and closes, like a folder; `expanded: true` draws it open |
 | `muted` | A quiet note, such as "Loading…" or "Empty folder" |
 | `hint` | A tooltip, at most 512 characters |
-| `section` | Drawn as a section heading, such as "Now" or "Recent" (Tilefold 0.1.11) |
+| `section` | Drawn as a section heading, such as "Now" or "Recent" (Tilefold 0.1.11). With `expandable`, the user can fold it: send no rows under a folded heading, and the heading stays so it can be opened again (Tilefold 0.1.36; before, a folded heading with nothing under it disappeared) |
 | `tone` | A theme colour for the row's icon, label and badge: `accent`, `info`, `success`, `warning` or `error` (Tilefold 0.1.11) |
 | `badge` | A short pill after the label, such as the pane an agent works in or a count, at most 32 characters (Tilefold 0.1.11) |
 | `trail` | A short muted text at the row's end, such as "2m", at most 32 characters (Tilefold 0.1.11) |
@@ -63,7 +63,7 @@ await tf.panel.show({
 });
 ```
 
-A tile with browser pages on several tabs can give each row its `page`. Each tab's panel then lists the rows for the pages docked on that tab, plus rows with no `page` and rows whose page isn't docked (in a window, or closed). A section heading with nothing left under it is left out, and on a tab where nothing of the panel would show, the panel steps aside. Web View does this with its recent addresses. Older Tilefolds ignore `page` and show every row on every tab.
+A tile with browser pages on several tabs can give each row its `page`. Each tab's panel then lists the rows for the pages docked on that tab, plus rows with no `page` and rows whose page isn't docked (in a window, or closed). A section heading with nothing left under it is left out, unless it is folded (`expandable` and not `expanded`), which always stays (Tilefold 0.1.36); on a tab where nothing of the panel would show, the panel steps aside. Web View does this with its recent addresses. Older Tilefolds ignore `page` and show every row on every tab.
 
 Ids are unique across the rows and the footer, and the 5,000-row limit counts both. Tilefold 0.1.9 and 0.1.10 ignore `footer`, `section`, `tone`, `badge`, `trail` and `pulse`: the panel still shows, plainer and without the footer, so keep anything essential in the rows or in a [tile page](tile-pages.md) too.
 

@@ -46,6 +46,8 @@
  *   `view: true`, and their `input.action` event without text or request.
  * Modified 2026-11-14 (Tilefold 0.1.37): `notifyDone` on `tf.agent.helper`
  *   and `tf.agent.helperStart`.
+ * Modified 2026-11-15 (Tilefold 0.1.36): a folded section heading stays with
+ *   no rows under it.
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -255,7 +257,10 @@ export interface PanelRow {
   muted?: boolean;
   /** A tooltip, at most 512 characters. */
   hint?: string;
-  /** Drawn as a section heading (Tilefold 0.1.11). */
+  /**
+   * Drawn as a section heading (Tilefold 0.1.11). A folded one (`expandable`,
+   * not `expanded`) keeps its heading with no rows under it (Tilefold 0.1.36).
+   */
   section?: boolean;
   /** A theme colour for the row's icon, label and badge (Tilefold 0.1.11). */
   tone?: PanelTone;
