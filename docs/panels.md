@@ -27,7 +27,7 @@ await tf.panel.show({
 });
 ```
 
-Each `show` replaces the whole panel; updating it keeps its place. `tf.panel.hide()` takes it away. Panels from several tiles sit side by side, in the order they first showed, each with its own width and close button; up to three fit, and a fourth replaces the oldest. (Before Tilefold 0.1.21, one tile's panel was docked at a time: the one shown last.)
+Each `show` replaces the whole panel; updating it keeps its place. `tf.panel.hide()` takes it away. Panels from several tiles stay open, in the order they first showed, each with its own width. Since Tilefold 0.1.39 the user picks which one shows from a rail of icons at the window's edge (and pins the ones to keep open); the others stay docked and current, and your tile isn't told when the user switches. Up to eight can be open, and a ninth replaces the oldest (up to three before 0.1.39, side by side). With the rail turned off in Settings, they sit side by side. (Before Tilefold 0.1.21, one tile's panel was docked at a time: the one shown last.)
 
 | Row field | |
 |---|---|
@@ -76,7 +76,7 @@ tf.on("panel.click", ({ row, action }) => {
 });
 tf.on("panel.closed", ({ by }) => {
   // by: "user" (its close button), "tab" (a perTab panel left on another tab),
-  // or "replaced" (a fourth panel opened and this was the oldest)
+  // or "replaced" (a ninth panel opened and this was the oldest; a fourth before Tilefold 0.1.39)
 });
 ```
 
