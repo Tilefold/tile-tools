@@ -9,6 +9,12 @@
  * `timeOf(at)` and `hourOf(at)` (in the user's time zone), `onFull(e)` (Show
  * full text), `fresh` (ids that just arrived, drawn in) and, for Lanes,
  * `picked` and `onPick(id)`. Every text is set as text.
+ *
+ * Modified 2026-11-15 (one pane only): a Now card is a button: clicking it
+ *   (or Enter or Space on it) narrows the board to that pane, and again
+ *   shows every pane (`onlyPane`, `onPane(pane)` in `ctx`).
+ *
+ * Last updated by: Tilefold
  */
 import { h, glyphOf } from "./dom.js";
 import { byHour, headline, statusOf, waiting } from "./model.js";
@@ -80,7 +86,20 @@ export function now(list, ctx) {
   const cards = ctx.panes.map((p) =>
     h(
       "div",
-      { class: `pane ${p.state}` },
+      {
+        class: `pane ${p.state}${ctx.onlyPane === p.pane ? " only" : ""}`,
+        role: "button",
+        tabindex: "0",
+        "data-pane": p.pane,
+        "aria-pressed": String(ctx.onlyPane === p.pane),
+        title: ctx.L(ctx.onlyPane === p.pane ? "only-pane-clear" : "only-pane-pick"),
+        onclick: () => ctx.onPane(p.pane),
+        onkeydown: (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          ctx.onPane(p.pane);
+        },
+      },
       h(
         "div",
         { class: "row" },

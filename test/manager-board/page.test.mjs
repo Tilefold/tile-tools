@@ -14,8 +14,11 @@
  * through the tile. Text from the timeline is never made into markup. The
  * Tasks view lists one row per task, filters by state, sorts with headings
  * per agent, keeps both choices and opens a request or reply in full.
+ * Clicking a Now card narrows every view to that pane until it's clicked
+ * again or the chip's × is pressed.
  *
  * Modified 2026-11-15 (Tasks view): tests for the Tasks view.
+ * Modified 2026-11-15 (one pane only): tests for narrowing to one pane.
  *
  * Last updated by: Tilefold
  */
@@ -25,7 +28,7 @@ import { JSDOM } from "jsdom";
 import { afterEach, describe, expect, it } from "vitest";
 import { PAGE_KEYS } from "../../examples/manager-board/src/strings.js";
 import { addTimeline } from "../fake-timeline.mjs";
-import { EVENTS, FILTERS, FULL, LEAD, NOW } from "./fixtures.mjs";
+import { API, EVENTS, FILTERS, FULL, LEAD, NOW } from "./fixtures.mjs";
 
 const PAGE = fileURLToPath(new URL("../../examples/manager-board/page/", import.meta.url));
 const HTML = readFileSync(`${PAGE}index.html`, "utf8").replace(/<script[^>]*><\/script>/, "");
@@ -220,6 +223,35 @@ describe("the Manager Board page", () => {
     await settle();
     expect(p.$("sheet").hidden).toBe(false);
     expect(p.$("full-text").textContent).toBe("Add refunds.\nSplit it up.");
+  });
+
+  it("narrows every view to the pane whose Now card is clicked, and back", async () => {
+    const p = await page();
+    const ids = () =>
+      [...p.$("content").querySelectorAll(".rail .ev")].map((e) => e.dataset.id).sort();
+    const card = () => p.$("content").querySelector(`.now [data-pane="${API}"]`);
+    expect(ids()).toHaveLength(EVENTS.length);
+    card().click();
+    // What the worker did, and the message sent to it; nothing of the lead's own.
+    expect(ids()).toEqual(["heartbeat:h1", "message:m1", "message:m2", "nudge:w1"]);
+    expect(card().getAttribute("aria-pressed")).toBe("true");
+    expect(p.$("content").querySelector(".only-chip").textContent).toContain("Only 2 · api");
+    // The Tasks view is narrowed too.
+    p.$("view-tasks").click();
+    const tasks = [...p.$("content").querySelectorAll(".task")].map((r) => r.dataset.task);
+    expect(tasks).toEqual(["message:m1"]);
+    // The chip's × shows every pane again; so does a second click on the card.
+    p.$("only-clear").click();
+    expect(p.$("content").querySelector(".only-chip")).toBeNull();
+    expect(p.$("content").querySelectorAll(".task")).toHaveLength(2);
+    card().dispatchEvent(new p.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(p.$("content").querySelectorAll(".task")).toHaveLength(1);
+    card().click();
+    expect(p.$("content").querySelectorAll(".task")).toHaveLength(2);
+    // Not kept: panes come and go.
+    expect(p.posted.filter((m) => m.type === "keep").every((m) => !("onlyPane" in m.kept))).toBe(
+      true,
+    );
   });
 
   it("exports through the tile", async () => {

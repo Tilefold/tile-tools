@@ -24,6 +24,9 @@
  * Modified 2026-11-15 (Tasks view): a third view lists one row per task
  *   (tasks.js, tasksView.js), with its own sort and state choices, kept like
  *   the others; labels may hold `{count}` too.
+ * Modified 2026-11-15 (one pane only): clicking a Now card narrows every
+ *   view to that pane (`onlyPane`), with a chip above the view to show every
+ *   pane again; not kept, since panes come and go.
  *
  * Last updated by: Tilefold
  */
@@ -70,6 +73,10 @@
     return list.filter(
       (e) => kinds.includes(e.kind) && (!q || e.summary.toLowerCase().includes(q) || nameOf2(e.pane).toLowerCase().includes(q) || e.to != null && nameOf2(e.to).toLowerCase().includes(q))
     );
+  }
+  function involving(list, pane) {
+    if (!pane) return list;
+    return list.filter((e) => e.pane === pane || e.to === pane);
   }
   var shortId = (pane) => pane.replace(/^tilefold:/, "").slice(-4);
   function paneName(pane, panes, L2) {
@@ -271,7 +278,20 @@
     const cards = ctx.panes.map(
       (p) => h(
         "div",
-        { class: `pane ${p.state}` },
+        {
+          class: `pane ${p.state}${ctx.onlyPane === p.pane ? " only" : ""}`,
+          role: "button",
+          tabindex: "0",
+          "data-pane": p.pane,
+          "aria-pressed": String(ctx.onlyPane === p.pane),
+          title: ctx.L(ctx.onlyPane === p.pane ? "only-pane-clear" : "only-pane-pick"),
+          onclick: () => ctx.onPane(p.pane),
+          onkeydown: (e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            ctx.onPane(p.pane);
+          }
+        },
         h(
           "div",
           { class: "row" },
@@ -642,7 +662,9 @@
     fresh: /* @__PURE__ */ new Set(),
     loading: false,
     error: null,
-    started: false
+    started: false,
+    /** The pane the board is narrowed to (its Now card clicked), or null. */
+    onlyPane: null
   };
   var waits = /* @__PURE__ */ new Map();
   var nextId = 0;
@@ -818,6 +840,25 @@
     }
     $("full-title").textContent = `${timeOf(e.at)} \xB7 ${nameOf(e.pane)}`;
   }
+  function onlyChip() {
+    return h(
+      "div",
+      { class: "only-chip", role: "status" },
+      h("span", {}, L("only-pane", { name: nameOf(st.onlyPane) })),
+      h(
+        "button",
+        {
+          type: "button",
+          class: "icon",
+          id: "only-clear",
+          "aria-label": L("only-pane-clear"),
+          title: L("only-pane-clear"),
+          onclick: () => (st.onlyPane = null, render())
+        },
+        "\xD7"
+      )
+    );
+  }
   function render() {
     if (!st.started) return;
     for (const b of document.querySelectorAll("[data-view]"))
@@ -842,13 +883,19 @@
       picked: st.picked,
       onPick: (id) => (st.picked = id, render()),
       whenOf,
-      durationOf
+      durationOf,
+      onlyPane: st.onlyPane,
+      onPane: (pane) => {
+        st.onlyPane = st.onlyPane === pane ? null : pane;
+        st.picked = null;
+        render();
+      }
     };
-    const list = shown(st.events, st.kept.kinds, st.query, nameOf);
+    const list = involving(shown(st.events, st.kept.kinds, st.query, nameOf), st.onlyPane);
     const older$ = { more: !!st.next, onOlder: older, loading: st.loading };
     let view;
     if (tasks) {
-      const all = tasksOf(st.events, st.panes);
+      const all = tasksOf(st.events, st.panes).filter((t) => !st.onlyPane || t.pane === st.onlyPane);
       const picked = shownTasks(all, st.kept.taskState, st.query, nameOf);
       view = tasksView(all, sortTasks(picked, st.kept.taskSort), ctx, {
         sort: st.kept.taskSort,
@@ -863,6 +910,7 @@
     $("content").replaceChildren(
       ...st.error ? [h("p", { class: "error", role: "alert" }, L(st.error))] : [],
       now(st.events, ctx),
+      ...st.onlyPane ? [onlyChip()] : [],
       view
     );
   }

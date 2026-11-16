@@ -11,6 +11,8 @@
  *
  * Modified 2026-11-15 (Tasks view): the Tasks view's labels, and the
  *   `{count}` mark.
+ * Modified 2026-11-15 (one pane only): the labels for narrowing the board
+ *   to one pane.
  *
  * Last updated by: Tilefold
  */
@@ -72,6 +74,9 @@ export const PAGE_KEYS = [
   "export-json",
   "now-title",
   "now-none",
+  "only-pane",
+  "only-pane-pick",
+  "only-pane-clear",
   "waiting-title",
   "waiting-asking",
   "waiting-question",

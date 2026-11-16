@@ -24,11 +24,14 @@
  * Modified 2026-11-15 (Tasks view): a third view lists one row per task
  *   (tasks.js, tasksView.js), with its own sort and state choices, kept like
  *   the others; labels may hold `{count}` too.
+ * Modified 2026-11-15 (one pane only): clicking a Now card narrows every
+ *   view to that pane (`onlyPane`), with a chip above the view to show every
+ *   pane again; not kept, since panes come and go.
  *
  * Last updated by: Tilefold
  */
 import { h } from "./dom.js";
-import { merge, paneName, shown } from "./model.js";
+import { involving, merge, paneName, shown } from "./model.js";
 import { lanesView, windowOf } from "./lanes.js";
 import { now as nowView, timeline } from "./views.js";
 import { TASK_SORTS, TASK_STATES, duration, shownTasks, sortTasks, tasksOf } from "./tasks.js";
@@ -73,6 +76,8 @@ const st = {
   loading: false,
   error: null,
   started: false,
+  /** The pane the board is narrowed to (its Now card clicked), or null. */
+  onlyPane: null,
 };
 
 /* ------------------------------ The tile ------------------------------- */
@@ -289,6 +294,27 @@ async function openFull(e) {
   $("full-title").textContent = `${timeOf(e.at)} · ${nameOf(e.pane)}`;
 }
 
+/** The chip that says the board shows one pane, with × to show every pane again. */
+function onlyChip() {
+  return h(
+    "div",
+    { class: "only-chip", role: "status" },
+    h("span", {}, L("only-pane", { name: nameOf(st.onlyPane) })),
+    h(
+      "button",
+      {
+        type: "button",
+        class: "icon",
+        id: "only-clear",
+        "aria-label": L("only-pane-clear"),
+        title: L("only-pane-clear"),
+        onclick: () => ((st.onlyPane = null), render()),
+      },
+      "×",
+    ),
+  );
+}
+
 function render() {
   if (!st.started) return;
   for (const b of document.querySelectorAll("[data-view]"))
@@ -315,12 +341,18 @@ function render() {
     onPick: (id) => ((st.picked = id), render()),
     whenOf,
     durationOf,
+    onlyPane: st.onlyPane,
+    onPane: (pane) => {
+      st.onlyPane = st.onlyPane === pane ? null : pane;
+      st.picked = null;
+      render();
+    },
   };
-  const list = shown(st.events, st.kept.kinds, st.query, nameOf);
+  const list = involving(shown(st.events, st.kept.kinds, st.query, nameOf), st.onlyPane);
   const older$ = { more: !!st.next, onOlder: older, loading: st.loading };
   let view;
   if (tasks) {
-    const all = tasksOf(st.events, st.panes);
+    const all = tasksOf(st.events, st.panes).filter((t) => !st.onlyPane || t.pane === st.onlyPane);
     const picked = shownTasks(all, st.kept.taskState, st.query, nameOf);
     view = tasksView(all, sortTasks(picked, st.kept.taskSort), ctx, {
       sort: st.kept.taskSort,
@@ -335,6 +367,7 @@ function render() {
   $("content").replaceChildren(
     ...(st.error ? [h("p", { class: "error", role: "alert" }, L(st.error))] : []),
     nowView(st.events, ctx),
+    ...(st.onlyPane ? [onlyChip()] : []),
     view,
   );
 }

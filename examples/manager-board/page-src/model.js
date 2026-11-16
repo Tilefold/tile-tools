@@ -11,6 +11,7 @@
  *               first (ties in time by id, as Tilefold orders them); a newer
  *               copy of an event (its status changed) replaces the old one
  *   shown       the loaded events with the kinds the user keeps and a search
+ *   involving   the events one pane took part in (it acted, or a message went to it)
  *   paneName    what the user calls a pane ("2 · api"), from the open panes
  *   headline    who did what to whom, in the user's language
  *   statusOf    a status as words, with a tone for its chip
@@ -22,6 +23,11 @@
  *
  * `L(key, vars)` is the page's label function: a label from the tile with
  * `{marks}` filled in.
+ *
+ * Modified 2026-11-15 (one pane only): `involving`, for the board narrowed
+ *   to the pane whose Now card the user clicked.
+ *
+ * Last updated by: Tilefold
  */
 
 /** Most events the page keeps loaded. */
@@ -65,6 +71,12 @@ export function shown(list, kinds, query, nameOf) {
         nameOf(e.pane).toLowerCase().includes(q) ||
         (e.to != null && nameOf(e.to).toLowerCase().includes(q))),
   );
+}
+
+/** The events `pane` took part in: it acted, or a message went to it. No pane: all of them. */
+export function involving(list, pane) {
+  if (!pane) return list;
+  return list.filter((e) => e.pane === pane || e.to === pane);
 }
 
 /** The last four letters of a pane's session, to tell closed panes apart. */

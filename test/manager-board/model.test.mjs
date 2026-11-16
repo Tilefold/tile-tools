@@ -14,12 +14,19 @@
  * what waits on the user is panes asking and questions not read yet;
  * hours group the timeline; lanes put you first, then managers, the panes
  * they opened, Tilefold and schedules; times fall in the lanes' window.
+ * Narrowed to one pane, the list keeps what that pane did and the messages
+ * sent to it.
+ *
+ * Modified 2026-11-15 (one pane only): tests for `involving`.
+ *
+ * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   byHour,
   headline,
+  involving,
   lanes,
   laneOf,
   merge,
@@ -134,5 +141,17 @@ describe("the model", () => {
     expect(laneOf(by("run:n1"))).toBe("schedule");
     expect(place(at(20), at(0), at(40))).toBe(0.5);
     expect(place(at(59), at(0), at(30))).toBe(1);
+  });
+});
+
+describe("one pane only", () => {
+  it("keeps what the pane did and the messages sent to it", () => {
+    expect(involving(EVENTS, API).map((e) => e.id)).toEqual([
+      "message:m1",
+      "message:m2",
+      "nudge:w1",
+      "heartbeat:h1",
+    ]);
+    expect(involving(EVENTS, null)).toBe(EVENTS);
   });
 });
