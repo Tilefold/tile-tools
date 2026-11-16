@@ -30,6 +30,32 @@ var PAGE_KEYS = [
   "view-label",
   "view-timeline",
   "view-lanes",
+  "view-tasks",
+  "task-sort-label",
+  "task-sort-newest",
+  "task-sort-oldest",
+  "task-sort-agent",
+  "task-sort-project",
+  "task-sort-longest",
+  "task-state-label",
+  "task-show-all",
+  "task-show-working",
+  "task-show-waiting",
+  "task-show-done",
+  "task-state-working",
+  "task-state-waiting",
+  "task-state-done",
+  "task-by-you",
+  "task-by-pane",
+  "task-earlier",
+  "task-no-reply",
+  "task-show-reply",
+  "task-took",
+  "task-unknown",
+  "task-count",
+  "task-count-working",
+  "task-count-waiting",
+  "tasks-empty",
   "scope-label",
   "scope-all",
   "scope-team",
@@ -113,13 +139,16 @@ var MARKS = {
   to: "{to}",
   target: "{target}",
   name: "{name}",
-  id: "{id}"
+  id: "{id}",
+  count: "{count}"
 };
 var pageLabels = (tf) => Object.fromEntries(PAGE_KEYS.map((key) => [key, tf.t(key, MARKS)]));
 
 // src/run.js
 var CALLS = ["events", "fullText", "filters", "now", "export"];
-var VIEWS = ["timeline", "lanes"];
+var VIEWS = ["timeline", "lanes", "tasks"];
+var TASK_SORTS = ["newest", "oldest", "agent", "project", "longest"];
+var TASK_STATES = ["all", "working", "waiting", "done"];
 var FILTER_KINDS = ["all", "team", "project", "fold"];
 var EVENT_KINDS = ["turn", "message", "ask", "nudge", "heartbeat", "run"];
 var WINDOWS = [60, 120, 240];
@@ -133,7 +162,9 @@ function checkKept(raw) {
     view: VIEWS.includes(k.view) ? k.view : "timeline",
     filter,
     kinds: kinds.length ? kinds : [...EVENT_KINDS],
-    windowMin: WINDOWS.includes(k.windowMin) ? k.windowMin : 120
+    windowMin: WINDOWS.includes(k.windowMin) ? k.windowMin : 120,
+    taskSort: TASK_SORTS.includes(k.taskSort) ? k.taskSort : TASK_SORTS[0],
+    taskState: TASK_STATES.includes(k.taskState) ? k.taskState : TASK_STATES[0]
   };
 }
 function reasonOf(err) {

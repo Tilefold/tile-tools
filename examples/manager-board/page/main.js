@@ -5,7 +5,7 @@
  *
  * Manager Board page
  *
- * The board: a header with the view switch (Timeline, Lanes) and Export,
+ * The board: a header with the view switch (Timeline, Lanes, Tasks) and Export,
  * the scope (everything, a manager's team, a project, a fold), the kinds
  * and a search, then Waiting on you, Now (the open agent panes) and the
  * view. Long texts open in full in a sheet over the board.
@@ -20,6 +20,12 @@
  * `{target}`, `{name}` or `{id}` where those go.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-11-15 (Tasks view): a third view lists one row per task
+ *   (tasks.js, tasksView.js), with its own sort and state choices, kept like
+ *   the others; labels may hold `{count}` too.
+ *
+ * Last updated by: Tilefold
  */
 // Built by @tilefold/tile-tools from page-src/main.js. Edit the sources, then rebuild.
 (() => {
@@ -402,6 +408,209 @@
     );
   }
 
+  // page-src/tasks.js
+  var TASK_SORTS = ["newest", "oldest", "agent", "project", "longest"];
+  var TASK_STATES = ["all", "working", "waiting", "done"];
+  var byTime = (a, b) => a.at === b.at ? a.id < b.id ? -1 : a.id > b.id ? 1 : 0 : a.at < b.at ? -1 : 1;
+  var isAssignment = (e) => e.kind === "message" && typeof e.to === "string" && e.to !== "" && (!e.detail || !e.detail.kind || e.detail.kind === "message");
+  var cliOf = (e) => e.detail && typeof e.detail.cli === "string" ? e.detail.cli.slice(0, 40) : "";
+  var projectName = (p) => typeof p === "string" ? p.split(/[\\/]/).pop() || p : "";
+  function tasksOf(events, panes, now2 = Date.now()) {
+    const open = new Map(panes.map((p) => [p.pane, p]));
+    const current = /* @__PURE__ */ new Map();
+    const tasks = [];
+    const start = (e, pane, by) => {
+      const t = {
+        id: e.id,
+        pane,
+        by,
+        at: e.at,
+        request: e.summary,
+        requestId: e.id,
+        requestMore: !!e.more,
+        reply: null,
+        replyId: null,
+        replyMore: false,
+        replies: 0,
+        end: null,
+        agent: "",
+        project: typeof e.project === "string" ? e.project : ""
+      };
+      tasks.push(t);
+      current.set(pane, t);
+      return t;
+    };
+    for (const e of [...events].sort(byTime)) {
+      if (e.kind === "turn" && e.who === "you") {
+        start(e, e.pane, "you");
+      } else if (isAssignment(e)) {
+        start(e, e.to, e.pane);
+      } else if (e.kind === "turn" && e.who === "agent") {
+        let t = current.get(e.pane);
+        if (!t) {
+          t = start(e, e.pane, null);
+          t.request = null;
+          t.requestId = null;
+          t.requestMore = false;
+        }
+        t.reply = e.summary;
+        t.replyId = e.id;
+        t.replyMore = !!e.more;
+        t.replies += 1;
+        t.end = e.at;
+        t.agent = t.agent || cliOf(e);
+        if (!t.project && typeof e.project === "string") t.project = e.project;
+      }
+    }
+    const nowMs = Number(now2);
+    for (const t of tasks) {
+      const pane = open.get(t.pane);
+      if (!t.agent && pane && typeof pane.agent === "string") t.agent = pane.agent;
+      if (!t.project && pane && typeof pane.project === "string") t.project = pane.project;
+      const newest = current.get(t.pane) === t;
+      t.state = newest && pane && pane.state === "busy" ? "working" : newest && pane && pane.state === "asking" ? "waiting" : "done";
+      const from = Date.parse(t.at);
+      const to = t.state === "done" ? t.end ? Date.parse(t.end) : NaN : nowMs;
+      t.ms = Number.isFinite(from) && Number.isFinite(to) && to >= from ? to - from : null;
+    }
+    return sortTasks(tasks, "newest");
+  }
+  function shownTasks(tasks, state, query, nameOf2) {
+    const q = String(query || "").trim().toLowerCase();
+    return tasks.filter((t) => {
+      if (state !== "all" && t.state !== state) return false;
+      if (!q) return true;
+      return [t.request, t.reply, nameOf2(t.pane), t.by ? nameOf2(t.by) : "", t.agent, t.project].some(
+        (s) => typeof s === "string" && s.toLowerCase().includes(q)
+      );
+    });
+  }
+  var newestFirst = (a, b) => -byTime(a, b);
+  var textOrder = (a, b) => !a ? b ? 1 : 0 : !b ? -1 : a.localeCompare(b);
+  function sortTasks(tasks, sort) {
+    const list = [...tasks];
+    if (sort === "oldest") return list.sort(byTime);
+    if (sort === "agent")
+      return list.sort((a, b) => textOrder(a.agent, b.agent) || newestFirst(a, b));
+    if (sort === "project")
+      return list.sort(
+        (a, b) => textOrder(projectName(a.project), projectName(b.project)) || newestFirst(a, b)
+      );
+    if (sort === "longest")
+      return list.sort(
+        (a, b) => (a.ms === null ? b.ms === null ? 0 : 1 : b.ms === null ? -1 : b.ms - a.ms) || newestFirst(a, b)
+      );
+    return list.sort(newestFirst);
+  }
+  function groupTasks(sorted, sort) {
+    if (sort !== "agent" && sort !== "project") return [{ label: null, items: sorted }];
+    const keyOf = (t) => sort === "agent" ? t.agent : projectName(t.project);
+    const groups = [];
+    for (const t of sorted) {
+      const label = keyOf(t) || "";
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) last.items.push(t);
+      else groups.push({ label, items: [t] });
+    }
+    return groups;
+  }
+  function countStates(tasks) {
+    const n = { all: tasks.length, working: 0, waiting: 0, done: 0 };
+    for (const t of tasks) n[t.state] += 1;
+    return n;
+  }
+  function duration(ms) {
+    if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return null;
+    const total = Math.round(ms / 1e3);
+    return { h: Math.floor(total / 3600), m: Math.floor(total % 3600 / 60), s: total % 60 };
+  }
+
+  // page-src/tasksView.js
+  var STATE_TONE = { working: "info", waiting: "warning", done: "success" };
+  var asEvent = (t, side) => side === "request" ? { id: t.requestId, at: t.at, pane: t.pane, summary: t.request || "" } : { id: t.replyId, at: t.end || t.at, pane: t.pane, summary: t.reply || "" };
+  function askedLine(t, ctx, nameOf2) {
+    const pane = nameOf2(t.pane);
+    if (t.by === "you") return ctx.L("task-by-you", { pane });
+    if (t.by) return ctx.L("task-by-pane", { from: nameOf2(t.by), to: pane });
+    return pane;
+  }
+  function taskRow(t, ctx, nameOf2) {
+    const tone = STATE_TONE[t.state] || "muted";
+    const length = t.ms === null ? "" : ctx.durationOf(t.ms);
+    return h(
+      "article",
+      { class: `task ${t.state}${ctx.fresh.has(t.id) ? " fresh" : ""}`, "data-task": t.id },
+      h(
+        "div",
+        { class: "task-head" },
+        h(
+          "p",
+          { class: `task-ask${t.request === null ? " muted" : ""}` },
+          t.request === null ? ctx.L("task-earlier") : t.request
+        ),
+        h("span", { class: `status ${tone}` }, ctx.L(`task-state-${t.state}`))
+      ),
+      h(
+        "div",
+        { class: "task-meta" },
+        h("span", {}, askedLine(t, ctx, nameOf2)),
+        t.agent && h("span", { class: "chip" }, t.agent),
+        t.project && h("span", { class: "muted", title: t.project }, projectName(t.project)),
+        h("time", { datetime: t.at }, ctx.whenOf(t.at)),
+        length && h(
+          "span",
+          { class: "muted", title: ctx.L("task-took") },
+          t.state === "done" ? length : `${length} \u2026`
+        )
+      ),
+      h(
+        "p",
+        { class: `task-reply${t.reply === null ? " muted" : ""}` },
+        t.reply === null ? ctx.L("task-no-reply") : t.reply
+      ),
+      (t.requestMore || t.reply !== null && t.replyId) && h(
+        "div",
+        { class: "task-links" },
+        t.requestMore && h(
+          "button",
+          { type: "button", class: "link", onclick: () => ctx.onFull(asEvent(t, "request")) },
+          ctx.L("show-full")
+        ),
+        t.reply !== null && t.replyId && h(
+          "button",
+          { type: "button", class: "link", onclick: () => ctx.onFull(asEvent(t, "reply")) },
+          ctx.L("task-show-reply")
+        )
+      )
+    );
+  }
+  function tasksView(all, list, ctx, { sort, nameOf: nameOf2, more, onOlder, loading }) {
+    const n = countStates(all);
+    const count = h(
+      "p",
+      { class: "task-count muted", role: "status" },
+      [
+        ctx.L("task-count", { count: n.all }),
+        n.working && ctx.L("task-count-working", { count: n.working }),
+        n.waiting && ctx.L("task-count-waiting", { count: n.waiting })
+      ].filter(Boolean).join(" \xB7 ")
+    );
+    const body = list.length ? groupTasks(list, sort).map(
+      (g) => h(
+        "section",
+        { class: "task-group" },
+        g.label !== null && h("h3", {}, g.label || ctx.L("task-unknown")),
+        g.items.map((t) => taskRow(t, ctx, nameOf2))
+      )
+    ) : [h("p", { class: "empty muted" }, ctx.L("tasks-empty"))];
+    const end = more ? h(
+      "button",
+      { type: "button", class: "older", id: "older", disabled: loading, onclick: onOlder },
+      loading ? ctx.L("loading-text") : ctx.L("load-older")
+    ) : h("p", { class: "start muted" }, ctx.L("history-start"));
+    return h("div", { class: "tasks" }, count, ...body, end);
+  }
+
   // page-src/main.js
   var POLL_MS = 6e3;
   var REPLY_MS = 15e3;
@@ -412,11 +621,18 @@
   var $ = (id) => document.getElementById(id);
   var labels = {};
   var L = (key, vars = {}) => String(labels[key] ?? "").replace(
-    /\{(pane|from|to|target|name|id)\}/g,
+    /\{(pane|from|to|target|name|id|count)\}/g,
     (_, k) => String(vars[k] ?? "")
   );
   var st = {
-    kept: { view: "timeline", filter: { kind: "all" }, kinds: [...KINDS], windowMin: 120 },
+    kept: {
+      view: "timeline",
+      filter: { kind: "all" },
+      kinds: [...KINDS],
+      windowMin: 120,
+      taskSort: TASK_SORTS[0],
+      taskState: TASK_STATES[0]
+    },
     events: [],
     next: null,
     panes: [],
@@ -464,6 +680,25 @@
     d.setMinutes(0, 0, 0);
     const day = d.toDateString() === (/* @__PURE__ */ new Date()).toDateString() ? "" : `${d.toLocaleDateString(labels["page-lang"])} `;
     return `${day}${timeFormat.format(d)}`;
+  };
+  var whenOf = (at) => {
+    const d = new Date(at);
+    if (Number.isNaN(d.getTime())) return "";
+    const today = d.toDateString() === (/* @__PURE__ */ new Date()).toDateString();
+    return today ? timeFormat.format(d) : `${d.toLocaleDateString(labels["page-lang"])} ${timeFormat.format(d)}`;
+  };
+  var durationOf = (ms) => {
+    const d = duration(ms);
+    if (!d) return "";
+    const unit = (n, u) => new Intl.NumberFormat(labels["page-lang"] || void 0, {
+      style: "unit",
+      unit: u,
+      unitDisplay: "short"
+    }).format(n);
+    if (d.h) return `${unit(d.h, "hour")} ${unit(d.m, "minute")}`;
+    if (d.m)
+      return d.m < 5 && d.s ? `${unit(d.m, "minute")} ${unit(d.s, "second")}` : unit(d.m, "minute");
+    return unit(d.s, "second");
   };
   var nameOf = (p) => paneName(p, st.panes, L);
   function failed(err) {
@@ -587,8 +822,14 @@
     if (!st.started) return;
     for (const b of document.querySelectorAll("[data-view]"))
       b.setAttribute("aria-pressed", String(b.dataset.view === st.kept.view));
+    const tasks = st.kept.view === "tasks";
     $("window").hidden = st.kept.view !== "lanes";
     $("window").value = String(st.kept.windowMin);
+    $("kinds").hidden = tasks;
+    $("task-sort").hidden = !tasks;
+    $("task-state").hidden = !tasks;
+    $("task-sort").value = st.kept.taskSort;
+    $("task-state").value = st.kept.taskState;
     scopeOptions();
     kindChips();
     const ctx = {
@@ -599,10 +840,26 @@
       onFull: openFull,
       fresh: st.fresh,
       picked: st.picked,
-      onPick: (id) => (st.picked = id, render())
+      onPick: (id) => (st.picked = id, render()),
+      whenOf,
+      durationOf
     };
     const list = shown(st.events, st.kept.kinds, st.query, nameOf);
-    const view = st.kept.view === "lanes" ? lanesView(list, ctx, windowOf(Date.now(), st.kept.windowMin)) : timeline(list, ctx, { more: !!st.next, onOlder: older, loading: st.loading });
+    const older$ = { more: !!st.next, onOlder: older, loading: st.loading };
+    let view;
+    if (tasks) {
+      const all = tasksOf(st.events, st.panes);
+      const picked = shownTasks(all, st.kept.taskState, st.query, nameOf);
+      view = tasksView(all, sortTasks(picked, st.kept.taskSort), ctx, {
+        sort: st.kept.taskSort,
+        nameOf,
+        ...older$
+      });
+    } else if (st.kept.view === "lanes") {
+      view = lanesView(list, ctx, windowOf(Date.now(), st.kept.windowMin));
+    } else {
+      view = timeline(list, ctx, older$);
+    }
     $("content").replaceChildren(
       ...st.error ? [h("p", { class: "error", role: "alert" }, L(st.error))] : [],
       now(st.events, ctx),
@@ -624,6 +881,11 @@
     $("views").setAttribute("aria-label", L("view-label"));
     $("view-timeline").textContent = L("view-timeline");
     $("view-lanes").textContent = L("view-lanes");
+    $("view-tasks").textContent = L("view-tasks");
+    $("task-sort").setAttribute("aria-label", L("task-sort-label"));
+    for (const o of $("task-sort").options) o.textContent = L(`task-sort-${o.value}`);
+    $("task-state").setAttribute("aria-label", L("task-state-label"));
+    for (const o of $("task-state").options) o.textContent = L(`task-show-${o.value}`);
     $("scope").setAttribute("aria-label", L("scope-label"));
     $("kinds").setAttribute("aria-label", L("kinds-label"));
     $("search").setAttribute("placeholder", L("search-label"));
@@ -642,6 +904,17 @@
     for (const b of document.querySelectorAll("[data-view]")) {
       b.addEventListener("click", () => {
         st.kept.view = b.dataset.view;
+        keep();
+        render();
+      });
+    }
+    for (const [id, key, allowed] of [
+      ["task-sort", "taskSort", TASK_SORTS],
+      ["task-state", "taskState", TASK_STATES]
+    ]) {
+      $(id).addEventListener("change", () => {
+        if (!allowed.includes($(id).value)) return;
+        st.kept[key] = $(id).value;
         keep();
         render();
       });

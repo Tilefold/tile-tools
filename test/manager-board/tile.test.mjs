@@ -14,6 +14,11 @@
  * as a short reason; only the five calls pass. An export says in a notice
  * which file it went to. A Tilefold without tf.timeline gets a notice to
  * update. Only one-word actions are recorded, never what the timeline says.
+ *
+ * Modified 2026-11-15 (Tasks view): the kept choices include the Tasks
+ *   view, its sort and its state, each checked.
+ *
+ * Last updated by: Tilefold
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -68,6 +73,8 @@ describe("the Manager Board tile", () => {
       filter: { kind: "team", value: LEAD },
       kinds: ["turn"],
       windowMin: 60,
+      taskSort: "newest",
+      taskState: "all",
     });
     expect(host.audits.map((a) => a.action)).toEqual(["opened"]);
     await host.undock();
@@ -96,6 +103,8 @@ describe("the Manager Board tile", () => {
       filter: { kind: "all" },
       kinds: ["turn", "message", "ask", "nudge", "heartbeat", "run"],
       windowMin: 120,
+      taskSort: "newest",
+      taskState: "all",
     });
     expect(host.audits.filter((a) => a.action === "view")).toEqual([
       { action: "view", details: { view: "lanes" } },
@@ -180,5 +189,15 @@ describe("the Manager Board tile", () => {
       kind: "all",
     });
     expect(checkKept({ kinds: [] }).kinds).toHaveLength(6);
+    // The Tasks view and its choices; anything else falls back to the defaults.
+    expect(checkKept({ view: "tasks", taskSort: "agent", taskState: "working" })).toMatchObject({
+      view: "tasks",
+      taskSort: "agent",
+      taskState: "working",
+    });
+    expect(checkKept({ taskSort: "random", taskState: 3 })).toMatchObject({
+      taskSort: "newest",
+      taskState: "all",
+    });
   });
 });

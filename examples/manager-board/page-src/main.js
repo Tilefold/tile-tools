@@ -5,7 +5,7 @@
  *
  * Manager Board page
  *
- * The board: a header with the view switch (Timeline, Lanes) and Export,
+ * The board: a header with the view switch (Timeline, Lanes, Tasks) and Export,
  * the scope (everything, a manager's team, a project, a fold), the kinds
  * and a search, then Waiting on you, Now (the open agent panes) and the
  * view. Long texts open in full in a sheet over the board.
@@ -20,11 +20,19 @@
  * `{target}`, `{name}` or `{id}` where those go.
  *
  * Built into page/main.js with `npx @tilefold/tile-tools build`.
+ *
+ * Modified 2026-11-15 (Tasks view): a third view lists one row per task
+ *   (tasks.js, tasksView.js), with its own sort and state choices, kept like
+ *   the others; labels may hold `{count}` too.
+ *
+ * Last updated by: Tilefold
  */
 import { h } from "./dom.js";
 import { merge, paneName, shown } from "./model.js";
 import { lanesView, windowOf } from "./lanes.js";
 import { now as nowView, timeline } from "./views.js";
+import { TASK_SORTS, TASK_STATES, duration, shownTasks, sortTasks, tasksOf } from "./tasks.js";
+import { tasksView } from "./tasksView.js";
 
 /** How often a visible page asks for what's new, in ms. */
 export const POLL_MS = 6000;
@@ -42,12 +50,19 @@ const $ = (id) => document.getElementById(id);
 let labels = {};
 /** A label with its `{marks}` filled in. */
 const L = (key, vars = {}) =>
-  String(labels[key] ?? "").replace(/\{(pane|from|to|target|name|id)\}/g, (_, k) =>
+  String(labels[key] ?? "").replace(/\{(pane|from|to|target|name|id|count)\}/g, (_, k) =>
     String(vars[k] ?? ""),
   );
 
 const st = {
-  kept: { view: "timeline", filter: { kind: "all" }, kinds: [...KINDS], windowMin: 120 },
+  kept: {
+    view: "timeline",
+    filter: { kind: "all" },
+    kinds: [...KINDS],
+    windowMin: 120,
+    taskSort: TASK_SORTS[0],
+    taskState: TASK_STATES[0],
+  },
   events: [],
   next: null,
   panes: [],
@@ -108,6 +123,32 @@ const hourOf = (at) => {
       ? ""
       : `${d.toLocaleDateString(labels["page-lang"])} `;
   return `${day}${timeFormat.format(d)}`;
+};
+
+/** The day (when not today) and the time, for a task's start. */
+const whenOf = (at) => {
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return "";
+  const today = d.toDateString() === new Date().toDateString();
+  return today
+    ? timeFormat.format(d)
+    : `${d.toLocaleDateString(labels["page-lang"])} ${timeFormat.format(d)}`;
+};
+
+/** A length in the user's language: hours and minutes, minutes, or seconds. */
+const durationOf = (ms) => {
+  const d = duration(ms);
+  if (!d) return "";
+  const unit = (n, u) =>
+    new Intl.NumberFormat(labels["page-lang"] || undefined, {
+      style: "unit",
+      unit: u,
+      unitDisplay: "short",
+    }).format(n);
+  if (d.h) return `${unit(d.h, "hour")} ${unit(d.m, "minute")}`;
+  if (d.m)
+    return d.m < 5 && d.s ? `${unit(d.m, "minute")} ${unit(d.s, "second")}` : unit(d.m, "minute");
+  return unit(d.s, "second");
 };
 
 /* ------------------------------ Loading -------------------------------- */
@@ -252,8 +293,15 @@ function render() {
   if (!st.started) return;
   for (const b of document.querySelectorAll("[data-view]"))
     b.setAttribute("aria-pressed", String(b.dataset.view === st.kept.view));
+  const tasks = st.kept.view === "tasks";
   $("window").hidden = st.kept.view !== "lanes";
   $("window").value = String(st.kept.windowMin);
+  // Tasks are built from turns and messages, whatever kinds the other views keep.
+  $("kinds").hidden = tasks;
+  $("task-sort").hidden = !tasks;
+  $("task-state").hidden = !tasks;
+  $("task-sort").value = st.kept.taskSort;
+  $("task-state").value = st.kept.taskState;
   scopeOptions();
   kindChips();
   const ctx = {
@@ -265,12 +313,25 @@ function render() {
     fresh: st.fresh,
     picked: st.picked,
     onPick: (id) => ((st.picked = id), render()),
+    whenOf,
+    durationOf,
   };
   const list = shown(st.events, st.kept.kinds, st.query, nameOf);
-  const view =
-    st.kept.view === "lanes"
-      ? lanesView(list, ctx, windowOf(Date.now(), st.kept.windowMin))
-      : timeline(list, ctx, { more: !!st.next, onOlder: older, loading: st.loading });
+  const older$ = { more: !!st.next, onOlder: older, loading: st.loading };
+  let view;
+  if (tasks) {
+    const all = tasksOf(st.events, st.panes);
+    const picked = shownTasks(all, st.kept.taskState, st.query, nameOf);
+    view = tasksView(all, sortTasks(picked, st.kept.taskSort), ctx, {
+      sort: st.kept.taskSort,
+      nameOf,
+      ...older$,
+    });
+  } else if (st.kept.view === "lanes") {
+    view = lanesView(list, ctx, windowOf(Date.now(), st.kept.windowMin));
+  } else {
+    view = timeline(list, ctx, older$);
+  }
   $("content").replaceChildren(
     ...(st.error ? [h("p", { class: "error", role: "alert" }, L(st.error))] : []),
     nowView(st.events, ctx),
@@ -294,6 +355,11 @@ function setup(m) {
   $("views").setAttribute("aria-label", L("view-label"));
   $("view-timeline").textContent = L("view-timeline");
   $("view-lanes").textContent = L("view-lanes");
+  $("view-tasks").textContent = L("view-tasks");
+  $("task-sort").setAttribute("aria-label", L("task-sort-label"));
+  for (const o of $("task-sort").options) o.textContent = L(`task-sort-${o.value}`);
+  $("task-state").setAttribute("aria-label", L("task-state-label"));
+  for (const o of $("task-state").options) o.textContent = L(`task-show-${o.value}`);
   $("scope").setAttribute("aria-label", L("scope-label"));
   $("kinds").setAttribute("aria-label", L("kinds-label"));
   $("search").setAttribute("placeholder", L("search-label"));
@@ -313,6 +379,17 @@ function wire() {
   for (const b of document.querySelectorAll("[data-view]")) {
     b.addEventListener("click", () => {
       st.kept.view = b.dataset.view;
+      keep();
+      render();
+    });
+  }
+  for (const [id, key, allowed] of [
+    ["task-sort", "taskSort", TASK_SORTS],
+    ["task-state", "taskState", TASK_STATES],
+  ]) {
+    $(id).addEventListener("change", () => {
+      if (!allowed.includes($(id).value)) return;
+      st.kept[key] = $(id).value;
       keep();
       render();
     });

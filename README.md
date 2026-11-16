@@ -2,7 +2,7 @@
 
 Everything you need to write Tilefold tiles: the `tilefold-tile` bundler, types for the `tf` API, complete documentation and example tiles to start from.
 
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-2401%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-25-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933) ![esbuild](https://img.shields.io/badge/esbuild-0.28-ffcf00) ![Tests](https://img.shields.io/badge/vitest-2416%20passing-6e9f18) ![Examples](https://img.shields.io/badge/examples-25-8b6cff) ![Locales](https://img.shields.io/badge/example%20locales-12-4c8bf5) ![License](https://img.shields.io/badge/license-MIT-blue) ![npm](https://img.shields.io/badge/npm-%40tilefold%2Ftile--tools-CB3837)
 
 ## Contents
 
@@ -235,7 +235,7 @@ MIT. Tile Tools, its documentation and its examples are open source so tile auth
 
 ## Test cases (TCs)
 
-Run with `npm test` (2401 tests in 129 files, all passing on 2026-11-14).
+Run with `npm test` (2416 tests in 130 files, all passing on 2026-11-15).
 
 | Area | Covers |
 |---|---|
@@ -335,10 +335,10 @@ Each example also covers:
 
 - Most examples have been tried only against the fake host, not against their real service in a running Tilefold; [examples/README.md](examples/README.md) says which.
 - `lib/tf.d.ts` is checked for syntax and coverage, not compiled against tiles with `tsc`.
-- Gomoku has been played through Tilefold's relay at `play.tilefold.com` from its own client code, and in a browser against a local relay, but not yet as a tile inside a running Tilefold. TileGo has been played only in tests (two pages through a fake relay, and against an agent's requests), not yet through the real relay or in a running Tilefold. Whiteboard has been drawn on only in tests and a browser preview, not yet by an agent in a running Tilefold; pointing at things in your panes needs Tilefold 0.1.23 or later. The Manager Board has been run only in tests and a browser preview with a sample timeline; it needs `tf.timeline`, which comes with Tilefold 0.1.27.
+- Gomoku has been played through Tilefold's relay at `play.tilefold.com` from its own client code, and in a browser against a local relay, but not yet as a tile inside a running Tilefold. TileGo has been played only in tests (two pages through a fake relay, and against an agent's requests), not yet through the real relay or in a running Tilefold. Whiteboard has been drawn on only in tests and a browser preview, not yet by an agent in a running Tilefold; pointing at things in your panes needs Tilefold 0.1.23 or later. The Manager Board has been run in a real Tilefold; its Tasks view so far only in tests. It needs `tf.timeline`, which comes with Tilefold 0.1.27.
 - Publishing is manual for now (`npm publish` from the npm account `tilefold`).
 - No `new` (scaffold a tile) command yet, and the command-line messages are English only.
 
 Copyright (c) 2026 Tilefold
 All rights reserved.
-Last updated: 2026-11-14 by Tilefold
+Last updated: 2026-11-15 by Tilefold

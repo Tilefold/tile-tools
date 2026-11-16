@@ -11,6 +11,11 @@
  * row per participant with pins along the time and lines for messages.
  * Who did what never shows by color alone: each card says it in words.
  * Logical properties throughout, so the board reads right to left too.
+ *
+ * Modified 2026-11-15 (Tasks view): one row per task, with its state chip,
+ *   meta line and last reply; headings per agent or project.
+ *
+ * Last updated by: Tilefold
  */
 :root {
   color-scheme: light dark;
@@ -660,4 +665,80 @@ header h1 {
 .actions {
   display: flex;
   justify-content: flex-end;
+}
+
+/* ------------------------------- Tasks --------------------------------- */
+.task-count {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+}
+.task-group h3 {
+  position: sticky;
+  inset-block-start: -12px;
+  z-index: 1;
+  margin: 0;
+  padding: 8px 0 4px;
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.task {
+  display: grid;
+  gap: 4px;
+  margin-block-end: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-inline-start-width: 3px;
+  border-radius: 8px;
+  background: var(--raised);
+}
+.task.working {
+  border-inline-start-color: var(--info);
+}
+.task.waiting {
+  border-inline-start-color: var(--warning);
+}
+.task.fresh {
+  background: var(--accent-soft);
+}
+.task-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.task-ask {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task-ask.muted,
+.task-reply.muted {
+  font-weight: 400;
+  color: var(--muted);
+}
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 11.5px;
+  color: var(--fg2);
+}
+.task-reply {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task-links {
+  display: flex;
+  gap: 12px;
 }
