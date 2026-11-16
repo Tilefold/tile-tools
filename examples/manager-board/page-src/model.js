@@ -11,6 +11,9 @@
  *               first (ties in time by id, as Tilefold orders them); a newer
  *               copy of an event (its status changed) replaces the old one
  *   shown       the loaded events with the kinds the user keeps and a search
+ *   involving   the events one pane took part in (it acted, or a message went to it)
+ *   replies     an agent's reply lines in one pane, from one prompt to the next,
+ *               joined into one card at its newest line
  *   paneName    what the user calls a pane ("2 · api"), from the open panes
  *   headline    who did what to whom, in the user's language
  *   statusOf    a status as words, with a tone for its chip
@@ -22,6 +25,13 @@
  *
  * `L(key, vars)` is the page's label function: a label from the tile with
  * `{marks}` filled in.
+ *
+ * Modified 2026-11-15 (one pane only): `involving`, for the board narrowed
+ *   to the pane whose Now card the user clicked.
+ * Modified 2026-11-15 (cards open in place): `replies` joins an agent's
+ *   short reply lines into one card, which opens to show them all.
+ *
+ * Last updated by: Tilefold
  */
 
 /** Most events the page keeps loaded. */
@@ -65,6 +75,59 @@ export function shown(list, kinds, query, nameOf) {
         nameOf(e.pane).toLowerCase().includes(q) ||
         (e.to != null && nameOf(e.to).toLowerCase().includes(q))),
   );
+}
+
+/** The events `pane` took part in: it acted, or a message went to it. No pane: all of them. */
+export function involving(list, pane) {
+  if (!pane) return list;
+  return list.filter((e) => e.pane === pane || e.to === pane);
+}
+
+/**
+ * `list` (newest first) with each agent reply joined into one card: the
+ * agent's lines in a pane from one prompt there (yours, or a message handed
+ * to it) to the next. The card is its newest line, with `lines` (oldest
+ * first) and `key`, the id of its first line, which stays the same as new
+ * lines arrive. Any other event is kept as it is, with `key` its id. A
+ * reply of one line is a card of its own, as before.
+ */
+export function replies(list) {
+  const oldest = [...list].reverse();
+  /** The run under way in each pane. */
+  const run = new Map();
+  /** The run each agent line joined, by id. */
+  const runOf = new Map();
+  for (const e of oldest) {
+    if (e.kind === "turn" && e.who === "agent") {
+      let r = run.get(e.pane);
+      if (!r) {
+        r = { lines: [] };
+        run.set(e.pane, r);
+      }
+      r.lines.push(e);
+      runOf.set(e.id, r);
+    } else if ((e.kind === "turn" && e.who === "you") || (e.kind === "message" && e.to)) {
+      // A new request ends the reply under way in that pane.
+      run.delete(e.kind === "message" ? e.to : e.pane);
+    }
+  }
+  const out = [];
+  for (const e of list) {
+    const r = runOf.get(e.id);
+    if (!r) {
+      out.push({ ...e, key: e.id });
+      continue;
+    }
+    const newest = r.lines[r.lines.length - 1];
+    // The card sits where its newest line is; the other lines are inside it.
+    if (e !== newest) continue;
+    out.push(
+      r.lines.length === 1
+        ? { ...e, key: e.id }
+        : { ...e, key: r.lines[0].id, lines: r.lines, more: true },
+    );
+  }
+  return out;
 }
 
 /** The last four letters of a pane's session, to tell closed panes apart. */

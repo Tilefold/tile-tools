@@ -11,6 +11,10 @@
  *
  * Modified 2026-11-15 (Tasks view): the Tasks view's labels, and the
  *   `{count}` mark.
+ * Modified 2026-11-15 (one pane only): the labels for narrowing the board
+ *   to one pane.
+ * Modified 2026-11-15 (cards open in place): opening and folding a card,
+ *   and how many more lines a folded reply holds.
  *
  * Last updated by: Tilefold
  */
@@ -72,6 +76,9 @@ export const PAGE_KEYS = [
   "export-json",
   "now-title",
   "now-none",
+  "only-pane",
+  "only-pane-pick",
+  "only-pane-clear",
   "waiting-title",
   "waiting-asking",
   "waiting-question",
@@ -115,6 +122,11 @@ export const PAGE_KEYS = [
   "st-run-skipped",
   "st-failed",
   "show-full",
+  "card-open",
+  "card-close",
+  "more-lines",
+  "did-count",
+  "actions-label",
   "full-close",
   "load-older",
   "history-start",

@@ -24,6 +24,13 @@
  * Modified 2026-11-15 (Tasks view): a third view lists one row per task
  *   (tasks.js, tasksView.js), with its own sort and state choices, kept like
  *   the others; labels may hold `{count}` too.
+ * Modified 2026-11-15 (cards open in place): clicking a card opens it in
+ *   place with its whole text (asked for once with `fullText`, then kept),
+ *   and the Timeline joins an agent's reply lines into one card that opens
+ *   to show them all. Which cards are open isn't kept.
+ * Modified 2026-11-15 (one pane only): clicking a Now card narrows every
+ *   view to that pane (`onlyPane`), with a chip above the view to show every
+ *   pane again; not kept, since panes come and go.
  *
  * Last updated by: Tilefold
  */
@@ -70,6 +77,42 @@
     return list.filter(
       (e) => kinds.includes(e.kind) && (!q || e.summary.toLowerCase().includes(q) || nameOf2(e.pane).toLowerCase().includes(q) || e.to != null && nameOf2(e.to).toLowerCase().includes(q))
     );
+  }
+  function involving(list, pane) {
+    if (!pane) return list;
+    return list.filter((e) => e.pane === pane || e.to === pane);
+  }
+  function replies(list) {
+    const oldest = [...list].reverse();
+    const run = /* @__PURE__ */ new Map();
+    const runOf = /* @__PURE__ */ new Map();
+    for (const e of oldest) {
+      if (e.kind === "turn" && e.who === "agent") {
+        let r = run.get(e.pane);
+        if (!r) {
+          r = { lines: [] };
+          run.set(e.pane, r);
+        }
+        r.lines.push(e);
+        runOf.set(e.id, r);
+      } else if (e.kind === "turn" && e.who === "you" || e.kind === "message" && e.to) {
+        run.delete(e.kind === "message" ? e.to : e.pane);
+      }
+    }
+    const out = [];
+    for (const e of list) {
+      const r = runOf.get(e.id);
+      if (!r) {
+        out.push({ ...e, key: e.id });
+        continue;
+      }
+      const newest = r.lines[r.lines.length - 1];
+      if (e !== newest) continue;
+      out.push(
+        r.lines.length === 1 ? { ...e, key: e.id } : { ...e, key: r.lines[0].id, lines: r.lines, more: true }
+      );
+    }
+    return out;
   }
   var shortId = (pane) => pane.replace(/^tilefold:/, "").slice(-4);
   function paneName(pane, panes, L2) {
@@ -218,29 +261,88 @@
     asking: "state-asking"
   };
   var lastOf = (list, pane) => list.find((e) => e.pane === pane);
+  var MAX_SHOWN_ACTIONS = 20;
+  function actionsOf(e) {
+    const list = e && e.detail && Array.isArray(e.detail.actions) ? e.detail.actions : [];
+    return list.filter((a) => a && typeof a.tool === "string" && a.tool && typeof a.target === "string").map((a) => ({ tool: a.tool.slice(0, 64), target: a.target.slice(0, 240) }));
+  }
+  var toolName = (tool) => tool.startsWith("mcp__") ? tool.split("__").pop() || tool : tool;
+  function actionList(l, ctx) {
+    const all = actionsOf(l);
+    if (!all.length) return null;
+    const shown2 = all.slice(0, MAX_SHOWN_ACTIONS);
+    return h(
+      "ul",
+      { class: "actions", "aria-label": ctx.L("actions-label") },
+      shown2.map(
+        (a) => h(
+          "li",
+          {},
+          h("span", { class: "tool" }, toolName(a.tool)),
+          a.target && h("code", { dir: "auto" }, a.target)
+        )
+      ),
+      all.length > shown2.length && h("li", { class: "muted" }, ctx.L("more-lines", { count: all.length - shown2.length }))
+    );
+  }
+  function opened(e, ctx) {
+    const lines = e.lines || [e];
+    return h(
+      "div",
+      { class: "full-in" },
+      lines.map(
+        (l) => h(
+          "div",
+          { class: "line" },
+          e.lines && h("time", { datetime: l.at }, ctx.timeOf(l.at)),
+          h("p", {}, ctx.textOf(l)),
+          actionList(l, ctx)
+        )
+      )
+    );
+  }
   function card(e, ctx) {
     const head = headline(e, ctx.panes, ctx.L);
     const status = statusOf(e, ctx.L);
+    const key = e.key || e.id;
+    const open = !!ctx.expanded && ctx.expanded.has(key);
+    const extra = e.lines ? e.lines.length - 1 : 0;
+    const did = (e.lines || [e]).reduce((n, l) => n + actionsOf(l).length, 0);
+    const toggle = () => ctx.onToggle && ctx.onToggle(e);
+    const opens = e.more || did > 0;
     return h(
       "article",
-      { class: `ev ${head.tone}${ctx.fresh.has(e.id) ? " fresh" : ""}`, "data-id": e.id },
+      {
+        class: `ev ${head.tone}${ctx.fresh.has(e.id) ? " fresh" : ""}${open ? " open" : ""}`,
+        "data-id": e.id,
+        "data-key": key
+      },
       h("time", { datetime: e.at }, ctx.timeOf(e.at)),
       h("span", { class: "dot", "aria-hidden": "true" }, glyphOf(e)),
       h(
         "div",
-        { class: "body" },
+        {
+          class: "body",
+          role: opens ? "button" : null,
+          tabindex: opens ? "0" : null,
+          "aria-expanded": opens ? String(open) : null,
+          title: opens ? ctx.L(open ? "card-close" : "card-open") : null,
+          onclick: opens ? toggle : null,
+          onkeydown: opens ? (ev) => {
+            if (ev.key !== "Enter" && ev.key !== " ") return;
+            ev.preventDefault();
+            toggle();
+          } : null
+        },
         h(
           "div",
           { class: "head" },
           h("span", { class: "who" }, head.text),
+          extra > 0 && !open && h("span", { class: "chip more" }, ctx.L("more-lines", { count: extra })),
+          did > 0 && !open && h("span", { class: "chip did" }, ctx.L("did-count", { count: did })),
           status && h("span", { class: `status ${status.tone}` }, status.text)
         ),
-        h("p", { class: "sum" }, e.summary),
-        e.more && h(
-          "button",
-          { type: "button", class: "link", "data-full": e.id, onclick: () => ctx.onFull(e) },
-          ctx.L("show-full")
-        )
+        open ? opened(e, ctx) : h("p", { class: "sum" }, e.summary)
       )
     );
   }
@@ -268,10 +370,23 @@
         )
       );
     }
-    const cards = ctx.panes.map(
+    const cards2 = ctx.panes.map(
       (p) => h(
         "div",
-        { class: `pane ${p.state}` },
+        {
+          class: `pane ${p.state}${ctx.onlyPane === p.pane ? " only" : ""}`,
+          role: "button",
+          tabindex: "0",
+          "data-pane": p.pane,
+          "aria-pressed": String(ctx.onlyPane === p.pane),
+          title: ctx.L(ctx.onlyPane === p.pane ? "only-pane-clear" : "only-pane-pick"),
+          onclick: () => ctx.onPane(p.pane),
+          onkeydown: (e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            ctx.onPane(p.pane);
+          }
+        },
         h(
           "div",
           { class: "row" },
@@ -293,7 +408,7 @@
       h(
         "section",
         { class: "now", "aria-label": ctx.L("now-title") },
-        cards.length ? cards : h("span", { class: "muted" }, ctx.L("now-none"))
+        cards2.length ? cards2 : h("span", { class: "muted" }, ctx.L("now-none"))
       )
     );
     return box;
@@ -611,6 +726,51 @@
     return h("div", { class: "tasks" }, count, ...body, end);
   }
 
+  // page-src/cards.js
+  function createCards({ st: st2, call: call2, render: render2 }) {
+    async function toggle(e) {
+      const key = e.key || e.id;
+      if (st2.expanded.has(key)) {
+        st2.expanded.delete(key);
+        render2();
+        return;
+      }
+      st2.expanded.add(key);
+      render2();
+      const want = (e.lines || [e]).filter((l) => l.more && !st2.full.has(l.id));
+      for (const l of want) {
+        try {
+          const text = await call2("fullText", { id: l.id });
+          st2.full.set(l.id, typeof text === "string" ? text : l.summary);
+        } catch {
+          continue;
+        }
+        render2();
+      }
+    }
+    const textOf = (e) => st2.full.get(e.id) ?? e.summary;
+    return { toggle, textOf };
+  }
+  function onlyChip(st2, L2, nameOf2, render2) {
+    return h(
+      "div",
+      { class: "only-chip", role: "status" },
+      h("span", {}, L2("only-pane", { name: nameOf2(st2.onlyPane) })),
+      h(
+        "button",
+        {
+          type: "button",
+          class: "icon",
+          id: "only-clear",
+          "aria-label": L2("only-pane-clear"),
+          title: L2("only-pane-clear"),
+          onclick: () => (st2.onlyPane = null, render2())
+        },
+        "\xD7"
+      )
+    );
+  }
+
   // page-src/main.js
   var POLL_MS = 6e3;
   var REPLY_MS = 15e3;
@@ -642,7 +802,13 @@
     fresh: /* @__PURE__ */ new Set(),
     loading: false,
     error: null,
-    started: false
+    started: false,
+    /** The pane the board is narrowed to (its Now card clicked), or null. */
+    onlyPane: null,
+    /** The cards open in place, by key. */
+    expanded: /* @__PURE__ */ new Set(),
+    /** Whole texts already fetched, by event id. */
+    full: /* @__PURE__ */ new Map()
   };
   var waits = /* @__PURE__ */ new Map();
   var nextId = 0;
@@ -748,6 +914,7 @@
     render();
     refresh(true);
   }
+  var cards = createCards({ st, call, render: () => render() });
   function scopeOptions() {
     const opts = [{ kind: "all", label: L("scope-all") }];
     for (const m of st.filters.managers || [])
@@ -842,13 +1009,22 @@
       picked: st.picked,
       onPick: (id) => (st.picked = id, render()),
       whenOf,
-      durationOf
+      durationOf,
+      onlyPane: st.onlyPane,
+      expanded: st.expanded,
+      onToggle: (e) => void cards.toggle(e),
+      textOf: cards.textOf,
+      onPane: (pane) => {
+        st.onlyPane = st.onlyPane === pane ? null : pane;
+        st.picked = null;
+        render();
+      }
     };
-    const list = shown(st.events, st.kept.kinds, st.query, nameOf);
+    const list = involving(shown(st.events, st.kept.kinds, st.query, nameOf), st.onlyPane);
     const older$ = { more: !!st.next, onOlder: older, loading: st.loading };
     let view;
     if (tasks) {
-      const all = tasksOf(st.events, st.panes);
+      const all = tasksOf(st.events, st.panes).filter((t) => !st.onlyPane || t.pane === st.onlyPane);
       const picked = shownTasks(all, st.kept.taskState, st.query, nameOf);
       view = tasksView(all, sortTasks(picked, st.kept.taskSort), ctx, {
         sort: st.kept.taskSort,
@@ -858,11 +1034,12 @@
     } else if (st.kept.view === "lanes") {
       view = lanesView(list, ctx, windowOf(Date.now(), st.kept.windowMin));
     } else {
-      view = timeline(list, ctx, older$);
+      view = timeline(replies(list), ctx, older$);
     }
     $("content").replaceChildren(
       ...st.error ? [h("p", { class: "error", role: "alert" }, L(st.error))] : [],
       now(st.events, ctx),
+      ...st.onlyPane ? [onlyChip(st, L, nameOf, render)] : [],
       view
     );
   }
