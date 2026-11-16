@@ -17,7 +17,7 @@
  *   `textOf(e)` (the whole text once loaded, else the summary) come in
  *   `ctx`; "+N more" says how many lines a folded reply holds. Under each
  *   line an open card lists what the agent did after writing it (Tilefold
- *   0.1.39 sends `detail.actions`: a tool and what it acted on), and a
+ *   0.1.38 sends `detail.actions`: a tool and what it acted on), and a
  *   folded card says how many things it did.
  * Modified 2026-11-15 (one pane only): a Now card is a button: clicking it
  *   (or Enter or Space on it) narrows the board to that pane, and again

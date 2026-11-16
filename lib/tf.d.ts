@@ -506,7 +506,7 @@ export interface TimelineEvent {
   project: string;
   /**
    * Kind-specific: a request's `tool`, a message's `kind`, a run's `name`… A
-   * turn has `cli` (`claude`, `codex`), and since Tilefold 0.1.39 an agent's
+   * turn has `cli` (`claude`, `codex`), and since Tilefold 0.1.38 an agent's
    * line read from Claude Code may have `actions`: what the agent did after
    * writing it, each `{ tool, target }` (a command's first line, a file's
    * path, a search's pattern; "" for other tools), cleaned and with secrets
