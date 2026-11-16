@@ -125,6 +125,8 @@ export const PAGE_KEYS = [
   "card-open",
   "card-close",
   "more-lines",
+  "did-count",
+  "actions-label",
   "full-close",
   "load-older",
   "history-start",

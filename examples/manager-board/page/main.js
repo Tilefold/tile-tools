@@ -261,6 +261,30 @@
     asking: "state-asking"
   };
   var lastOf = (list, pane) => list.find((e) => e.pane === pane);
+  var MAX_SHOWN_ACTIONS = 20;
+  function actionsOf(e) {
+    const list = e && e.detail && Array.isArray(e.detail.actions) ? e.detail.actions : [];
+    return list.filter((a) => a && typeof a.tool === "string" && a.tool && typeof a.target === "string").map((a) => ({ tool: a.tool.slice(0, 64), target: a.target.slice(0, 240) }));
+  }
+  var toolName = (tool) => tool.startsWith("mcp__") ? tool.split("__").pop() || tool : tool;
+  function actionList(l, ctx) {
+    const all = actionsOf(l);
+    if (!all.length) return null;
+    const shown2 = all.slice(0, MAX_SHOWN_ACTIONS);
+    return h(
+      "ul",
+      { class: "actions", "aria-label": ctx.L("actions-label") },
+      shown2.map(
+        (a) => h(
+          "li",
+          {},
+          h("span", { class: "tool" }, toolName(a.tool)),
+          a.target && h("code", { dir: "auto" }, a.target)
+        )
+      ),
+      all.length > shown2.length && h("li", { class: "muted" }, ctx.L("more-lines", { count: all.length - shown2.length }))
+    );
+  }
   function opened(e, ctx) {
     const lines = e.lines || [e];
     return h(
@@ -271,7 +295,8 @@
           "div",
           { class: "line" },
           e.lines && h("time", { datetime: l.at }, ctx.timeOf(l.at)),
-          h("p", {}, ctx.textOf(l))
+          h("p", {}, ctx.textOf(l)),
+          actionList(l, ctx)
         )
       )
     );
@@ -282,7 +307,9 @@
     const key = e.key || e.id;
     const open = !!ctx.expanded && ctx.expanded.has(key);
     const extra = e.lines ? e.lines.length - 1 : 0;
+    const did = (e.lines || [e]).reduce((n, l) => n + actionsOf(l).length, 0);
     const toggle = () => ctx.onToggle && ctx.onToggle(e);
+    const opens = e.more || did > 0;
     return h(
       "article",
       {
@@ -296,12 +323,12 @@
         "div",
         {
           class: "body",
-          role: e.more ? "button" : null,
-          tabindex: e.more ? "0" : null,
-          "aria-expanded": e.more ? String(open) : null,
-          title: e.more ? ctx.L(open ? "card-close" : "card-open") : null,
-          onclick: e.more ? toggle : null,
-          onkeydown: e.more ? (ev) => {
+          role: opens ? "button" : null,
+          tabindex: opens ? "0" : null,
+          "aria-expanded": opens ? String(open) : null,
+          title: opens ? ctx.L(open ? "card-close" : "card-open") : null,
+          onclick: opens ? toggle : null,
+          onkeydown: opens ? (ev) => {
             if (ev.key !== "Enter" && ev.key !== " ") return;
             ev.preventDefault();
             toggle();
@@ -312,6 +339,7 @@
           { class: "head" },
           h("span", { class: "who" }, head.text),
           extra > 0 && !open && h("span", { class: "chip more" }, ctx.L("more-lines", { count: extra })),
+          did > 0 && !open && h("span", { class: "chip did" }, ctx.L("did-count", { count: did })),
           status && h("span", { class: `status ${status.tone}` }, status.text)
         ),
         open ? opened(e, ctx) : h("p", { class: "sum" }, e.summary)

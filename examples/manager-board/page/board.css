@@ -814,3 +814,36 @@ header h1 {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* What the agent did, under a line of an open card. */
+.full-in .actions {
+  grid-column: -2;
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11.5px;
+}
+.full-in .actions li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-inline-size: 0;
+}
+.full-in .actions .tool {
+  flex: none;
+  font-weight: 600;
+  color: var(--fg2);
+}
+.full-in .actions code {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.chip.did {
+  color: var(--fg2);
+}

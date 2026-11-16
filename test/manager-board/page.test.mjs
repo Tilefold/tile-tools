@@ -19,6 +19,8 @@
  *
  * Modified 2026-11-15 (Tasks view): tests for the Tasks view.
  * Modified 2026-11-15 (one pane only): tests for narrowing to one pane.
+ * Modified 2026-11-15 (what the agent did): an open card lists the
+ *   agent's actions under its line, and a folded one counts them.
  * Modified 2026-11-15 (cards open in place): a card opens in place with
  *   its whole text instead of the sheet, and an agent's reply lines join
  *   into one card.
@@ -235,6 +237,34 @@ describe("the Manager Board page", () => {
     expect(p.posted.filter((m) => m.type === "keep").at(-1).kept.view).toBe("lanes");
     p.$("view-timeline").click();
     expect(p.$("content").querySelector(".rail")).not.toBeNull();
+  });
+
+  it("shows what the agent did under its line, and counts it while folded", async () => {
+    const reply = {
+      ...EVENTS[1],
+      id: "turn:act",
+      more: false,
+      summary: "Running the tests",
+      detail: {
+        cli: "claude",
+        actions: [
+          { tool: "Bash", target: "cargo test" },
+          { tool: "Edit", target: "/w/app/src/<b>lib</b>.rs" },
+          { tool: "mcp__tilefold-memory__memory_write", target: "" },
+          { tool: 7, target: "dropped" },
+        ],
+      },
+    };
+    const p = await page({ events: [EVENTS[0], reply] });
+    const card = () => p.$("content").querySelector('[data-key="turn:act"]');
+    // A short line with actions still opens; folded, it says how many.
+    expect(card().textContent).toContain("Did: 3");
+    card().querySelector(".body").click();
+    await settle();
+    const items = [...card().querySelectorAll(".actions li")].map((li) => li.textContent);
+    expect(items).toEqual(["Bashcargo test", "Edit/w/app/src/<b>lib</b>.rs", "memory_write"]);
+    // Targets are text, never markup.
+    expect(card().querySelector(".actions b")).toBeNull();
   });
 
   it("lists tasks, filters and sorts them, and keeps both choices", async () => {
