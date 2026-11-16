@@ -10,6 +10,12 @@
  * full text), `fresh` (ids that just arrived, drawn in) and, for Lanes,
  * `picked` and `onPick(id)`. Every text is set as text.
  *
+ * Modified 2026-11-15 (cards open in place): a card shows one line;
+ *   clicking it (or Enter or Space) opens it in place with the whole text,
+ *   and a reply joined from several lines (model `replies`) shows them all,
+ *   each with its time. `expanded` (keys open), `onToggle(item)` and
+ *   `textOf(e)` (the whole text once loaded, else the summary) come in
+ *   `ctx`; "+N more" says how many lines a folded reply holds.
  * Modified 2026-11-15 (one pane only): a Now card is a button: clicking it
  *   (or Enter or Space on it) narrows the board to that pane, and again
  *   shows every pane (`onlyPane`, `onPane(pane)` in `ctx`).
@@ -29,31 +35,67 @@ const STATE_KEY = {
 /** The newest event that happened in `pane` (the list is newest first). */
 const lastOf = (list, pane) => list.find((e) => e.pane === pane);
 
-/** One event, as both views show it. */
+/** What an open card shows: each line of a joined reply with its time, or the whole text. */
+function opened(e, ctx) {
+  const lines = e.lines || [e];
+  return h(
+    "div",
+    { class: "full-in" },
+    lines.map((l) =>
+      h(
+        "div",
+        { class: "line" },
+        e.lines && h("time", { datetime: l.at }, ctx.timeOf(l.at)),
+        h("p", {}, ctx.textOf(l)),
+      ),
+    ),
+  );
+}
+
+/** One event (or a joined reply), as both views show it: one line, opening in place. */
 export function card(e, ctx) {
   const head = headline(e, ctx.panes, ctx.L);
   const status = statusOf(e, ctx.L);
+  const key = e.key || e.id;
+  const open = !!ctx.expanded && ctx.expanded.has(key);
+  const extra = e.lines ? e.lines.length - 1 : 0;
+  const toggle = () => ctx.onToggle && ctx.onToggle(e);
   return h(
     "article",
-    { class: `ev ${head.tone}${ctx.fresh.has(e.id) ? " fresh" : ""}`, "data-id": e.id },
+    {
+      class: `ev ${head.tone}${ctx.fresh.has(e.id) ? " fresh" : ""}${open ? " open" : ""}`,
+      "data-id": e.id,
+      "data-key": key,
+    },
     h("time", { datetime: e.at }, ctx.timeOf(e.at)),
     h("span", { class: "dot", "aria-hidden": "true" }, glyphOf(e)),
     h(
       "div",
-      { class: "body" },
+      {
+        class: "body",
+        role: e.more ? "button" : null,
+        tabindex: e.more ? "0" : null,
+        "aria-expanded": e.more ? String(open) : null,
+        title: e.more ? ctx.L(open ? "card-close" : "card-open") : null,
+        onclick: e.more ? toggle : null,
+        onkeydown: e.more
+          ? (ev) => {
+              if (ev.key !== "Enter" && ev.key !== " ") return;
+              ev.preventDefault();
+              toggle();
+            }
+          : null,
+      },
       h(
         "div",
         { class: "head" },
         h("span", { class: "who" }, head.text),
+        extra > 0 &&
+          !open &&
+          h("span", { class: "chip more" }, ctx.L("more-lines", { count: extra })),
         status && h("span", { class: `status ${status.tone}` }, status.text),
       ),
-      h("p", { class: "sum" }, e.summary),
-      e.more &&
-        h(
-          "button",
-          { type: "button", class: "link", "data-full": e.id, onclick: () => ctx.onFull(e) },
-          ctx.L("show-full"),
-        ),
+      open ? opened(e, ctx) : h("p", { class: "sum" }, e.summary),
     ),
   );
 }

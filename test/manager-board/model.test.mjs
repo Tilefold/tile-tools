@@ -18,6 +18,7 @@
  * sent to it.
  *
  * Modified 2026-11-15 (one pane only): tests for `involving`.
+ * Modified 2026-11-15 (cards open in place): tests for `replies`.
  *
  * Last updated by: Tilefold
  */
@@ -27,6 +28,7 @@ import {
   byHour,
   headline,
   involving,
+  replies,
   lanes,
   laneOf,
   merge,
@@ -153,5 +155,53 @@ describe("one pane only", () => {
       "heartbeat:h1",
     ]);
     expect(involving(EVENTS, null)).toBe(EVENTS);
+  });
+});
+
+describe("an agent's reply as one card", () => {
+  const t = (id, m, pane, who) => ({
+    id,
+    at: at(m),
+    kind: "turn",
+    pane,
+    who,
+    summary: id,
+    more: false,
+  });
+  it("joins a pane's agent lines from one prompt to the next, at its newest line", () => {
+    const list = [
+      t("a4", 9, LEAD, "agent"),
+      t("w1", 8, API, "agent"),
+      t("a3", 7, LEAD, "agent"),
+      t("p2", 6, LEAD, "you"),
+      t("a2", 5, LEAD, "agent"),
+      t("a1", 4, LEAD, "agent"),
+      t("p1", 3, LEAD, "you"),
+    ];
+    const out = replies(list);
+    expect(out.map((e) => [e.key, e.id, (e.lines || []).map((l) => l.id)])).toEqual([
+      ["a3", "a4", ["a3", "a4"]],
+      ["w1", "w1", []],
+      ["p2", "p2", []],
+      ["a1", "a2", ["a1", "a2"]],
+      ["p1", "p1", []],
+    ]);
+    // A joined reply always opens.
+    expect(out[0].more).toBe(true);
+  });
+
+  it("ends a reply when the pane is handed work by a message", () => {
+    const msg = {
+      id: "m",
+      at: at(5),
+      kind: "message",
+      pane: LEAD,
+      to: API,
+      who: "agent",
+      summary: "do it",
+      more: false,
+    };
+    const out = replies([t("b2", 6, API, "agent"), msg, t("b1", 4, API, "agent")]);
+    expect(out.map((e) => e.key)).toEqual(["b2", "m", "b1"]);
   });
 });

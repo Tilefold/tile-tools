@@ -19,6 +19,9 @@
  *
  * Modified 2026-11-15 (Tasks view): tests for the Tasks view.
  * Modified 2026-11-15 (one pane only): tests for narrowing to one pane.
+ * Modified 2026-11-15 (cards open in place): a card opens in place with
+ *   its whole text instead of the sheet, and an agent's reply lines join
+ *   into one card.
  *
  * Last updated by: Tilefold
  */
@@ -117,14 +120,62 @@ describe("the Manager Board page", () => {
     ]);
   });
 
-  it("opens a whole text in the sheet", async () => {
+  it("opens a card in place with its whole text, and folds it again", async () => {
     const p = await page();
-    p.$("content").querySelector('[data-full="turn:t1"]').click();
+    const body = () => p.$("content").querySelector('.rail [data-key="turn:t1"] .body');
+    expect(body().getAttribute("aria-expanded")).toBe("false");
+    body().click();
     await settle();
-    expect(p.$("sheet").hidden).toBe(false);
-    expect(p.$("full-text").textContent).toBe(FULL["turn:t1"]);
-    p.$("full-close").click();
-    expect(p.$("sheet").hidden).toBe(true);
+    expect(body().getAttribute("aria-expanded")).toBe("true");
+    expect(body().querySelector(".full-in").textContent).toBe(FULL["turn:t1"]);
+    // Folded again: one line; opened again, the text comes from what was kept.
+    body().click();
+    expect(body().querySelector(".full-in")).toBeNull();
+    const asked = p.posted.filter((m) => m.call === "fullText").length;
+    body().dispatchEvent(new p.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await settle();
+    expect(body().querySelector(".full-in").textContent).toBe(FULL["turn:t1"]);
+    expect(p.posted.filter((m) => m.call === "fullText").length).toBe(asked);
+  });
+
+  it("joins an agent's reply lines into one card that opens to show them all", async () => {
+    const lines = [
+      {
+        ...EVENTS[1],
+        id: "turn:r1",
+        at: "2026-11-06T09:02:10.000Z",
+        summary: "Reading the routes",
+        more: false,
+      },
+      {
+        ...EVENTS[1],
+        id: "turn:r2",
+        at: "2026-11-06T09:02:20.000Z",
+        summary: "Adding the handler",
+        more: false,
+      },
+      {
+        ...EVENTS[1],
+        id: "turn:r3",
+        at: "2026-11-06T09:02:30.000Z",
+        summary: "Done: POST /refunds",
+        more: false,
+      },
+    ];
+    const p = await page({ events: [EVENTS[0], ...lines] });
+    const cards = [...p.$("content").querySelectorAll(".rail .ev")];
+    expect(cards.map((c) => c.dataset.key)).toEqual(["turn:r1", "turn:t1"]);
+    // Folded, it reads as its newest line, with how many more it holds.
+    expect(cards[0].querySelector(".sum").textContent).toBe("Done: POST /refunds");
+    expect(cards[0].textContent).toContain("+2 more");
+    cards[0].querySelector(".body").click();
+    await settle();
+    const open = p.$("content").querySelector('[data-key="turn:r1"] .full-in');
+    expect([...open.querySelectorAll("p")].map((x) => x.textContent)).toEqual([
+      "Reading the routes",
+      "Adding the handler",
+      "Done: POST /refunds",
+    ]);
   });
 
   it("loads older pages until the start of history", async () => {
@@ -134,10 +185,12 @@ describe("the Manager Board page", () => {
       at: new Date(Date.UTC(2026, 10, 6, 8, 0, n)).toISOString(),
     }));
     const p = await page({ events: many });
-    expect(p.$("content").querySelectorAll(".rail .ev")).toHaveLength(100);
+    // One agent's lines with no prompt between them: one card, holding all of them.
+    expect(p.$("content").querySelectorAll(".rail .ev")).toHaveLength(1);
+    expect(p.text()).toContain("+99 more");
     p.$("older").click();
     await settle();
-    expect(p.$("content").querySelectorAll(".rail .ev")).toHaveLength(130);
+    expect(p.text()).toContain("+129 more");
     expect(p.$("older")).toBeNull();
   });
 

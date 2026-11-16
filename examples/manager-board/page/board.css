@@ -14,6 +14,9 @@
  *
  * Modified 2026-11-15 (Tasks view): one row per task, with its state chip,
  *   meta line and last reply; headings per agent or project.
+ * Modified 2026-11-15 (cards open in place): a card that opens is
+ *   clickable, an open one shows its whole text (each line of a joined
+ *   reply with its time), and "+N more" marks a folded reply.
  * Modified 2026-11-15 (one pane only): Now cards are clickable, the chosen
  *   one outlined, and a chip says the board shows one pane.
  *
@@ -770,4 +773,44 @@ header h1 {
   background: var(--accent-soft);
   font-size: 12px;
   font-weight: 600;
+}
+
+/* ------------------------- Cards opening in place ---------------------- */
+.ev .body[role="button"] {
+  cursor: pointer;
+}
+.ev .body[role="button"]:hover {
+  border-color: var(--accent);
+}
+.ev .body[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.ev.open .body {
+  border-color: var(--accent);
+}
+.chip.more {
+  font-weight: 600;
+}
+.full-in {
+  display: grid;
+  gap: 6px;
+  max-block-size: 60vh;
+  overflow: auto;
+}
+.full-in .line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+.full-in .line time {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.full-in p {
+  grid-column: -2;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

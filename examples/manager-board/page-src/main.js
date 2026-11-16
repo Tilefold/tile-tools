@@ -24,6 +24,10 @@
  * Modified 2026-11-15 (Tasks view): a third view lists one row per task
  *   (tasks.js, tasksView.js), with its own sort and state choices, kept like
  *   the others; labels may hold `{count}` too.
+ * Modified 2026-11-15 (cards open in place): clicking a card opens it in
+ *   place with its whole text (asked for once with `fullText`, then kept),
+ *   and the Timeline joins an agent's reply lines into one card that opens
+ *   to show them all. Which cards are open isn't kept.
  * Modified 2026-11-15 (one pane only): clicking a Now card narrows every
  *   view to that pane (`onlyPane`), with a chip above the view to show every
  *   pane again; not kept, since panes come and go.
@@ -31,11 +35,12 @@
  * Last updated by: Tilefold
  */
 import { h } from "./dom.js";
-import { involving, merge, paneName, shown } from "./model.js";
+import { involving, merge, paneName, replies, shown } from "./model.js";
 import { lanesView, windowOf } from "./lanes.js";
 import { now as nowView, timeline } from "./views.js";
 import { TASK_SORTS, TASK_STATES, duration, shownTasks, sortTasks, tasksOf } from "./tasks.js";
 import { tasksView } from "./tasksView.js";
+import { createCards, onlyChip } from "./cards.js";
 
 /** How often a visible page asks for what's new, in ms. */
 export const POLL_MS = 6000;
@@ -78,6 +83,10 @@ const st = {
   started: false,
   /** The pane the board is narrowed to (its Now card clicked), or null. */
   onlyPane: null,
+  /** The cards open in place, by key. */
+  expanded: new Set(),
+  /** Whole texts already fetched, by event id. */
+  full: new Map(),
 };
 
 /* ------------------------------ The tile ------------------------------- */
@@ -216,6 +225,9 @@ function rescope(filter) {
   refresh(true);
 }
 
+/** Cards opening in place, and the whole texts they fetch. */
+const cards = createCards({ st, call, render: () => render() });
+
 /* ------------------------------ Drawing -------------------------------- */
 function scopeOptions() {
   const opts = [{ kind: "all", label: L("scope-all") }];
@@ -294,27 +306,6 @@ async function openFull(e) {
   $("full-title").textContent = `${timeOf(e.at)} · ${nameOf(e.pane)}`;
 }
 
-/** The chip that says the board shows one pane, with × to show every pane again. */
-function onlyChip() {
-  return h(
-    "div",
-    { class: "only-chip", role: "status" },
-    h("span", {}, L("only-pane", { name: nameOf(st.onlyPane) })),
-    h(
-      "button",
-      {
-        type: "button",
-        class: "icon",
-        id: "only-clear",
-        "aria-label": L("only-pane-clear"),
-        title: L("only-pane-clear"),
-        onclick: () => ((st.onlyPane = null), render()),
-      },
-      "×",
-    ),
-  );
-}
-
 function render() {
   if (!st.started) return;
   for (const b of document.querySelectorAll("[data-view]"))
@@ -342,6 +333,9 @@ function render() {
     whenOf,
     durationOf,
     onlyPane: st.onlyPane,
+    expanded: st.expanded,
+    onToggle: (e) => void cards.toggle(e),
+    textOf: cards.textOf,
     onPane: (pane) => {
       st.onlyPane = st.onlyPane === pane ? null : pane;
       st.picked = null;
@@ -362,12 +356,12 @@ function render() {
   } else if (st.kept.view === "lanes") {
     view = lanesView(list, ctx, windowOf(Date.now(), st.kept.windowMin));
   } else {
-    view = timeline(list, ctx, older$);
+    view = timeline(replies(list), ctx, older$);
   }
   $("content").replaceChildren(
     ...(st.error ? [h("p", { class: "error", role: "alert" }, L(st.error))] : []),
     nowView(st.events, ctx),
-    ...(st.onlyPane ? [onlyChip()] : []),
+    ...(st.onlyPane ? [onlyChip(st, L, nameOf, render)] : []),
     view,
   );
 }
