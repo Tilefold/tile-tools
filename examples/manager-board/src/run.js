@@ -7,7 +7,8 @@
  *
  * Opens the board's page docked beside the panes (a window of its own once
  * the user undocks it), sends it its text and the choices kept from last
- * time (the view, the scope, the kinds shown and the lanes' time window),
+ * time (the view, the scope, the kinds shown, the lanes' time window and
+ * the Tasks view's sort and state),
  * and keeps the ones it asks to. The page draws the board; the tile reads
  * the timeline for it: the page asks for one of tf.timeline's calls
  * (events, fullText, filters, now, export) and the tile answers with what
@@ -22,13 +23,21 @@
  *
  * Event handlers get half a second, so each one starts its work in the
  * background and returns at once.
+ *
+ * Modified 2026-11-15 (Tasks view): the views include `tasks`, and the
+ *   kept choices its sort and state (`taskSort`, `taskState`), each checked.
+ *
+ * Last updated by: Tilefold
  */
 import { pageLabels } from "./strings.js";
 
 /** The timeline calls the page may ask for. */
 export const CALLS = ["events", "fullText", "filters", "now", "export"];
 /** The views, the filter kinds, the event kinds and the lanes' time windows (minutes). */
-export const VIEWS = ["timeline", "lanes"];
+export const VIEWS = ["timeline", "lanes", "tasks"];
+/** The Tasks view's sorts and states, the first of each the default. */
+export const TASK_SORTS = ["newest", "oldest", "agent", "project", "longest"];
+export const TASK_STATES = ["all", "working", "waiting", "done"];
 export const FILTER_KINDS = ["all", "team", "project", "fold"];
 export const EVENT_KINDS = ["turn", "message", "ask", "nudge", "heartbeat", "run"];
 export const WINDOWS = [60, 120, 240];
@@ -54,6 +63,8 @@ export function checkKept(raw) {
     filter,
     kinds: kinds.length ? kinds : [...EVENT_KINDS],
     windowMin: WINDOWS.includes(k.windowMin) ? k.windowMin : 120,
+    taskSort: TASK_SORTS.includes(k.taskSort) ? k.taskSort : TASK_SORTS[0],
+    taskState: TASK_STATES.includes(k.taskState) ? k.taskState : TASK_STATES[0],
   };
 }
 

@@ -6,9 +6,14 @@
 
   The Manager Board's page: the header (the view switch, Export and Close),
   the scope, the kinds and a search, then Waiting on you, Now and the view
-  (Timeline or Lanes). Whole texts open in a sheet over the board. All text
+  (Timeline, Lanes or Tasks). Whole texts open in a sheet over the board. All text
   arrives from the tile in the user's language; main.js is built from
   page-src/.
+
+  Modified 2026-11-15 (Tasks view): a Tasks view button, and its sort and
+  state choices in the tools row.
+
+  Last updated by: Tilefold
 -->
 <html lang="en">
   <head>
@@ -26,6 +31,7 @@
         <div id="views" class="views" role="group">
           <button id="view-timeline" type="button" data-view="timeline"></button>
           <button id="view-lanes" type="button" data-view="lanes"></button>
+          <button id="view-tasks" type="button" data-view="tasks"></button>
         </div>
         <div class="menu-wrap">
           <button id="export" type="button" class="ghost"></button>
@@ -39,6 +45,19 @@
       <div class="tools">
         <select id="scope"></select>
         <div id="kinds" class="kinds" role="group"></div>
+        <select id="task-state" hidden>
+          <option value="all"></option>
+          <option value="working"></option>
+          <option value="waiting"></option>
+          <option value="done"></option>
+        </select>
+        <select id="task-sort" hidden>
+          <option value="newest"></option>
+          <option value="oldest"></option>
+          <option value="agent"></option>
+          <option value="project"></option>
+          <option value="longest"></option>
+        </select>
         <span class="spacer"></span>
         <select id="window" hidden>
           <option value="60"></option>

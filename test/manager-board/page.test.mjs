@@ -11,7 +11,13 @@
  * hello, draws Waiting on you, Now and the Timeline by hour once set up,
  * opens a whole text in its sheet, loads older pages, narrows by kind and
  * scope (keeping each choice), switches to Lanes and back, and exports
- * through the tile. Text from the timeline is never made into markup.
+ * through the tile. Text from the timeline is never made into markup. The
+ * Tasks view lists one row per task, filters by state, sorts with headings
+ * per agent, keeps both choices and opens a request or reply in full.
+ *
+ * Modified 2026-11-15 (Tasks view): tests for the Tasks view.
+ *
+ * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -173,6 +179,47 @@ describe("the Manager Board page", () => {
     expect(p.posted.filter((m) => m.type === "keep").at(-1).kept.view).toBe("lanes");
     p.$("view-timeline").click();
     expect(p.$("content").querySelector(".rail")).not.toBeNull();
+  });
+
+  it("lists tasks, filters and sorts them, and keeps both choices", async () => {
+    const p = await page();
+    p.$("view-tasks").click();
+    const rows = () => [...p.$("content").querySelectorAll(".task")].map((r) => r.dataset.task);
+    expect(rows()).toEqual(["message:m1", "turn:t1"]);
+    expect(p.$("kinds").hidden).toBe(true);
+    expect(p.$("task-sort").hidden).toBe(false);
+    expect(p.text()).toContain("Tasks: 2");
+    expect(p.text()).toContain("waiting on you: 1");
+    expect(p.text()).toContain("You asked 1 · lead");
+    expect(p.text()).toContain("1 · lead asked 2 · api");
+    expect(p.text()).toContain("No reply yet.");
+    // Only the tasks waiting on you.
+    p.$("task-state").value = "waiting";
+    p.$("task-state").dispatchEvent(new p.w.Event("change"));
+    expect(rows()).toEqual(["message:m1"]);
+    // By agent, with a heading for each.
+    p.$("task-state").value = "all";
+    p.$("task-state").dispatchEvent(new p.w.Event("change"));
+    p.$("task-sort").value = "agent";
+    p.$("task-sort").dispatchEvent(new p.w.Event("change"));
+    const heads = [...p.$("content").querySelectorAll(".task-group h3")].map((x) => x.textContent);
+    expect(heads).toEqual(["claude", "codex"]);
+    expect(rows()).toEqual(["turn:t1", "message:m1"]);
+    const kept = p.posted.filter((m) => m.type === "keep").at(-1).kept;
+    expect(kept).toMatchObject({ view: "tasks", taskSort: "agent", taskState: "all" });
+    // A search narrows the tasks too.
+    p.$("search").value = "codex";
+    p.$("search").dispatchEvent(new p.w.Event("input"));
+    expect(rows()).toEqual(["message:m1"]);
+  });
+
+  it("opens a task's request in full", async () => {
+    const p = await page({ kept: { view: "tasks" } });
+    const row = p.$("content").querySelector('[data-task="turn:t1"]');
+    row.querySelector(".task-links .link").click();
+    await settle();
+    expect(p.$("sheet").hidden).toBe(false);
+    expect(p.$("full-text").textContent).toBe("Add refunds.\nSplit it up.");
   });
 
   it("exports through the tile", async () => {
