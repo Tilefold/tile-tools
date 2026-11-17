@@ -31,6 +31,9 @@
  * Modified 2026-11-15 (cards open in place): `replies` joins an agent's
  *   short reply lines into one card, which opens to show them all.
  *
+ * Modified 2026-11-16 (relay color): a message between agents has the
+ *   tone `relay` (a question `relay question`), apart from agents' replies.
+ *
  * Last updated by: Tilefold
  */
 
@@ -156,9 +159,11 @@ export function headline(e, panes, L) {
       const key =
         { question: "h-question", answer: "h-answer", report: "h-report" }[d.kind] || "h-message";
       const from = e.who === "schedule" ? L("who-schedules") : pane;
+      // A message relayed between agents has a color of its own; a question
+      // to another agent keeps the question's mark on top of it.
       return {
         text: L(key, { from, to: name(e.to) }),
-        tone: d.kind === "question" ? "question" : "agent",
+        tone: d.kind === "question" ? "relay question" : "relay",
       };
     }
     case "ask": {

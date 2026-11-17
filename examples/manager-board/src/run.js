@@ -27,6 +27,9 @@
  * Modified 2026-11-15 (Tasks view): the views include `tasks`, and the
  *   kept choices its sort and state (`taskSort`, `taskState`), each checked.
  *
+ * Modified 2026-11-16 (Now modes): the kept choices hold how Now shows
+ *   the agent panes (`nowMode`) and whether it is folded (`nowFolded`).
+ *
  * Last updated by: Tilefold
  */
 import { pageLabels } from "./strings.js";
@@ -41,6 +44,8 @@ export const TASK_STATES = ["all", "working", "waiting", "done"];
 export const FILTER_KINDS = ["all", "team", "project", "fold"];
 export const EVENT_KINDS = ["turn", "message", "ask", "nudge", "heartbeat", "run"];
 export const WINDOWS = [60, 120, 240];
+/** The ways Now shows the agent panes, the first the default. */
+export const NOW_MODES = ["cards", "compact", "flow"];
 
 /** Store key for the kept choices. */
 const KEPT = "kept";
@@ -65,6 +70,8 @@ export function checkKept(raw) {
     windowMin: WINDOWS.includes(k.windowMin) ? k.windowMin : 120,
     taskSort: TASK_SORTS.includes(k.taskSort) ? k.taskSort : TASK_SORTS[0],
     taskState: TASK_STATES.includes(k.taskState) ? k.taskState : TASK_STATES[0],
+    nowMode: NOW_MODES.includes(k.nowMode) ? k.nowMode : NOW_MODES[0],
+    nowFolded: k.nowFolded === true,
   };
 }
 

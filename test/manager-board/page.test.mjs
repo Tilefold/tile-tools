@@ -15,7 +15,9 @@
  * Tasks view lists one row per task, filters by state, sorts with headings
  * per agent, keeps both choices and opens a request or reply in full.
  * Clicking a Now card narrows every view to that pane until it's clicked
- * again or the chip's × is pressed.
+ * again or the chip's × is pressed. Messages between agents get the relay
+ * color; Now folds from its heading and shows the panes as cards, compact
+ * chips or a flow diagram, each choice kept.
  *
  * Modified 2026-11-15 (Tasks view): tests for the Tasks view.
  * Modified 2026-11-15 (one pane only): tests for narrowing to one pane.
@@ -24,6 +26,9 @@
  * Modified 2026-11-15 (cards open in place): a card opens in place with
  *   its whole text instead of the sheet, and an agent's reply lines join
  *   into one card.
+ *
+ * Modified 2026-11-16 (Now modes): tests for the relay color, folding Now
+ *   and its Compact and Flow modes.
  *
  * Last updated by: Tilefold
  */
@@ -358,5 +363,56 @@ describe("the Manager Board page", () => {
     expect(p.$("content").querySelector("img")).toBeNull();
     expect(p.text()).toContain('<img src=x onerror="window.hacked=1">');
     expect(p.w.hacked).toBeUndefined();
+  });
+
+  it("gives messages between agents the relay color", async () => {
+    const p = await page();
+    const tone = (id) => p.$("content").querySelector(`.rail [data-id="${id}"]`).className;
+    expect(tone("message:m1")).toContain("relay");
+    expect(tone("message:m2")).toContain("relay question");
+    expect(tone("turn:t2")).not.toContain("relay");
+  });
+
+  it("folds Now from its heading, saying how many are open, kept", async () => {
+    const p = await page();
+    const fold = () => p.$("content").querySelector(".now-fold");
+    expect(fold().getAttribute("aria-expanded")).toBe("true");
+    expect(fold().textContent).toContain("2 open");
+    fold().click();
+    expect(fold().getAttribute("aria-expanded")).toBe("false");
+    expect(p.$("content").querySelectorAll(".pane")).toHaveLength(0);
+    expect(p.$("content").querySelector(".now-modes")).toBeNull();
+    expect(p.posted.filter((m) => m.type === "keep").at(-1).kept.nowFolded).toBe(true);
+    fold().click();
+    expect(p.$("content").querySelectorAll(".pane")).toHaveLength(2);
+  });
+
+  it("shows the panes as compact chips or a flow diagram, kept, each narrowing on a click", async () => {
+    const p = await page();
+    const mode = (m) => p.$("content").querySelector(`[data-now-mode="${m}"]`);
+    mode("compact").click();
+    expect(mode("compact").getAttribute("aria-pressed")).toBe("true");
+    const chips = [...p.$("content").querySelectorAll(".pane-chip")];
+    expect(chips.map((c) => c.textContent)).toEqual(["1 · lead★", "2 · api"]);
+    expect(p.posted.filter((m) => m.type === "keep").at(-1).kept.nowMode).toBe("compact");
+    mode("flow").click();
+    const svg = p.$("content").querySelector(".flow svg");
+    expect(svg).not.toBeNull();
+    expect(svg.querySelectorAll(".node")).toHaveLength(2);
+    // The two messages between lead and api, one a question (dashed).
+    expect(svg.querySelectorAll(".edge")).toHaveLength(2);
+    expect(svg.querySelectorAll(".edge.question")).toHaveLength(1);
+    expect(svg.querySelector(".edge title").textContent).toMatch(/→/);
+    svg
+      .querySelector('.node[data-pane$="api"], .node:last-of-type')
+      .dispatchEvent(new p.w.MouseEvent("click", { bubbles: true }));
+    expect(p.$("content").querySelector(".flow .node.only")).not.toBeNull();
+  });
+
+  it("starts in the kept mode, folded or not", async () => {
+    const p = await page({ kept: { nowMode: "compact", nowFolded: false } });
+    expect(p.$("content").querySelectorAll(".pane-chip")).toHaveLength(2);
+    const q = await page({ kept: { nowFolded: true } });
+    expect(q.$("content").querySelector(".now-fold").getAttribute("aria-expanded")).toBe("false");
   });
 });

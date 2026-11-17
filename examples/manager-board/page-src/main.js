@@ -32,12 +32,18 @@
  *   view to that pane (`onlyPane`), with a chip above the view to show every
  *   pane again; not kept, since panes come and go.
  *
+ * Modified 2026-11-16 (Now modes): Now folds and unfolds from its heading
+ *   and shows the agent panes as cards, compact chips or a flow diagram of
+ *   their messages (now.js, flow.js); both choices are kept (`nowMode`,
+ *   `nowFolded`).
+ *
  * Last updated by: Tilefold
  */
 import { h } from "./dom.js";
 import { involving, merge, paneName, replies, shown } from "./model.js";
 import { lanesView, windowOf } from "./lanes.js";
-import { now as nowView, timeline } from "./views.js";
+import { timeline } from "./views.js";
+import { NOW_MODES, now as nowView } from "./now.js";
 import { TASK_SORTS, TASK_STATES, duration, shownTasks, sortTasks, tasksOf } from "./tasks.js";
 import { tasksView } from "./tasksView.js";
 import { createCards, onlyChip } from "./cards.js";
@@ -70,6 +76,8 @@ const st = {
     windowMin: 120,
     taskSort: TASK_SORTS[0],
     taskState: TASK_STATES[0],
+    nowMode: NOW_MODES[0],
+    nowFolded: false,
   },
   events: [],
   next: null,
@@ -339,6 +347,19 @@ function render() {
     onPane: (pane) => {
       st.onlyPane = st.onlyPane === pane ? null : pane;
       st.picked = null;
+      render();
+    },
+    nowMode: st.kept.nowMode,
+    nowFolded: st.kept.nowFolded,
+    onNowMode: (mode) => {
+      if (!NOW_MODES.includes(mode) || mode === st.kept.nowMode) return;
+      st.kept.nowMode = mode;
+      keep();
+      render();
+    },
+    onNowFold: (folded) => {
+      st.kept.nowFolded = !!folded;
+      keep();
       render();
     },
   };

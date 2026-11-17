@@ -78,6 +78,15 @@ var PAGE_KEYS = [
   "export-json",
   "now-title",
   "now-none",
+  "now-count",
+  "now-mode-label",
+  "now-mode-cards",
+  "now-mode-compact",
+  "now-mode-flow",
+  "flow-label",
+  "flow-edge",
+  "flow-legend",
+  "flow-none",
   "only-pane",
   "only-pane-pick",
   "only-pane-clear",
@@ -160,6 +169,7 @@ var TASK_STATES = ["all", "working", "waiting", "done"];
 var FILTER_KINDS = ["all", "team", "project", "fold"];
 var EVENT_KINDS = ["turn", "message", "ask", "nudge", "heartbeat", "run"];
 var WINDOWS = [60, 120, 240];
+var NOW_MODES = ["cards", "compact", "flow"];
 var KEPT = "kept";
 function checkKept(raw) {
   const k = raw && typeof raw === "object" ? raw : {};
@@ -172,7 +182,9 @@ function checkKept(raw) {
     kinds: kinds.length ? kinds : [...EVENT_KINDS],
     windowMin: WINDOWS.includes(k.windowMin) ? k.windowMin : 120,
     taskSort: TASK_SORTS.includes(k.taskSort) ? k.taskSort : TASK_SORTS[0],
-    taskState: TASK_STATES.includes(k.taskState) ? k.taskState : TASK_STATES[0]
+    taskState: TASK_STATES.includes(k.taskState) ? k.taskState : TASK_STATES[0],
+    nowMode: NOW_MODES.includes(k.nowMode) ? k.nowMode : NOW_MODES[0],
+    nowFolded: k.nowFolded === true
   };
 }
 function reasonOf(err) {

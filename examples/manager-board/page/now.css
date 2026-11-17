@@ -1,0 +1,225 @@
+/*
+ * Copyright (c) 2026 Tilefold
+ * Author: Tilefold
+ * Released under the MIT License.
+ *
+ * Manager Board page — relayed messages, the Now heading and its modes
+ *
+ * Messages relayed between agents get a color of their own (--relay) in
+ * the Timeline and Lanes, apart from agents' replies; a question keeps its
+ * warning mark. Now has a heading that folds it, with a count and the mode
+ * switch (Cards, Compact, Flow). Compact draws each agent pane as a small
+ * chip in its state's color; Flow draws them as a diagram, with arrows for
+ * the messages between them, dashed for questions.
+ */
+
+:root {
+  --relay: #0f8a83;
+  --relay-soft: #d8f2ef;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --relay: #3cc7bd;
+    --relay-soft: #173a38;
+  }
+}
+
+/* ---------------------------- Relayed messages ---------------------------- */
+.ev.relay .dot {
+  background: var(--relay-soft);
+  color: var(--relay);
+  border-color: var(--relay);
+}
+.ev.relay .body {
+  border-inline-start: 3px solid var(--relay);
+}
+.ev.relay .who {
+  color: var(--relay);
+}
+/* A question between agents keeps its warning mark. */
+.ev.relay.question .dot {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+.pin.relay {
+  background: var(--relay);
+  border-color: var(--relay);
+}
+
+/* ------------------------------- Now heading ------------------------------ */
+.now-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.now-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.now-fold:hover {
+  background: var(--hover);
+}
+.now-fold:focus-visible,
+.now-modes button:focus-visible,
+.pane-chip:focus-visible,
+.flow .node:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.now-fold .chev {
+  display: inline-block;
+  inline-size: 14px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.now-fold[aria-expanded="false"] .chev {
+  transform: rotate(-90deg);
+}
+[dir="rtl"] .now-fold[aria-expanded="false"] .chev {
+  transform: rotate(90deg);
+}
+.now-fold .count {
+  font-size: 11px;
+  color: var(--muted);
+}
+.now-modes {
+  display: inline-flex;
+  margin-inline-start: auto;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.now-modes button {
+  padding: 2px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg2);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.now-modes button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --------------------------------- Compact -------------------------------- */
+.now.compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.pane-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-inline-size: 180px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--raised);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.pane-chip:hover {
+  background: var(--hover);
+}
+.pane-chip .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pane-chip.asking {
+  border-color: var(--warning);
+}
+.pane-chip.only {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.pane-chip .crown {
+  color: var(--accent);
+  font-size: 10px;
+}
+
+/* ---------------------------------- Flow ---------------------------------- */
+.now.flow {
+  display: block;
+}
+.flow svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  overflow: visible;
+}
+.flow .edge {
+  stroke: var(--relay);
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+.flow .edge.question {
+  stroke-dasharray: 5 4;
+}
+.flow .head {
+  fill: var(--relay);
+}
+.flow .node {
+  cursor: pointer;
+}
+.flow .node rect {
+  fill: var(--raised);
+  stroke: var(--line2);
+  stroke-width: 1;
+}
+.flow .node:hover rect {
+  fill: var(--hover);
+}
+.flow .node.manager rect {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.flow .node.asking rect {
+  stroke: var(--warning);
+}
+.flow .node.only rect {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.flow .node .state {
+  fill: var(--muted);
+}
+.flow .node.busy .state {
+  fill: var(--info);
+}
+.flow .node.asking .state {
+  fill: var(--warning);
+}
+.flow .node .name {
+  fill: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+.flow .node .agent {
+  fill: var(--muted);
+  font-size: 10.5px;
+}
+.flow-legend {
+  margin: 4px 0 0;
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .now-fold .chev {
+    transition: none;
+  }
+}
