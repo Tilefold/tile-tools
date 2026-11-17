@@ -32,6 +32,11 @@
  *   view to that pane (`onlyPane`), with a chip above the view to show every
  *   pane again; not kept, since panes come and go.
  *
+ * Modified 2026-11-16 (Now modes): Now folds and unfolds from its heading
+ *   and shows the agent panes as cards, compact chips or a flow diagram of
+ *   their messages (now.js, flow.js); both choices are kept (`nowMode`,
+ *   `nowFolded`).
+ *
  * Last updated by: Tilefold
  */
 // Built by @tilefold/tile-tools from page-src/main.js. Edit the sources, then rebuild.
@@ -45,6 +50,20 @@
       else if (k === "class") el.className = String(v);
       else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
       else el.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const c of children.flat()) {
+      if (c === null || c === void 0 || c === false) continue;
+      el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  function svg(tag, attrs = {}, ...children) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === null || v === void 0 || v === false) continue;
+      if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, String(v));
     }
     for (const c of children.flat()) {
       if (c === null || c === void 0 || c === false) continue;
@@ -136,7 +155,7 @@
         const from = e.who === "schedule" ? L2("who-schedules") : pane;
         return {
           text: L2(key, { from, to: name(e.to) }),
-          tone: d.kind === "question" ? "question" : "agent"
+          tone: d.kind === "question" ? "relay question" : "relay"
         };
       }
       case "ask": {
@@ -254,13 +273,6 @@
   }
 
   // page-src/views.js
-  var STATE_KEY = {
-    ready: "state-ready",
-    idle: "state-idle",
-    busy: "state-busy",
-    asking: "state-asking"
-  };
-  var lastOf = (list, pane) => list.find((e) => e.pane === pane);
   var MAX_SHOWN_ACTIONS = 20;
   function actionsOf(e) {
     const list = e && e.detail && Array.isArray(e.detail.actions) ? e.detail.actions : [];
@@ -346,73 +358,6 @@
       )
     );
   }
-  function now(list, ctx) {
-    const wait = waiting(ctx.panes, list, ctx.L);
-    const box = h("div", { class: "now-wrap" });
-    if (wait.length) {
-      box.append(
-        h(
-          "div",
-          { class: "wait", role: "note" },
-          h("b", {}, ctx.L("waiting-title")),
-          h(
-            "ul",
-            {},
-            wait.map(
-              (w) => h(
-                "li",
-                {},
-                h("span", {}, w.text),
-                w.summary && h("span", { class: "muted" }, `: ${w.summary}`)
-              )
-            )
-          )
-        )
-      );
-    }
-    const cards2 = ctx.panes.map(
-      (p) => h(
-        "div",
-        {
-          class: `pane ${p.state}${ctx.onlyPane === p.pane ? " only" : ""}`,
-          role: "button",
-          tabindex: "0",
-          "data-pane": p.pane,
-          "aria-pressed": String(ctx.onlyPane === p.pane),
-          title: ctx.L(ctx.onlyPane === p.pane ? "only-pane-clear" : "only-pane-pick"),
-          onclick: () => ctx.onPane(p.pane),
-          onkeydown: (e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            ctx.onPane(p.pane);
-          }
-        },
-        h(
-          "div",
-          { class: "row" },
-          h("span", { class: "state", "aria-hidden": "true" }),
-          h("b", {}, p.name || p.pane.slice(-4)),
-          p.role === "manager" && h("span", { class: "chip" }, ctx.L("role-manager")),
-          h("span", { class: "spacer" }),
-          h("span", { class: "muted agent" }, p.agent)
-        ),
-        h(
-          "span",
-          { class: "doing" },
-          h("b", {}, ctx.L(STATE_KEY[p.state] || "state-idle")),
-          lastOf(list, p.pane) && ` \xB7 ${lastOf(list, p.pane).summary}`
-        )
-      )
-    );
-    box.append(
-      h(
-        "section",
-        { class: "now", "aria-label": ctx.L("now-title") },
-        cards2.length ? cards2 : h("span", { class: "muted" }, ctx.L("now-none"))
-      )
-    );
-    return box;
-  }
   function empty(ctx) {
     return h(
       "div",
@@ -452,8 +397,8 @@
   function lanesView(list, ctx, win) {
     const inWindow = list.filter((e) => e.at >= win.from && e.at <= win.to);
     if (!inWindow.length) return empty(ctx);
-    const rows = lanes(inWindow, ctx.panes);
-    const index = new Map(rows.map((r, i) => [r.id, i]));
+    const rows2 = lanes(inWindow, ctx.panes);
+    const index = new Map(rows2.map((r, i) => [r.id, i]));
     const pct = (at) => `${(place(at, win.from, win.to) * 100).toFixed(2)}%`;
     const label = (id) => id === "you" ? ctx.L("who-you") : id === "tilefold" ? ctx.L("who-tilefold") : id === "schedule" ? ctx.L("who-schedules") : paneName(id, ctx.panes, ctx.L);
     const ticks = [];
@@ -516,11 +461,298 @@
           "div",
           { class: "lanes" },
           h("div", { class: "axis" }, h("div"), h("div", { class: "ticks" }, ticks)),
-          h("div", { class: "grid" }, rows.map(lane), h("div", { class: "links" }, links))
+          h("div", { class: "grid" }, rows2.map(lane), h("div", { class: "links" }, links))
         )
       ),
       h("div", { class: "picked" }, h("h3", {}, ctx.L("picked-event")), card(picked, ctx))
     );
+  }
+
+  // page-src/flow.js
+  var FLOW_W = 640;
+  var ROW_H = 92;
+  var NODE_W = 120;
+  var NODE_H = 40;
+  var PER_ROW = 5;
+  var MAX_STROKE = 4;
+  function linkOf(e) {
+    if (e.kind !== "message" || typeof e.pane !== "string" || typeof e.to !== "string") return null;
+    if (e.pane === e.to) return null;
+    const q = !!(e.detail && typeof e.detail === "object" && e.detail.kind === "question");
+    return { from: e.pane, to: e.to, question: q };
+  }
+  function rows(items, top) {
+    const out = [];
+    items.forEach((item, i) => {
+      const row = Math.floor(i / PER_ROW);
+      const inRow = Math.min(PER_ROW, items.length - row * PER_ROW);
+      const gap = FLOW_W / inRow;
+      const col = i % PER_ROW;
+      out.push({ ...item, x: gap * col + gap / 2, y: top + row * ROW_H + NODE_H / 2 });
+    });
+    return out;
+  }
+  function flowOf(events, panes) {
+    const open = panes.filter((p) => p && typeof p.pane === "string");
+    const managers = open.filter((p) => p.role === "manager");
+    const others = open.filter((p) => p.role !== "manager");
+    const top = 12;
+    const placed = managers.length ? [...rows(managers, top), ...rows(others, top + Math.ceil(managers.length / PER_ROW) * ROW_H)] : rows(others, top);
+    const at = new Map(placed.map((n) => [n.pane, n]));
+    const edges = /* @__PURE__ */ new Map();
+    for (const e of events) {
+      const link = linkOf(e);
+      if (!link || !at.has(link.from) || !at.has(link.to)) continue;
+      const key = `${link.from}\0${link.to}`;
+      const edge = edges.get(key) || { from: link.from, to: link.to, count: 0, question: false };
+      edge.count += 1;
+      edge.question = edge.question || link.question;
+      edges.set(key, edge);
+    }
+    const bottom = placed.reduce((m, n) => Math.max(m, n.y + NODE_H / 2), 0);
+    return { nodes: placed, edges: [...edges.values()], height: Math.max(bottom + 12, ROW_H) };
+  }
+  function ends(a, b, twoWay) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const flip = a.pane > b.pane ? -1 : 1;
+    const cx = dx * flip;
+    const cy = dy * flip;
+    const len = Math.hypot(cx, cy) || 1;
+    const off = twoWay ? 6 * flip : 0;
+    const nx = -cy / len * off;
+    const ny = cx / len * off;
+    const tx = dx ? NODE_W / 2 / Math.abs(dx) : Infinity;
+    const ty = dy ? NODE_H / 2 / Math.abs(dy) : Infinity;
+    const t = Math.min(tx, ty, 0.45) + 0.03;
+    return {
+      x1: a.x + dx * t + nx,
+      y1: a.y + dy * t + ny,
+      x2: b.x - dx * t + nx,
+      y2: b.y - dy * t + ny
+    };
+  }
+  var short = (s, n = 16) => s.length > n ? `${s.slice(0, n - 1)}\u2026` : s;
+  function flowView(events, ctx) {
+    const flow = flowOf(events, ctx.panes);
+    if (!flow.nodes.length) return h("span", { class: "muted" }, ctx.L("now-none"));
+    const most = flow.edges.reduce((m, e) => Math.max(m, e.count), 1);
+    const at = new Map(flow.nodes.map((n) => [n.pane, n]));
+    const twoWay = new Set(flow.edges.map((e) => `${e.from}\0${e.to}`));
+    const arrows = flow.edges.map((e) => {
+      const a = at.get(e.from);
+      const b = at.get(e.to);
+      const p = ends(a, b, twoWay.has(`${e.to}\0${e.from}`));
+      const width = 1.5 + (MAX_STROKE - 1.5) * (e.count - 1) / Math.max(1, most - 1);
+      return svg(
+        "line",
+        {
+          class: `edge${e.question ? " question" : ""}`,
+          ...p,
+          "stroke-width": width.toFixed(2),
+          "marker-end": "url(#flow-arrow)"
+        },
+        svg("title", {}, ctx.L("flow-edge", { from: a.name, to: b.name, count: e.count }))
+      );
+    });
+    const nodes = flow.nodes.map(
+      (n) => svg(
+        "g",
+        {
+          class: `node ${n.state || "idle"}${n.role === "manager" ? " manager" : ""}${ctx.onlyPane === n.pane ? " only" : ""}`,
+          transform: `translate(${(n.x - NODE_W / 2).toFixed(1)} ${(n.y - NODE_H / 2).toFixed(1)})`,
+          tabindex: "0",
+          role: "button",
+          "aria-pressed": String(ctx.onlyPane === n.pane),
+          "aria-label": n.name,
+          "data-pane": n.pane,
+          onclick: () => ctx.onPane(n.pane),
+          onkeydown: (ev) => {
+            if (ev.key !== "Enter" && ev.key !== " ") return;
+            ev.preventDefault();
+            ctx.onPane(n.pane);
+          }
+        },
+        svg("rect", { width: NODE_W, height: NODE_H, rx: 9 }),
+        svg("circle", { class: "state", cx: 14, cy: NODE_H / 2, r: 4.5 }),
+        svg("text", { x: 26, y: 17, class: "name" }, short(n.name)),
+        svg("text", { x: 26, y: 31, class: "agent" }, short(n.agent || "", 18))
+      )
+    );
+    return h(
+      "div",
+      { class: "flow" },
+      svg(
+        "svg",
+        {
+          viewBox: `0 0 ${FLOW_W} ${flow.height}`,
+          role: "img",
+          "aria-label": ctx.L("flow-label", { count: flow.edges.length })
+        },
+        svg(
+          "defs",
+          {},
+          svg(
+            "marker",
+            {
+              id: "flow-arrow",
+              viewBox: "0 0 10 10",
+              refX: "8",
+              refY: "5",
+              // A fixed size, however thick the arrow.
+              markerUnits: "userSpaceOnUse",
+              markerWidth: "10",
+              markerHeight: "10",
+              orient: "auto-start-reverse"
+            },
+            svg("path", { d: "M0 0 L10 5 L0 10 z", class: "head" })
+          )
+        ),
+        arrows,
+        nodes
+      ),
+      h(
+        "p",
+        { class: "flow-legend muted" },
+        flow.edges.length ? ctx.L("flow-legend") : ctx.L("flow-none")
+      )
+    );
+  }
+
+  // page-src/now.js
+  var NOW_MODES = ["cards", "compact", "flow"];
+  var STATE_KEY = {
+    ready: "state-ready",
+    idle: "state-idle",
+    busy: "state-busy",
+    asking: "state-asking"
+  };
+  var lastOf = (list, pane) => list.find((e) => e.pane === pane);
+  function picks(p, ctx) {
+    return {
+      role: "button",
+      tabindex: "0",
+      "data-pane": p.pane,
+      "aria-pressed": String(ctx.onlyPane === p.pane),
+      title: ctx.L(ctx.onlyPane === p.pane ? "only-pane-clear" : "only-pane-pick"),
+      onclick: () => ctx.onPane(p.pane),
+      onkeydown: (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        ctx.onPane(p.pane);
+      }
+    };
+  }
+  function paneCard(p, list, ctx) {
+    const last = lastOf(list, p.pane);
+    return h(
+      "div",
+      { class: `pane ${p.state}${ctx.onlyPane === p.pane ? " only" : ""}`, ...picks(p, ctx) },
+      h(
+        "div",
+        { class: "row" },
+        h("span", { class: "state", "aria-hidden": "true" }),
+        h("b", {}, p.name || p.pane.slice(-4)),
+        p.role === "manager" && h("span", { class: "chip" }, ctx.L("role-manager")),
+        h("span", { class: "spacer" }),
+        h("span", { class: "muted agent" }, p.agent)
+      ),
+      h(
+        "span",
+        { class: "doing" },
+        h("b", {}, ctx.L(STATE_KEY[p.state] || "state-idle")),
+        last && ` \xB7 ${last.summary}`
+      )
+    );
+  }
+  function paneChip(p, ctx) {
+    const name = p.name || p.pane.slice(-4);
+    const state = ctx.L(STATE_KEY[p.state] || "state-idle");
+    return h(
+      "div",
+      {
+        class: `pane-chip ${p.state}${ctx.onlyPane === p.pane ? " only" : ""}${p.role === "manager" ? " manager" : ""}`,
+        ...picks(p, ctx),
+        title: `${name} \xB7 ${p.agent || ""} \xB7 ${state}`
+      },
+      h("span", { class: "state", "aria-hidden": "true" }),
+      h("span", { class: "name" }, name),
+      p.role === "manager" && h("span", { class: "crown", "aria-hidden": "true" }, "\u2605")
+    );
+  }
+  function nowHead(ctx) {
+    const count = ctx.panes.length;
+    return h(
+      "div",
+      { class: "now-head" },
+      h(
+        "button",
+        {
+          type: "button",
+          class: "now-fold",
+          "aria-expanded": String(!ctx.nowFolded),
+          "aria-controls": "now-panes",
+          onclick: () => ctx.onNowFold(!ctx.nowFolded)
+        },
+        h("span", { class: "chev", "aria-hidden": "true" }, "\u25BE"),
+        h("b", {}, ctx.L("now-title")),
+        h("span", { class: "count" }, ctx.L("now-count", { count }))
+      ),
+      !ctx.nowFolded && h(
+        "div",
+        { class: "now-modes", role: "group", "aria-label": ctx.L("now-mode-label") },
+        NOW_MODES.map(
+          (m) => h(
+            "button",
+            {
+              type: "button",
+              "data-now-mode": m,
+              "aria-pressed": String(ctx.nowMode === m),
+              onclick: () => ctx.onNowMode(m)
+            },
+            ctx.L(`now-mode-${m}`)
+          )
+        )
+      )
+    );
+  }
+  function now(list, ctx) {
+    const wait = waiting(ctx.panes, list, ctx.L);
+    const box = h("div", { class: "now-wrap" });
+    if (wait.length) {
+      box.append(
+        h(
+          "div",
+          { class: "wait", role: "note" },
+          h("b", {}, ctx.L("waiting-title")),
+          h(
+            "ul",
+            {},
+            wait.map(
+              (w) => h(
+                "li",
+                {},
+                h("span", {}, w.text),
+                w.summary && h("span", { class: "muted" }, `: ${w.summary}`)
+              )
+            )
+          )
+        )
+      );
+    }
+    box.append(nowHead(ctx));
+    if (ctx.nowFolded) return box;
+    const mode = NOW_MODES.includes(ctx.nowMode) ? ctx.nowMode : NOW_MODES[0];
+    const none = h("span", { class: "muted" }, ctx.L("now-none"));
+    let body;
+    if (mode === "flow") body = flowView(list, ctx);
+    else if (mode === "compact")
+      body = ctx.panes.length ? ctx.panes.map((p) => paneChip(p, ctx)) : none;
+    else body = ctx.panes.length ? ctx.panes.map((p) => paneCard(p, list, ctx)) : none;
+    box.append(
+      h("section", { class: `now ${mode}`, id: "now-panes", "aria-label": ctx.L("now-title") }, body)
+    );
+    return box;
   }
 
   // page-src/tasks.js
@@ -791,7 +1023,9 @@
       kinds: [...KINDS],
       windowMin: 120,
       taskSort: TASK_SORTS[0],
-      taskState: TASK_STATES[0]
+      taskState: TASK_STATES[0],
+      nowMode: NOW_MODES[0],
+      nowFolded: false
     },
     events: [],
     next: null,
@@ -1017,6 +1251,19 @@
       onPane: (pane) => {
         st.onlyPane = st.onlyPane === pane ? null : pane;
         st.picked = null;
+        render();
+      },
+      nowMode: st.kept.nowMode,
+      nowFolded: st.kept.nowFolded,
+      onNowMode: (mode) => {
+        if (!NOW_MODES.includes(mode) || mode === st.kept.nowMode) return;
+        st.kept.nowMode = mode;
+        keep();
+        render();
+      },
+      onNowFold: (folded) => {
+        st.kept.nowFolded = !!folded;
+        keep();
         render();
       }
     };

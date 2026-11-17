@@ -16,6 +16,9 @@
  * Modified 2026-11-15 (cards open in place): opening and folding a card,
  *   and how many more lines a folded reply holds.
  *
+ * Modified 2026-11-16 (Now modes): the Now heading, its modes and the
+ *   flow diagram's labels.
+ *
  * Last updated by: Tilefold
  */
 
@@ -76,6 +79,15 @@ export const PAGE_KEYS = [
   "export-json",
   "now-title",
   "now-none",
+  "now-count",
+  "now-mode-label",
+  "now-mode-cards",
+  "now-mode-compact",
+  "now-mode-flow",
+  "flow-label",
+  "flow-edge",
+  "flow-legend",
+  "flow-none",
   "only-pane",
   "only-pane-pick",
   "only-pane-clear",

@@ -20,6 +20,9 @@
  * Modified 2026-11-15 (one pane only): tests for `involving`.
  * Modified 2026-11-15 (cards open in place): tests for `replies`.
  *
+ * Modified 2026-11-16 (relay color): messages between agents have the
+ *   tone `relay`.
+ *
  * Last updated by: Tilefold
  */
 import { readFileSync } from "node:fs";
@@ -99,8 +102,15 @@ describe("the model", () => {
     expect(head("turn:t1")).toEqual({ text: "You to 1 · lead", tone: "you" });
     expect(head("turn:t2")).toEqual({ text: "1 · lead replied", tone: "agent" });
     expect(head("ask:r1").text).toBe("1 · lead asked to open a pane");
-    expect(head("message:m1").text).toBe("1 · lead sent a message to 2 · api");
-    expect(head("message:m2")).toEqual({ text: "2 · api asked 1 · lead", tone: "question" });
+    // Messages relayed between agents have a tone of their own; a question keeps its mark.
+    expect(head("message:m1")).toEqual({
+      text: "1 · lead sent a message to 2 · api",
+      tone: "relay",
+    });
+    expect(head("message:m2")).toEqual({
+      text: "2 · api asked 1 · lead",
+      tone: "relay question",
+    });
     expect(head("nudge:w1").text).toBe("A heartbeat nudged 2 · api");
     expect(head("heartbeat:h1").text).toBe("The heartbeat on 2 · api ended");
     expect(head("run:n1")).toEqual({ text: "Schedule “Nightly”", tone: "warn" });

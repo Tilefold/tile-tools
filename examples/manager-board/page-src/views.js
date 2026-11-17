@@ -3,7 +3,7 @@
  * Author: Tilefold
  * Released under the MIT License.
  *
- * Manager Board page — the Now strip, Waiting on you and the Timeline
+ * Manager Board page — the Timeline
  *
  * `ctx` carries what every view needs: `L` (labels), `panes` (open now),
  * `timeOf(at)` and `hourOf(at)` (in the user's time zone), `onFull(e)` (Show
@@ -23,20 +23,12 @@
  *   (or Enter or Space on it) narrows the board to that pane, and again
  *   shows every pane (`onlyPane`, `onPane(pane)` in `ctx`).
  *
+ * Modified 2026-11-16 (Now modes): Waiting on you and Now moved to now.js.
+ *
  * Last updated by: Tilefold
  */
 import { h, glyphOf } from "./dom.js";
-import { byHour, headline, statusOf, waiting } from "./model.js";
-
-const STATE_KEY = {
-  ready: "state-ready",
-  idle: "state-idle",
-  busy: "state-busy",
-  asking: "state-asking",
-};
-
-/** The newest event that happened in `pane` (the list is newest first). */
-const lastOf = (list, pane) => list.find((e) => e.pane === pane);
+import { byHour, headline, statusOf } from "./model.js";
 
 /** Most actions listed under one line (the rest are counted). */
 const MAX_SHOWN_ACTIONS = 20;
@@ -141,75 +133,6 @@ export function card(e, ctx) {
       open ? opened(e, ctx) : h("p", { class: "sum" }, e.summary),
     ),
   );
-}
-
-/** Waiting on you, then one card per open pane. */
-export function now(list, ctx) {
-  const wait = waiting(ctx.panes, list, ctx.L);
-  const box = h("div", { class: "now-wrap" });
-  if (wait.length) {
-    box.append(
-      h(
-        "div",
-        { class: "wait", role: "note" },
-        h("b", {}, ctx.L("waiting-title")),
-        h(
-          "ul",
-          {},
-          wait.map((w) =>
-            h(
-              "li",
-              {},
-              h("span", {}, w.text),
-              w.summary && h("span", { class: "muted" }, `: ${w.summary}`),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-  const cards = ctx.panes.map((p) =>
-    h(
-      "div",
-      {
-        class: `pane ${p.state}${ctx.onlyPane === p.pane ? " only" : ""}`,
-        role: "button",
-        tabindex: "0",
-        "data-pane": p.pane,
-        "aria-pressed": String(ctx.onlyPane === p.pane),
-        title: ctx.L(ctx.onlyPane === p.pane ? "only-pane-clear" : "only-pane-pick"),
-        onclick: () => ctx.onPane(p.pane),
-        onkeydown: (e) => {
-          if (e.key !== "Enter" && e.key !== " ") return;
-          e.preventDefault();
-          ctx.onPane(p.pane);
-        },
-      },
-      h(
-        "div",
-        { class: "row" },
-        h("span", { class: "state", "aria-hidden": "true" }),
-        h("b", {}, p.name || p.pane.slice(-4)),
-        p.role === "manager" && h("span", { class: "chip" }, ctx.L("role-manager")),
-        h("span", { class: "spacer" }),
-        h("span", { class: "muted agent" }, p.agent),
-      ),
-      h(
-        "span",
-        { class: "doing" },
-        h("b", {}, ctx.L(STATE_KEY[p.state] || "state-idle")),
-        lastOf(list, p.pane) && ` · ${lastOf(list, p.pane).summary}`,
-      ),
-    ),
-  );
-  box.append(
-    h(
-      "section",
-      { class: "now", "aria-label": ctx.L("now-title") },
-      cards.length ? cards : h("span", { class: "muted" }, ctx.L("now-none")),
-    ),
-  );
-  return box;
 }
 
 /** The empty view's message. */

@@ -18,6 +18,9 @@
  * Modified 2026-11-15 (Tasks view): the kept choices include the Tasks
  *   view, its sort and its state, each checked.
  *
+ * Modified 2026-11-16 (Now modes): the kept choices hold `nowMode` and
+ *   `nowFolded`, checked.
+ *
  * Last updated by: Tilefold
  */
 import { fileURLToPath } from "node:url";
@@ -75,6 +78,8 @@ describe("the Manager Board tile", () => {
       windowMin: 60,
       taskSort: "newest",
       taskState: "all",
+      nowMode: "cards",
+      nowFolded: false,
     });
     expect(host.audits.map((a) => a.action)).toEqual(["opened"]);
     await host.undock();
@@ -105,6 +110,8 @@ describe("the Manager Board tile", () => {
       windowMin: 120,
       taskSort: "newest",
       taskState: "all",
+      nowMode: "cards",
+      nowFolded: false,
     });
     expect(host.audits.filter((a) => a.action === "view")).toEqual([
       { action: "view", details: { view: "lanes" } },
@@ -198,6 +205,15 @@ describe("the Manager Board tile", () => {
     expect(checkKept({ taskSort: "random", taskState: 3 })).toMatchObject({
       taskSort: "newest",
       taskState: "all",
+    });
+    // How Now shows the agents, and whether it is folded.
+    expect(checkKept({ nowMode: "flow", nowFolded: true })).toMatchObject({
+      nowMode: "flow",
+      nowFolded: true,
+    });
+    expect(checkKept({ nowMode: "grid", nowFolded: "yes" })).toMatchObject({
+      nowMode: "cards",
+      nowFolded: false,
     });
   });
 });
