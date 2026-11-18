@@ -280,7 +280,7 @@
   }
   var toolName = (tool) => tool.startsWith("mcp__") ? tool.split("__").pop() || tool : tool;
   function actionList(l, ctx) {
-    const all = actionsOf(l);
+    const all = actionsOf(l).reverse();
     if (!all.length) return null;
     const shown2 = all.slice(0, MAX_SHOWN_ACTIONS);
     return h(
@@ -298,7 +298,7 @@
     );
   }
   function opened(e, ctx) {
-    const lines = e.lines || [e];
+    const lines = e.lines ? [...e.lines].reverse() : [e];
     return h(
       "div",
       { class: "full-in" },

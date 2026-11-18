@@ -1,6 +1,6 @@
 {
   "id": "example.manager-board",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
   "permissions": [
