@@ -29,6 +29,8 @@
  *
  * Modified 2026-11-16 (Now modes): tests for the relay color, folding Now
  *   and its Compact and Flow modes.
+ * Modified 2026-11-17 (newest first): an open card lists its latest line
+ *   and latest action first.
  *
  * Last updated by: Tilefold
  */
@@ -178,10 +180,11 @@ describe("the Manager Board page", () => {
     cards[0].querySelector(".body").click();
     await settle();
     const open = p.$("content").querySelector('[data-key="turn:r1"] .full-in');
+    // The latest line first.
     expect([...open.querySelectorAll("p")].map((x) => x.textContent)).toEqual([
-      "Reading the routes",
-      "Adding the handler",
       "Done: POST /refunds",
+      "Adding the handler",
+      "Reading the routes",
     ]);
   });
 
@@ -267,7 +270,8 @@ describe("the Manager Board page", () => {
     card().querySelector(".body").click();
     await settle();
     const items = [...card().querySelectorAll(".actions li")].map((li) => li.textContent);
-    expect(items).toEqual(["Bashcargo test", "Edit/w/app/src/<b>lib</b>.rs", "memory_write"]);
+    // The latest thing it did first.
+    expect(items).toEqual(["memory_write", "Edit/w/app/src/<b>lib</b>.rs", "Bashcargo test"]);
     // Targets are text, never markup.
     expect(card().querySelector(".actions b")).toBeNull();
   });

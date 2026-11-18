@@ -24,6 +24,10 @@
  *   shows every pane (`onlyPane`, `onPane(pane)` in `ctx`).
  *
  * Modified 2026-11-16 (Now modes): Waiting on you and Now moved to now.js.
+ * Modified 2026-11-17 (newest first): an open card lists its latest line
+ *   first, and under each line the latest thing the agent did first, so
+ *   what happened last is on top; past MAX_SHOWN_ACTIONS, the oldest are
+ *   the ones counted.
  *
  * Last updated by: Tilefold
  */
@@ -46,7 +50,8 @@ const toolName = (tool) => (tool.startsWith("mcp__") ? tool.split("__").pop() ||
 
 /** The list of what the agent did after one line. */
 function actionList(l, ctx) {
-  const all = actionsOf(l);
+  // Newest first: what the agent did last is on top.
+  const all = actionsOf(l).reverse();
   if (!all.length) return null;
   const shown = all.slice(0, MAX_SHOWN_ACTIONS);
   return h(
@@ -65,9 +70,12 @@ function actionList(l, ctx) {
   );
 }
 
-/** What an open card shows: each line of a joined reply with its time, or the whole text. */
+/**
+ * What an open card shows: each line of a joined reply with its time, the
+ * latest first, or the whole text.
+ */
 function opened(e, ctx) {
-  const lines = e.lines || [e];
+  const lines = e.lines ? [...e.lines].reverse() : [e];
   return h(
     "div",
     { class: "full-in" },
