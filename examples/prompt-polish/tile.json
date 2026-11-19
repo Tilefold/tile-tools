@@ -1,8 +1,9 @@
 {
   "id": "example.prompt-polish",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "sparkle",
   "permissions": [
     {
       "page": "to show the page you write your prompt on, over the agent's pane or beside the panes"

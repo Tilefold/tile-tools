@@ -21,6 +21,8 @@
  * Modified 2026-10-30 (Whiteboard example): Whiteboard is listed.
  * Modified 2026-11-06 (Promptsmith example): Promptsmith is listed.
  * Modified 2026-11-06 (Manager Board example): the Manager Board is listed.
+ * Modified 2026-11-18 (rail icons): a tile.json may name an `icon`, which
+ *   must be one of the TileIcon names in lib/tf.d.ts.
  *
  * Last updated by: Tilefold
  */
@@ -33,6 +35,13 @@ import { bundlePage, PAGE_OUTPUT } from "../lib/page.mjs";
 import { checkMain } from "../lib/rules.mjs";
 
 const EXAMPLES = fileURLToPath(new URL("../examples/", import.meta.url));
+
+/** The icon names a tile.json may use: the TileIcon union in lib/tf.d.ts. */
+const TILE_ICONS = (() => {
+  const types = readFileSync(fileURLToPath(new URL("../lib/tf.d.ts", import.meta.url)), "utf8");
+  const union = /export type TileIcon =([^;]+);/.exec(types)?.[1] ?? "";
+  return [...union.matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]);
+})();
 // An example is a folder with a tile.json; anything else (a folder left
 // behind by another branch, say) isn't one.
 const folders = readdirSync(EXAMPLES, { withFileTypes: true })
@@ -138,8 +147,11 @@ describe("examples", () => {
       const manifest = JSON.parse(readFileSync(join(dir, "tile.json"), "utf8"));
       expect(manifest.id).toMatch(/^example\.[a-z][a-z0-9-]*$/);
       expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
-      const keys = Object.keys(manifest).filter((k) => k !== "permissions" && k !== "auth");
+      const optional = ["permissions", "auth", "icon"];
+      const keys = Object.keys(manifest).filter((k) => !optional.includes(k));
       expect(keys.sort()).toEqual(["description", "id", "name", "version"]);
+      // An icon, when named, is one Tilefold draws for tiles.
+      if ("icon" in manifest) expect(TILE_ICONS).toContain(manifest.icon);
       // Permissions, when asked for, each come with the reason shown to the user:
       // window/sound/ai ones, `page`, `browser`, or `net:` / `script:` with a public host.
       for (const p of manifest.permissions ?? []) {

@@ -1,8 +1,9 @@
 {
   "id": "example.folder-tree",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "folder",
   "permissions": [
     {
       "window.panel": "to show the folder tree, with what your agents are doing in it, in a panel beside your panes"

@@ -1,8 +1,9 @@
 {
   "id": "example.tilego",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "crown",
   "permissions": [
     { "page": "to show the board docked beside your panes, or in a window of its own" },
     {

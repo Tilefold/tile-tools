@@ -1,8 +1,9 @@
 {
   "id": "example.web-view",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "globe",
   "permissions": [
     {
       "browser": "to show the web app you're building, such as localhost:5173, in a browser window"

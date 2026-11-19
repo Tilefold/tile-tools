@@ -1,8 +1,9 @@
 {
   "id": "example.manager-board",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "list",
   "permissions": [
     { "page": "to show the board docked beside your panes, or in a window of its own" },
     {

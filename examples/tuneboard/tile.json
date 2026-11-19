@@ -1,8 +1,9 @@
 {
   "id": "example.tuneboard",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "play",
   "permissions": [
     {
       "window.overlay": "to draw the now-playing card and its play, skip and volume buttons above your panes"
