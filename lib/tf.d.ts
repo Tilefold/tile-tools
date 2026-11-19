@@ -363,10 +363,10 @@ export interface PanelAction {
 /**
  * An icon a tile may name for itself with `icon` in tile.json (Tilefold
  * 0.1.42), drawn on the panel rail. Tilefold 0.1.41 and older refuse a
- * tile.json with the field.
+ * tile.json with the field. The icons of Tilefold's own rail buttons and
+ * lock screen (activity, layers, file, lock, shield) are not offered.
  */
 export type TileIcon =
-  | "activity"
   | "bell"
   | "bookmark"
   | "branch"
@@ -376,7 +376,6 @@ export type TileIcon =
   | "download"
   | "edit"
   | "eye"
-  | "file"
   | "folder"
   | "folderOpen"
   | "gear"
@@ -385,16 +384,13 @@ export type TileIcon =
   | "image"
   | "keyboard"
   | "languages"
-  | "layers"
   | "list"
-  | "lock"
   | "monitor"
   | "moon"
   | "palette"
   | "pie"
   | "play"
   | "search"
-  | "shield"
   | "sparkle"
   | "sun"
   | "terminal"
