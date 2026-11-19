@@ -2,6 +2,7 @@ tile-name = Folder Tree (サンプル)
 tile-description = ペインのフォルダーをペインの横にツリーで表示し、コーディングエージェントが読んだり変更したりしているファイルと、最近のファイル（下部に固定）を示します。ファイルをクリックするとドキュメントビューアーで読めます。
 cmd-toggle = Folder Tree: 表示/非表示
 cmd-refresh = Folder Tree: 更新
+action-refresh = 更新
 setting-show-hidden = 隠しファイルとフォルダーを表示 (ドットで始まる名前)
 setting-skip-folders = 表示しないフォルダー (名前をカンマ区切りで)
 needs-newer-tilefold = Folder Tree には Tilefold 0.1.9 以降が必要です。

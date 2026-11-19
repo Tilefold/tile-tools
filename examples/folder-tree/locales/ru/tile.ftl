@@ -2,6 +2,7 @@ tile-name = Folder Tree (пример)
 tile-description = Папка вашей панели в виде дерева рядом с панелями: что в ней читают и меняют ваши агенты, а внизу закреплены недавние файлы. Нажмите на файл, чтобы прочитать его в просмотрщике документов.
 cmd-toggle = Folder Tree: Показать или скрыть
 cmd-refresh = Folder Tree: Обновить
+action-refresh = Обновить
 setting-show-hidden = Показывать скрытые файлы и папки (имена, начинающиеся с точки)
 setting-skip-folders = Пропускать папки (имена через запятую)
 needs-newer-tilefold = Для Folder Tree нужен Tilefold 0.1.9 или новее.

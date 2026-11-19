@@ -54,6 +54,10 @@
  * Modified 2026-11-11 (rename from the menu): a double-click no longer
  *   renames a file; Rename… in the right-click menu does, for files and
  *   folders alike.
+ * Modified 2026-11-18 (refresh): the folders shown are listed again every
+ *   few seconds (refresh.js), so new files show by themselves; Refresh (the
+ *   panel's header button and the command) does it at once and keeps open
+ *   folders open, recorded as `refreshed` ({ via }).
  *
  * Last updated by: Tilefold
  */
@@ -72,6 +76,7 @@ import { arg, explainError, loadUi, readOptions, saveUi } from "./options.js";
 import { pageStrings, pageView } from "./page-view.js";
 import { panelView } from "./panel-view.js";
 import { revealFile } from "./reveal.js";
+import { relistShown, RELIST_MS } from "./refresh.js";
 import { createScanner } from "./scan.js";
 import { createViewControl } from "./view-control.js";
 
@@ -97,6 +102,7 @@ export function createFolderTree(tf) {
   let events = [];
   let seen = "";
   let lastDraw = 0;
+  let lastRelist = 0;
   let timer = null;
   /** The row the user last chose (a folder or file), the target of changes. */
   let selected = null;
@@ -158,10 +164,27 @@ export function createFolderTree(tf) {
     }
   };
 
+  /**
+   * Lists the shown folders again (refresh.js); draws when one changed.
+   * A change the user made meanwhile (opening a folder) is never undone:
+   * the result is dropped and the next round lists again.
+   */
+  const relistAll = async () => {
+    lastRelist = Date.now();
+    const before = tree;
+    const next = await relistShown(before, (key) => tf.fs.list(key), explain);
+    if (next === before || tree !== before) return false;
+    tree = next;
+    await draw();
+    return true;
+  };
+
   /** Reads the markers; draws again when they changed, or ages are due. */
   const poll = async () => {
     if (!shown && !pageOpen) return;
     if (!tree.root && !places().length) return;
+    // New, renamed and removed files show by themselves.
+    if (tree.root && Date.now() - lastRelist >= RELIST_MS && (await relistAll())) return;
     if (options().showActivity) {
       events = await readActivity(tree.root);
       const print = `${events.length}:${events[0]?.key ?? ""}`;
@@ -374,8 +397,14 @@ export function createFolderTree(tf) {
       if (setup) await tf.page.post({ type: "setup" });
       return ensureRoot(await views.root());
     },
-    /** Lists everything again from the top. */
-    refresh: () => (shown || pageOpen ? start(tree.root) : undefined),
+    /** Lists the shown folders again now, keeping open folders open (button and command). */
+    async refresh(via = "command") {
+      if (!shown && !pageOpen) return undefined;
+      await tf.audit("refreshed", { via });
+      if (!tree.root || !isLoaded(tree, tree.root)) return start(tree.root);
+      if (!(await relistAll())) await draw();
+      return undefined;
+    },
     /** A click (or key) on a row of the panel. */
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
     fieldInput: (e) => views.field(e),

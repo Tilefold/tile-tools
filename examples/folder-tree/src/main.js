@@ -51,6 +51,8 @@
  *
  * Modified 2026-11-11 (rename from the menu): no `panel.dblclick`; a
  *   double-click no longer renames, the right-click menu's Rename… does.
+ * Modified 2026-11-18 (refresh): the panel's Refresh button
+ *   (`panel.action`, Tilefold 0.1.42).
  *
  * Last updated by: Tilefold
  */
@@ -113,6 +115,8 @@ export default (tf) => {
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
+  // The Refresh button in the panel's header (Tilefold 0.1.42).
+  tf.on("panel.action", (e) => (e?.action === "refresh" ? tree?.refresh("button") : undefined));
   tf.on("panel.opened", () => void tree?.reopened());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
   tf.on("panel.input", (e) => void tree?.fieldInput(e));

@@ -2,6 +2,7 @@ tile-name = Folder Tree (esempio)
 tile-description = La cartella del tuo riquadro, come albero accanto ai riquadri, con ciò che i tuoi agenti di programmazione leggono e modificano, e i file recenti fissati in basso. Fai clic su un file per leggerlo nel visualizzatore di documenti.
 cmd-toggle = Folder Tree: Mostra o nascondi
 cmd-refresh = Folder Tree: Aggiorna
+action-refresh = Aggiorna
 setting-show-hidden = Mostra file e cartelle nascosti (nomi che iniziano con un punto)
 setting-skip-folders = Cartelle da escludere (nomi separati da virgole)
 needs-newer-tilefold = Folder Tree richiede Tilefold 0.1.9 o successivo.

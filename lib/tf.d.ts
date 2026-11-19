@@ -48,6 +48,8 @@
  *   and `tf.agent.helperStart`.
  * Modified 2026-11-15 (Tilefold 0.1.36): a folded section heading stays with
  *   no rows under it.
+ * Modified 2026-11-18 (Tilefold 0.1.42): a panel's header `actions` and the
+ *   `panel.action` event; a tile's `icon` (TileIcon) for tile.json.
  */
 
 /** JSON data, as `tf.store` and `tf.audit` accept it. */
@@ -80,6 +82,7 @@ export type TileEvent =
   | "panel.closed"
   | "panel.opened"
   | "panel.menu"
+  | "panel.action"
   | "panel.dblclick"
   | "panel.input"
   | "viewer.opened"
@@ -180,6 +183,8 @@ export interface TileEventPayloads {
   "panel.opened": { by: "tab" };
   /** A right-click menu's choice: the row (null for the empty space) and the item (Tilefold 0.1.16). */
   "panel.menu": { row: string | null; item: string };
+  /** A button in the panel's header was clicked: its id (Tilefold 0.1.42). */
+  "panel.action": { action: string };
   /** A row of the panel was double-clicked, after its two `panel.click` events (Tilefold 0.1.16). */
   "panel.dblclick": { row: string };
   /**
@@ -338,7 +343,63 @@ export interface PanelContent {
    * `panel.closed` with `by: "tab"`, coming back is `panel.opened`.
    */
   perTab?: boolean;
+  /**
+   * Up to 3 buttons in the panel's header, before Pin and × (Tilefold
+   * 0.1.42; older ones ignore them): a click is `panel.action` with the id.
+   * Keep each action reachable another way too (a command).
+   */
+  actions?: PanelAction[];
 }
+
+/** A button in a panel's header; Tilefold draws the icon named. */
+export interface PanelAction {
+  /** 1–64 letters, digits, ".", "_" or "-"; unique in the panel. */
+  id: string;
+  /** Shown on hover and read by screen readers; up to 60 characters. */
+  label: string;
+  icon: "refresh" | "add" | "search" | "settings" | "edit" | "open";
+}
+
+/**
+ * An icon a tile may name for itself with `icon` in tile.json (Tilefold
+ * 0.1.42), drawn on the panel rail. Tilefold 0.1.41 and older refuse a
+ * tile.json with the field.
+ */
+export type TileIcon =
+  | "activity"
+  | "bell"
+  | "bookmark"
+  | "branch"
+  | "chip"
+  | "command"
+  | "crown"
+  | "download"
+  | "edit"
+  | "eye"
+  | "file"
+  | "folder"
+  | "folderOpen"
+  | "gear"
+  | "globe"
+  | "grid"
+  | "image"
+  | "keyboard"
+  | "languages"
+  | "layers"
+  | "list"
+  | "lock"
+  | "monitor"
+  | "moon"
+  | "palette"
+  | "pie"
+  | "play"
+  | "search"
+  | "shield"
+  | "sparkle"
+  | "sun"
+  | "terminal"
+  | "type"
+  | "users";
 
 /** One line of a panel menu: an item (id 1–32 lowercase letters, digits, dashes) or a line. */
 export type PanelMenuEntry = { id: string; label: string; tone?: "error" } | { separator: true };

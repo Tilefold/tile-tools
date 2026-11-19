@@ -2,6 +2,7 @@ tile-name = Folder Tree (exemplo)
 tile-description = A pasta do seu painel, como uma árvore ao lado dos seus painéis, com o que seus agentes de programação leem e mudam nela, e os arquivos recentes fixados embaixo. Clique em um arquivo para lê-lo no visualizador de documentos.
 cmd-toggle = Folder Tree: Mostrar ou ocultar
 cmd-refresh = Folder Tree: Atualizar
+action-refresh = Atualizar
 setting-show-hidden = Mostrar arquivos e pastas ocultos (nomes que começam com ponto)
 setting-skip-folders = Pastas a omitir (nomes separados por vírgulas)
 needs-newer-tilefold = Folder Tree precisa do Tilefold 0.1.9 ou posterior.

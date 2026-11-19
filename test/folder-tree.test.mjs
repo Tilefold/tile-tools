@@ -13,13 +13,17 @@
  * clicking again closes it without asking again; a file opens in the
  * viewer; a link to a folder is listed and opened like one; errors appear
  * in the tree or as a notice, in the user's language; the tree follows
- * the focused pane while shown; refresh starts over; closing the panel
+ * the focused pane while shown; refresh keeps open folders open, new and
+ * removed files show by themselves, and the panel's Refresh button lists
+ * again at once; closing the panel
  * stops the drawing; a pane without a known folder says so; and an older
  * Tilefold gets a notice instead of a crash.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTile } from "./fake-host.mjs";
+import { RELIST_MS } from "../examples/folder-tree/src/refresh.js";
+import { POLL_MS } from "../examples/folder-tree/src/session.js";
 
 const DIR = fileURLToPath(new URL("../examples/folder-tree/", import.meta.url));
 
@@ -152,7 +156,7 @@ describe("Folder Tree", () => {
     expect(lines(host)).toEqual(["0:node_modules", "0:README.md"]);
   });
 
-  it("follows the focused pane while shown, and starts over on refresh", async () => {
+  it("follows the focused pane while shown, and keeps open folders on refresh", async () => {
     const host = await start();
     await host.command("toggle");
     await click(host, "src", "expand");
@@ -161,8 +165,44 @@ describe("Folder Tree", () => {
     expect(lines(host)).toEqual(["0:notes.txt"]);
     await host.emit("pane.cwd", { path: "/work/app" });
     await click(host, "src", "expand");
+    const open = lines(host);
+    expect(open.length).toBeGreaterThan(2);
     await host.command("refresh");
-    expect(lines(host)).toEqual(["0:src", "0:README.md"]);
+    expect(lines(host)).toEqual(open);
+  });
+
+  it("shows new and removed files by themselves, drawing only when something changed", async () => {
+    const host = await start();
+    await host.command("toggle");
+    await click(host, "src", "expand");
+    const shows = host.panel.shows;
+    // Nothing changed: no new drawing for the tree.
+    await vi.advanceTimersByTimeAsync(RELIST_MS + POLL_MS);
+    expect(host.panel.shows).toBe(shows);
+    host.files.push("/work/app/src/added.js", "/work/app/CHANGELOG.md");
+    host.files.splice(host.files.indexOf("/work/app/README.md"), 1);
+    await vi.advanceTimersByTimeAsync(RELIST_MS + POLL_MS);
+    expect(lines(host)).toContain("1:added.js");
+    expect(lines(host)).toContain("0:CHANGELOG.md");
+    expect(lines(host)).not.toContain("0:README.md");
+    // The open folder stayed open.
+    expect(lines(host)).toContain("1:main.js");
+  });
+
+  it("refreshes at once from the panel's Refresh button", async () => {
+    const host = await start();
+    await host.command("toggle");
+    expect(host.panel.content.actions).toEqual([
+      { id: "refresh", label: "Refresh", icon: "refresh" },
+    ]);
+    host.files.push("/work/app/fresh.txt");
+    await host.emit("panel.action", { action: "refresh" });
+    expect(lines(host)).toContain("0:fresh.txt");
+    expect(host.audits.at(-1)).toEqual({ action: "refreshed", details: { via: "button" } });
+    // Another button's id does nothing.
+    const shows = host.panel.shows;
+    await host.emit("panel.action", { action: "other" });
+    expect(host.panel.shows).toBe(shows);
   });
 
   it("stops drawing when the user closes the panel", async () => {

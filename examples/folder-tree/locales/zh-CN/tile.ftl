@@ -2,6 +2,7 @@ tile-name = Folder Tree（示例）
 tile-description = 窗格所在的文件夹，以树形显示在窗格旁，并显示你的编程智能体正在读取和修改的内容，最近的文件固定在底部。点击文件即可在文档查看器中阅读。
 cmd-toggle = Folder Tree：显示或隐藏
 cmd-refresh = Folder Tree：刷新
+action-refresh = 刷新
 setting-show-hidden = 显示隐藏的文件和文件夹（以点开头的名称）
 setting-skip-folders = 要跳过的文件夹（名称，用逗号分隔）
 needs-newer-tilefold = Folder Tree 需要 Tilefold 0.1.9 或更高版本。

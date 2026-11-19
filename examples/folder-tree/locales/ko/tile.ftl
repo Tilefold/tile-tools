@@ -2,6 +2,7 @@ tile-name = Folder Tree (예제)
 tile-description = 창이 있는 폴더를 창 옆에 트리로 보여 주고, 코딩 에이전트가 읽고 바꾸는 파일과 최근 파일(아래쪽에 고정)을 표시합니다. 파일을 클릭하면 문서 뷰어에서 읽을 수 있습니다.
 cmd-toggle = Folder Tree: 보기/숨기기
 cmd-refresh = Folder Tree: 새로 고침
+action-refresh = 새로 고침
 setting-show-hidden = 숨김 파일과 폴더 표시 (점으로 시작하는 이름)
 setting-skip-folders = 제외할 폴더 (이름, 쉼표로 구분)
 needs-newer-tilefold = Folder Tree에는 Tilefold 0.1.9 이상이 필요합니다.

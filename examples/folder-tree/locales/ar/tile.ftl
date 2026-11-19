@@ -2,6 +2,7 @@ tile-name = Folder Tree (مثال)
 tile-description = مجلد لوحتك على شكل شجرة بجانب لوحاتك، مع ما يقرؤه وكلاء البرمجة ويغيّرونه فيه، والملفات الأخيرة مثبّتة في الأسفل. انقر على ملف لقراءته في عارض المستندات.
 cmd-toggle = Folder Tree: إظهار أو إخفاء
 cmd-refresh = Folder Tree: تحديث
+action-refresh = تحديث
 setting-show-hidden = إظهار الملفات والمجلدات المخفية (الأسماء التي تبدأ بنقطة)
 setting-skip-folders = مجلدات يتم تجاهلها (أسماء مفصولة بفواصل)
 needs-newer-tilefold = يحتاج Folder Tree إلى Tilefold 0.1.9 أو أحدث.
