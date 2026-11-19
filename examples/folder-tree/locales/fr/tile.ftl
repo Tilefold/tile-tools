@@ -2,6 +2,7 @@ tile-name = Folder Tree (exemple)
 tile-description = Le dossier de votre volet, en arbre à côté de vos volets, avec ce que vos agents de code y lisent et modifient, et les fichiers récents épinglés en bas. Cliquez sur un fichier pour le lire dans la visionneuse de documents.
 cmd-toggle = Folder Tree : Afficher ou masquer
 cmd-refresh = Folder Tree : Actualiser
+action-refresh = Actualiser
 setting-show-hidden = Afficher les fichiers et dossiers masqués (noms commençant par un point)
 setting-skip-folders = Dossiers à ignorer (noms séparés par des virgules)
 needs-newer-tilefold = Folder Tree nécessite Tilefold 0.1.9 ou une version ultérieure.

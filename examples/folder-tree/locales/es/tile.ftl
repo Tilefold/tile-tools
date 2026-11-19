@@ -2,6 +2,7 @@ tile-name = Folder Tree (ejemplo)
 tile-description = La carpeta de tu panel, como un árbol junto a tus paneles, con lo que tus agentes de programación leen y cambian en ella, y los archivos recientes fijados abajo. Haz clic en un archivo para leerlo en el visor de documentos.
 cmd-toggle = Folder Tree: Mostrar u ocultar
 cmd-refresh = Folder Tree: Actualizar
+action-refresh = Actualizar
 setting-show-hidden = Mostrar archivos y carpetas ocultos (nombres que empiezan por un punto)
 setting-skip-folders = Carpetas que omitir (nombres, separados por comas)
 needs-newer-tilefold = Folder Tree necesita Tilefold 0.1.9 o posterior.

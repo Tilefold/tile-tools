@@ -51,6 +51,8 @@
  *
  * Modified 2026-11-11 (rename from the menu): no `panel.dblclick`; a
  *   double-click no longer renames, the right-click menu's Rename… does.
+ * Modified 2026-11-18 (refresh): the panel's Refresh button
+ *   (`panel.action`, Tilefold 0.1.42).
  *
  * Last updated by: Tilefold
  */
@@ -1078,7 +1080,9 @@ ${path}`, 512)
       rows,
       ...footer.rows.length ? { footer: { rows: footer.rows } } : {},
       ...menus && root ? { menus, menu: "space" } : {},
-      perTab: opts.perTab !== false
+      perTab: opts.perTab !== false,
+      // Older Tilefolds ignore it; the Refresh command does the same.
+      ...root ? { actions: [{ id: "refresh", label: t("action-refresh"), icon: "refresh" }] } : {}
     },
     targets,
     live: active.length > 0
@@ -1111,6 +1115,36 @@ async function revealFile(ctx, file) {
   ctx.select(file);
   await ctx.draw();
   return true;
+}
+
+// src/refresh.js
+var RELIST_MS = 5e3;
+var MAX_RELIST = 40;
+function shownFolders(tree, max = MAX_RELIST) {
+  const keys = Object.keys(tree.folders);
+  const root = tree.root && keys.includes(tree.root) ? [tree.root] : [];
+  const open = keys.filter((k) => k !== tree.root && tree.open.includes(k));
+  return [...root, ...open].slice(0, max);
+}
+function sameLevel(a, b) {
+  if (!a || !b) return a === b;
+  if (a.error !== void 0 || b.error !== void 0) return a.error === b.error;
+  if (!!a.truncated !== !!b.truncated) return false;
+  const sig = (level) => (level.entries ?? []).map((e) => `${e.kind ?? ""}\0${e.name}`).sort().join("");
+  return sig(a) === sig(b);
+}
+async function relistShown(tree, list, explain) {
+  let next = tree;
+  for (const key of shownFolders(tree)) {
+    let level;
+    try {
+      level = withListing(next, key, await list(key));
+    } catch (err) {
+      level = withError(next, key, explain(err));
+    }
+    if (!sameLevel(next.folders[key], level.folders[key])) next = level;
+  }
+  return next;
 }
 
 // src/marker.js
@@ -1521,6 +1555,7 @@ function createFolderTree(tf) {
   let events = [];
   let seen = "";
   let lastDraw = 0;
+  let lastRelist = 0;
   let timer = null;
   let selected = null;
   const ui = { recentOpen: true, recentAll: false, foldersOpen: true };
@@ -1566,9 +1601,19 @@ function createFolderTree(tf) {
       panes = [];
     }
   };
+  const relistAll = async () => {
+    lastRelist = Date.now();
+    const before = tree;
+    const next = await relistShown(before, (key) => tf.fs.list(key), explain);
+    if (next === before || tree !== before) return false;
+    tree = next;
+    await draw();
+    return true;
+  };
   const poll = async () => {
     if (!shown && !pageOpen) return;
     if (!tree.root && !places().length) return;
+    if (tree.root && Date.now() - lastRelist >= RELIST_MS && await relistAll()) return;
     if (options().showActivity) {
       events = await readActivity(tree.root);
       const print = `${events.length}:${events[0]?.key ?? ""}`;
@@ -1746,8 +1791,14 @@ function createFolderTree(tf) {
       if (setup) await tf.page.post({ type: "setup" });
       return ensureRoot(await views.root());
     },
-    /** Lists everything again from the top. */
-    refresh: () => shown || pageOpen ? start(tree.root) : void 0,
+    /** Lists the shown folders again now, keeping open folders open (button and command). */
+    async refresh(via = "command") {
+      if (!shown && !pageOpen) return void 0;
+      await tf.audit("refreshed", { via });
+      if (!tree.root || !isLoaded(tree, tree.root)) return start(tree.root);
+      if (!await relistAll()) await draw();
+      return void 0;
+    },
     /** A click (or key) on a row of the panel. */
     clicked: ({ row, action } = {}) => act(row, action, "panel"),
     fieldInput: (e) => views.field(e),
@@ -1897,6 +1948,7 @@ var main_default = (tf) => {
   tf.on("pane.list", (e) => tree?.panesChanged(e.panes));
   tf.on("panel.click", (e) => tree?.clicked(e));
   tf.on("panel.closed", () => tree?.closed());
+  tf.on("panel.action", (e) => e?.action === "refresh" ? tree?.refresh("button") : void 0);
   tf.on("panel.opened", () => void tree?.reopened());
   tf.on("panel.menu", (e) => void tree?.menuChosen(e));
   tf.on("panel.input", (e) => void tree?.fieldInput(e));

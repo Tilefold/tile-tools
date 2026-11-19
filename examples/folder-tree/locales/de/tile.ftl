@@ -2,6 +2,7 @@ tile-name = Folder Tree (Beispiel)
 tile-description = Der Ordner Ihres Bereichs als Baum neben Ihren Bereichen, mit dem, was Ihre Coding-Agenten darin lesen und ändern, und den letzten Dateien unten angeheftet. Klicken Sie auf eine Datei, um sie im Dokumentbetrachter zu lesen.
 cmd-toggle = Folder Tree: Anzeigen oder ausblenden
 cmd-refresh = Folder Tree: Aktualisieren
+action-refresh = Aktualisieren
 setting-show-hidden = Versteckte Dateien und Ordner anzeigen (Namen, die mit einem Punkt beginnen)
 setting-skip-folders = Auszulassende Ordner (Namen, durch Kommas getrennt)
 needs-newer-tilefold = Folder Tree benötigt Tilefold 0.1.9 oder neuer.

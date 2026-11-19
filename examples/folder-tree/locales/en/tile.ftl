@@ -2,6 +2,7 @@ tile-name = Folder Tree (example)
 tile-description = The folder your pane is in, as a tree beside your panes, with what your coding agents are reading and changing in it, and the recent files pinned at the bottom. Click a file to read it in the document viewer.
 cmd-toggle = Folder Tree: Show or hide
 cmd-refresh = Folder Tree: Refresh
+action-refresh = Refresh
 setting-show-hidden = Show hidden files and folders (names starting with a dot)
 setting-skip-folders = Folders to leave out (names, separated by commas)
 needs-newer-tilefold = Folder Tree needs Tilefold 0.1.9 or later.

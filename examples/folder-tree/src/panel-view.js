@@ -37,6 +37,8 @@
  *   Folders section at the top (folders-view.js), listing every pinned
  *   folder with Follow the pane.
  * Modified 2026-11-08 (one tab or every tab): `perTab` follows "Show on".
+ * Modified 2026-11-18 (refresh): a Refresh button in the panel's header
+ *   (`actions`, Tilefold 0.1.42).
  *
  * Last updated by: Tilefold
  */
@@ -206,6 +208,10 @@ export function panelView({ tree, events, now, t, opts, selected = null, view = 
       ...(footer.rows.length ? { footer: { rows: footer.rows } } : {}),
       ...(menus && root ? { menus, menu: "space" } : {}),
       perTab: opts.perTab !== false,
+      // Older Tilefolds ignore it; the Refresh command does the same.
+      ...(root
+        ? { actions: [{ id: "refresh", label: t("action-refresh"), icon: "refresh" }] }
+        : {}),
     },
     targets,
     live: active.length > 0,
