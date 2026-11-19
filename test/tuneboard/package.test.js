@@ -15,6 +15,10 @@
  * English (and every English message is used), and every source file
  * carries its copyright header, stays under 500 lines and never points at
  * documentation from a comment.
+ *
+ * Modified 2026-11-18 (rail icons): tile.json may name an `icon`.
+ *
+ * Last updated by: Tilefold
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -40,7 +44,7 @@ const sourceText = sources.map((f) => readFileSync(f, "utf8")).join("\n");
 
 describe("tile.json", () => {
   it("has only the fields Tilefold allows", () => {
-    const allowed = ["id", "version", "name", "description", "permissions", "auth"];
+    const allowed = ["id", "version", "name", "description", "icon", "permissions", "auth"];
     expect(Object.keys(tile).every((k) => allowed.includes(k))).toBe(true);
   });
 

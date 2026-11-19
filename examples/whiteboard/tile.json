@@ -1,8 +1,9 @@
 {
   "id": "example.whiteboard",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "edit",
   "permissions": [
     {
       "page": "to show the board your AI agent draws on, docked beside your panes or in a window of its own"

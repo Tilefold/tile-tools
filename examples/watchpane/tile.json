@@ -1,8 +1,9 @@
 {
   "id": "example.watchpane",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "monitor",
   "permissions": [
     {
       "page": "to play YouTube's player next to its card in Tilefold's window (or in a window of its own on older Tilefolds), with a box for your link"

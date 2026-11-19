@@ -1,8 +1,9 @@
 {
   "id": "example.quiz",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": "%tile-name%",
   "description": "%tile-description%",
+  "icon": "terminal",
   "permissions": [
     {
       "page": "to show the quiz on a borderless card over your panes (or in a window of its own on older Tilefolds)"
